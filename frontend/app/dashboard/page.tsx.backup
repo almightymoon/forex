@@ -1,0 +1,1150 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { 
+  BookOpen, 
+  TrendingUp, 
+  FileText, 
+  Award, 
+  Users, 
+  BarChart3,
+  Calendar,
+  MessageSquare,
+  Target,
+  CheckCircle,
+  Play,
+  Clock,
+  Star,
+  ChevronRight,
+  Trophy,
+  Bell,
+  Settings,
+  LogOut
+} from 'lucide-react';
+
+interface User {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  role: 'student' | 'instructor' | 'admin';
+  profileImage?: string;
+  subscription: {
+    plan: string;
+    isActive: boolean;
+  };
+}
+
+interface Course {
+  _id: string;
+  title: string;
+  description: string;
+  thumbnail?: string;
+  instructor: {
+    firstName: string;
+    lastName: string;
+  };
+  progress: number;
+  totalLessons: number;
+  completedLessons: number;
+  category: string;
+  level: string;
+  rating: number;
+  totalDuration?: number;
+  price?: number;
+  currency?: string;
+}
+
+interface TradingSignal {
+  _id: string;
+  symbol: string;
+  type: 'buy' | 'sell' | 'hold';
+  entryPrice: number;
+  targetPrice: number;
+  stopLoss: number;
+  description: string;
+  timeframe: string;
+  confidence: number;
+  instructor: {
+    firstName: string;
+    lastName: string;
+  };
+  createdAt: string;
+  comments: number;
+}
+
+interface Assignment {
+  _id: string;
+  title: string;
+  description: string;
+  dueDate: string;
+  status: 'pending' | 'submitted' | 'graded';
+  grade?: number;
+  feedback?: string;
+}
+
+export default function Dashboard() {
+  const [user, setUser] = useState<User | null>(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [signals, setSignals] = useState<TradingSignal[]>([]);
+  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [demoMode, setDemoMode] = useState(false);
+
+  const fetchAvailableCourses = async (token?: string) => {
+    try {
+      const response = await fetch('/api/courses');
+      if (response.ok) {
+        const allCourses = await response.json();
+        setAvailableCourses(allCourses);
+      }
+    } catch (error) {
+      console.error('Error fetching available courses:', error);
+    }
+  };
+
+  useEffect(() => {
+    // Fetch user data and dashboard content
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch user profile
+      const token = localStorage.getItem('token');
+      if (!token) {
+        // If no token, enable demo mode
+        setDemoMode(true);
+        setUser({
+          _id: 'demo',
+          firstName: 'Demo',
+          lastName: 'User',
+          email: 'demo@example.com',
+          role: 'student',
+          subscription: { plan: 'premium', isActive: true }
+        } as User);
+        
+        // Fetch demo data
+        await Promise.all([
+          fetchCourses(),
+          fetchSignals(),
+          fetchAssignments(),
+          fetchAvailableCourses()
+        ]);
+        setLoading(false);
+        return;
+      }
+
+      const response = await fetch('/api/auth/me', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const userData = await response.json();
+        setUser(userData);
+        
+        // Fetch courses, signals, assignments
+        await Promise.all([
+          fetchCourses(token),
+          fetchSignals(token),
+          fetchAssignments(token),
+          fetchAvailableCourses(token)
+        ]);
+      }
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      // Fallback to demo mode on error
+      setDemoMode(true);
+      setUser({
+        _id: 'demo',
+        firstName: 'Demo',
+        lastName: 'User',
+        email: 'demo@example.com',
+        role: 'student',
+        subscription: { plan: 'premium', isActive: true }
+      } as User);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchCourses = async (token?: string) => {
+    try {
+      if (demoMode || !token) {
+        // For demo mode, try to fetch the real course we created
+        try {
+          const response = await fetch('/api/courses');
+          if (response.ok) {
+            const allCourses = await response.json();
+            // Find the Fundamentals of Forex course and create a demo enrollment
+            const forexCourse = allCourses.find((c: any) => c.title === 'Fundamentals of Forex Trading');
+            if (forexCourse) {
+              setCourses([{
+                _id: forexCourse._id,
+                title: forexCourse.title,
+                description: forexCourse.description,
+                instructor: forexCourse.instructor,
+                progress: 25, // Demo progress
+                totalLessons: forexCourse.totalVideos || 12,
+                completedLessons: 3, // Demo completed lessons
+                category: forexCourse.category,
+                level: forexCourse.level,
+                rating: forexCourse.rating,
+                thumbnail: forexCourse.thumbnail,
+                totalDuration: forexCourse.totalDuration,
+                price: forexCourse.price,
+                currency: forexCourse.currency
+              }]);
+              return;
+            }
+          }
+        } catch (error) {
+          console.log('Could not fetch real course, using sample data');
+        }
+        
+        // Fallback to sample data
+        const sampleCourses = [
+          {
+            _id: '1',
+            title: 'Forex Fundamentals',
+            description: 'Learn the basics of forex trading',
+            instructor: { firstName: 'John', lastName: 'Doe' },
+            progress: 65,
+            totalLessons: 12,
+            completedLessons: 8,
+            category: 'Basics',
+            level: 'Beginner',
+            rating: 4.5
+          },
+          {
+            _id: '2',
+            title: 'Technical Analysis',
+            description: 'Master chart patterns and indicators',
+            instructor: { firstName: 'Jane', lastName: 'Smith' },
+            progress: 30,
+            totalLessons: 15,
+            completedLessons: 5,
+            category: 'Technical',
+            level: 'Intermediate',
+            rating: 4.8
+          }
+        ];
+        setCourses(sampleCourses);
+        return;
+      }
+
+      const response = await fetch('/api/courses/enrolled', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const coursesData = await response.json();
+        setCourses(coursesData);
+      }
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+    }
+  };
+
+  const fetchSignals = async (token?: string) => {
+    try {
+      if (demoMode || !token) {
+        // Use sample data for demo mode
+        const sampleSignals = [
+          {
+            _id: '1',
+            symbol: 'EUR/USD',
+            type: 'buy',
+            entryPrice: 1.0850,
+            targetPrice: 1.0920,
+            stopLoss: 1.0800,
+            description: 'Strong support at 1.0850 with bullish divergence on RSI. Expecting a bounce towards resistance at 1.0920.',
+            timeframe: '4h',
+            confidence: 85,
+            instructor: { firstName: 'John', lastName: 'Doe' },
+            createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
+            comments: 12
+          },
+          {
+            _id: '2',
+            symbol: 'GBP/JPY',
+            type: 'sell',
+            entryPrice: 185.50,
+            targetPrice: 184.00,
+            stopLoss: 186.50,
+            description: 'Price rejected at key resistance level. Bearish engulfing pattern suggests a reversal. Target support at 184.00.',
+            timeframe: '1h',
+            confidence: 78,
+            instructor: { firstName: 'Jane', lastName: 'Smith' },
+            createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000),
+            comments: 8
+          },
+          {
+            _id: '3',
+            symbol: 'USD/CAD',
+            type: 'hold',
+            entryPrice: 1.3650,
+            targetPrice: 1.3700,
+            stopLoss: 1.3600,
+            description: 'Market in consolidation phase. Wait for breakout above 1.3700 or breakdown below 1.3600 before taking action.',
+            timeframe: '1d',
+            confidence: 65,
+            instructor: { firstName: 'Mike', lastName: 'Johnson' },
+            createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000),
+            comments: 5
+          }
+        ];
+        setSignals(sampleSignals);
+        return;
+      }
+
+      const response = await fetch('/api/signals', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const signalsData = await response.json();
+        setSignals(signalsData);
+      }
+    } catch (error) {
+      console.error('Error fetching signals:', error);
+    }
+  };
+
+  const fetchAssignments = async (token?: string) => {
+    try {
+      if (demoMode || !token) {
+        // Use sample data for demo mode
+        const sampleAssignments = [
+          {
+            _id: '1',
+            title: 'Risk Management Quiz',
+            description: 'Test your understanding of risk management principles in forex trading',
+            dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            status: 'pending',
+            type: 'quiz'
+          },
+          {
+            _id: '2',
+            title: 'Chart Analysis Assignment',
+            description: 'Analyze the EUR/USD chart and identify key support and resistance levels',
+            dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+            status: 'submitted',
+            type: 'assignment'
+          },
+          {
+            _id: '3',
+            title: 'Trading Journal Entry',
+            description: 'Document your trading decisions and outcomes for the past week',
+            dueDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+            status: 'graded',
+            grade: 85,
+            feedback: 'Excellent analysis! Consider adding more detail about your risk management decisions.'
+          }
+        ];
+        setAssignments(sampleAssignments);
+        return;
+      }
+
+      const response = await fetch('/api/assignments', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      if (response.ok) {
+        const assignmentsData = await response.json();
+        setAssignments(assignmentsData);
+      }
+    } catch (error) {
+      console.error('Error fetching assignments:', error);
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    window.location.href = '/';
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="text-gray-700 text-xl mt-4 font-medium">Loading your Forex Navigators dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-700 text-xl mb-6">Please log in to access your dashboard</p>
+          <div className="space-y-4">
+            <button 
+              onClick={() => window.location.href = '/login'}
+              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+              Go to Login
+            </button>
+            <button 
+              onClick={() => window.location.href = '/register'}
+              className="block w-full px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+            >
+              Create Account
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center space-x-4">
+              <img 
+                src="/all-07.png" 
+                alt="Forex Navigators Logo" 
+                className="w-14 h-14 object-contain"
+              />
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                  Forex Navigators
+                </h1>
+                <p className="text-sm text-gray-500">Trading Education Platform</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              {demoMode && (
+                <span className="px-4 py-2 bg-gradient-to-r from-yellow-400 to-orange-500 text-white rounded-full text-sm font-medium shadow-lg">
+                  🎯 Demo Mode
+                </span>
+              )}
+              <button className="p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200">
+                <Bell className="w-5 h-5" />
+              </button>
+              <button className="p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200">
+                <Settings className="w-5 h-5" />
+              </button>
+              {demoMode ? (
+                <button 
+                  onClick={() => window.location.href = '/login'}
+                  className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                >
+                  <span className="font-semibold">Login</span>
+                </button>
+              ) : (
+                <button 
+                  onClick={handleLogout}
+                  className="flex items-center space-x-2 px-6 py-3 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200 border border-gray-300 hover:border-red-300"
+                >
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Welcome Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <h2 className="text-4xl font-bold text-gray-900 mb-3">
+            Welcome back, <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{user.firstName || 'Trader'}</span>! 🚀
+          </h2>
+          <p className="text-xl text-gray-600 mb-4">
+            Ready to master the art of forex trading? Let's continue your journey.
+          </p>
+          {demoMode && (
+            <div className="mt-6 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200 rounded-2xl shadow-sm">
+              <p className="text-yellow-800 text-sm">
+                🎯 <strong>Demo Mode:</strong> You're viewing a sample dashboard. 
+                <button 
+                  onClick={() => window.location.href = '/register'}
+                  className="ml-2 underline hover:no-underline font-medium"
+                >
+                  Create an account
+                </button> to access your real data and start learning!
+              </p>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+            className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Enrolled Courses</p>
+                <p className="text-3xl font-bold text-gray-900">{courses.length}</p>
+              </div>
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-lg">
+                <BookOpen className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2 }}
+            className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Active Signals</p>
+                <p className="text-3xl font-bold text-gray-900">{signals.length}</p>
+              </div>
+              <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center shadow-lg">
+                <TrendingUp className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3 }}
+            className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Pending Tasks</p>
+                <p className="text-3xl font-bold text-gray-900">
+                  {assignments.filter(a => a.status === 'pending').length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                <FileText className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </motion.div>
+
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.4 }}
+            className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-gray-500 text-sm font-medium">Subscription</p>
+                <p className="text-xl font-bold text-gray-900 capitalize">
+                  {user.subscription?.plan || 'Free'}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg">
+                <Award className="w-6 h-6 text-white" />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Navigation Tabs */}
+        <div className="flex space-x-2 bg-white rounded-2xl p-2 mb-8 border border-gray-200 shadow-lg">
+          {[
+            { id: 'overview', label: 'Overview', icon: BarChart3 },
+            { id: 'courses', label: 'My Courses', icon: BookOpen },
+            { id: 'browse', label: 'Browse Courses', icon: BookOpen },
+            { id: 'signals', label: 'Trading Signals', icon: TrendingUp },
+            { id: 'assignments', label: 'Assignments', icon: FileText },
+            { id: 'community', label: 'Community', icon: Users },
+            { id: 'certificates', label: 'Certificates', icon: Award }
+          ].map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center space-x-2 px-6 py-3 rounded-xl transition-all duration-200 font-medium ${
+                  activeTab === tab.id
+                    ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg transform scale-105'
+                    : 'text-gray-600 hover:text-blue-600 hover:bg-blue-50'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Tab Content */}
+        <div className="space-y-8">
+          {/* Overview Tab */}
+          {activeTab === 'overview' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="space-y-6"
+            >
+                             {/* Recent Activity */}
+               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                 <h3 className="text-xl font-semibold text-gray-900 mb-4">Recent Activity</h3>
+                 <div className="space-y-4">
+                   {courses.slice(0, 3).map((course) => (
+                     <div key={course._id} className="flex items-center space-x-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-100 hover:border-blue-200 transition-all duration-200">
+                       <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center shadow-md">
+                         <BookOpen className="w-6 h-6 text-white" />
+                       </div>
+                       <div className="flex-1">
+                         <p className="text-gray-900 font-semibold">{course.title}</p>
+                         <p className="text-gray-600 text-sm">
+                           Progress: {course.progress}% • {course.completedLessons}/{course.totalLessons} lessons
+                         </p>
+                       </div>
+                       <div className="text-right">
+                         <div className="w-20 h-2 bg-gray-200 rounded-full overflow-hidden">
+                           <div 
+                             className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-300"
+                             style={{ width: `${course.progress}%` }}
+                           ></div>
+                         </div>
+                       </div>
+                     </div>
+                   ))}
+                 </div>
+               </div>
+
+                             {/* Quick Actions */}
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                   <h3 className="text-xl font-semibold text-gray-900 mb-4">Quick Actions</h3>
+                   <div className="space-y-3">
+                     <button className="w-full text-left p-4 bg-gradient-to-r from-blue-50 to-blue-100 hover:from-blue-100 hover:to-blue-200 rounded-xl border border-blue-200 transition-all duration-200 hover:shadow-md">
+                       <div className="flex items-center space-x-3">
+                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                           <Play className="w-4 h-4 text-white" />
+                         </div>
+                         <span className="text-gray-800 font-medium">Continue Learning</span>
+                       </div>
+                     </button>
+                     <button className="w-full text-left p-4 bg-gradient-to-r from-green-50 to-green-100 hover:from-green-100 hover:to-green-200 rounded-xl border border-green-200 transition-all duration-200 hover:shadow-md">
+                       <div className="flex items-center space-x-3">
+                         <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                           <TrendingUp className="w-4 h-4 text-white" />
+                         </div>
+                         <span className="text-gray-800 font-medium">View Latest Signals</span>
+                       </div>
+                     </button>
+                     <button className="w-full text-left p-4 bg-gradient-to-r from-purple-50 to-purple-100 hover:from-purple-100 hover:to-purple-200 rounded-xl border border-purple-200 transition-all duration-200 hover:shadow-md">
+                       <div className="flex items-center space-x-3">
+                         <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center">
+                           <Users className="w-4 h-4 text-white" />
+                         </div>
+                         <span className="text-gray-800 font-medium">Join Community</span>
+                       </div>
+                     </button>
+                   </div>
+                 </div>
+
+                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                   <h3 className="text-xl font-semibold text-gray-900 mb-4">Upcoming Events</h3>
+                   <div className="space-y-3">
+                     <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                       <div className="flex items-center space-x-3">
+                         <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                           <Calendar className="w-4 h-4 text-white" />
+                         </div>
+                         <div>
+                           <p className="text-gray-900 text-sm font-medium">Live Trading Session</p>
+                           <p className="text-gray-600 text-xs">Tomorrow at 2:00 PM</p>
+                         </div>
+                       </div>
+                     </div>
+                     <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                       <div className="flex items-center space-x-3">
+                         <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                           <Target className="w-4 h-4 text-white" />
+                         </div>
+                         <div>
+                           <p className="text-gray-900 text-sm font-medium">Assignment Due</p>
+                           <p className="text-gray-600 text-xs">Risk Management Quiz</p>
+                         </div>
+                       </div>
+                     </div>
+                   </div>
+                 </div>
+               </div>
+            </motion.div>
+          )}
+
+          {/* Courses Tab */}
+                      {activeTab === 'courses' && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-6"
+              >
+                {/* My Enrolled Courses */}
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-4">My Enrolled Courses</h3>
+                  {courses.length === 0 ? (
+                    <div className="text-center py-12">
+                      <div className="w-20 h-20 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <BookOpen className="w-10 h-10 text-gray-600" />
+                      </div>
+                      <p className="text-gray-600 mb-4 text-lg">No courses enrolled yet</p>
+                      <button 
+                        onClick={() => setActiveTab('browse')}
+                        className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                      >
+                        Browse Courses
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {courses.map((course) => (
+                        <div key={course._id} className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                          {course.thumbnail ? (
+                            <div className="w-full h-32 rounded-2xl mb-4 overflow-hidden">
+                              <img 
+                                src={course.thumbnail} 
+                                alt={course.title}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-full h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-4 flex items-center justify-center shadow-lg">
+                              <BookOpen className="w-12 h-12 text-white" />
+                            </div>
+                          )}
+                          <h4 className="text-gray-900 font-semibold mb-2 text-lg">{course.title}</h4>
+                          <p className="text-gray-600 text-sm mb-4 line-clamp-2">{course.description}</p>
+                          
+                          <div className="flex items-center justify-between mb-3 text-sm">
+                            <span className="text-gray-500">Instructor: {course.instructor.firstName} {course.instructor.lastName}</span>
+                            <span className="text-yellow-600 font-semibold">⭐ {course.rating}</span>
+                          </div>
+                          
+                          <div className="space-y-3 mb-4">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-500 font-medium">Progress</span>
+                              <span className="text-gray-900 font-semibold">{course.progress}%</span>
+                            </div>
+                            <div className="w-full h-3 bg-gray-200 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 rounded-full transition-all duration-300"
+                                style={{ width: `${course.progress}%` }}
+                              ></div>
+                            </div>
+                            <div className="flex justify-between text-xs text-gray-500">
+                              <span>{course.completedLessons}/{course.totalLessons} lessons completed</span>
+                              {course.totalDuration && (
+                                <span>{Math.round(course.totalDuration / 60)} min total</span>
+                              )}
+                            </div>
+                          </div>
+                          
+                          <button 
+                            onClick={() => window.location.href = `/course/${course._id}`}
+                            className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                          >
+                            Continue Learning
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+                        )}
+
+            {/* Browse Courses Tab */}
+            {activeTab === 'browse' && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="space-y-6"
+              >
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-6">Available Courses</h3>
+                  <p className="text-gray-600 mb-6">Discover expert-led courses designed to accelerate your forex trading journey</p>
+                  
+                  {loading ? (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-gray-600">Loading courses...</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {availableCourses.map((course) => (
+                        <div key={course._id} className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                          <div className="w-full h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-4 flex items-center justify-center shadow-lg">
+                            {course.thumbnail ? (
+                              <img 
+                                src={course.thumbnail} 
+                                alt={course.title}
+                                className="w-full h-full object-cover rounded-2xl"
+                              />
+                            ) : (
+                              <BookOpen className="w-12 h-12 text-white" />
+                            )}
+                          </div>
+                          <h4 className="text-gray-900 font-semibold mb-2 text-lg">{course.title}</h4>
+                          <p className="text-gray-600 text-sm mb-4 line-clamp-2">{course.description}</p>
+                          
+                          <div className="flex items-center justify-between mb-3 text-sm">
+                            <span className="text-gray-500">Instructor: {course.instructor.firstName} {course.instructor.lastName}</span>
+                            <span className="text-yellow-600 font-semibold">⭐ {course.rating}</span>
+                          </div>
+                          
+                          <div className="space-y-3 mb-4">
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-500 font-medium">Level</span>
+                              <span className="text-gray-900 font-semibold capitalize">{course.level}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-500 font-medium">Lessons</span>
+                              <span className="text-gray-900 font-semibold">{course.totalVideos}</span>
+                            </div>
+                            <div className="flex justify-between text-sm">
+                              <span className="text-gray-500 font-medium">Duration</span>
+                              <span className="text-gray-900 font-semibold">{course.totalDuration ? Math.round(course.totalDuration / 60) : 0} min</span>
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-between mb-4">
+                            <span className="text-2xl font-bold text-green-600">${course.price}</span>
+                            <span className="text-sm text-gray-500">{course.currency}</span>
+                          </div>
+                          
+                          <button 
+                            onClick={() => window.location.href = `/course/${course._id}`}
+                            className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                          >
+                            View Course
+                          </button>
+                        </div>
+                                             ))}
+                      
+                      {/* Coming Soon Card */}
+                    <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg opacity-75">
+                      <div className="w-full h-32 bg-gradient-to-br from-gray-400 to-gray-500 rounded-2xl mb-4 flex items-center justify-center shadow-lg">
+                        <div className="text-center">
+                          <Clock className="w-12 h-12 text-white mb-2" />
+                          <span className="text-white text-sm font-medium">Coming Soon</span>
+                        </div>
+                      </div>
+                      <h4 className="text-gray-900 font-semibold mb-2 text-lg">Crypto Trading Mastery</h4>
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-2">Learn the fundamentals of cryptocurrency trading, blockchain technology, and digital asset management.</p>
+                      
+                      <div className="flex items-center justify-between mb-3 text-sm">
+                        <span className="text-gray-500">Instructor: TBA</span>
+                        <span className="text-gray-400">⭐ --</span>
+                      </div>
+                      
+                      <div className="space-y-3 mb-4">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500 font-medium">Level</span>
+                          <span className="text-gray-900 font-semibold">All Levels</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500 font-medium">Lessons</span>
+                          <span className="text-gray-900 font-semibold">--</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-500 font-medium">Duration</span>
+                          <span className="text-gray-900 font-semibold">--</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-between mb-4">
+                        <span className="text-2xl font-bold text-gray-400">$--</span>
+                        <span className="text-sm text-gray-400">USD</span>
+                      </div>
+                      
+                      <button 
+                        disabled
+                        className="w-full py-3 bg-gray-300 text-gray-500 rounded-xl cursor-not-allowed"
+                      >
+                        Coming Soon
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Signals Tab */}
+          {activeTab === 'signals' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="space-y-6"
+            >
+                             <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                 <h3 className="text-xl font-semibold text-gray-900 mb-4">Latest Trading Signals</h3>
+                 {signals.length === 0 ? (
+                   <div className="text-center py-12">
+                     <div className="w-20 h-20 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                       <TrendingUp className="w-10 h-10 text-gray-600" />
+                     </div>
+                     <p className="text-gray-600 mb-4 text-lg">No trading signals available</p>
+                   </div>
+                 ) : (
+                   <div className="space-y-4">
+                     {signals.map((signal) => (
+                       <div key={signal._id} className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                         <div className="flex items-center justify-between mb-4">
+                           <div className="flex items-center space-x-3">
+                             <span className={`px-4 py-2 rounded-full text-sm font-medium ${
+                               signal.type === 'buy' ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg' :
+                               signal.type === 'sell' ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg' :
+                               'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg'
+                             }`}>
+                               {signal.type.toUpperCase()}
+                             </span>
+                             <span className="text-gray-900 font-bold text-lg">{signal.symbol}</span>
+                           </div>
+                           <div className="flex items-center space-x-2 text-gray-500">
+                             <Clock className="w-4 h-4" />
+                             <span className="text-sm">{new Date(signal.createdAt).toLocaleDateString()}</span>
+                           </div>
+                         </div>
+                         
+                         <div className="grid grid-cols-3 gap-4 mb-4">
+                           <div className="text-center p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                             <p className="text-blue-600 text-xs font-medium mb-1">Entry</p>
+                             <p className="text-gray-900 font-bold text-lg">${signal.entryPrice}</p>
+                           </div>
+                           <div className="text-center p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                             <p className="text-green-600 text-xs font-medium mb-1">Target</p>
+                             <p className="text-gray-900 font-bold text-lg">${signal.targetPrice}</p>
+                           </div>
+                           <div className="text-center p-3 bg-gradient-to-r from-red-50 to-pink-50 rounded-xl border border-red-200">
+                             <p className="text-red-600 text-xs font-medium mb-1">Stop Loss</p>
+                             <p className="text-gray-900 font-bold text-lg">${signal.stopLoss}</p>
+                           </div>
+                         </div>
+                         
+                         <p className="text-gray-700 text-sm mb-4 leading-relaxed">{signal.description}</p>
+                         
+                         <div className="flex items-center justify-between">
+                           <div className="flex items-center space-x-4 text-sm">
+                             <span className="text-gray-600 font-medium">Confidence: {signal.confidence}%</span>
+                             <span className="text-gray-600 font-medium">TF: {signal.timeframe}</span>
+                           </div>
+                           <button className="flex items-center space-x-2 text-blue-600 hover:text-blue-700 font-medium">
+                             <MessageSquare className="w-4 h-4" />
+                             <span className="text-sm">{signal.comments} comments</span>
+                           </button>
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+               </div>
+            </motion.div>
+          )}
+
+          {/* Assignments Tab */}
+          {activeTab === 'assignments' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="space-y-6"
+            >
+                             <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                 <h3 className="text-xl font-semibold text-gray-900 mb-4">My Assignments & Quizzes</h3>
+                 {assignments.length === 0 ? (
+                   <div className="text-center py-12">
+                     <div className="w-20 h-20 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center mx-auto mb-4">
+                       <FileText className="w-10 h-10 text-gray-600" />
+                     </div>
+                     <p className="text-gray-600 mb-4 text-lg">No assignments available</p>
+                   </div>
+                 ) : (
+                   <div className="space-y-4">
+                     {assignments.map((assignment) => (
+                       <div key={assignment._id} className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                         <div className="flex items-center justify-between mb-4">
+                           <h4 className="text-gray-900 font-semibold text-lg">{assignment.title}</h4>
+                           <span className={`px-4 py-2 rounded-full text-sm font-medium ${
+                             assignment.status === 'pending' ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg' :
+                             assignment.status === 'submitted' ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-lg' :
+                             'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
+                           }`}>
+                             {assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1)}
+                           </span>
+                         </div>
+                         
+                         <p className="text-gray-700 text-sm mb-4 leading-relaxed">{assignment.description}</p>
+                         
+                         <div className="flex items-center justify-between">
+                           <div className="flex items-center space-x-4 text-sm text-gray-600">
+                             <span className="font-medium">Due: {new Date(assignment.dueDate).toLocaleDateString()}</span>
+                             {assignment.grade && (
+                               <span className="text-green-600 font-semibold">Grade: {assignment.grade}%</span>
+                             )}
+                           </div>
+                           
+                           <button className={`px-6 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
+                             assignment.status === 'pending' 
+                               ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5' 
+                               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                           }`}>
+                             {assignment.status === 'pending' ? 'Submit Assignment' : 'View Details'}
+                           </button>
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                 )}
+               </div>
+            </motion.div>
+          )}
+
+          {/* Community Tab */}
+          {activeTab === 'community' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="space-y-6"
+            >
+                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                 {/* Discussion Forum */}
+                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                   <h3 className="text-xl font-semibold text-gray-900 mb-4">Discussion Forum</h3>
+                   <div className="space-y-4">
+                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-200">
+                       <div className="flex items-center space-x-3 mb-3">
+                         <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-md">
+                           <span className="text-white text-sm font-bold">JD</span>
+                         </div>
+                         <div>
+                           <p className="text-gray-900 text-sm font-semibold">John Doe</p>
+                           <p className="text-gray-500 text-xs">2 hours ago</p>
+                         </div>
+                       </div>
+                       <p className="text-gray-700 text-sm leading-relaxed">Great analysis on EUR/USD! The support level at 1.0850 held perfectly.</p>
+                     </div>
+                     
+                     <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-2xl p-4 border border-green-200">
+                       <div className="flex items-center space-x-3 mb-3">
+                         <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center shadow-md">
+                           <span className="text-white text-sm font-bold">JS</span>
+                         </div>
+                         <div>
+                           <p className="text-gray-900 text-sm font-semibold">Jane Smith</p>
+                           <p className="text-gray-500 text-xs">5 hours ago</p>
+                         </div>
+                       </div>
+                       <p className="text-gray-700 text-sm leading-relaxed">Anyone else seeing the bullish divergence on GBP/JPY?</p>
+                     </div>
+                   </div>
+                   
+                   <button className="w-full mt-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                     Join Discussion
+                   </button>
+                 </div>
+
+                 {/* Leaderboard */}
+                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                   <h3 className="text-xl font-semibold text-gray-900 mb-4">Top Performers</h3>
+                   <div className="space-y-3">
+                     {[
+                       { name: 'Alex Johnson', score: 95, rank: 1 },
+                       { name: 'Sarah Wilson', score: 92, rank: 2 },
+                       { name: 'Mike Chen', score: 89, rank: 3 },
+                       { name: 'Emma Davis', score: 87, rank: 4 },
+                       { name: 'Tom Brown', score: 85, rank: 5 }
+                     ].map((player, index) => (
+                       <div key={index} className="flex items-center space-x-3 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-200 hover:border-blue-300 transition-all duration-200">
+                         <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-md ${
+                           index === 0 ? 'bg-gradient-to-br from-yellow-400 to-orange-500' :
+                           index === 1 ? 'bg-gradient-to-br from-gray-400 to-gray-500' :
+                           index === 2 ? 'bg-gradient-to-br from-amber-500 to-orange-600' : 'bg-gradient-to-br from-gray-500 to-gray-600'
+                         }`}>
+                           <span className="text-white text-sm font-bold">{player.rank}</span>
+                         </div>
+                         <div className="flex-1">
+                           <p className="text-gray-900 text-sm font-semibold">{player.name}</p>
+                         </div>
+                         <div className="text-right">
+                           <p className="text-gray-600 text-sm font-medium">{player.score} pts</p>
+                         </div>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               </div>
+
+                             {/* Announcements */}
+               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                 <h3 className="text-xl font-semibold text-gray-900 mb-4">Announcements</h3>
+                 <div className="space-y-4">
+                   <div className="p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-2xl">
+                     <div className="flex items-center space-x-3 mb-3">
+                       <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center">
+                         <Bell className="w-4 h-4 text-white" />
+                       </div>
+                       <span className="text-gray-900 font-semibold">New Course Module Available</span>
+                     </div>
+                     <p className="text-gray-700 text-sm leading-relaxed">Advanced Risk Management strategies are now live! Complete the module to unlock your next certificate.</p>
+                   </div>
+                   
+                   <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-2xl">
+                     <div className="flex items-center space-x-3 mb-3">
+                       <div className="w-8 h-8 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                         <Trophy className="w-4 h-4 text-white" />
+                       </div>
+                       <span className="text-gray-900 font-semibold">Monthly Challenge Winner</span>
+                     </div>
+                     <p className="text-gray-700 text-sm leading-relaxed">Congratulations to Alex Johnson for winning this month's trading challenge with a 15% return!</p>
+                   </div>
+                 </div>
+               </div>
+            </motion.div>
+          )}
+
+          {/* Certificates Tab */}
+          {activeTab === 'certificates' && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="space-y-6"
+            >
+                             <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                 <h3 className="text-xl font-semibold text-gray-900 mb-4">My Certificates</h3>
+                 <div className="text-center py-12">
+                   <div className="w-24 h-24 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                     <Award className="w-12 h-12 text-gray-600" />
+                   </div>
+                   <p className="text-gray-600 mb-4 text-lg font-medium">No certificates earned yet</p>
+                   <p className="text-gray-500 text-sm mb-8 max-w-md mx-auto">Complete courses and assignments to earn your first certificate and showcase your forex trading expertise</p>
+                   <button className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5">
+                     Start Learning
+                   </button>
+                 </div>
+               </div>
+            </motion.div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

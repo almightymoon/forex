@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-3 rounded-full font-semibold hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl;
+  }
+  
+  .btn-secondary {
+    @apply border-2 border-blue-600 text-blue-600 px-6 py-3 rounded-full font-semibold hover:bg-blue-600 hover:text-white transition-all transform hover:scale-105 shadow-lg;
+  }
+  
+  .card {
+    @apply bg-white/70 backdrop-blur-sm p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-2 border border-white/20;
+  }
+  
+  .gradient-text {
+    @apply text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600;
+  }
+
+  /* Admin notifications specific styles */
+  .admin-notifications {
+    @apply space-y-8;
+  }
+
+  .notification-card {
+    @apply bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200;
+  }
+
+  .notification-stats-grid {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8;
+  }
+
+  .notification-section {
+    @apply bg-white rounded-2xl p-8 border border-gray-200 shadow-lg mb-8;
+  }
+
+  /* Admin panel layout fixes */
+  .admin-container {
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8;
+  }
+
+  .admin-tab-content {
+    @apply w-full;
+  }
+
+  .admin-card {
+    @apply bg-white rounded-2xl border border-gray-200 shadow-lg;
+  }
+}
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Prevent layout overflow */
+  .overflow-safe {
+    overflow: hidden;
+  }
+
+  /* Ensure proper spacing */
+  .space-y-safe {
+    margin-bottom: 2rem;
+  }
+
+  /* Responsive grid utilities */
+  .grid-responsive {
+    @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3;
+  }
+
+  /* Flex utilities for better layout control */
+  .flex-responsive {
+    @apply flex flex-col sm:flex-row;
+  }
+}

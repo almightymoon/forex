@@ -1,0 +1,4124 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement,
+} from 'chart.js';
+import { Line, Bar, Doughnut } from 'react-chartjs-2';
+import { useSettings } from '../../context/SettingsContext';
+import { useToast } from '../../components/Toast';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Title,
+  Tooltip,
+  Legend,
+  ArcElement
+);
+import { 
+  Users, BookOpen, Target, FileText, Award, BarChart3, 
+  Settings, LogOut, Plus, Edit, Trash, Eye, Download,
+  TrendingUp, DollarSign, Shield, UserCheck, UserX, AlertTriangle,
+  CheckCircle, Clock, Star, Calendar, MessageSquare, Search, X, CreditCard,
+  Globe, Lock, Bell, Mail, Smartphone, Server, Database, Key, Zap,
+  Save, RotateCcw, Palette, Monitor, Languages, MapPin, User
+} from 'lucide-react';
+
+interface User {
+  _id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  country?: string;
+  role: 'student' | 'instructor' | 'admin';
+  profileImage?: string;
+  subscription: {
+    plan: string;
+    isActive: boolean;
+  };
+  isActive?: boolean;
+  isVerified?: boolean;
+  createdAt: string;
+  lastLogin?: string;
+}
+
+
+
+interface Payment {
+  _id: string;
+  user: {
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  amount: number;
+  currency: string;
+  status: 'pending' | 'completed' | 'failed';
+  paymentMethod: string;
+  createdAt: string;
+}
+
+interface Analytics {
+  totalUsers: number;
+  totalRevenue: number;
+  monthlyGrowth: number;
+  activeUsers: number;
+  totalPayments: number;
+  paymentsThisMonth: number;
+  activePromoCodes: number;
+  monthlyRevenue: Array<{ month: string; revenue: number }>;
+  monthlyUserGrowth: Array<{ month: string; users: number }>;
+  paymentMethodStats: Array<{ method: string; count: number; totalAmount: number }>;
+}
+
+interface PromoCode {
+  _id: string;
+  code: string;
+  discountType: 'percentage' | 'fixed';
+  discountValue: number;
+  maxUses: number;
+  currentUses: number;
+  validUntil?: string;
+  isActive: boolean;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export default function AdminDashboard() {
+  const [activeTab, setActiveTab] = useState('overview');
+  const [loading, setLoading] = useState(true);
+  const [authChecking, setAuthChecking] = useState(true);
+  const [users, setUsers] = useState<User[]>([]);
+  const { settings: globalSettings, refreshSettings } = useSettings();
+  const { showToast } = useToast();
+
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [analytics, setAnalytics] = useState<Analytics>({
+    totalUsers: 0,
+    totalRevenue: 0,
+    monthlyGrowth: 0,
+    activeUsers: 0,
+    totalPayments: 0,
+    paymentsThisMonth: 0,
+    activePromoCodes: 0,
+    monthlyRevenue: [],
+    monthlyUserGrowth: [],
+    paymentMethodStats: []
+  });
+
+  // User management state
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState('all');
+  const [userStatusFilter, setUserStatusFilter] = useState('all');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  
+  // User form state
+  const [userForm, setUserForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    password: '',
+    phone: '',
+    country: '',
+    role: 'student' as 'admin' | 'instructor' | 'student',
+    isActive: true,
+    isVerified: false
+  });
+
+  // Payment management state
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedPayment, setSelectedPayment] = useState<Payment | null>(null);
+  const [paymentSearchTerm, setPaymentSearchTerm] = useState('');
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
+
+  // Promo code management state
+  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
+  const [showPromoModal, setShowPromoModal] = useState(false);
+  const [editingPromo, setEditingPromo] = useState<PromoCode | null>(null);
+  const [showPromoDeleteConfirm, setShowPromoDeleteConfirm] = useState(false);
+  const [promoToDelete, setPromoToDelete] = useState<PromoCode | null>(null);
+  
+  // Promo code form state
+  const [promoForm, setPromoForm] = useState({
+    code: '',
+    discountType: 'percentage' as 'percentage' | 'fixed',
+    discountValue: 0,
+    maxUses: 100,
+    expiresAt: '',
+    isActive: true,
+    description: ''
+  });
+
+  // Settings state
+  const [settings, setSettings] = useState({
+    general: {
+      platformName: 'Forex Navigators',
+      description: 'Premier Trading Education Platform',
+      defaultCurrency: 'USD',
+      timezone: 'UTC',
+      language: 'en',
+      maintenanceMode: false
+    },
+    security: {
+      twoFactorAuth: false,
+      sessionTimeout: 60,
+      passwordPolicy: {
+        minLength: 8,
+        requireUppercase: true,
+        requireNumbers: true,
+        requireSymbols: true
+      },
+      loginAttempts: 5,
+      accountLockDuration: 30
+    },
+    notifications: {
+      emailNotifications: true,
+      smsNotifications: false,
+      pushNotifications: true,
+      newUserRegistration: true,
+      paymentReceived: true,
+      systemAlerts: true,
+      courseCompletions: false
+    },
+    payments: {
+      stripeEnabled: true,
+      paypalEnabled: true,
+      easypaisaEnabled: true,
+      jazzCashEnabled: true,
+      currency: 'USD',
+      taxRate: 0,
+      promoCodesEnabled: true
+    },
+    courses: {
+      autoApproval: false,
+      maxFileSize: 100, // MB
+      allowedFileTypes: ['pdf', 'mp4', 'ppt', 'pptx'],
+      certificateEnabled: true,
+      completionThreshold: 80 // percentage
+    },
+    email: {
+      smtpHost: '',
+      smtpPort: 587,
+      smtpUser: '',
+      smtpPassword: '',
+      fromEmail: 'noreply@forexnavigators.com',
+      fromName: 'Forex Navigators'
+    }
+  });
+  const [settingsLoading, setSettingsLoading] = useState(false);
+  const [settingsSaved, setSettingsSaved] = useState(false);
+
+  // 2FA state
+  const [userTwoFactorEnabled, setUserTwoFactorEnabled] = useState(false);
+  const [showTwoFactorModal, setShowTwoFactorModal] = useState(false);
+  const [twoFactorStep, setTwoFactorStep] = useState<'setup' | 'verify' | 'disable'>('setup');
+  const [qrCodeData, setQrCodeData] = useState<string>('');
+  const [secretKey, setSecretKey] = useState<string>('');
+  const [verificationCode, setVerificationCode] = useState<string>('');
+  const [backupCodes, setBackupCodes] = useState<string[]>([]);
+  const [twoFactorLoading, setTwoFactorLoading] = useState(false);
+
+  // Notifications state
+  const [notificationStats, setNotificationStats] = useState<any>(null);
+  const [notificationTemplates, setNotificationTemplates] = useState<any>(null);
+  const [emailTemplates, setEmailTemplates] = useState<any>(null);
+  const [testEmail, setTestEmail] = useState<string>('');
+  const [isTestingEmail, setIsTestingEmail] = useState(false);
+  const [showSmtpConfig, setShowSmtpConfig] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('');
+  const [templateAudience, setTemplateAudience] = useState<string>('all');
+  const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({});
+  const [isSendingTemplate, setIsSendingTemplate] = useState(false);
+  
+  // New state variables for specific user emails and custom templates
+  const [specificUserEmail, setSpecificUserEmail] = useState<string>('');
+  const [specificUserSubject, setSpecificUserSubject] = useState<string>('');
+  const [specificUserMessage, setSpecificUserMessage] = useState<string>('');
+  const [isSendingSpecificUser, setIsSendingSpecificUser] = useState(false);
+  
+  const [customTemplate, setCustomTemplate] = useState({
+    name: '',
+    category: '',
+    subject: '',
+    htmlContent: '',
+    variables: ''
+  });
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [isTestingTemplate, setIsTestingTemplate] = useState(false);
+  const [bulkNotification, setBulkNotification] = useState({
+    userRole: 'all',
+    type: 'system_alert',
+    data: {
+      alertType: 'info',
+      message: '',
+      severity: 'low'
+    }
+  });
+
+  // Route guard - check admin authentication
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    console.log('Token from localStorage:', token ? 'exists' : 'null');
+    if (!token) {
+      console.log('No token found, redirecting to login');
+      window.location.href = '/login';
+      return;
+    }
+    // Check if user is admin
+    checkAdminRole(token);
+  }, []);
+
+  const checkAdminRole = async (token: string) => {
+    try {
+      console.log('Checking admin role...');
+      const response = await fetch('http://localhost:4000/api/auth/me', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      console.log('Auth response status:', response.status);
+      if (response.ok) {
+        const userData = await response.json();
+        console.log('Full response:', userData);
+        console.log('User data:', userData.user || userData);
+        console.log('User role:', userData.user?.role || userData.role);
+        console.log('User email:', userData.user?.email || userData.email);
+        
+        const userRole = userData.user?.role || userData.role;
+        if (userRole !== 'admin') {
+          console.log('Access denied - not admin. Current role:', userRole);
+          showToast(`Access denied. Admin privileges required. Current role: ${userRole}`, 'error');
+          window.location.href = '/dashboard';
+          return;
+        }
+        console.log('Admin access granted, fetching data...');
+        setAuthChecking(false);
+        fetchAdminData(token);
+        fetchNotificationData();
+      } else {
+        console.log('Auth failed, redirecting to login');
+        window.location.href = '/login';
+      }
+    } catch (error) {
+      console.error('Auth check failed:', error);
+      window.location.href = '/login';
+    }
+  };
+
+  const fetchAdminData = async (token: string) => {
+    try {
+      const [usersRes, paymentsRes, analyticsRes, promoCodesRes, settingsRes, twoFactorRes] = await Promise.all([
+        fetch('http://localhost:4000/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://localhost:4000/api/admin/payments', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://localhost:4000/api/admin/analytics', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://localhost:4000/api/admin/promocodes', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://localhost:4000/api/admin/settings', { headers: { 'Authorization': `Bearer ${token}` } }),
+        fetch('http://localhost:4000/api/2fa/status', { headers: { 'Authorization': `Bearer ${token}` } })
+      ]);
+
+      if (usersRes.ok) setUsers(await usersRes.json());
+      if (paymentsRes.ok) setPayments(await paymentsRes.json());
+      if (analyticsRes.ok) setAnalytics(await analyticsRes.json());
+      if (promoCodesRes.ok) setPromoCodes(await promoCodesRes.json());
+      if (settingsRes.ok) setSettings(await settingsRes.json());
+      if (twoFactorRes.ok) {
+        const twoFactorData = await twoFactorRes.json();
+        setUserTwoFactorEnabled(twoFactorData.twoFactorEnabled);
+      }
+
+      setLoading(false);
+    } catch (error) {
+      console.error('Failed to fetch admin data:', error);
+      setLoading(false);
+    }
+  };
+
+  // 2FA Functions
+  const handleTwoFactorSetup = async () => {
+    setTwoFactorLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('http://localhost:4000/api/2fa/setup', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setQrCodeData(data.qrCode);
+        setSecretKey(data.secret);
+        setTwoFactorStep('verify');
+      } else {
+        const error = await response.json();
+        showToast(error.message || 'Failed to setup 2FA', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to setup 2FA', 'error');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  const handleTwoFactorEnable = async () => {
+    if (!verificationCode || verificationCode.length !== 6) {
+      showToast('Please enter a valid 6-digit code', 'warning');
+      return;
+    }
+
+    setTwoFactorLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('http://localhost:4000/api/2fa/enable', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          secret: secretKey,
+          token: verificationCode
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setBackupCodes(data.backupCodes);
+        setUserTwoFactorEnabled(true);
+        setVerificationCode('');
+        showToast('2FA enabled successfully!', 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.message || 'Failed to enable 2FA', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to enable 2FA', 'error');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  const handleTwoFactorDisable = async () => {
+    if (!verificationCode) {
+      showToast('Please enter your 2FA code', 'warning');
+      return;
+    }
+
+    setTwoFactorLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch('http://localhost:4000/api/2fa/disable', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          token: verificationCode
+        })
+      });
+
+      if (response.ok) {
+        setUserTwoFactorEnabled(false);
+        setShowTwoFactorModal(false);
+        setVerificationCode('');
+        showToast('2FA disabled successfully', 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.message || 'Failed to disable 2FA', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to disable 2FA', 'error');
+    } finally {
+      setTwoFactorLoading(false);
+    }
+  };
+
+  // Notification Functions
+  const fetchNotificationData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const [statsRes, templatesRes, emailTemplatesRes] = await Promise.all([
+        fetch('http://localhost:4000/api/notifications/stats', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch('http://localhost:4000/api/notifications/templates', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch('http://localhost:4000/api/notifications/templates', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      ]);
+
+      if (statsRes.ok) {
+        const statsData = await statsRes.json();
+        setNotificationStats(statsData.stats);
+      }
+
+      if (templatesRes.ok) {
+        const templatesData = await templatesRes.json();
+        setNotificationTemplates(templatesData.templates);
+      }
+
+      if (emailTemplatesRes.ok) {
+        const emailTemplatesData = await emailTemplatesRes.json();
+        setEmailTemplates(emailTemplatesData.templates);
+      }
+    } catch (error) {
+      console.error('Error fetching notification data:', error);
+    }
+  };
+
+  const handleTestEmail = async () => {
+    if (!testEmail || isTestingEmail) return;
+
+    setIsTestingEmail(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:4000/api/notifications/test-email', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ testEmail })
+      });
+
+      if (response.ok) {
+        showToast('Test email sent successfully!', 'success');
+        setTestEmail('');
+      } else {
+        const error = await response.json();
+        showToast(error.message || 'Failed to send test email', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to send test email', 'error');
+    } finally {
+      setIsTestingEmail(false);
+    }
+  };
+
+  const checkEmailConfiguration = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        showToast('No authentication token found. Please log in again.', 'error');
+        return;
+      }
+
+      console.log('Testing email configuration...');
+      console.log('Current SMTP settings in frontend:', {
+        smtpHost: settings.email.smtpHost,
+        smtpPort: settings.email.smtpPort,
+        smtpUser: settings.email.smtpUser,
+        hasPassword: !!settings.email.smtpPassword,
+        fromEmail: settings.email.fromEmail,
+        fromName: settings.email.fromName
+      });
+
+      const response = await fetch('http://localhost:4000/api/notifications/test-config', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      console.log('Response status:', response.status);
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Response data:', result);
+        if (result.success) {
+          showToast('Email configuration is valid!', 'success');
+        } else {
+          showToast(`Email configuration error: ${result.error}`, 'error');
+        }
+      } else {
+        const error = await response.json();
+        console.error('Error response:', error);
+        showToast(error.message || `HTTP ${response.status}: Failed to check email configuration`, 'error');
+      }
+    } catch (error) {
+      console.error('Network error:', error);
+      showToast(`Network error: ${error.message}`, 'error');
+    }
+  };
+
+  const handleSendTemplateEmail = async () => {
+    if (!selectedTemplate || !emailTemplates || !emailTemplates[selectedTemplate]) {
+      showToast('Please select a valid template', 'warning');
+      return;
+    }
+
+    // Check if all required variables are filled
+    const requiredVariables = emailTemplates[selectedTemplate].variables;
+    const missingVariables = requiredVariables.filter(variable => !templateVariables[variable]?.trim());
+    
+    if (missingVariables.length > 0) {
+      showToast(`Please fill in all required variables: ${missingVariables.join(', ')}`, 'warning');
+      return;
+    }
+
+    setIsSendingTemplate(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Get recipients based on audience selection
+      let recipients: string[] = [];
+      if (templateAudience === 'all') {
+        // Get all user emails
+        recipients = users.map(user => user.email);
+      } else {
+        // Get emails for specific role
+        recipients = users.filter(user => user.role === templateAudience).map(user => user.email);
+      }
+
+      if (recipients.length === 0) {
+        showToast('No recipients found for the selected audience', 'warning');
+        return;
+      }
+
+      const response = await fetch('http://localhost:4000/api/notifications/send-template', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          templateName: selectedTemplate,
+          recipients: recipients,
+          variables: templateVariables
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        showToast(`Template emails sent successfully! ${result.message}`, 'success');
+        
+        // Reset form
+        setSelectedTemplate('');
+        setTemplateVariables({});
+        setTemplateAudience('all');
+      } else {
+        const error = await response.json();
+        showToast(error.message || 'Failed to send template emails', 'error');
+      }
+    } catch (error) {
+      console.error('Send template error:', error);
+      showToast('Failed to send template emails', 'error');
+    } finally {
+      setIsSendingTemplate(false);
+    }
+  };
+
+  const handleBulkNotification = async () => {
+    if (!bulkNotification.data.message.trim()) {
+      showToast('Please enter a notification message', 'warning');
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const endpoint = bulkNotification.userRole === 'all' 
+        ? 'http://localhost:4000/api/notifications/broadcast'
+        : 'http://localhost:4000/api/notifications/broadcast';
+
+      const payload = {
+        type: bulkNotification.type,
+        data: bulkNotification.data,
+        ...(bulkNotification.userRole !== 'all' && { userRole: bulkNotification.userRole })
+      };
+
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        showToast('Bulk notification sent successfully!', 'success');
+        
+        // Reset form
+        setBulkNotification({
+          type: 'info',
+          userRole: 'all',
+          data: { message: '' }
+        });
+      } else {
+        const error = await response.json();
+        showToast(error.message || 'Failed to send bulk notification', 'error');
+      }
+    } catch (error) {
+      console.error('Bulk notification error:', error);
+      showToast('Failed to send bulk notification', 'error');
+    }
+  };
+
+  // New handler functions for specific user emails and custom templates
+  const handleSendToSpecificUser = async () => {
+    if (!specificUserEmail || !specificUserSubject || !specificUserMessage.trim()) {
+      showToast('Please fill in all fields', 'warning');
+      return;
+    }
+
+    setIsSendingSpecificUser(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch('http://localhost:4000/api/notifications/send-specific', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          recipient: specificUserEmail,
+          subject: specificUserSubject,
+          message: specificUserMessage
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        showToast(`Email sent successfully to ${specificUserEmail}!`, 'success');
+        
+        // Reset form
+        setSpecificUserEmail('');
+        setSpecificUserSubject('');
+        setSpecificUserMessage('');
+      } else {
+        const error = await response.json();
+        showToast(error.message || 'Failed to send email', 'error');
+      }
+    } catch (error) {
+      console.error('Send specific user email error:', error);
+      showToast('Failed to send email', 'error');
+    } finally {
+      setIsSendingSpecificUser(false);
+    }
+  };
+
+  const handleSaveCustomTemplate = async () => {
+    if (!customTemplate.name || !customTemplate.subject || !customTemplate.htmlContent) {
+      showToast('Please fill in all required fields', 'warning');
+      return;
+    }
+
+    setIsSavingTemplate(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch('http://localhost:4000/api/notifications/save-template', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: customTemplate.name,
+          category: customTemplate.category,
+          subject: customTemplate.subject,
+          htmlContent: customTemplate.htmlContent,
+          variables: customTemplate.variables.split(',').map(v => v.trim()).filter(v => v)
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        showToast(`Custom template "${customTemplate.name}" saved successfully!`, 'success');
+        
+        // Reset form
+        setCustomTemplate({
+          name: '',
+          category: '',
+          subject: '',
+          htmlContent: '',
+          variables: ''
+        });
+        
+        // Refresh templates
+        fetchNotificationData();
+      } else {
+        const error = await response.json();
+        showToast(error.message || 'Failed to save template', 'error');
+      }
+    } catch (error) {
+      console.error('Save custom template error:', error);
+      showToast('Failed to save template', 'error');
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const handleTestCustomTemplate = async () => {
+    if (!customTemplate.name || !customTemplate.subject || !customTemplate.htmlContent) {
+      showToast('Please fill in all required fields', 'warning');
+      return;
+    }
+
+    setIsTestingTemplate(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch('http://localhost:4000/api/notifications/test-template', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: customTemplate.name,
+          category: customTemplate.category,
+          subject: customTemplate.subject,
+          htmlContent: customTemplate.htmlContent,
+          variables: customTemplate.variables.split(',').map(v => v.trim()).filter(v => v)
+        })
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        showToast(`Template test email sent successfully! Check your inbox.`, 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.message || 'Failed to test template', 'error');
+      }
+    } catch (error) {
+      console.error('Test custom template error:', error);
+      showToast('Failed to test template', 'error');
+    } finally {
+      setIsTestingTemplate(false);
+    }
+
+
+
+
+
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    window.location.href = '/login';
+  };
+
+  // User management functions
+  const resetUserForm = () => {
+    setUserForm({
+      firstName: '',
+      lastName: '',
+      email: '',
+      password: '',
+      phone: '',
+      country: '',
+      role: 'student',
+      isActive: true,
+      isVerified: false
+    });
+  };
+
+  const openAddUserModal = () => {
+    resetUserForm();
+    setEditingUser(null);
+    setShowUserModal(true);
+  };
+
+  const openEditUserModal = (user: User) => {
+    setUserForm({
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      password: '', // Don't populate password for security
+      phone: user.phone || '',
+      country: user.country || '',
+      role: user.role,
+      isActive: user.isActive,
+      isVerified: user.isVerified
+    });
+    setEditingUser(user);
+    setShowUserModal(true);
+  };
+
+  const handleCreateUser = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:4000/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(userForm)
+      });
+
+      if (response.ok) {
+        const newUser = await response.json();
+        setUsers(prev => [newUser, ...prev]);
+        setShowUserModal(false);
+        resetUserForm();
+        showToast('User created successfully!', 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to create user', 'error');
+      }
+    } catch (error) {
+      console.error('Create user error:', error);
+      showToast('Failed to create user', 'error');
+    }
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const updateData = { ...userForm };
+      
+      // Remove password if it's empty (don't update password)
+      if (!updateData.password) {
+        delete updateData.password;
+      }
+
+      const response = await fetch(`http://localhost:4000/api/admin/users/${editingUser._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(updateData)
+      });
+
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setUsers(prev => prev.map(user => 
+          user._id === editingUser._id ? updatedUser : user
+        ));
+        setShowUserModal(false);
+        setEditingUser(null);
+        resetUserForm();
+        showToast('User updated successfully!', 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to update user', 'error');
+      }
+    } catch (error) {
+      console.error('Update user error:', error);
+      showToast('Failed to update user', 'error');
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:4000/api/admin/users/${userToDelete._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setUsers(prev => prev.filter(user => user._id !== userToDelete._id));
+        setShowDeleteConfirm(false);
+        setUserToDelete(null);
+        showToast('User deleted successfully!', 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to delete user', 'error');
+      }
+    } catch (error) {
+      console.error('Delete user error:', error);
+      showToast('Failed to delete user', 'error');
+    }
+  };
+
+  const handleToggleUserStatus = async (user: User) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:4000/api/admin/users/${user._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ isActive: !user.isActive })
+      });
+
+      if (response.ok) {
+        const updatedUser = await response.json();
+        setUsers(prev => prev.map(u => 
+          u._id === user._id ? updatedUser : u
+        ));
+        showToast(`User ${!user.isActive ? 'activated' : 'deactivated'} successfully!`, 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to update user status', 'error');
+      }
+    } catch (error) {
+      console.error('Toggle user status error:', error);
+      showToast('Failed to update user status', 'error');
+    }
+  };
+
+  const openDeleteConfirm = (user: User) => {
+    setUserToDelete(user);
+    setShowDeleteConfirm(true);
+  };
+
+  // Filter users based on search term, role, and status
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = 
+      user.firstName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      user.lastName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(userSearchTerm.toLowerCase());
+    
+    const matchesRole = userRoleFilter === 'all' || user.role === userRoleFilter;
+    const matchesStatus = userStatusFilter === 'all' || 
+      (userStatusFilter === 'active' && user.isActive) ||
+      (userStatusFilter === 'inactive' && !user.isActive);
+
+    return matchesSearch && matchesRole && matchesStatus;
+  });
+
+  // Payment management functions
+  const openPaymentModal = (payment: Payment) => {
+    setSelectedPayment(payment);
+    setShowPaymentModal(true);
+  };
+
+  const handleUpdatePaymentStatus = async (paymentId: string, newStatus: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:4000/api/admin/payments/${paymentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      });
+
+      if (response.ok) {
+        const updatedPayment = await response.json();
+        setPayments(prev => prev.map(payment => 
+          payment._id === paymentId ? updatedPayment : payment
+        ));
+        showToast(`Payment ${newStatus} successfully!`, 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to update payment status', 'error');
+      }
+    } catch (error) {
+      console.error('Update payment status error:', error);
+      showToast('Failed to update payment status', 'error');
+    }
+  };
+
+  // Filter payments based on search term, status, and method
+  const filteredPayments = payments.filter(payment => {
+    const matchesSearch = 
+      payment.user.firstName.toLowerCase().includes(paymentSearchTerm.toLowerCase()) ||
+      payment.user.lastName.toLowerCase().includes(paymentSearchTerm.toLowerCase()) ||
+      payment._id.toLowerCase().includes(paymentSearchTerm.toLowerCase());
+    
+    const matchesStatus = paymentStatusFilter === 'all' || payment.status === paymentStatusFilter;
+    const matchesMethod = paymentMethodFilter === 'all' || payment.paymentMethod === paymentMethodFilter;
+
+    return matchesSearch && matchesStatus && matchesMethod;
+  });
+
+  const handleExportPayments = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:4000/api/admin/payments/export', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `payments-export-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        showToast('Payments exported successfully!', 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to export payments', 'error');
+      }
+    } catch (error) {
+      console.error('Export payments error:', error);
+      showToast('Failed to export payments', 'error');
+    }
+  };
+
+  // Promo code management functions
+  const resetPromoForm = () => {
+    setPromoForm({
+      code: '',
+      discountType: 'percentage',
+      discountValue: 0,
+      maxUses: 100,
+      expiresAt: '',
+      isActive: true,
+      description: ''
+    });
+  };
+
+  const openAddPromoModal = () => {
+    resetPromoForm();
+    setEditingPromo(null);
+    setShowPromoModal(true);
+  };
+
+  const openEditPromoModal = (promo: PromoCode) => {
+    setPromoForm({
+      code: promo.code,
+      discountType: promo.discountType,
+      discountValue: promo.discountValue,
+      maxUses: promo.maxUses,
+      expiresAt: promo.validUntil ? new Date(promo.validUntil).toISOString().split('T')[0] : '',
+      isActive: promo.isActive,
+      description: promo.description || ''
+    });
+    setEditingPromo(promo);
+    setShowPromoModal(true);
+  };
+
+  const handleCreatePromoCode = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch('http://localhost:4000/api/admin/promocodes', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...promoForm,
+          expiresAt: promoForm.expiresAt ? new Date(promoForm.expiresAt) : null
+        })
+      });
+
+      if (response.ok) {
+        const newPromo = await response.json();
+        setPromoCodes(prev => [newPromo, ...prev]);
+        setShowPromoModal(false);
+        resetPromoForm();
+        showToast('Promo code created successfully!', 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to create promo code', 'error');
+      }
+    } catch (error) {
+      console.error('Create promo code error:', error);
+      showToast('Failed to create promo code', 'error');
+    }
+  };
+
+  const handleUpdatePromoCode = async () => {
+    if (!editingPromo) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:4000/api/admin/promocodes/${editingPromo._id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          ...promoForm,
+          expiresAt: promoForm.expiresAt ? new Date(promoForm.expiresAt) : null
+        })
+      });
+
+      if (response.ok) {
+        const updatedPromo = await response.json();
+        setPromoCodes(prev => prev.map(promo => 
+          promo._id === editingPromo._id ? updatedPromo : promo
+        ));
+        setShowPromoModal(false);
+        setEditingPromo(null);
+        resetPromoForm();
+        showToast('Promo code updated successfully!', 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to update promo code', 'error');
+      }
+    } catch (error) {
+      console.error('Update promo code error:', error);
+      showToast('Failed to update promo code', 'error');
+    }
+  };
+
+  const handleDeletePromoCode = async () => {
+    if (!promoToDelete) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`http://localhost:4000/api/admin/promocodes/${promoToDelete._id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        setPromoCodes(prev => prev.filter(promo => promo._id !== promoToDelete._id));
+        setShowPromoDeleteConfirm(false);
+        setPromoToDelete(null);
+        showToast('Promo code deleted successfully!', 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to delete promo code', 'error');
+      }
+    } catch (error) {
+      console.error('Delete promo code error:', error);
+      showToast('Failed to delete promo code', 'error');
+    }
+  };
+
+  const openPromoDeleteConfirm = (promo: PromoCode) => {
+    setPromoToDelete(promo);
+    setShowPromoDeleteConfirm(true);
+  };
+
+  // Settings management functions
+  const handleSettingsChange = async (category: string, field: string, value: any) => {
+    // Update local state immediately for UI responsiveness
+    setSettings(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category as keyof typeof prev],
+        [field]: value
+      }
+    }));
+
+    // If it's an email setting, save to database immediately
+    if (category === 'email') {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('http://localhost:4000/api/admin/settings', {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            email: {
+              ...settings.email,
+              [field]: value
+            }
+          })
+        });
+
+        if (response.ok) {
+          console.log(`SMTP setting ${field} saved to database`);
+          
+          // Refresh the email transporter with new settings
+          try {
+            const refreshResponse = await fetch('http://localhost:4000/api/notifications/refresh-transporter', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (refreshResponse.ok) {
+              console.log('Email transporter refreshed with new settings');
+            } else {
+              console.log('Email transporter refresh not needed or failed');
+            }
+          } catch (refreshError) {
+            console.log('Email transporter refresh error (non-critical):', refreshError);
+          }
+        } else {
+          console.error('Failed to save SMTP setting to database');
+        }
+      } catch (error) {
+        console.error('Error saving SMTP setting:', error);
+      }
+    }
+  };
+
+  const handleNestedSettingsChange = (category: string, nestedField: string, field: string, value: any) => {
+    setSettings(prev => ({
+      ...prev,
+      [category]: {
+        ...prev[category as keyof typeof prev],
+        [nestedField]: {
+          ...prev[category as keyof typeof prev][nestedField as any],
+          [field]: value
+        }
+      }
+    }));
+  };
+
+  const handleSaveSettings = async () => {
+    setSettingsLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch('http://localhost:4000/api/admin/settings', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(settings)
+      });
+
+      if (response.ok) {
+        setSettingsSaved(true);
+        setTimeout(() => setSettingsSaved(false), 3000);
+        // Refresh global settings to update platform name everywhere
+        await refreshSettings();
+        showToast('Settings saved successfully!', 'success');
+      } else {
+        const responseData = await response.text();
+        showToast(`Failed to save settings: ${response.status}`, 'error');
+      }
+    } catch (error) {
+      showToast(`Failed to save settings: ${error.message}`, 'error');
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleResetSettings = () => {
+    const confirmReset = window.confirm('Are you sure you want to reset all settings to default values? This action cannot be undone.');
+    if (confirmReset) {
+      setSettings({
+        general: {
+          platformName: 'Forex Navigators',
+          description: 'Premier Trading Education Platform',
+          defaultCurrency: 'USD',
+          timezone: 'UTC',
+          language: 'en',
+          maintenanceMode: false
+        },
+        security: {
+          twoFactorAuth: false,
+          sessionTimeout: 60,
+          passwordPolicy: {
+            minLength: 8,
+            requireUppercase: true,
+            requireNumbers: true,
+            requireSymbols: true
+          },
+          loginAttempts: 5,
+          accountLockDuration: 30
+        },
+        notifications: {
+          emailNotifications: true,
+          smsNotifications: false,
+          pushNotifications: true,
+          newUserRegistration: true,
+          paymentReceived: true,
+          systemAlerts: true,
+          courseCompletions: false
+        },
+        payments: {
+          stripeEnabled: true,
+          paypalEnabled: true,
+          easypaisaEnabled: true,
+          jazzCashEnabled: true,
+          currency: 'USD',
+          taxRate: 0,
+          promoCodesEnabled: true
+        },
+        courses: {
+          autoApproval: false,
+          maxFileSize: 100,
+          allowedFileTypes: ['pdf', 'mp4', 'ppt', 'pptx'],
+          certificateEnabled: true,
+          completionThreshold: 80
+        },
+        email: {
+          smtpHost: '',
+          smtpPort: 587,
+          smtpUser: '',
+          smtpPassword: '',
+          fromEmail: 'noreply@forexnavigators.com',
+          fromName: 'Forex Navigators'
+        }
+      });
+    }
+  };
+
+  if (authChecking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-500 mx-auto"></div>
+          <p className="text-gray-700 text-xl mt-4 font-medium">Checking Admin Access...</p>
+          <p className="text-gray-500 text-sm mt-2">Please check browser console for debugging info</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto"></div>
+          <p className="text-gray-700 text-xl mt-4 font-medium">Loading Admin Dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      {/* Header */}
+      <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-20">
+            <div className="flex items-center space-x-4">
+              <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center">
+                <Shield className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">
+                  Admin Panel
+                </h1>
+                <p className="text-sm text-gray-500">{globalSettings.platformName} LMS Management</p>
+              </div>
+            </div>
+            
+            <div className="flex items-center space-x-4">
+              <button className="p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200">
+                <Settings className="w-5 h-5" />
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="flex items-center space-x-2 px-6 py-3 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200 border border-gray-300 hover:border-red-300"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>Logout</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="admin-container">
+        {/* Navigation Tabs */}
+        <div className="bg-white rounded-2xl p-2 border border-gray-200 shadow-lg mb-8">
+          <nav className="flex space-x-1 overflow-x-auto">
+            {[
+              { id: 'overview', label: 'Overview', icon: BarChart3 },
+              { id: 'users', label: 'Users', icon: Users },
+              { id: 'payments', label: 'Payments', icon: DollarSign },
+              { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+              { id: 'promocodes', label: 'Promo Codes', icon: Target },
+              { id: 'notifications', label: 'Notifications', icon: Mail },
+              { id: 'settings', label: 'Settings', icon: Settings }
+            ].map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`flex items-center space-x-2 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                    activeTab === tab.id
+                      ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg'
+                      : 'text-gray-600 hover:text-red-600 hover:bg-red-50'
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span>{tab.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'overview' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            {/* Stats Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-500 text-sm font-medium">Total Users</p>
+                    <p className="text-3xl font-bold text-gray-900">{analytics.totalUsers}</p>
+                    <p className="text-green-600 text-sm font-medium">+{analytics.monthlyGrowth}% this month</p>
+                  </div>
+                  <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                    <Users className="w-8 h-8 text-white" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-500 text-sm font-medium">Total Revenue</p>
+                    <p className="text-3xl font-bold text-gray-900">${analytics.totalRevenue.toLocaleString()}</p>
+                    <p className="text-green-600 text-sm font-medium">+12.5% this month</p>
+                  </div>
+                  <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
+                    <DollarSign className="w-8 h-8 text-white" />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-500 text-sm font-medium">Total Payments</p>
+                    <p className="text-3xl font-bold text-gray-900">{analytics.totalPayments}</p>
+                    <p className="text-blue-600 text-sm font-medium">{analytics.paymentsThisMonth} this month</p>
+                  </div>
+                  <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
+                    <CreditCard className="w-8 h-8 text-white" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Quick Actions */}
+            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Quick Actions</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <button 
+                  onClick={() => setActiveTab('users')}
+                  className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 rounded-xl hover:border-blue-300 transition-all duration-200 text-left"
+                >
+                  <Users className="w-8 h-8 text-blue-600 mb-2" />
+                  <p className="font-semibold text-blue-900">Manage Users</p>
+                  <p className="text-blue-600 text-sm">Add, edit, delete users</p>
+                </button>
+                
+                <button 
+                  onClick={() => setActiveTab('payments')}
+                  className="p-4 bg-gradient-to-r from-green-50 to-green-100 border border-green-200 rounded-xl hover:border-green-300 transition-all duration-200 text-left"
+                >
+                  <DollarSign className="w-8 h-8 text-green-600 mb-2" />
+                  <p className="font-semibold text-green-900">View Payments</p>
+                  <p className="text-green-600 text-sm">Transaction monitoring</p>
+                </button>
+                
+                <button 
+                  onClick={() => setActiveTab('promocodes')}
+                  className="p-4 bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 rounded-xl hover:border-purple-300 transition-all duration-200 text-left"
+                >
+                  <Target className="w-8 h-8 text-purple-600 mb-2" />
+                  <p className="font-semibold text-purple-900">Promo Codes</p>
+                  <p className="text-purple-600 text-sm">Manage discounts</p>
+                </button>
+                
+                <button 
+                  onClick={() => setActiveTab('analytics')}
+                  className="p-4 bg-gradient-to-r from-orange-50 to-orange-100 border border-orange-200 rounded-xl hover:border-orange-300 transition-all duration-200 text-left"
+                >
+                  <TrendingUp className="w-8 h-8 text-orange-600 mb-2" />
+                  <p className="font-semibold text-orange-900">Analytics</p>
+                  <p className="text-orange-600 text-sm">Platform insights</p>
+                </button>
+              </div>
+            </div>
+
+            {/* Recent Activity */}
+            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Recent Activity</h3>
+              <div className="space-y-4">
+                <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-200">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                    <Users className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-gray-900 font-medium">New User Registration</p>
+                    <p className="text-gray-600 text-sm">John Doe registered as a student</p>
+                  </div>
+                  <span className="text-gray-500 text-sm">2 hours ago</span>
+                </div>
+                
+                <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-gray-900 font-medium">Payment Received</p>
+                    <p className="text-gray-600 text-sm">$30 signup fee payment completed</p>
+                  </div>
+                  <span className="text-gray-500 text-sm">1 hour ago</span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'users' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">User Management</h3>
+                <button 
+                  onClick={openAddUserModal}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
+                >
+                  <Plus className="w-4 h-4 inline mr-2" />
+                  Add User
+                </button>
+              </div>
+              
+              {/* Search and Filter Controls */}
+              <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search users by name or email..."
+                      value={userSearchTerm}
+                      onChange={(e) => setUserSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex gap-3">
+                  <select
+                    value={userRoleFilter}
+                    onChange={(e) => setUserRoleFilter(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Roles</option>
+                    <option value="admin">Admin</option>
+                    <option value="instructor">Instructor</option>
+                    <option value="student">Student</option>
+                  </select>
+                  
+                  <select
+                    value={userStatusFilter}
+                    onChange={(e) => setUserStatusFilter(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">User</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Role</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Status</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Joined</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map((user) => (
+                      <tr key={user._id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-4 px-4">
+                          <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                              {user.profileImage ? (
+                                <img src={user.profileImage} alt="Profile" className="w-10 h-10 rounded-full object-cover" />
+                              ) : (
+                                <span className="text-white font-semibold">{user.firstName.charAt(0)}</span>
+                              )}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900">{user.firstName} {user.lastName}</p>
+                              <p className="text-sm text-gray-500">{user.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            user.role === 'admin' ? 'bg-red-100 text-red-800' :
+                            user.role === 'instructor' ? 'bg-blue-100 text-blue-800' :
+                            'bg-green-100 text-green-800'
+                          }`}>
+                            {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            user.subscription.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {user.subscription.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-500">
+                          {new Date(user.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex space-x-2">
+                            <button 
+                              onClick={() => handleToggleUserStatus(user)}
+                              className={`p-2 rounded-lg transition-colors ${
+                                user.isActive 
+                                  ? 'text-orange-600 hover:bg-orange-50' 
+                                  : 'text-green-600 hover:bg-green-50'
+                              }`}
+                              title={user.isActive ? 'Deactivate User' : 'Activate User'}
+                            >
+                              {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
+                            </button>
+                            <button 
+                              onClick={() => openEditUserModal(user)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Edit User"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => openDeleteConfirm(user)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete User"
+                            >
+                              <Trash className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'promocodes' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">Promo Code Management</h3>
+                <button 
+                  onClick={openAddPromoModal}
+                  className="px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200"
+                >
+                  <Plus className="w-4 h-4 inline mr-2" />
+                  Create Promo Code
+                </button>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Code</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Discount</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Usage</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Status</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Expiry</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {promoCodes.map((promo) => (
+                      <tr key={promo._id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-4 px-4">
+                          <span className="font-medium text-gray-900">{promo.code}</span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="text-green-600 font-medium">
+                            {promo.discountType === 'percentage' ? `${promo.discountValue}%` : `$${promo.discountValue}`}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="text-sm text-gray-600">{promo.currentUses} / {promo.maxUses} used</span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            promo.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          }`}>
+                            {promo.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <span className="text-sm text-gray-600">
+                            {promo.validUntil ? new Date(promo.validUntil).toLocaleDateString() : 'No expiry'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex space-x-2">
+                            <button 
+                              onClick={() => openEditPromoModal(promo)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="Edit Promo Code"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </button>
+                            <button 
+                              onClick={() => openPromoDeleteConfirm(promo)}
+                              className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete Promo Code"
+                            >
+                              <Trash className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+
+
+        {activeTab === 'payments' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">Payment Management</h3>
+                <button 
+                  onClick={handleExportPayments}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
+                >
+                  <Download className="w-4 h-4 inline mr-2" />
+                  Export Report
+                </button>
+              </div>
+
+              {/* Search and Filter Controls */}
+              <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <div className="flex-1">
+                  <div className="relative">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search by user name or payment ID..."
+                      value={paymentSearchTerm}
+                      onChange={(e) => setPaymentSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex gap-3">
+                  <select
+                    value={paymentStatusFilter}
+                    onChange={(e) => setPaymentStatusFilter(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="completed">Completed</option>
+                    <option value="pending">Pending</option>
+                    <option value="failed">Failed</option>
+                  </select>
+                  
+                  <select
+                    value={paymentMethodFilter}
+                    onChange={(e) => setPaymentMethodFilter(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Methods</option>
+                    <option value="stripe">Stripe</option>
+                    <option value="paypal">PayPal</option>
+                    <option value="jazzcash">JazzCash</option>
+                    <option value="easypaisa">EasyPaisa</option>
+                    <option value="promo_code">Promo Code</option>
+                  </select>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">User</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Amount</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Method</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Status</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Date</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredPayments.map((payment) => (
+                      <tr key={payment._id} className="border-b border-gray-100 hover:bg-gray-50">
+                        <td className="py-4 px-4">
+                          <div>
+                            <p className="font-medium text-gray-900">{payment.user.firstName} {payment.user.lastName}</p>
+                            <p className="text-sm text-gray-500">{payment.user.email}</p>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4">
+                          <p className="font-semibold text-gray-900">${payment.amount} {payment.currency}</p>
+                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-600">{payment.paymentMethod}</td>
+                        <td className="py-4 px-4">
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                            payment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                            payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-red-100 text-red-800'
+                          }`}>
+                            {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
+                          </span>
+                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-500">
+                          {new Date(payment.createdAt).toLocaleDateString()}
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex space-x-2">
+                            <button 
+                              onClick={() => openPaymentModal(payment)}
+                              className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              title="View Details"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            {payment.status === 'pending' && (
+                              <button 
+                                onClick={() => handleUpdatePaymentStatus(payment._id, 'completed')}
+                                className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                title="Mark as Completed"
+                              >
+                                <CheckCircle className="w-4 h-4" />
+                              </button>
+                            )}
+                            {payment.status === 'completed' && (
+                              <button 
+                                onClick={() => handleUpdatePaymentStatus(payment._id, 'refunded')}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                title="Refund"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'analytics' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Revenue Chart */}
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                <h3 className="text-xl font-semibold text-gray-900 mb-6">Revenue Overview</h3>
+                <div className="h-64">
+                  <Line
+                    data={{
+                      labels: analytics.monthlyRevenue.map(item => item.month),
+                      datasets: [
+                        {
+                          label: 'Monthly Revenue',
+                          data: analytics.monthlyRevenue.map(item => item.revenue),
+                          borderColor: 'rgb(59, 130, 246)',
+                          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                          borderWidth: 3,
+                          fill: true,
+                          tension: 0.4,
+                          pointBackgroundColor: 'rgb(59, 130, 246)',
+                          pointBorderColor: '#fff',
+                          pointBorderWidth: 2,
+                          pointRadius: 6,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          display: false,
+                        },
+                        tooltip: {
+                          backgroundColor: 'rgba(17, 24, 39, 0.8)',
+                          titleColor: '#fff',
+                          bodyColor: '#fff',
+                          borderColor: 'rgb(59, 130, 246)',
+                          borderWidth: 1,
+                          callbacks: {
+                            label: function(context) {
+                              return `Revenue: $${context.parsed.y.toLocaleString()}`;
+                            }
+                          }
+                        },
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          grid: {
+                            color: 'rgba(156, 163, 175, 0.2)',
+                          },
+                          ticks: {
+                            color: '#6B7280',
+                            callback: function(value) {
+                              return '$' + value;
+                            }
+                          },
+                        },
+                        x: {
+                          grid: {
+                            display: false,
+                          },
+                          ticks: {
+                            color: '#6B7280',
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+
+              {/* User Growth */}
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                <h3 className="text-xl font-semibold text-gray-900 mb-6">User Growth</h3>
+                <div className="h-64">
+                  <Bar
+                    data={{
+                      labels: analytics.monthlyUserGrowth.map(item => item.month),
+                      datasets: [
+                        {
+                          label: 'New Users',
+                          data: analytics.monthlyUserGrowth.map(item => item.users),
+                          backgroundColor: 'rgba(34, 197, 94, 0.8)',
+                          borderColor: 'rgb(34, 197, 94)',
+                          borderWidth: 2,
+                          borderRadius: 8,
+                          borderSkipped: false,
+                        },
+                      ],
+                    }}
+                    options={{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {
+                        legend: {
+                          display: false,
+                        },
+                        tooltip: {
+                          backgroundColor: 'rgba(17, 24, 39, 0.8)',
+                          titleColor: '#fff',
+                          bodyColor: '#fff',
+                          borderColor: 'rgb(34, 197, 94)',
+                          borderWidth: 1,
+                          callbacks: {
+                            label: function(context) {
+                              return `New Users: ${context.parsed.y}`;
+                            }
+                          }
+                        },
+                      },
+                      scales: {
+                        y: {
+                          beginAtZero: true,
+                          grid: {
+                            color: 'rgba(156, 163, 175, 0.2)',
+                          },
+                          ticks: {
+                            color: '#6B7280',
+                            stepSize: 1,
+                          },
+                        },
+                        x: {
+                          grid: {
+                            display: false,
+                          },
+                          ticks: {
+                            color: '#6B7280',
+                          },
+                        },
+                      },
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Payment Methods Breakdown */}
+            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Payment Methods</h3>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="h-64 flex items-center justify-center">
+                  <div className="w-64 h-64">
+                    <Doughnut
+                      data={{
+                        labels: analytics.paymentMethodStats.map(stat => {
+                          const methodNames: { [key: string]: string } = {
+                            'promo_code': 'Promo Code',
+                            'credit_card': 'Credit Card',
+                            'easypaisa': 'Easypaisa',
+                            'jazz_cash': 'Jazz Cash',
+                            'paypal': 'PayPal'
+                          };
+                          return methodNames[stat.method] || stat.method;
+                        }),
+                        datasets: [
+                          {
+                            data: analytics.paymentMethodStats.map(stat => stat.count),
+                            backgroundColor: [
+                              'rgba(99, 102, 241, 0.8)',
+                              'rgba(34, 197, 94, 0.8)',
+                              'rgba(251, 191, 36, 0.8)',
+                              'rgba(239, 68, 68, 0.8)',
+                              'rgba(168, 85, 247, 0.8)',
+                            ],
+                            borderColor: [
+                              'rgb(99, 102, 241)',
+                              'rgb(34, 197, 94)',
+                              'rgb(251, 191, 36)',
+                              'rgb(239, 68, 68)',
+                              'rgb(168, 85, 247)',
+                            ],
+                            borderWidth: 2,
+                          },
+                        ],
+                      }}
+                      options={{
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                          legend: {
+                            position: 'right',
+                            labels: {
+                              padding: 20,
+                              usePointStyle: true,
+                              font: {
+                                size: 12,
+                              },
+                            },
+                          },
+                          tooltip: {
+                            backgroundColor: 'rgba(17, 24, 39, 0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff',
+                            callbacks: {
+                              label: function(context) {
+                                const stat = analytics.paymentMethodStats[context.dataIndex];
+                                return `${context.label}: ${stat.count} payments ($${stat.totalAmount})`;
+                              }
+                            }
+                          },
+                        },
+                      }}
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <h4 className="text-lg font-medium text-gray-900">Payment Method Details</h4>
+                  {analytics.paymentMethodStats.map((stat, index) => {
+                    const methodNames: { [key: string]: string } = {
+                      'promo_code': 'Promo Code',
+                      'credit_card': 'Credit Card',
+                      'easypaisa': 'Easypaisa',
+                      'jazz_cash': 'Jazz Cash',
+                      'paypal': 'PayPal'
+                    };
+                    const colors = [
+                      'bg-indigo-500',
+                      'bg-green-500',
+                      'bg-yellow-500',
+                      'bg-red-500',
+                      'bg-purple-500',
+                    ];
+                    
+                    return (
+                      <div key={stat.method} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center space-x-3">
+                          <div className={`w-4 h-4 rounded-full ${colors[index % colors.length]}`}></div>
+                          <span className="font-medium text-gray-900">
+                            {methodNames[stat.method] || stat.method}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-gray-900">{stat.count} payments</p>
+                          <p className="text-sm text-gray-500">${stat.totalAmount}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Platform Statistics */}
+            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+              <h3 className="text-xl font-semibold text-gray-900 mb-6">Platform Statistics</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl">
+                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Users className="w-6 h-6 text-white" />
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{analytics.activeUsers}</p>
+                  <p className="text-sm text-gray-600">Active Users</p>
+                  <p className="text-xs text-blue-600 mt-1">Last 30 days</p>
+                </div>
+                
+                <div className="text-center p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-xl">
+                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <CreditCard className="w-6 h-6 text-white" />
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{analytics.paymentsThisMonth}</p>
+                  <p className="text-sm text-gray-600">Payments</p>
+                  <p className="text-xs text-green-600 mt-1">This month</p>
+                </div>
+                
+                <div className="text-center p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-3">
+                    <Target className="w-6 h-6 text-white" />
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900">{analytics.activePromoCodes}</p>
+                  <p className="text-sm text-gray-600">Active Promo Codes</p>
+                  <p className="text-xs text-purple-600 mt-1">Currently available</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'settings' && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            {/* Settings Header */}
+            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-900">Platform Settings</h3>
+                  <p className="text-gray-600 mt-1">Configure your platform preferences and security settings</p>
+                </div>
+                <div className="flex space-x-3">
+                  <button 
+                    onClick={handleResetSettings}
+                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors flex items-center space-x-2"
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>Reset</span>
+                  </button>
+                  <button 
+                    onClick={handleSaveSettings}
+                    disabled={settingsLoading}
+                    className="px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center space-x-2 disabled:opacity-50"
+                  >
+                    {settingsLoading ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    <span>{settingsLoading ? 'Saving...' : 'Save Settings'}</span>
+                  </button>
+                </div>
+              </div>
+              {settingsSaved && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center space-x-2">
+                  <CheckCircle className="w-5 h-5 text-green-600" />
+                  <span className="text-green-800">Settings saved successfully!</span>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* General Settings */}
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                    <Globe className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900">General Settings</h4>
+                    <p className="text-sm text-gray-500">Basic platform configuration</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Platform Name</label>
+                    <input 
+                      type="text" 
+                      value={settings.general.platformName}
+                      onChange={(e) => handleSettingsChange('general', 'platformName', e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Platform Description</label>
+                    <textarea 
+                      value={settings.general.description}
+                      onChange={(e) => handleSettingsChange('general', 'description', e.target.value)}
+                      rows={3}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Default Currency</label>
+                      <select 
+                        value={settings.general.defaultCurrency}
+                        onChange={(e) => handleSettingsChange('general', 'defaultCurrency', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="GBP">GBP (£)</option>
+                        <option value="PKR">PKR (₨)</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Timezone</label>
+                      <select 
+                        value={settings.general.timezone}
+                        onChange={(e) => handleSettingsChange('general', 'timezone', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="UTC">UTC</option>
+                        <option value="America/New_York">EST</option>
+                        <option value="Europe/London">GMT</option>
+                        <option value="Asia/Karachi">PKT</option>
+                      </select>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-gray-900">Maintenance Mode</p>
+                      <p className="text-sm text-gray-500">Temporarily disable platform access</p>
+                    </div>
+                    <button 
+                      onClick={() => handleSettingsChange('general', 'maintenanceMode', !settings.general.maintenanceMode)}
+                      className={`w-12 h-6 rounded-full relative transition-colors ${settings.general.maintenanceMode ? 'bg-red-600' : 'bg-gray-200'}`}
+                    >
+                      <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.general.maintenanceMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Security Settings */}
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center">
+                    <Shield className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900">Security Settings</h4>
+                    <p className="text-sm text-gray-500">Platform security configuration</p>
+                  </div>
+                </div>
+                
+                {/* Security Status Indicator */}
+                <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        settings.security.twoFactorAuth && 
+                        settings.security.sessionTimeout <= 60 && 
+                        settings.security.passwordPolicy.minLength >= 8 && 
+                        settings.security.passwordPolicy.requireUppercase && 
+                        settings.security.passwordPolicy.requireNumbers &&
+                        settings.security.loginAttempts <= 5
+                          ? 'bg-green-500' 
+                          : settings.security.twoFactorAuth || 
+                            (settings.security.passwordPolicy.minLength >= 8 && 
+                             settings.security.passwordPolicy.requireUppercase)
+                            ? 'bg-yellow-500' 
+                            : 'bg-red-500'
+                      }`}></div>
+                      <div>
+                        <p className="font-medium text-gray-900">Security Status</p>
+                        <p className="text-xs text-gray-600">
+                          {settings.security.twoFactorAuth && 
+                           settings.security.sessionTimeout <= 60 && 
+                           settings.security.passwordPolicy.minLength >= 8 && 
+                           settings.security.passwordPolicy.requireUppercase && 
+                           settings.security.passwordPolicy.requireNumbers &&
+                           settings.security.loginAttempts <= 5
+                            ? 'Excellent - All security measures enabled'
+                            : settings.security.twoFactorAuth || 
+                              (settings.security.passwordPolicy.minLength >= 8 && 
+                               settings.security.passwordPolicy.requireUppercase)
+                              ? 'Good - Some security measures enabled'
+                              : 'Needs Improvement - Basic security only'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-gray-700">Security Score</div>
+                      <div className={`text-lg font-bold ${
+                        settings.security.twoFactorAuth && 
+                        settings.security.sessionTimeout <= 60 && 
+                        settings.security.passwordPolicy.minLength >= 8 && 
+                        settings.security.passwordPolicy.requireUppercase && 
+                        settings.security.passwordPolicy.requireNumbers &&
+                        settings.security.loginAttempts <= 5
+                          ? 'text-green-600' 
+                          : settings.security.twoFactorAuth || 
+                            (settings.security.passwordPolicy.minLength >= 8 && 
+                             settings.security.passwordPolicy.requireUppercase)
+                            ? 'text-yellow-600' 
+                            : 'text-red-600'
+                      }`}>
+                        {(() => {
+                          let score = 0;
+                          if (settings.security.twoFactorAuth) score += 25;
+                          if (settings.security.sessionTimeout <= 60) score += 15;
+                          if (settings.security.passwordPolicy.minLength >= 8) score += 20;
+                          if (settings.security.passwordPolicy.requireUppercase) score += 15;
+                          if (settings.security.passwordPolicy.requireNumbers) score += 15;
+                          if (settings.security.loginAttempts <= 5) score += 10;
+                          return score;
+                        })()}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                    <div className="flex items-center justify-between mb-3">
+                      <div>
+                        <p className="font-medium text-gray-900">Two-Factor Authentication</p>
+                        <p className="text-sm text-gray-500">Enhanced security for your admin account</p>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className={`text-xs px-2 py-1 rounded-full ${
+                          userTwoFactorEnabled 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {userTwoFactorEnabled ? 'Enabled' : 'Disabled'}
+                        </span>
+                        <button 
+                          onClick={() => {
+                            if (userTwoFactorEnabled) {
+                              setTwoFactorStep('disable');
+                              setShowTwoFactorModal(true);
+                            } else {
+                              setTwoFactorStep('setup');
+                              setShowTwoFactorModal(true);
+                              handleTwoFactorSetup();
+                            }
+                          }}
+                          className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
+                            userTwoFactorEnabled
+                              ? 'bg-red-100 text-red-700 hover:bg-red-200'
+                              : 'bg-green-100 text-green-700 hover:bg-green-200'
+                          }`}
+                        >
+                          {userTwoFactorEnabled ? 'Disable' : 'Setup'}
+                        </button>
+                      </div>
+                    </div>
+                    {userTwoFactorEnabled && (
+                      <div className="text-xs text-green-600 flex items-center space-x-1">
+                        <Shield className="w-3 h-3" />
+                        <span>Your account is protected with 2FA</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Session Timeout (minutes)</label>
+                    <select 
+                      value={settings.security.sessionTimeout}
+                      onChange={(e) => handleSettingsChange('security', 'sessionTimeout', parseInt(e.target.value))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value={15}>15 minutes</option>
+                      <option value={30}>30 minutes</option>
+                      <option value={60}>1 hour</option>
+                      <option value={120}>2 hours</option>
+                      <option value={480}>8 hours</option>
+                    </select>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Max Login Attempts</label>
+                      <input 
+                        type="number" 
+                        value={settings.security.loginAttempts}
+                        onChange={(e) => handleSettingsChange('security', 'loginAttempts', parseInt(e.target.value))}
+                        min="3" max="10"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Lock Duration (min)</label>
+                      <input 
+                        type="number" 
+                        value={settings.security.accountLockDuration}
+                        onChange={(e) => handleSettingsChange('security', 'accountLockDuration', parseInt(e.target.value))}
+                        min="5" max="1440"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-3">Password Policy</label>
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">Minimum length: {settings.security.passwordPolicy.minLength}</span>
+                        <input 
+                          type="range" 
+                          min="6" max="20" 
+                          value={settings.security.passwordPolicy.minLength}
+                          onChange={(e) => handleNestedSettingsChange('security', 'passwordPolicy', 'minLength', parseInt(e.target.value))}
+                          className="w-20"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 text-sm">
+                        <label className="flex items-center space-x-2">
+                          <input 
+                            type="checkbox" 
+                            checked={settings.security.passwordPolicy.requireUppercase}
+                            onChange={(e) => handleNestedSettingsChange('security', 'passwordPolicy', 'requireUppercase', e.target.checked)}
+                            className="rounded border-gray-300"
+                          />
+                          <span>Uppercase letters</span>
+                        </label>
+                        
+                        <label className="flex items-center space-x-2">
+                          <input 
+                            type="checkbox" 
+                            checked={settings.security.passwordPolicy.requireNumbers}
+                            onChange={(e) => handleNestedSettingsChange('security', 'passwordPolicy', 'requireNumbers', e.target.checked)}
+                            className="rounded border-gray-300"
+                          />
+                          <span>Numbers</span>
+                        </label>
+                        
+                        <label className="flex items-center space-x-2 col-span-2">
+                          <input 
+                            type="checkbox" 
+                            checked={settings.security.passwordPolicy.requireSymbols}
+                            onChange={(e) => handleNestedSettingsChange('security', 'passwordPolicy', 'requireSymbols', e.target.checked)}
+                            className="rounded border-gray-300"
+                          />
+                          <span>Special characters (!@#$%^&*)</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Notification Settings */}
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
+                    <Bell className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900">Notifications</h4>
+                    <p className="text-sm text-gray-500">Communication preferences</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  {[
+                    { key: 'emailNotifications', label: 'Email Notifications', desc: 'Send email alerts for events', icon: Mail },
+                    { key: 'smsNotifications', label: 'SMS Notifications', desc: 'Send SMS for critical alerts', icon: Smartphone },
+                    { key: 'pushNotifications', label: 'Push Notifications', desc: 'Browser push notifications', icon: Zap },
+                    { key: 'newUserRegistration', label: 'New User Alerts', desc: 'Notify when users register', icon: UserCheck },
+                    { key: 'paymentReceived', label: 'Payment Alerts', desc: 'Notify on successful payments', icon: DollarSign },
+                    { key: 'systemAlerts', label: 'System Alerts', desc: 'Critical system notifications', icon: AlertTriangle },
+                  ].map(({ key, label, desc, icon: Icon }) => (
+                    <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <Icon className="w-5 h-5 text-gray-600" />
+                        <div>
+                          <p className="font-medium text-gray-900">{label}</p>
+                          <p className="text-sm text-gray-500">{desc}</p>
+                        </div>
+                      </div>
+                      <button 
+                        onClick={() => handleSettingsChange('notifications', key, !settings.notifications[key as keyof typeof settings.notifications])}
+                        className={`w-12 h-6 rounded-full relative transition-colors ${settings.notifications[key as keyof typeof settings.notifications] ? 'bg-blue-600' : 'bg-gray-200'}`}
+                      >
+                        <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.notifications[key as keyof typeof settings.notifications] ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Payment Settings */}
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
+                    <CreditCard className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900">Payment Settings</h4>
+                    <p className="text-sm text-gray-500">Payment gateway configuration</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Payment Currency</label>
+                      <select 
+                        value={settings.payments.currency}
+                        onChange={(e) => handleSettingsChange('payments', 'currency', e.target.value)}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="USD">USD ($)</option>
+                        <option value="EUR">EUR (€)</option>
+                        <option value="GBP">GBP (£)</option>
+                        <option value="PKR">PKR (₨)</option>
+                      </select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Tax Rate (%)</label>
+                      <input 
+                        type="number" 
+                        value={settings.payments.taxRate}
+                        onChange={(e) => handleSettingsChange('payments', 'taxRate', parseFloat(e.target.value))}
+                        min="0" max="50" step="0.1"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <label className="block text-sm font-medium text-gray-700">Payment Methods</label>
+                    {[
+                      { key: 'stripeEnabled', label: 'Stripe (Credit Cards)' },
+                      { key: 'paypalEnabled', label: 'PayPal' },
+                      { key: 'easypaisaEnabled', label: 'Easypaisa' },
+                      { key: 'jazzCashEnabled', label: 'JazzCash' },
+                      { key: 'promoCodesEnabled', label: 'Promo Codes' },
+                    ].map(({ key, label }) => (
+                      <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <span className="font-medium text-gray-900">{label}</span>
+                        <button 
+                          onClick={() => handleSettingsChange('payments', key, !settings.payments[key as keyof typeof settings.payments])}
+                          className={`w-12 h-6 rounded-full relative transition-colors ${settings.payments[key as keyof typeof settings.payments] ? 'bg-green-600' : 'bg-gray-200'}`}
+                        >
+                          <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.payments[key as keyof typeof settings.payments] ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Email Configuration */}
+              <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+                <div className="flex items-center space-x-3 mb-6">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+                    <Mail className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-semibold text-gray-900">Email Configuration</h4>
+                    <p className="text-sm text-gray-500">SMTP settings for email notifications</p>
+                  </div>
+                </div>
+
+                {/* Email Status Indicator */}
+                <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border border-blue-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        settings.email.smtpHost && settings.email.smtpUser && settings.email.smtpPassword
+                          ? 'bg-green-500' 
+                          : 'bg-red-500'
+                      }`}></div>
+                      <div>
+                        <p className="font-medium text-gray-900">Email Status</p>
+                        <p className="text-xs text-gray-600">
+                          {settings.email.smtpHost && settings.email.smtpUser && settings.email.smtpPassword
+                            ? 'Configured - Email notifications enabled'
+                            : 'Not Configured - Email notifications disabled'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-gray-700">Status</div>
+                      <div className={`text-lg font-bold ${
+                        settings.email.smtpHost && settings.email.smtpUser && settings.email.smtpPassword
+                          ? 'text-green-600' 
+                          : 'text-red-600'
+                      }`}>
+                        {settings.email.smtpHost && settings.email.smtpUser && settings.email.smtpPassword ? 'Active' : 'Inactive'}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">SMTP Host</label>
+                      <input 
+                        type="text" 
+                        value={settings.email.smtpHost || ''}
+                        onChange={(e) => handleSettingsChange('email', 'smtpHost', e.target.value)}
+                        placeholder="smtp.gmail.com"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">SMTP Port</label>
+                      <select 
+                        value={settings.email.smtpPort || 587}
+                        onChange={(e) => handleSettingsChange('email', 'smtpPort', parseInt(e.target.value))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value={25}>25 (Non-SSL)</option>
+                        <option value={587}>587 (TLS)</option>
+                        <option value={465}>465 (SSL)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">SMTP Username</label>
+                      <input 
+                        type="text" 
+                        value={settings.email.smtpUser || ''}
+                        onChange={(e) => handleSettingsChange('email', 'smtpUser', e.target.value)}
+                        placeholder="your-email@gmail.com"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">SMTP Password</label>
+                      <input 
+                        type="password" 
+                        value={settings.email.smtpPassword || ''}
+                        onChange={(e) => handleSettingsChange('email', 'smtpPassword', e.target.value)}
+                        placeholder="your-app-password"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">From Email</label>
+                      <input 
+                        type="email" 
+                        value={settings.email.fromEmail || ''}
+                        onChange={(e) => handleSettingsChange('email', 'fromEmail', e.target.value)}
+                        placeholder="noreply@yourdomain.com"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">From Name</label>
+                      <input 
+                        type="text" 
+                        value={settings.email.fromName || ''}
+                        onChange={(e) => handleSettingsChange('email', 'fromName', e.target.value)}
+                        placeholder="Your Platform Name"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                      <p className="font-medium text-gray-900">Test Email Configuration</p>
+                      <p className="text-sm text-gray-500">Verify your SMTP settings work correctly</p>
+                    </div>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={checkEmailConfiguration}
+                        className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors flex items-center space-x-2"
+                      >
+                        <Server className="w-4 h-4" />
+                        <span>Test Config</span>
+                      </button>
+                      <button 
+                        onClick={() => setActiveTab('notifications')}
+                        className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors flex items-center space-x-2"
+                      >
+                        <Mail className="w-4 h-4" />
+                        <span>Test Email</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* SMTP Settings Status */}
+                  <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-blue-900">SMTP Settings Status</p>
+                        <p className="text-sm text-blue-600">
+                          {settings.email.smtpHost && settings.email.smtpUser && settings.email.smtpPassword 
+                            ? '✅ Configuration complete - emails will be sent automatically'
+                            : '⚠️ Configuration incomplete - fill in all required fields'
+                          }
+                        </p>
+                      </div>
+                      <div className="text-xs text-blue-500">
+                        <p>Settings are saved automatically</p>
+                        <p>Email transporter refreshes automatically</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </div>
+
+      {/* User Modal */}
+      {showUserModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">
+                {editingUser ? 'Edit User' : 'Add New User'}
+              </h3>
+              <button 
+                onClick={() => setShowUserModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); editingUser ? handleUpdateUser() : handleCreateUser(); }}>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">First Name</label>
+                    <input
+                      type="text"
+                      value={userForm.firstName}
+                      onChange={(e) => setUserForm(prev => ({ ...prev, firstName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Last Name</label>
+                    <input
+                      type="text"
+                      value={userForm.lastName}
+                      onChange={(e) => setUserForm(prev => ({ ...prev, lastName: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <input
+                    type="email"
+                    value={userForm.email}
+                    onChange={(e) => setUserForm(prev => ({ ...prev, email: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Password {editingUser && '(leave empty to keep current)'}
+                  </label>
+                  <input
+                    type="password"
+                    value={userForm.password}
+                    onChange={(e) => setUserForm(prev => ({ ...prev, password: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required={!editingUser}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                    <input
+                      type="tel"
+                      value={userForm.phone}
+                      onChange={(e) => setUserForm(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Country</label>
+                    <input
+                      type="text"
+                      value={userForm.country}
+                      onChange={(e) => setUserForm(prev => ({ ...prev, country: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                  <select
+                    value={userForm.role}
+                    onChange={(e) => setUserForm(prev => ({ ...prev, role: e.target.value as 'admin' | 'instructor' | 'student' }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="student">Student</option>
+                    <option value="instructor">Instructor</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center space-x-6">
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="isActive"
+                      checked={userForm.isActive}
+                      onChange={(e) => setUserForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">Active</label>
+                  </div>
+                  <div className="flex items-center">
+                    <input
+                      type="checkbox"
+                      id="isVerified"
+                      checked={userForm.isVerified}
+                      onChange={(e) => setUserForm(prev => ({ ...prev, isVerified: e.target.checked }))}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="isVerified" className="ml-2 text-sm text-gray-700">Verified</label>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowUserModal(false)}
+                  className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
+                >
+                  {editingUser ? 'Update User' : 'Create User'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && userToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete User</h3>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete <strong>{userToDelete.firstName} {userToDelete.lastName}</strong>? 
+                This action cannot be undone.
+              </p>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteUser}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Details Modal */}
+      {showPaymentModal && selectedPayment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">Payment Details</h3>
+              <button 
+                onClick={() => setShowPaymentModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Payment ID</label>
+                  <p className="text-gray-900">{selectedPayment._id}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                    selectedPayment.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    selectedPayment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                    'bg-red-100 text-red-800'
+                  }`}>
+                    {selectedPayment.status.charAt(0).toUpperCase() + selectedPayment.status.slice(1)}
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">User</label>
+                  <p className="text-gray-900">{selectedPayment.user.firstName} {selectedPayment.user.lastName}</p>
+                  <p className="text-sm text-gray-500">{selectedPayment.user.email}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                  <p className="text-gray-900 font-semibold">${selectedPayment.amount} {selectedPayment.currency}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
+                  <p className="text-gray-900 capitalize">{selectedPayment.paymentMethod}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
+                  <p className="text-gray-900">{new Date(selectedPayment.createdAt).toLocaleString()}</p>
+                </div>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowPaymentModal(false)}
+                  className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Close
+                </button>
+                {selectedPayment.status === 'pending' && (
+                  <button
+                    onClick={() => {
+                      handleUpdatePaymentStatus(selectedPayment._id, 'completed');
+                      setShowPaymentModal(false);
+                    }}
+                    className="flex-1 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200"
+                  >
+                    Mark as Completed
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Promo Code Modal */}
+      {showPromoModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900">
+                {editingPromo ? 'Edit Promo Code' : 'Create Promo Code'}
+              </h3>
+              <button 
+                onClick={() => setShowPromoModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); editingPromo ? handleUpdatePromoCode() : handleCreatePromoCode(); }}>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Promo Code</label>
+                  <input
+                    type="text"
+                    value={promoForm.code}
+                    onChange={(e) => setPromoForm(prev => ({ ...prev, code: e.target.value.toUpperCase() }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="e.g., SAVE20"
+                    required
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Discount Type</label>
+                    <select
+                      value={promoForm.discountType}
+                      onChange={(e) => setPromoForm(prev => ({ ...prev, discountType: e.target.value as 'percentage' | 'fixed' }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="percentage">Percentage</option>
+                      <option value="fixed">Fixed Amount</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      {promoForm.discountType === 'percentage' ? 'Percentage' : 'Amount ($)'}
+                    </label>
+                    <input
+                      type="number"
+                      value={promoForm.discountValue}
+                      onChange={(e) => setPromoForm(prev => ({ ...prev, discountValue: Number(e.target.value) }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      min="0"
+                      max={promoForm.discountType === 'percentage' ? "100" : undefined}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Max Uses</label>
+                    <input
+                      type="number"
+                      value={promoForm.maxUses}
+                      onChange={(e) => setPromoForm(prev => ({ ...prev, maxUses: Number(e.target.value) }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      min="1"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Date</label>
+                    <input
+                      type="date"
+                      value={promoForm.expiresAt}
+                      onChange={(e) => setPromoForm(prev => ({ ...prev, expiresAt: e.target.value }))}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Description</label>
+                  <textarea
+                    value={promoForm.description}
+                    onChange={(e) => setPromoForm(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    rows={3}
+                    placeholder="Optional description..."
+                  />
+                </div>
+
+                <div className="flex items-center">
+                  <input
+                    type="checkbox"
+                    id="isActive"
+                    checked={promoForm.isActive}
+                    onChange={(e) => setPromoForm(prev => ({ ...prev, isActive: e.target.checked }))}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="isActive" className="ml-2 text-sm text-gray-700">Active</label>
+                </div>
+              </div>
+
+              <div className="flex space-x-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => setShowPromoModal(false)}
+                  className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200"
+                >
+                  {editingPromo ? 'Update Code' : 'Create Code'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Promo Code Delete Confirmation */}
+      {showPromoDeleteConfirm && promoToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete Promo Code</h3>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete promo code <strong>{promoToDelete.code}</strong>? 
+                This action cannot be undone.
+              </p>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowPromoDeleteConfirm(false)}
+                  className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeletePromoCode}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+              )}
+
+                 {activeTab === 'notifications' && (
+           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="admin-notifications mx-auto w-[64%]">
+             {/* Page Header */}
+            <div className="bg-white rounded-2xl p-8 border border-gray-200 shadow-lg">
+              <div className="flex justify-between items-start">
+                <div>
+                  <h1 className="text-3xl font-bold text-gray-900">Notification Center</h1>
+                  <p className="text-gray-600 mt-2">Manage email notifications, test configurations, and send bulk notifications</p>
+                </div>
+                <div className="bg-blue-50 p-3 rounded-xl">
+                  <Mail className="w-8 h-8 text-blue-600" />
+                </div>
+              </div>
+            </div>
+
+            {/* Notification Statistics */}
+            {notificationStats && (
+              <div className="notification-stats-grid">
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-600">Total Users</p>
+                      <p className="text-2xl font-bold text-gray-900 mt-2">{notificationStats.users.total}</p>
+                    </div>
+                    <div className="bg-blue-50 p-3 rounded-xl ml-4 flex-shrink-0">
+                      <Users className="w-6 h-6 text-blue-600" />
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <div className="flex justify-between text-sm text-gray-500">
+                      <span>Admin: {notificationStats.users.byRole?.admin || 0}</span>
+                      <span>Students: {notificationStats.users.byRole?.student || 0}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-600">Email Enabled</p>
+                      <p className="text-2xl font-bold text-green-600 mt-2">{notificationStats.users.emailEnabled}</p>
+                    </div>
+                    <div className="bg-green-50 p-3 rounded-xl ml-4 flex-shrink-0">
+                      <Mail className="w-6 h-6 text-green-600" />
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <p className="text-sm text-gray-500">
+                      {Math.round((notificationStats.users.emailEnabled / notificationStats.users.total) * 100)}% of users
+                    </p>
+                  </div>
+                </div>
+
+                <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg hover:shadow-xl transition-all duration-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-600">SMS Capable</p>
+                      <p className="text-2xl font-bold text-purple-600 mt-2">{notificationStats.users.smsCapable}</p>
+                    </div>
+                    <div className="bg-purple-50 p-3 rounded-xl ml-4 flex-shrink-0">
+                      <Smartphone className="w-6 h-6 text-purple-600" />
+                    </div>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-gray-100">
+                    <p className="text-sm text-gray-500">
+                      {Math.round((notificationStats.users.smsCapable / notificationStats.users.total) * 100)}% have phone
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SMTP Configuration Section */}
+            <div className="notification-section">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Email Server Configuration</h3>
+                  <p className="text-gray-600 mt-1">Configure SMTP settings for sending email notifications</p>
+                </div>
+                <div className="flex items-center space-x-3">
+                  {/* Email Status Indicator */}
+                  <div className="flex items-center space-x-3 px-4 py-2 bg-gray-50 rounded-lg">
+                    <div className={`w-3 h-3 rounded-full ${
+                      settings.email.smtpHost && settings.email.smtpUser && settings.email.smtpPassword
+                        ? 'bg-green-500' 
+                        : 'bg-red-500'
+                    }`}></div>
+                    <span className={`text-sm font-medium ${
+                      settings.email.smtpHost && settings.email.smtpUser && settings.email.smtpPassword
+                        ? 'text-green-700' 
+                        : 'text-red-700'
+                    }`}>
+                      {settings.email.smtpHost && settings.email.smtpUser && settings.email.smtpPassword ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  
+                  <button
+                    onClick={() => setShowSmtpConfig(!showSmtpConfig)}
+                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center space-x-2"
+                  >
+                    {showSmtpConfig ? (
+                      <>
+                        <X className="w-4 h-4" />
+                        <span>Hide Config</span>
+                      </>
+                    ) : (
+                      <>
+                        <Server className="w-4 h-4" />
+                        <span>Configure SMTP</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Collapsible SMTP Configuration */}
+              {showSmtpConfig && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }} 
+                  animate={{ opacity: 1, height: 'auto' }} 
+                  exit={{ opacity: 0, height: 0 }}
+                  className="space-y-6 overflow-hidden"
+                >
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">SMTP Host</label>
+                    <input 
+                      type="text" 
+                      value={settings.email.smtpHost || ''}
+                      onChange={(e) => handleSettingsChange('email', 'smtpHost', e.target.value)}
+                      placeholder="smtp.gmail.com"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">SMTP Port</label>
+                    <select 
+                      value={settings.email.smtpPort || 587}
+                      onChange={(e) => handleSettingsChange('email', 'smtpPort', parseInt(e.target.value))}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value={25}>25 (Non-SSL)</option>
+                      <option value={587}>587 (TLS) - Recommended</option>
+                      <option value={465}>465 (SSL)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">SMTP Username</label>
+                    <input 
+                      type="text" 
+                      value={settings.email.smtpUser || ''}
+                      onChange={(e) => handleSettingsChange('email', 'smtpUser', e.target.value)}
+                      placeholder="your-email@gmail.com"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">SMTP Password</label>
+                    <input 
+                      type="password" 
+                      value={settings.email.smtpPassword || ''}
+                      onChange={(e) => handleSettingsChange('email', 'smtpPassword', e.target.value)}
+                      placeholder="your-app-password"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">From Email</label>
+                    <input 
+                      type="email" 
+                      value={settings.email.fromEmail || ''}
+                      onChange={(e) => handleSettingsChange('email', 'fromEmail', e.target.value)}
+                      placeholder="noreply@yourdomain.com"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">From Name</label>
+                    <input 
+                      type="text" 
+                      value={settings.email.fromName || ''}
+                      onChange={(e) => handleSettingsChange('email', 'fromName', e.target.value)}
+                      placeholder="Forex Navigators"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
+                  <div>
+                    <p className="font-medium text-gray-900">Save & Test Configuration</p>
+                    <p className="text-sm text-gray-500">Save your SMTP settings and test the connection</p>
+                  </div>
+                  <div className="flex space-x-3">
+                    <button 
+                      onClick={handleSaveSettings}
+                      disabled={settingsLoading}
+                      className="px-6 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 disabled:opacity-50 flex items-center justify-center space-x-2"
+                    >
+                      {settingsLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span>Save Settings</span>
+                        </>
+                      )}
+                    </button>
+                    <button 
+                      onClick={checkEmailConfiguration}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 flex items-center justify-center space-x-2"
+                    >
+                      <Server className="w-4 h-4" />
+                      <span>Test Connection</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Setup Guide */}
+                <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
+                  <h4 className="font-semibold text-blue-900 mb-3 flex items-center space-x-2">
+                    <Server className="w-5 h-5" />
+                    <span>Quick Setup Guide</span>
+                  </h4>
+                  <div className="space-y-3 text-sm text-blue-800">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <p className="font-medium mb-2">📧 Gmail Setup:</p>
+                        <ul className="space-y-1 text-xs">
+                          <li>• Host: <code className="bg-blue-100 px-1 rounded">smtp.gmail.com</code></li>
+                          <li>• Port: <code className="bg-blue-100 px-1 rounded">587</code></li>
+                          <li>• Username: your Gmail address</li>
+                          <li>• Password: App Password (not regular password)</li>
+                        </ul>
+                      </div>
+                      <div>
+                        <p className="font-medium mb-2">🔧 How to get Gmail App Password:</p>
+                        <ul className="space-y-1 text-xs">
+                          <li>1. Enable 2FA on Google Account</li>
+                          <li>2. Go to Security → App passwords</li>
+                          <li>3. Generate password for "Mail"</li>
+                          <li>4. Use the 16-character password</li>
+                        </ul>
+                      </div>
+                    </div>
+                    <div className="pt-2 border-t border-blue-200">
+                      <p className="font-medium">💡 Other Providers:</p>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-2 text-xs mt-1">
+                        <span><strong>Outlook:</strong> smtp-mail.outlook.com:587</span>
+                        <span><strong>Yahoo:</strong> smtp.mail.yahoo.com:587</span>
+                        <span><strong>Custom:</strong> smtp.yourdomain.com:587</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+            </div>
+
+            {/* Email Test Section */}
+            <div className="notification-section">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Test Email Configuration</h3>
+                  <p className="text-gray-600 mt-1">Send a test email to verify your SMTP settings</p>
+                </div>
+                <div className="bg-yellow-50 p-3 rounded-xl">
+                  <Zap className="w-6 h-6 text-yellow-600" />
+                </div>
+              </div>
+
+              <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
+                <div className="flex-1">
+                  <input
+                    type="email"
+                    placeholder="Enter test email address"
+                    value={testEmail}
+                    onChange={(e) => setTestEmail(e.target.value)}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+                <button
+                  onClick={handleTestEmail}
+                  disabled={!testEmail || isTestingEmail || !settings.email.smtpHost || !settings.email.smtpUser || !settings.email.smtpPassword}
+                  className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                >
+                  {isTestingEmail ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4" />
+                      <span>Send Test Email</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Email Templates Section */}
+            <div className="notification-section">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Email Templates</h3>
+                  <p className="text-gray-600 mt-1">Send professional emails using pre-built templates</p>
+                </div>
+                <div className="bg-indigo-50 p-3 rounded-xl">
+                  <FileText className="w-6 h-6 text-indigo-600" />
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                {/* Template Selection */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Template</label>
+                    <select
+                      value={selectedTemplate}
+                      onChange={(e) => {
+                        setSelectedTemplate(e.target.value);
+                        setTemplateVariables({}); // Reset variables when template changes
+                      }}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="">Choose a template...</option>
+                      <optgroup label="User Management">
+                        <option value="welcome">Welcome Email</option>
+                        <option value="passwordReset">Password Reset</option>
+                        <option value="accountVerification">Account Verification</option>
+                      </optgroup>
+                      <optgroup label="Course Related">
+                        <option value="courseEnrollment">Course Enrollment</option>
+                        <option value="courseCompletion">Course Completion</option>
+                      </optgroup>
+                      <optgroup label="Payment">
+                        <option value="paymentSuccess">Payment Success</option>
+                        <option value="paymentFailed">Payment Failed</option>
+                      </optgroup>
+                      <optgroup label="System">
+                        <option value="maintenanceNotice">Maintenance Notice</option>
+                        <option value="systemAlert">System Alert</option>
+                      </optgroup>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Target Audience</label>
+                    <select
+                      value={templateAudience}
+                      onChange={(e) => setTemplateAudience(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="all">All Users</option>
+                      <option value="admin">Admins Only</option>
+                      <option value="student">Students Only</option>
+                      <option value="instructor">Instructors Only</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Template Preview */}
+                {selectedTemplate && emailTemplates && emailTemplates[selectedTemplate] && (
+                  <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                    <h4 className="font-semibold text-gray-900 mb-3">Template Preview: {emailTemplates[selectedTemplate].name}</h4>
+                    <p className="text-sm text-gray-600 mb-2">{emailTemplates[selectedTemplate].description}</p>
+                    <div className="text-xs text-gray-500">
+                      <strong>Variables:</strong> {emailTemplates[selectedTemplate].variables.join(', ')}
+                    </div>
+                  </div>
+                )}
+
+                {/* Template Variables */}
+                {selectedTemplate && emailTemplates && emailTemplates[selectedTemplate] && (
+                  <div className="space-y-4">
+                    <h4 className="font-semibold text-gray-900">Template Variables</h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {emailTemplates[selectedTemplate].variables.map((variable) => (
+                        <div key={variable}>
+                          <label className="block text-sm font-medium text-gray-700 mb-2">
+                            {variable.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}
+                          </label>
+                          <input
+                            type="text"
+                            value={templateVariables[variable] || ''}
+                            onChange={(e) => setTemplateVariables(prev => ({ ...prev, [variable]: e.target.value }))}
+                            placeholder={`Enter ${variable}`}
+                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Send Template Button */}
+                {selectedTemplate && (
+                  <div className="flex items-center justify-between p-4 bg-blue-50 rounded-xl border border-blue-200">
+                    <div>
+                      <p className="font-medium text-blue-900">Send Template Email</p>
+                      <p className="text-sm text-blue-600">Send professional emails using the selected template</p>
+                    </div>
+                    <button
+                      onClick={handleSendTemplateEmail}
+                      disabled={!selectedTemplate || isSendingTemplate}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+                    >
+                      {isSendingTemplate ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Sending...</span>
+                        </>
+                      ) : (
+                        <>
+                          <FileText className="w-4 h-4" />
+                          <span>Send Template Email</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {/* Divider */}
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-300" />
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="px-2 bg-white text-gray-500">OR</span>
+                  </div>
+                </div>
+
+                {/* Send to Specific User */}
+                <div className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                  <h4 className="font-semibold text-green-900 mb-4 flex items-center">
+                    <User className="w-5 h-5 mr-2" />
+                    Send Email to Specific User
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">User Email</label>
+                      <input
+                        type="email"
+                        value={specificUserEmail}
+                        onChange={(e) => setSpecificUserEmail(e.target.value)}
+                        placeholder="user@example.com"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Subject</label>
+                      <input
+                        type="text"
+                        value={specificUserSubject}
+                        onChange={(e) => setSpecificUserSubject(e.target.value)}
+                        placeholder="Email subject..."
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                    <textarea
+                      value={specificUserMessage}
+                      onChange={(e) => setSpecificUserMessage(e.target.value)}
+                      placeholder="Enter your message..."
+                      rows={4}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent resize-none"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleSendToSpecificUser}
+                    disabled={!specificUserEmail || !specificUserSubject || !specificUserMessage.trim() || isSendingSpecificUser}
+                    className="w-full px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    {isSendingSpecificUser ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        <span>Sending...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-4 h-4" />
+                        <span>Send to User</span>
+                      </>
+                      )}
+                  </button>
+                </div>
+
+                {/* Custom Template Creator */}
+                <div className="p-6 bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl border border-purple-200">
+                  <h4 className="font-semibold text-purple-900 mb-4 flex items-center">
+                    <Plus className="w-5 h-5 mr-2" />
+                    Create Custom Template
+                  </h4>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Template Name</label>
+                      <input
+                        type="text"
+                        value={customTemplate.name}
+                        onChange={(e) => setCustomTemplate(prev => ({ ...prev, name: e.target.value }))}
+                        placeholder="e.g., Course Update Notice"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Category</label>
+                      <select
+                        value={customTemplate.category}
+                        onChange={(e) => setCustomTemplate(prev => ({ ...prev, category: e.target.value }))}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                      >
+                        <option value="">Select category...</option>
+                        <option value="course">Course Related</option>
+                        <option value="payment">Payment</option>
+                        <option value="system">System</option>
+                        <option value="marketing">Marketing</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Subject Template</label>
+                    <input
+                      type="text"
+                      value={customTemplate.subject}
+                      onChange={(e) => setCustomTemplate(prev => ({ ...prev, subject: e.target.value }))}
+                      placeholder="e.g., {{courseName}} - New Update Available"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Use {{variableName}} for dynamic content</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">HTML Content</label>
+                    <textarea
+                      value={customTemplate.htmlContent}
+                      onChange={(e) => setCustomTemplate(prev => ({ ...prev, htmlContent: e.target.value }))}
+                      placeholder="<h1>Hello {{userName}}</h1><p>{{message}}</p>..."
+                      rows={6}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-none font-mono text-sm"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Use {{variableName}} for dynamic content. Supports HTML formatting.</p>
+                  </div>
+
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Variables (comma-separated)</label>
+                    <input
+                      type="text"
+                      value={customTemplate.variables}
+                      onChange={(e) => setCustomTemplate(prev => ({ ...prev, variables: e.target.value }))}
+                      placeholder="userName, courseName, message"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">List all variables used in your template</p>
+                  </div>
+
+                  <div className="flex space-x-3">
+                    <button
+                      onClick={handleSaveCustomTemplate}
+                      disabled={!customTemplate.name || !customTemplate.subject || !customTemplate.htmlContent || isSavingTemplate}
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-xl hover:from-purple-700 hover:to-indigo-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                    >
+                      {isSavingTemplate ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span>Save Template</span>
+                        </>
+                      )}
+                    </button>
+                    
+                    <button
+                      onClick={handleTestCustomTemplate}
+                      disabled={!customTemplate.name || !customTemplate.subject || !customTemplate.htmlContent || isTestingTemplate}
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 text-white rounded-xl hover:from-indigo-700 hover:to-blue-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                    >
+                      {isTestingTemplate ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                          <span>Testing...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Eye className="w-4 h-4" />
+                          <span>Test Template</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Email System Status */}
+                <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium text-gray-900">Email System Status</p>
+                      <p className="text-sm text-gray-600">
+                        {settings.email.smtpHost && settings.email.smtpUser && settings.email.smtpPassword 
+                          ? '✅ SMTP configured - ready to send emails'
+                          : '⚠️ SMTP not configured - configure in Settings tab first'
+                        }
+                      </p>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      <p>SMTP settings are saved automatically</p>
+                      <p>Email transporter refreshes automatically</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Bulk Notification Section */}
+            <div className="notification-section">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">Send Bulk Notification</h3>
+                  <p className="text-gray-600 mt-1">Send notifications to all users or specific user groups</p>
+                </div>
+                <div className="bg-purple-50 p-3 rounded-xl">
+                  <Mail className="w-6 h-6 text-purple-600" />
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Target Audience</label>
+                    <select
+                      value={bulkNotification.userRole}
+                      onChange={(e) => setBulkNotification(prev => ({ ...prev, userRole: e.target.value }))}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="all">All Users</option>
+                      <option value="admin">Admins Only</option>
+                      <option value="student">Students Only</option>
+                      <option value="instructor">Instructors Only</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Notification Type</label>
+                    <select
+                      value={bulkNotification.type}
+                      onChange={(e) => setBulkNotification(prev => ({ ...prev, type: e.target.value }))}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    >
+                      <option value="system_alert">System Alert</option>
+                      <option value="maintenance_notice">Maintenance Notice</option>
+                      <option value="user_registration">Welcome Message</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Message</label>
+                  <textarea
+                    placeholder="Enter your notification message..."
+                    value={bulkNotification.data.message}
+                    onChange={(e) => setBulkNotification(prev => ({ 
+                      ...prev, 
+                      data: { ...prev.data, message: e.target.value }
+                    }))}
+                    rows={4}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  />
+                </div>
+
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-3 sm:space-y-0">
+                  <div className="text-sm text-gray-500">
+                    This will send notifications via email, SMS, and push (where enabled)
+                  </div>
+                  <button
+                    onClick={handleBulkNotification}
+                    disabled={!bulkNotification.data.message.trim()}
+                    className="w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  >
+                    <Mail className="w-4 h-4" />
+                    <span>Send Notification</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Notification Templates */}
+            {notificationTemplates && (
+              <div className="notification-section">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h3 className="text-xl font-bold text-gray-900">Available Templates</h3>
+                    <p className="text-gray-600 mt-1">Pre-configured notification templates for different events</p>
+                  </div>
+                  <div className="bg-green-50 p-3 rounded-xl">
+                    <FileText className="w-6 h-6 text-green-600" />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {notificationTemplates && Object.entries(notificationTemplates).map(([key, template]: [string, any]) => (
+                    <div key={key} className="p-6 border border-gray-200 rounded-xl hover:border-blue-300 hover:shadow-lg transition-all duration-200 bg-gray-50 hover:bg-white">
+                      <h4 className="font-semibold text-gray-900 mb-3 text-base">{template.name}</h4>
+                      <p className="text-sm text-gray-600 mb-4 leading-relaxed">{template.description}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {template.channels && Array.isArray(template.channels) ? (
+                          template.channels.map((channel: string) => (
+                            <span key={channel} className="px-3 py-1 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">
+                              {channel}
+                            </span>
+                          ))
+                        ) : (
+                          <span className="px-3 py-1 bg-gray-100 text-gray-700 text-xs rounded-full font-medium">
+                            System Template
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </motion.div>
+        )}
+
+      {/* 2FA Modal */}
+      {showTwoFactorModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
+              {twoFactorStep === 'setup' && 'Setup Two-Factor Authentication'}
+              {twoFactorStep === 'verify' && 'Verify and Enable 2FA'}
+              {twoFactorStep === 'disable' && 'Disable Two-Factor Authentication'}
+            </h3>
+
+            {twoFactorStep === 'setup' && (
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Setting up 2FA...</p>
+              </div>
+            )}
+
+            {twoFactorStep === 'verify' && (
+              <div className="space-y-4">
+                <div className="text-center">
+                  <p className="text-sm text-gray-600 mb-4">
+                    Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
+                  </p>
+                  {qrCodeData && (
+                    <div className="inline-block p-4 bg-white border rounded-lg">
+                      <img src={qrCodeData} alt="2FA QR Code" className="w-48 h-48" />
+                    </div>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Manual Entry Key (if you can't scan)
+                  </label>
+                  <div className="p-2 bg-gray-100 rounded text-sm font-mono break-all">
+                    {secretKey}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Enter 6-digit code from your app
+                  </label>
+                  <input
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    placeholder="000000"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-lg font-mono"
+                    maxLength={6}
+                  />
+                </div>
+
+                {backupCodes.length > 0 && (
+                  <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <h4 className="font-medium text-yellow-800 mb-2">Backup Codes</h4>
+                    <p className="text-sm text-yellow-700 mb-2">
+                      Save these codes in a secure location. Each can only be used once.
+                    </p>
+                    <div className="grid grid-cols-2 gap-2 text-sm font-mono">
+                      {backupCodes.map((code, index) => (
+                        <div key={index} className="bg-white p-2 rounded border">
+                          {code}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {twoFactorStep === 'disable' && (
+              <div className="space-y-4">
+                <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                  <div className="flex items-center space-x-2 text-red-700">
+                    <AlertTriangle className="w-5 h-5" />
+                    <span className="font-medium">Warning</span>
+                  </div>
+                  <p className="text-sm text-red-600 mt-2">
+                    Disabling 2FA will make your account less secure. Make sure this is what you want to do.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Enter current 2FA code or backup code
+                  </label>
+                  <input
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    placeholder="6-digit code or backup code"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex space-x-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowTwoFactorModal(false);
+                  setVerificationCode('');
+                  setQrCodeData('');
+                  setSecretKey('');
+                  setBackupCodes([]);
+                  setTwoFactorStep('setup');
+                }}
+                className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                disabled={twoFactorLoading}
+              >
+                Cancel
+              </button>
+              
+              {twoFactorStep === 'verify' && (
+                <button
+                  onClick={handleTwoFactorEnable}
+                  disabled={twoFactorLoading || verificationCode.length !== 6}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {twoFactorLoading ? 'Enabling...' : 'Enable 2FA'}
+                </button>
+              )}
+              
+              {twoFactorStep === 'disable' && (
+                <button
+                  onClick={handleTwoFactorDisable}
+                  disabled={twoFactorLoading || !verificationCode}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {twoFactorLoading ? 'Disabling...' : 'Disable 2FA'}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
