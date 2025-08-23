@@ -14,6 +14,7 @@ This directory contains the modular components that make up the admin dashboard,
 - **`Analytics.tsx`** - Charts and statistics for revenue, user growth, and payment methods
 - **`Settings.tsx`** - Platform configuration management
 - **`Notifications.tsx`** - Bulk notifications, templates, and notification history management
+- **`TwoFactorManagement.tsx`** - Comprehensive 2FA setup, management, and user security
 
 ### Supporting Files
 
@@ -33,7 +34,8 @@ AdminDashboard (State + API calls)
 ├── PromoCodeManagement (promoCodes, CRUD callbacks)
 ├── Analytics (analytics)
 ├── Settings (settings, update callbacks)
-└── Notifications (standalone with internal state)
+├── Notifications (standalone with internal state)
+└── TwoFactorManagement (standalone with internal state)
 ```
 
 ## State Management
@@ -89,6 +91,16 @@ AdminDashboard (State + API calls)
 - Multi-channel support (email, SMS, push, in-app)
 - Scheduling capabilities
 - Target audience selection
+
+### Two-Factor Authentication
+- 2FA setup and management for users
+- QR code generation for authenticator apps
+- Backup code generation and management
+- User 2FA status monitoring
+- 2FA verification and testing
+- Configuration settings for 2FA policies
+- Force 2FA for specific user roles
+- Session timeout management
 
 ## Styling
 

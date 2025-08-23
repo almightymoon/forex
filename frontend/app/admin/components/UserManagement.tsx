@@ -2,7 +2,10 @@
 
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit, Trash, Eye, Search, UserCheck, UserX, X, AlertTriangle } from 'lucide-react';
+import { 
+  Users, Plus, Search, Filter, Edit, Trash2, Eye, 
+  CheckCircle, X, AlertTriangle
+} from 'lucide-react';
 import { User, UserForm } from './types';
 
 interface UserManagementProps {
@@ -20,13 +23,14 @@ export default function UserManagement({
   onUserDelete, 
   onUserToggleStatus 
 }: UserManagementProps) {
-  const [showUserModal, setShowUserModal] = useState(false);
-  const [editingUser, setEditingUser] = useState<User | null>(null);
-  const [userSearchTerm, setUserSearchTerm] = useState('');
-  const [userRoleFilter, setUserRoleFilter] = useState('all');
-  const [userStatusFilter, setUserStatusFilter] = useState('all');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRole, setFilterRole] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [isLoading, setIsLoading] = useState(false);
   
   const [userForm, setUserForm] = useState<UserForm>({
     firstName: '',
@@ -56,8 +60,8 @@ export default function UserManagement({
 
   const openAddUserModal = () => {
     resetUserForm();
-    setEditingUser(null);
-    setShowUserModal(true);
+    setSelectedUser(null);
+    setShowCreateModal(true);
   };
 
   const openEditUserModal = (user: User) => {
@@ -72,46 +76,46 @@ export default function UserManagement({
       isActive: user.isActive || false,
       isVerified: user.isVerified || false
     });
-    setEditingUser(user);
-    setShowUserModal(true);
+    setSelectedUser(user);
+    setShowEditModal(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingUser) {
-      onUserUpdate(editingUser._id, userForm);
+    if (selectedUser) {
+      onUserUpdate(selectedUser._id, userForm);
     } else {
       onUserCreate(userForm);
     }
-    setShowUserModal(false);
+    setShowEditModal(false);
     resetUserForm();
-    setEditingUser(null);
+    setSelectedUser(null);
   };
 
   const openDeleteConfirm = (user: User) => {
-    setUserToDelete(user);
-    setShowDeleteConfirm(true);
+    setSelectedUser(user);
+    setShowDeleteModal(true);
   };
 
   const handleDeleteUser = () => {
-    if (userToDelete) {
-      onUserDelete(userToDelete._id);
-      setShowDeleteConfirm(false);
-      setUserToDelete(null);
+    if (selectedUser) {
+      onUserDelete(selectedUser._id);
+      setShowDeleteModal(false);
+      setSelectedUser(null);
     }
   };
 
   // Filter users based on search term, role, and status
   const filteredUsers = users.filter(user => {
     const matchesSearch = 
-      user.firstName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(userSearchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(userSearchTerm.toLowerCase());
+      user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      user.email.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesRole = userRoleFilter === 'all' || user.role === userRoleFilter;
-    const matchesStatus = userStatusFilter === 'all' || 
-      (userStatusFilter === 'active' && user.isActive) ||
-      (userStatusFilter === 'inactive' && !user.isActive);
+    const matchesRole = filterRole === 'all' || user.role === filterRole;
+    const matchesStatus = filterStatus === 'all' || 
+      (filterStatus === 'active' && user.isActive) ||
+      (filterStatus === 'inactive' && !user.isActive);
 
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -135,37 +139,37 @@ export default function UserManagement({
           <div className="flex-1">
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search users by name or email..."
-                value={userSearchTerm}
-                onChange={(e) => setUserSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+                                  <input
+                      type="text"
+                      placeholder="Search users by name or email..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    />
             </div>
           </div>
           
           <div className="flex gap-3">
-            <select
-              value={userRoleFilter}
-              onChange={(e) => setUserRoleFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Roles</option>
-              <option value="admin">Admin</option>
-              <option value="instructor">Instructor</option>
-              <option value="student">Student</option>
-            </select>
-            
-            <select
-              value={userStatusFilter}
-              onChange={(e) => setUserStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="all">All Status</option>
-              <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
-            </select>
+                              <select
+                    value={filterRole}
+                    onChange={(e) => setFilterRole(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Roles</option>
+                    <option value="admin">Admin</option>
+                    <option value="instructor">Instructor</option>
+                    <option value="student">Student</option>
+                  </select>
+                  
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="all">All Status</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                  </select>
           </div>
         </div>
         
@@ -218,31 +222,38 @@ export default function UserManagement({
                     {new Date(user.createdAt).toLocaleDateString()}
                   </td>
                   <td className="py-4 px-4">
-                    <div className="flex space-x-2">
-                      <button 
-                        onClick={() => onUserToggleStatus(user)}
-                        className={`p-2 rounded-lg transition-colors ${
-                          user.isActive 
-                            ? 'text-orange-600 hover:bg-orange-50' 
-                            : 'text-green-600 hover:bg-green-50'
-                        }`}
-                        title={user.isActive ? 'Deactivate User' : 'Activate User'}
-                      >
-                        {user.isActive ? <UserX className="w-4 h-4" /> : <UserCheck className="w-4 h-4" />}
-                      </button>
-                      <button 
-                        onClick={() => openEditUserModal(user)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setShowEditModal(true);
+                        }}
+                        className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                         title="Edit User"
                       >
                         <Edit className="w-4 h-4" />
                       </button>
+                      
+                      <button
+                        onClick={() => onUserToggleStatus(user)}
+                        className={`p-2 rounded-lg transition-colors ${
+                          user.isActive 
+                            ? 'text-red-600 hover:text-red-700 hover:bg-red-50' 
+                            : 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                        }`}
+                        title={user.isActive ? 'Deactivate User' : 'Activate User'}
+                      >
+                        {user.isActive ? <X className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                      </button>
                       <button 
-                        onClick={() => openDeleteConfirm(user)}
-                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                        onClick={() => {
+                          setSelectedUser(user);
+                          setShowDeleteModal(true);
+                        }}
+                        className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                         title="Delete User"
                       >
-                        <Trash className="w-4 h-4" />
+                        <Trash2 className="w-4 h-4" />
                       </button>
                     </div>
                   </td>
@@ -253,16 +264,19 @@ export default function UserManagement({
         </div>
       </div>
 
-      {/* User Modal */}
-      {showUserModal && (
+            {/* User Modal */}
+      {(showCreateModal || showEditModal) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-xl font-semibold text-gray-900">
-                {editingUser ? 'Edit User' : 'Add New User'}
+                {selectedUser ? 'Edit User' : 'Add New User'}
               </h3>
-              <button 
-                onClick={() => setShowUserModal(false)}
+              <button
+                onClick={() => {
+                  setShowCreateModal(false);
+                  setShowEditModal(false);
+                }}
                 className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
@@ -307,14 +321,14 @@ export default function UserManagement({
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Password {editingUser && '(leave empty to keep current)'}
+                    Password {selectedUser && '(leave empty to keep current)'}
                   </label>
                   <input
                     type="password"
                     value={userForm.password}
                     onChange={(e) => setUserForm(prev => ({ ...prev, password: e.target.value }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    required={!editingUser}
+                    required={!selectedUser}
                   />
                 </div>
 
@@ -379,7 +393,10 @@ export default function UserManagement({
               <div className="flex space-x-3 mt-6">
                 <button
                   type="button"
-                  onClick={() => setShowUserModal(false)}
+                  onClick={() => {
+                    setShowCreateModal(false);
+                    setShowEditModal(false);
+                  }}
                   className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
                 >
                   Cancel
@@ -388,7 +405,7 @@ export default function UserManagement({
                   type="submit"
                   className="flex-1 px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
                 >
-                  {editingUser ? 'Update User' : 'Create User'}
+                  {selectedUser ? 'Update User' : 'Create User'}
                 </button>
               </div>
             </form>
@@ -397,7 +414,7 @@ export default function UserManagement({
       )}
 
       {/* Delete Confirmation Modal */}
-      {showDeleteConfirm && userToDelete && (
+      {showDeleteModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
             <div className="text-center">
@@ -406,18 +423,21 @@ export default function UserManagement({
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete User</h3>
               <p className="text-gray-600 mb-6">
-                Are you sure you want to delete <strong>{userToDelete.firstName} {userToDelete.lastName}</strong>? 
+                Are you sure you want to delete <strong>{selectedUser.firstName} {selectedUser.lastName}</strong>? 
                 This action cannot be undone.
               </p>
               <div className="flex space-x-3">
                 <button
-                  onClick={() => setShowDeleteConfirm(false)}
+                  onClick={() => setShowDeleteModal(false)}
                   className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={handleDeleteUser}
+                  onClick={() => {
+                    onUserDelete(selectedUser._id);
+                    setShowDeleteModal(false);
+                  }}
                   className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200"
                 >
                   Delete

@@ -12,7 +12,7 @@ interface OverviewProps {
 
 export default function Overview({ analytics, onTabChange }: OverviewProps) {
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 mb-4">
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">

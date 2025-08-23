@@ -649,7 +649,7 @@ export default function AdminDashboard() {
 
       <div className="admin-container">
         {/* Navigation Tabs */}
-        <div className="bg-white rounded-2xl p-2 border border-gray-200 shadow-lg mb-8">
+        <div className="bg-white rounded-2xl p-2 border border-gray-200 shadow-lg mb-8 mt-10">
           <nav className="flex space-x-1 overflow-x-auto">
             {[
               { id: 'overview', label: 'Overview', icon: BarChart3 },

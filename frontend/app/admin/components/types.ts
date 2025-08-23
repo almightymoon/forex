@@ -182,3 +182,28 @@ export interface NotificationHistory {
   readAt?: Date;
   metadata?: Record<string, any>;
 }
+
+export interface TwoFactorAuth {
+  id: string;
+  userId: string;
+  secret: string;
+  qrCode: string;
+  backupCodes: string[];
+  isEnabled: boolean;
+  lastUsed: Date;
+  createdAt: Date;
+  verifiedAt?: Date;
+}
+
+export interface TwoFactorSetup {
+  secret: string;
+  qrCode: string;
+  backupCodes: string[];
+  verificationCode: string;
+}
+
+export interface TwoFactorVerification {
+  userId: string;
+  code: string;
+  backupCode?: boolean;
+}

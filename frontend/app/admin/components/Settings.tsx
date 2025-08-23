@@ -4,19 +4,19 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Save, RotateCcw, Globe, Shield, Bell, CreditCard, Mail, 
-  Server, CheckCircle, User, Zap, AlertTriangle, Smartphone 
+  Server, CheckCircle, User, Zap, AlertTriangle, Smartphone
 } from 'lucide-react';
 import { AdminSettings } from './types';
 
 interface SettingsProps {
   settings: AdminSettings;
-  onSettingsChange: (category: string, field: string, value: any) => void;
+  onSettingsChange: (category: string, field: string, value: any) => Promise<void>;
   onNestedSettingsChange: (category: string, nestedField: string, field: string, value: any) => void;
-  onSaveSettings: () => void;
+  onSaveSettings: () => Promise<void>;
   onResetSettings: () => void;
   settingsLoading: boolean;
   settingsSaved: boolean;
-  onTestEmailConfig: () => void;
+  onTestEmailConfig: () => Promise<void>;
 }
 
 export default function Settings({ 
@@ -24,8 +24,8 @@ export default function Settings({
   onSettingsChange, 
   onNestedSettingsChange, 
   onSaveSettings, 
-  onResetSettings, 
-  settingsLoading, 
+  onResetSettings,
+  settingsLoading,
   settingsSaved,
   onTestEmailConfig
 }: SettingsProps) {
@@ -248,16 +248,18 @@ export default function Settings({
             </div>
           </div>
         </div>
+      </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Notification Settings */}
         <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
           <div className="flex items-center space-x-3 mb-6">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
               <Bell className="w-5 h-5 text-white" />
             </div>
             <div>
               <h4 className="text-lg font-semibold text-gray-900">Notifications</h4>
-              <p className="text-sm text-gray-500">Communication preferences</p>
+              <p className="text-sm text-gray-500">Configure notification preferences</p>
             </div>
           </div>
           
@@ -266,23 +268,24 @@ export default function Settings({
               { key: 'emailNotifications', label: 'Email Notifications', desc: 'Send email alerts for events', icon: Mail },
               { key: 'smsNotifications', label: 'SMS Notifications', desc: 'Send SMS for critical alerts', icon: Smartphone },
               { key: 'pushNotifications', label: 'Push Notifications', desc: 'Browser push notifications', icon: Zap },
-              { key: 'newUserRegistration', label: 'New User Alerts', desc: 'Notify when users register', icon: User },
-              { key: 'paymentReceived', label: 'Payment Alerts', desc: 'Notify on successful payments', icon: CreditCard },
+              { key: 'newUserRegistration', label: 'New User Registration', desc: 'Notify when new users join', icon: User },
+              { key: 'paymentReceived', label: 'Payment Received', desc: 'Notify when payments are completed', icon: CreditCard },
               { key: 'systemAlerts', label: 'System Alerts', desc: 'Critical system notifications', icon: AlertTriangle },
-            ].map(({ key, label, desc, icon: Icon }) => (
-              <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+              { key: 'courseCompletions', label: 'Course Completions', desc: 'Notify when courses are completed', icon: CheckCircle }
+            ].map((setting) => (
+              <div key={setting.key} className="flex items-center justify-between p-4 border border-gray-200 rounded-lg">
                 <div className="flex items-center space-x-3">
-                  <Icon className="w-5 h-5 text-gray-600" />
+                  <setting.icon className="w-5 h-5 text-gray-600" />
                   <div>
-                    <p className="font-medium text-gray-900">{label}</p>
-                    <p className="text-sm text-gray-500">{desc}</p>
+                    <p className="font-medium text-gray-900">{setting.label}</p>
+                    <p className="text-sm text-gray-500">{setting.desc}</p>
                   </div>
                 </div>
-                <button 
-                  onClick={() => onSettingsChange('notifications', key, !settings.notifications[key as keyof typeof settings.notifications])}
-                  className={`w-12 h-6 rounded-full relative transition-colors ${settings.notifications[key as keyof typeof settings.notifications] ? 'bg-blue-600' : 'bg-gray-200'}`}
+                <button
+                  onClick={() => onSettingsChange('notifications', setting.key, !settings.notifications[setting.key as keyof typeof settings.notifications])}
+                  className={`w-12 h-6 rounded-full relative transition-colors ${settings.notifications[setting.key as keyof typeof settings.notifications] ? 'bg-blue-600' : 'bg-gray-200'}`}
                 >
-                  <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.notifications[key as keyof typeof settings.notifications] ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.notifications[setting.key as keyof typeof settings.notifications] ? 'translate-x-6' : 'translate-x-0'}`}></div>
                 </button>
               </div>
             ))}
@@ -292,19 +295,19 @@ export default function Settings({
         {/* Payment Settings */}
         <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
           <div className="flex items-center space-x-3 mb-6">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
               <CreditCard className="w-5 h-5 text-white" />
             </div>
             <div>
               <h4 className="text-lg font-semibold text-gray-900">Payment Settings</h4>
-              <p className="text-sm text-gray-500">Payment gateway configuration</p>
+              <p className="text-sm text-gray-500">Configure payment gateways and options</p>
             </div>
           </div>
           
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Payment Currency</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Default Currency</label>
                 <select 
                   value={settings.payments.currency}
                   onChange={(e) => onSettingsChange('payments', 'currency', e.target.value)}
@@ -329,25 +332,92 @@ export default function Settings({
               </div>
             </div>
             
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Payment Methods</label>
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">Payment Gateways</label>
               {[
-                { key: 'stripeEnabled', label: 'Stripe (Credit Cards)' },
-                { key: 'paypalEnabled', label: 'PayPal' },
-                { key: 'easypaisaEnabled', label: 'Easypaisa' },
-                { key: 'jazzCashEnabled', label: 'JazzCash' },
-                { key: 'promoCodesEnabled', label: 'Promo Codes' },
-              ].map(({ key, label }) => (
-                <div key={key} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <span className="font-medium text-gray-900">{label}</span>
-                  <button 
-                    onClick={() => onSettingsChange('payments', key, !settings.payments[key as keyof typeof settings.payments])}
-                    className={`w-12 h-6 rounded-full relative transition-colors ${settings.payments[key as keyof typeof settings.payments] ? 'bg-green-600' : 'bg-gray-200'}`}
+                { key: 'stripeEnabled', label: 'Stripe', desc: 'Credit card payments' },
+                { key: 'paypalEnabled', label: 'PayPal', desc: 'PayPal wallet payments' },
+                { key: 'easypaisaEnabled', label: 'EasyPaisa', desc: 'Local mobile payments' },
+                { key: 'jazzCashEnabled', label: 'Jazz Cash', desc: 'Local mobile payments' }
+              ].map((gateway) => (
+                <div key={gateway.key} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                  <div>
+                    <p className="font-medium text-gray-900">{gateway.label}</p>
+                    <p className="text-sm text-gray-500">{gateway.desc}</p>
+                  </div>
+                  <button
+                    onClick={() => onSettingsChange('payments', gateway.key, !settings.payments[gateway.key as keyof typeof settings.payments])}
+                    className={`w-12 h-6 rounded-full relative transition-colors ${settings.payments[gateway.key as keyof typeof settings.payments] ? 'bg-green-600' : 'bg-gray-200'}`}
                   >
-                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.payments[key as keyof typeof settings.payments] ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.payments[gateway.key as keyof typeof settings.payments] ? 'translate-x-6' : 'translate-x-0'}`}></div>
                   </button>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Course Settings */}
+        <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-orange-600 rounded-xl flex items-center justify-center">
+              <Server className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold text-gray-900">Course Settings</h4>
+              <p className="text-sm text-gray-500">Configure course management options</p>
+            </div>
+          </div>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+              <div>
+                <p className="font-medium text-gray-900">Auto-approval</p>
+                <p className="text-sm text-gray-500">Automatically approve new courses</p>
+              </div>
+              <button
+                onClick={() => onSettingsChange('courses', 'autoApproval', !settings.courses.autoApproval)}
+                className={`w-12 h-6 rounded-full relative transition-colors ${settings.courses.autoApproval ? 'bg-blue-600' : 'bg-gray-200'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.courses.autoApproval ? 'translate-x-6' : 'translate-x-0'}`}></div>
+              </button>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Max File Size (MB)</label>
+              <input 
+                type="number" 
+                value={settings.courses.maxFileSize}
+                onChange={(e) => onSettingsChange('courses', 'maxFileSize', parseInt(e.target.value))}
+                min="1" max="1000"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Completion Threshold (%)</label>
+              <input 
+                type="number" 
+                value={settings.courses.completionThreshold}
+                onChange={(e) => onSettingsChange('courses', 'completionThreshold', parseInt(e.target.value))}
+                min="50" max="100"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            
+            <div className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+              <div>
+                <p className="font-medium text-gray-900">Certificates</p>
+                <p className="text-sm text-gray-500">Enable course completion certificates</p>
+              </div>
+              <button
+                onClick={() => onSettingsChange('courses', 'certificateEnabled', !settings.courses.certificateEnabled)}
+                className={`w-12 h-6 rounded-full relative transition-colors ${settings.courses.certificateEnabled ? 'bg-blue-600' : 'bg-gray-200'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.courses.certificateEnabled ? 'translate-x-6' : 'translate-x-0'}`}></div>
+              </button>
             </div>
           </div>
         </div>
@@ -355,7 +425,7 @@ export default function Settings({
         {/* Email Configuration */}
         <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
           <div className="flex items-center space-x-3 mb-6">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-indigo-600 rounded-xl flex items-center justify-center">
               <Mail className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -363,14 +433,14 @@ export default function Settings({
               <p className="text-sm text-gray-500">SMTP settings for email notifications</p>
             </div>
           </div>
-
+          
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">SMTP Host</label>
                 <input 
                   type="text" 
-                  value={settings.email.smtpHost || ''}
+                  value={settings.email.smtpHost}
                   onChange={(e) => onSettingsChange('email', 'smtpHost', e.target.value)}
                   placeholder="smtp.gmail.com"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -379,24 +449,22 @@ export default function Settings({
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">SMTP Port</label>
-                <select 
-                  value={settings.email.smtpPort || 587}
+                <input 
+                  type="number" 
+                  value={settings.email.smtpPort}
                   onChange={(e) => onSettingsChange('email', 'smtpPort', parseInt(e.target.value))}
+                  placeholder="587"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                >
-                  <option value={25}>25 (Non-SSL)</option>
-                  <option value={587}>587 (TLS)</option>
-                  <option value={465}>465 (SSL)</option>
-                </select>
+                />
               </div>
             </div>
-
+            
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">SMTP Username</label>
                 <input 
                   type="text" 
-                  value={settings.email.smtpUser || ''}
+                  value={settings.email.smtpUser}
                   onChange={(e) => onSettingsChange('email', 'smtpUser', e.target.value)}
                   placeholder="your-email@gmail.com"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -407,22 +475,22 @@ export default function Settings({
                 <label className="block text-sm font-medium text-gray-700 mb-2">SMTP Password</label>
                 <input 
                   type="password" 
-                  value={settings.email.smtpPassword || ''}
+                  value={settings.email.smtpPassword}
                   onChange={(e) => onSettingsChange('email', 'smtpPassword', e.target.value)}
-                  placeholder="your-app-password"
+                  placeholder="App password"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
-
+            
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">From Email</label>
                 <input 
                   type="email" 
-                  value={settings.email.fromEmail || ''}
+                  value={settings.email.fromEmail}
                   onChange={(e) => onSettingsChange('email', 'fromEmail', e.target.value)}
-                  placeholder="noreply@yourdomain.com"
+                  placeholder="noreply@example.com"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
@@ -431,25 +499,20 @@ export default function Settings({
                 <label className="block text-sm font-medium text-gray-700 mb-2">From Name</label>
                 <input 
                   type="text" 
-                  value={settings.email.fromName || ''}
+                  value={settings.email.fromName}
                   onChange={(e) => onSettingsChange('email', 'fromName', e.target.value)}
-                  placeholder="Your Platform Name"
+                  placeholder="Platform Name"
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
             </div>
-
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-gray-900">Test Email Configuration</p>
-                <p className="text-sm text-gray-500">Verify your SMTP settings work correctly</p>
-              </div>
-              <button 
+            
+            <div className="pt-4 border-t border-gray-200">
+              <button
                 onClick={onTestEmailConfig}
-                className="px-4 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors flex items-center space-x-2"
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
               >
-                <Server className="w-4 h-4" />
-                <span>Test Config</span>
+                Test Email Configuration
               </button>
             </div>
           </div>
