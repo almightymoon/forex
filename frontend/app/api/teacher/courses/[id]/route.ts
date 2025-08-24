@@ -1,103 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '../../../../lib/auth';
+import { verifyToken } from '../../../../../lib/auth';
 
-export async function GET(request: NextRequest) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
-    // Verify authentication
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    const user = await verifyToken(token);
-    if (!user || (user.role !== 'teacher' && user.role !== 'instructor' && user.role !== 'admin')) {
-      return NextResponse.json({ error: 'Forbidden - Only teachers, instructors and admins can access this route' }, { status: 403 });
-    }
-
-    // Proxy to your actual backend
-    const backendResponse = await fetch('http://localhost:4000/api/teacher/courses', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-
-    if (!backendResponse.ok) {
-      throw new Error(`Backend responded with ${backendResponse.status}`);
-    }
-
-    const backendData = await backendResponse.json();
-    return NextResponse.json(backendData);
-  } catch (error) {
-    console.error('Error fetching teacher courses:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
-  }
-}
-
-export async function POST(request: NextRequest) {
-  try {
-    console.log('POST /api/teacher/courses - Request received');
-    
-    // Verify authentication
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
-      console.log('No token provided');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
-    console.log('Token received, length:', token.length);
-
-    const user = await verifyToken(token);
-    console.log('User verification result:', user);
-    
-    if (!user || (user.role !== 'teacher' && user.role !== 'instructor' && user.role !== 'admin')) {
-      console.log('User not authorized:', user?.role);
-      return NextResponse.json({ error: 'Forbidden - Only teachers, instructors and admins can access this route' }, { status: 403 });
-    }
-
-    const courseData = await request.json();
-    console.log('Course data received:', JSON.stringify(courseData, null, 2));
-
-    // Check if backend is accessible
-    console.log('Attempting to connect to backend at http://localhost:4000/api/teacher/courses');
-    
-    // Proxy to your actual backend
-    const backendResponse = await fetch('http://localhost:4000/api/teacher/courses', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(courseData)
-    });
-
-    console.log('Backend response status:', backendResponse.status);
-    console.log('Backend response headers:', Object.fromEntries(backendResponse.headers.entries()));
-
-    if (!backendResponse.ok) {
-      const errorText = await backendResponse.text();
-      console.error('Backend error response:', errorText);
-      throw new Error(`Backend responded with ${backendResponse.status}: ${errorText}`);
-    }
-
-    const backendData = await backendResponse.json();
-    console.log('Backend success response:', backendData);
-    return NextResponse.json(backendData);
-  } catch (error) {
-    console.error('Error creating teacher course:', error);
-    return NextResponse.json(
-      { error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}` },
-      { status: 500 }
-    );
-  }
-}
-
-export async function PUT(request: NextRequest) {
-  try {
-    console.log('PUT /api/teacher/courses - Request received');
+    console.log(`PUT /api/teacher/courses/${params.id} - Request received`);
     
     // Verify authentication
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -120,10 +29,10 @@ export async function PUT(request: NextRequest) {
     console.log('Course update data received:', JSON.stringify(courseData, null, 2));
 
     // Check if backend is accessible
-    console.log('Attempting to connect to backend at http://localhost:4000/api/teacher/courses');
+    console.log(`Attempting to connect to backend at http://localhost:4000/api/teacher/courses/${params.id}`);
     
     // Proxy to your actual backend
-    const backendResponse = await fetch('http://localhost:4000/api/teacher/courses', {
+    const backendResponse = await fetch(`http://localhost:4000/api/teacher/courses/${params.id}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -146,6 +55,63 @@ export async function PUT(request: NextRequest) {
     return NextResponse.json(backendData);
   } catch (error) {
     console.error('Error updating teacher course:', error);
+    return NextResponse.json(
+      { error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    console.log(`DELETE /api/teacher/courses/${params.id} - Request received`);
+    
+    // Verify authentication
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    if (!token) {
+      console.log('No token provided');
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    console.log('Token received, length:', token.length);
+
+    const user = await verifyToken(token);
+    console.log('User verification result:', user);
+    
+    if (!user || (user.role !== 'teacher' && user.role !== 'instructor' && user.role !== 'admin')) {
+      console.log('User not authorized:', user?.role);
+      return NextResponse.json({ error: 'Forbidden - Only teachers, instructors and admins can access this route' }, { status: 403 });
+    }
+
+    // Check if backend is accessible
+    console.log(`Attempting to connect to backend at http://localhost:4000/api/teacher/courses/${params.id}`);
+    
+    // Proxy to your actual backend
+    const backendResponse = await fetch(`http://localhost:4000/api/teacher/courses/${params.id}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    console.log('Backend response status:', backendResponse.status);
+    console.log('Backend response headers:', Object.fromEntries(backendResponse.headers.entries()));
+
+    if (!backendResponse.ok) {
+      const errorText = await backendResponse.text();
+      console.error('Backend error response:', errorText);
+      throw new Error(`Backend responded with ${backendResponse.status}: ${errorText}`);
+    }
+
+    const backendData = await backendResponse.json();
+    console.log('Backend success response:', backendData);
+    return NextResponse.json(backendData);
+  } catch (error) {
+    console.error('Error deleting teacher course:', error);
     return NextResponse.json(
       { error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }

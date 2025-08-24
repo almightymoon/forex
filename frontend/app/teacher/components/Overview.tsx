@@ -89,16 +89,16 @@ export default function Overview({
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                       <span className="text-blue-600 text-sm font-medium">
-                        {student.name.charAt(0)}
+                        {student.name ? student.name.charAt(0) : 'U'}
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{student.name}</p>
+                      <p className="text-sm font-medium text-gray-900">{student.name || 'Unknown User'}</p>
                       <p className="text-xs text-gray-500">{student.email}</p>
                     </div>
                   </div>
                   <span className="text-xs text-gray-500">
-                    {new Date(student.enrolledDate).toLocaleDateString()}
+                    {student.enrolledDate ? new Date(student.enrolledDate).toLocaleDateString() : 'N/A'}
                   </span>
                 </div>
               ))
@@ -124,10 +124,13 @@ export default function Overview({
                       {session.status}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mb-2">{session.courseName}</p>
+                  <p className="text-xs text-gray-500 mb-2">{session.courseName || 'General Session'}</p>
                   <div className="flex items-center text-xs text-gray-500">
                     <Clock className="w-3 h-3 mr-1" />
-                    {new Date(session.scheduledDate).toLocaleDateString()} at {new Date(session.scheduledDate).toLocaleTimeString()}
+                    {session.scheduledDate ? 
+                      `${new Date(session.scheduledDate).toLocaleDateString()} at ${new Date(session.scheduledDate).toLocaleTimeString()}` :
+                      'Date not set'
+                    }
                   </div>
                 </div>
               ))

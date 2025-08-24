@@ -10,40 +10,24 @@ export async function GET(request: NextRequest) {
     }
 
     const user = await verifyToken(token);
-    if (!user || user.role !== 'teacher') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!user || (user.role !== 'teacher' && user.role !== 'instructor' && user.role !== 'admin')) {
+      return NextResponse.json({ error: 'Forbidden - Only teachers, instructors and admins can access this route' }, { status: 403 });
     }
 
-    // TODO: Replace with actual database query
-    // For now, return sample data structure
-    const sessions = [
-      {
-        id: '1',
-        title: 'Live Trading Session - EUR/USD',
-        courseId: '1',
-        courseName: 'Advanced Forex Trading Strategies',
-        scheduledDate: '2024-03-20T14:00:00Z',
-        duration: 90,
-        status: 'scheduled',
-        participants: 12,
-        maxParticipants: 25,
-        meetingLink: null
-      },
-      {
-        id: '2',
-        title: 'Q&A Session - Technical Analysis',
-        courseId: '2',
-        courseName: 'Technical Analysis Fundamentals',
-        scheduledDate: '2024-03-22T16:00:00Z',
-        duration: 60,
-        status: 'scheduled',
-        participants: 8,
-        maxParticipants: 20,
-        meetingLink: null
+    // Proxy to your actual backend
+    const backendResponse = await fetch('http://localhost:4000/api/teacher/live-sessions', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
-    ];
+    });
 
-    return NextResponse.json({ sessions });
+    if (!backendResponse.ok) {
+      throw new Error(`Backend responded with ${backendResponse.status}`);
+    }
+
+    const backendData = await backendResponse.json();
+    return NextResponse.json(backendData);
   } catch (error) {
     console.error('Error fetching teacher live sessions:', error);
     return NextResponse.json(

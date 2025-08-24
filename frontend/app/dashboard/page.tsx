@@ -113,7 +113,7 @@ export default function Dashboard() {
 
   const fetchAvailableCourses = async () => {
     try {
-      const result = await fetchWithMaintenanceCheck('http://localhost:4000/api/courses');
+      const result = await fetchWithMaintenanceCheck('/api/courses');
 
       if (result.isMaintenanceMode) {
         checkMaintenanceMode(result.error);
@@ -175,7 +175,7 @@ export default function Dashboard() {
 
   const fetchUserCourses = async (token: string) => {
     try {
-      const result = await fetchWithMaintenanceCheck('http://localhost:4000/api/courses/enrolled', {
+      const result = await fetchWithMaintenanceCheck('/api/courses/enrolled', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -258,7 +258,7 @@ export default function Dashboard() {
       }
 
       console.log('Making enrollment request...');
-      const response = await fetch(`http://localhost:4000/api/courses/${courseId}/enroll`, {
+      const response = await fetch(`/api/courses/${courseId}/enroll`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -296,7 +296,7 @@ export default function Dashboard() {
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/courses/${courseId}/progress`, {
+      const response = await fetch(`/api/courses/${courseId}/progress`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

@@ -37,6 +37,29 @@ export interface LiveSession {
   meetingLink?: string;
 }
 
+export interface ContentBlock {
+  id: string;
+  type: 'text' | 'video' | 'image' | 'file';
+  title: string;
+  content: string;
+  order: number;
+  metadata?: any;
+  textContent?: string;
+  videoUrl?: string;
+  description?: string;
+}
+
+export interface Question {
+  id: string;
+  type: 'multiple_choice' | 'true_false' | 'short_answer' | 'fill_in_blank';
+  question: string;
+  options?: string[];
+  correctAnswer: string;
+  explanation?: string;
+  points: number;
+  required: boolean;
+}
+
 export interface Analytics {
   totalStudents: number;
   totalCourses: number;
@@ -45,4 +68,7 @@ export interface Analytics {
   monthlyEnrollments: number[];
   courseCompletionRate: number;
   studentSatisfaction: number;
+  completionRate?: number; // Backend uses this field
+  enrollmentTrends?: any[]; // Backend returns enrollment trends
+  period?: string; // Backend returns period
 }

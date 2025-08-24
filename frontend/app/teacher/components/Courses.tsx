@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plus, Search, BookOpen } from 'lucide-react';
 import CourseCard from './CourseCard';
+import CourseCreator from './CourseCreator';
 import { Course } from '../types';
 
 interface CoursesProps {
@@ -26,6 +27,128 @@ export default function Courses({
   onRefresh,
   getStatusColor
 }: CoursesProps) {
+  const [showCourseCreator, setShowCourseCreator] = useState(false);
+  const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+
+  const handleCreateCourse = async (courseData: any) => {
+    try {
+      const token = localStorage.getItem('token');
+      console.log('Token from localStorage:', token ? 'Token exists' : 'No token');
+      
+      if (!token) {
+        alert('Please log in to create a course');
+        window.location.href = '/login';
+        return;
+      }
+
+      // Log token details for debugging
+      console.log('Token length:', token.length);
+      console.log('Token starts with:', token.substring(0, 20) + '...');
+
+      console.log('Sending course data to API:', courseData);
+
+      const method = editingCourse ? 'PUT' : 'POST';
+      const url = editingCourse ? `/api/teacher/courses/${editingCourse.id}` : '/api/teacher/courses';
+      
+      const response = await fetch(url, {
+        method,
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(courseData)
+      });
+
+      console.log('API response status:', response.status);
+
+      if (response.ok) {
+        const result = await response.json();
+        const action = editingCourse ? 'updated' : 'created';
+        console.log(`Course ${action} successfully:`, result);
+        setShowCourseCreator(false);
+        setEditingCourse(null); // Reset editing state
+        // Refresh courses after creation/update
+        onRefresh();
+        
+        const statusMessage = courseData.status === 'published' ? 'published' : 'saved as draft';
+        alert(`Course ${action} and ${statusMessage} successfully!`);
+      } else {
+        const action = editingCourse ? 'update' : 'create';
+        let errorMessage = `Failed to ${action} course`;
+        try {
+          const error = await response.json();
+          errorMessage = error.error || `HTTP ${response.status}`;
+          console.error(`Failed to ${action} course:`, error);
+        } catch (e) {
+          console.error(`Failed to ${action} course:`, response.status, response.statusText);
+          errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        }
+        alert(`Failed to ${action} course: ${errorMessage}`);
+      }
+    } catch (error) {
+      console.error('Error creating course:', error);
+      alert('Error creating course. Please try again.');
+    }
+  };
+
+  const handleCancelCreate = () => {
+    setShowCourseCreator(false);
+    setEditingCourse(null); // Reset editing state when canceling
+  };
+
+  const handleEditCourse = (course: Course) => {
+    setEditingCourse(course);
+    setShowCourseCreator(true);
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        alert('Please log in to delete courses');
+        return;
+      }
+
+      const response = await fetch(`/api/teacher/courses/${courseId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        alert('Course deleted successfully!');
+        onRefresh(); // Refresh the courses list
+      } else {
+        const error = await response.json();
+        alert(`Failed to delete course: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting course:', error);
+      alert('Error deleting course. Please try again.');
+    }
+  };
+
+  const handleViewCourse = (course: Course) => {
+    // Navigate to course view page or open preview modal
+    window.open(`/course/${course.id}`, '_blank');
+  };
+
+  if (showCourseCreator) {
+    return (
+      <CourseCreator
+        onSave={handleCreateCourse}
+        onCancel={handleCancelCreate}
+        editingCourse={editingCourse}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center space-y-4 sm:space-y-0">
@@ -44,7 +167,10 @@ export default function Courses({
             </svg>
             <span>Refresh</span>
           </button>
-          <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2">
+          <button 
+            onClick={() => setShowCourseCreator(true)}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+          >
             <Plus className="w-4 h-4" />
             <span>Create Course</span>
           </button>
@@ -107,7 +233,10 @@ export default function Courses({
             }
           </p>
           {!searchTerm && selectedFilter === 'all' && courses.length === 0 && (
-            <button className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+            <button 
+              onClick={() => setShowCourseCreator(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700"
+            >
               Create Your First Course
             </button>
           )}
@@ -115,7 +244,14 @@ export default function Courses({
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredCourses.map((course) => (
-            <CourseCard key={course.id} course={course} getStatusColor={getStatusColor} />
+            <CourseCard 
+            key={course.id} 
+            course={course} 
+            getStatusColor={getStatusColor}
+            onEdit={handleEditCourse}
+            onDelete={handleDeleteCourse}
+            onView={handleViewCourse}
+          />
           ))}
         </div>
       )}

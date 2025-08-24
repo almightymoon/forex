@@ -10,49 +10,24 @@ export async function GET(request: NextRequest) {
     }
 
     const user = await verifyToken(token);
-    if (!user || user.role !== 'teacher') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!user || (user.role !== 'teacher' && user.role !== 'instructor' && user.role !== 'admin')) {
+      return NextResponse.json({ error: 'Forbidden - Only teachers, instructors and admins can access this route' }, { status: 403 });
     }
 
-    // TODO: Replace with actual database query
-    // For now, return sample data structure
-    const students = [
-      {
-        id: '1',
-        name: 'John Smith',
-        email: 'john.smith@email.com',
-        avatar: null,
-        enrolledDate: '2024-01-20',
-        progress: 75,
-        lastActive: '2024-03-15',
-        completedCourses: 2,
-        totalCourses: 3
-      },
-      {
-        id: '2',
-        name: 'Sarah Johnson',
-        email: 'sarah.j@email.com',
-        avatar: null,
-        enrolledDate: '2024-02-01',
-        progress: 90,
-        lastActive: '2024-03-14',
-        completedCourses: 1,
-        totalCourses: 2
-      },
-      {
-        id: '3',
-        name: 'Mike Davis',
-        email: 'mike.davis@email.com',
-        avatar: null,
-        enrolledDate: '2024-01-25',
-        progress: 45,
-        lastActive: '2024-03-10',
-        completedCourses: 0,
-        totalCourses: 2
+    // Proxy to your actual backend
+    const backendResponse = await fetch('http://localhost:4000/api/teacher/students', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
-    ];
+    });
 
-    return NextResponse.json({ students });
+    if (!backendResponse.ok) {
+      throw new Error(`Backend responded with ${backendResponse.status}`);
+    }
+
+    const backendData = await backendResponse.json();
+    return NextResponse.json(backendData);
   } catch (error) {
     console.error('Error fetching teacher students:', error);
     return NextResponse.json(

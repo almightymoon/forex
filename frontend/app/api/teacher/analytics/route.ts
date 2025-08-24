@@ -10,23 +10,24 @@ export async function GET(request: NextRequest) {
     }
 
     const user = await verifyToken(token);
-    if (!user || user.role !== 'teacher') {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    if (!user || (user.role !== 'teacher' && user.role !== 'instructor' && user.role !== 'admin')) {
+      return NextResponse.json({ error: 'Forbidden - Only teachers, instructors and admins can access this route' }, { status: 403 });
     }
 
-    // TODO: Replace with actual database query
-    // For now, return sample analytics data
-    const analytics = {
-      totalStudents: 105,
-      totalCourses: 8,
-      totalRevenue: 12500,
-      averageRating: 4.7,
-      monthlyEnrollments: [12, 18, 25, 22, 30, 28],
-      courseCompletionRate: 78,
-      studentSatisfaction: 92
-    };
+    // Proxy to your actual backend
+    const backendResponse = await fetch('http://localhost:4000/api/teacher/analytics', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
 
-    return NextResponse.json({ analytics });
+    if (!backendResponse.ok) {
+      throw new Error(`Backend responded with ${backendResponse.status}`);
+    }
+
+    const backendData = await backendResponse.json();
+    return NextResponse.json(backendData);
   } catch (error) {
     console.error('Error fetching teacher analytics:', error);
     return NextResponse.json(

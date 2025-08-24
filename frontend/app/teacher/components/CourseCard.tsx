@@ -5,13 +5,27 @@ import { Course } from '../types';
 interface CourseCardProps {
   course: Course;
   getStatusColor: (status: string) => string;
+  onEdit: (course: Course) => void;
+  onDelete: (courseId: string) => void;
+  onView: (course: Course) => void;
 }
 
-export default function CourseCard({ course, getStatusColor }: CourseCardProps) {
+export default function CourseCard({ course, getStatusColor, onEdit, onDelete, onView }: CourseCardProps) {
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
-      <div className="h-48 bg-gray-200 flex items-center justify-center">
-        <BookOpen className="w-12 h-12 text-gray-400" />
+      <div className="h-48 bg-gray-200 flex items-center justify-center overflow-hidden">
+        {course.thumbnail ? (
+          <img 
+            src={course.thumbnail} 
+            alt={course.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none';
+              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+            }}
+          />
+        ) : null}
+        <BookOpen className={`w-12 h-12 text-gray-400 ${course.thumbnail ? 'hidden' : ''}`} />
       </div>
       <div className="p-6">
         <div className="flex items-center justify-between mb-2">
@@ -46,15 +60,24 @@ export default function CourseCard({ course, getStatusColor }: CourseCardProps) 
         </div>
 
         <div className="flex space-x-2">
-          <button className="flex-1 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-200 flex items-center justify-center space-x-1">
+          <button 
+            onClick={() => onEdit(course)}
+            className="flex-1 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-200 flex items-center justify-center space-x-1"
+          >
             <Edit className="w-3 h-3" />
             <span>Edit</span>
           </button>
-          <button className="flex-1 bg-green-100 text-green-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-200 flex items-center justify-center space-x-1">
+          <button 
+            onClick={() => onView(course)}
+            className="flex-1 bg-green-100 text-green-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-200 flex items-center justify-center space-x-1"
+          >
             <Eye className="w-3 h-3" />
             <span>View</span>
           </button>
-          <button className="bg-red-100 text-red-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-200">
+          <button 
+            onClick={() => onDelete(course.id)}
+            className="bg-red-100 text-red-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-red-200"
+          >
             <Trash2 className="w-4 h-4" />
           </button>
         </div>

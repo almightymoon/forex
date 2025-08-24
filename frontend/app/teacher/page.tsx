@@ -34,6 +34,8 @@ export default function TeacherDashboard() {
         
         if (!token) {
           console.log('No token found, redirecting to login');
+          // Show a more user-friendly message before redirecting
+          alert('Please login first to access the teacher dashboard');
           window.location.href = '/login';
           return;
         }
@@ -69,7 +71,8 @@ export default function TeacherDashboard() {
         // Handle courses response
         if (coursesRes.ok) {
           const coursesData = await coursesRes.json();
-          setCourses(coursesData.courses || coursesData || []);
+          // Backend returns { success: true, data: courses }
+          setCourses(coursesData.data || coursesData.courses || []);
         } else {
           console.error('Failed to fetch courses:', coursesRes.status);
           // Set empty array instead of mock data
@@ -79,7 +82,8 @@ export default function TeacherDashboard() {
         // Handle students response
         if (studentsRes.ok) {
           const studentsData = await studentsRes.json();
-          setStudents(studentsData.students || studentsData || []);
+          // Backend returns { success: true, data: students }
+          setStudents(studentsData.data || studentsData.students || []);
         } else {
           console.error('Failed to fetch students:', studentsRes.status);
           // Set empty array instead of mock data
@@ -89,7 +93,8 @@ export default function TeacherDashboard() {
         // Handle live sessions response
         if (liveSessionsRes.ok) {
           const sessionsData = await liveSessionsRes.json();
-          setLiveSessions(sessionsData.sessions || sessionsData || []);
+          // Backend returns { success: true, data: sessions }
+          setLiveSessions(sessionsData.data || sessionsData.sessions || []);
         } else {
           console.error('Failed to fetch live sessions:', liveSessionsRes.status);
           // Set empty array instead of mock data
@@ -99,20 +104,21 @@ export default function TeacherDashboard() {
         // Handle analytics response
         if (analyticsRes.ok) {
           const analyticsData = await analyticsRes.json();
-          setAnalytics(analyticsData.analytics || analyticsData || null);
+          // Backend returns { success: true, data: analytics }
+          setAnalytics(analyticsData.data || analyticsData.analytics || null);
         } else {
           console.error('Failed to fetch analytics:', analyticsRes.status);
           // Analytics will be calculated from fetched data
         }
 
-      } catch (error) {
+    } catch (error) {
         console.error('Error fetching teacher data:', error);
         // Set empty arrays on error - no more mock data
         setCourses([]);
         setStudents([]);
         setLiveSessions([]);
         setAnalytics(null);
-      } finally {
+    } finally {
         setIsLoading(false);
       }
     };
@@ -183,4 +189,4 @@ export default function TeacherDashboard() {
       </div>
     </>
   );
-} 
+}

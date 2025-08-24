@@ -10,7 +10,7 @@ const contentSchema = new mongoose.Schema({
   description: {
     type: String,
     trim: true,
-    maxlength: [500, 'Content description cannot exceed 500 characters']
+    maxlength: [5000, 'Content description cannot exceed 5000 characters']
   },
   type: {
     type: String,
@@ -102,7 +102,7 @@ const courseSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Course description is required'],
     trim: true,
-    maxlength: [2000, 'Course description cannot exceed 2000 characters']
+    maxlength: [10000, 'Course description cannot exceed 10000 characters']
   },
   instructor: {
     type: mongoose.Schema.Types.ObjectId,
@@ -193,13 +193,11 @@ const courseSchema = new mongoose.Schema({
   },
   requirements: [{
     type: String,
-    trim: true,
-    maxlength: [200, 'Requirement cannot exceed 200 characters']
+    trim: true
   }],
   learningOutcomes: [{
     type: String,
-    trim: true,
-    maxlength: [200, 'Learning outcome cannot exceed 200 characters']
+    trim: true
   }],
   certificate: {
     isAvailable: {

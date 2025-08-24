@@ -294,9 +294,9 @@ const requireTeacher = async (req, res, next) => {
       return res.status(401).json({ error: 'Access denied. No token provided.' });
     }
 
-    // Check if user has teacher role
-    if (req.user.role !== 'teacher' && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Access denied. Teacher role required.' });
+    // Check if user has teacher or instructor role (both are equivalent)
+    if (req.user.role !== 'teacher' && req.user.role !== 'instructor' && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied. Teacher/Instructor role required.' });
     }
 
     next();
