@@ -1,29 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '../../../../lib/auth';
 
 export async function GET(request: NextRequest) {
   try {
-    // Verify authentication
-    const token = request.headers.get('authorization')?.replace('Bearer ', '');
-    if (!token) {
+    // Get authorization header and pass it directly to backend
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await verifyToken(token);
-    if (!user || (user.role !== 'teacher' && user.role !== 'instructor' && user.role !== 'admin')) {
-      return NextResponse.json({ error: 'Forbidden - Only teachers, instructors and admins can access this route' }, { status: 403 });
-    }
+    // Get query parameters and pass them to backend
+    const { searchParams } = new URL(request.url);
+    const queryString = searchParams.toString();
+    const backendUrl = `http://localhost:4000/api/teacher/students${queryString ? `?${queryString}` : ''}`;
 
-    // Proxy to your actual backend
-    const backendResponse = await fetch('http://localhost:4000/api/teacher/students', {
+    // Proxy directly to backend - let backend handle authentication
+    const backendResponse = await fetch(backendUrl, {
       headers: {
-        'Authorization': `Bearer ${token}`,
+        'Authorization': authHeader,
         'Content-Type': 'application/json'
       }
     });
 
     if (!backendResponse.ok) {
-      throw new Error(`Backend responded with ${backendResponse.status}`);
+      const errorData = await backendResponse.json().catch(() => ({}));
+      return NextResponse.json(
+        { error: errorData.error || 'Backend error', message: errorData.message },
+        { status: backendResponse.status }
+      );
     }
 
     const backendData = await backendResponse.json();

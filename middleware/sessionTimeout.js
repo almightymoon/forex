@@ -4,7 +4,7 @@ const User = require('../models/User');
 
 const checkSessionTimeout = async (req, res, next) => {
   try {
-    const token = req.header('Authorization')?.replace('Bearer ', '');
+    const token = req.headers['authorization']?.replace('Bearer ', '');
     
     if (!token) {
       return next(); // No token, let other middleware handle
@@ -49,15 +49,15 @@ const checkSessionTimeout = async (req, res, next) => {
   }
 };
 
-const generateTokenWithTimeout = (userId) => {
+const generateTokenWithTimeout = (userId, role) => {
   return new Promise(async (resolve, reject) => {
     try {
       const settings = await Settings.getSettings();
       const sessionTimeoutMinutes = settings.security.sessionTimeout;
       
-      // Create token with appropriate expiration
+      // Create token with appropriate expiration and role
       const token = jwt.sign(
-        { userId, sessionStart: Date.now() },
+        { userId, role, sessionStart: Date.now() },
         process.env.JWT_SECRET,
         { expiresIn: `${sessionTimeoutMinutes}m` }
       );
@@ -65,7 +65,7 @@ const generateTokenWithTimeout = (userId) => {
       resolve(token);
     } catch (error) {
       // Fallback to default 7 days if settings unavailable
-      const token = jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
+      const token = jwt.sign({ userId, role }, process.env.JWT_SECRET, { expiresIn: '7d' });
       resolve(token);
     }
   });
@@ -77,9 +77,9 @@ const refreshToken = async (oldToken) => {
     const settings = await Settings.getSettings();
     const sessionTimeoutMinutes = settings.security.sessionTimeout;
     
-    // Generate new token with fresh expiration
+    // Generate new token with fresh expiration and preserve role
     const newToken = jwt.sign(
-      { userId: decoded.userId, sessionStart: Date.now() },
+      { userId: decoded.userId, role: decoded.role, sessionStart: Date.now() },
       process.env.JWT_SECRET,
       { expiresIn: `${sessionTimeoutMinutes}m` }
     );

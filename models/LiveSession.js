@@ -13,10 +13,10 @@ const liveSessionSchema = new mongoose.Schema({
     trim: true,
     maxlength: [1000, 'Session description cannot exceed 1000 characters']
   },
-  instructor: {
+  teacher: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'Instructor is required']
+    required: [true, 'Teacher is required']
   },
   scheduledAt: {
     type: Date,
@@ -190,7 +190,7 @@ liveSessionSchema.virtual('formattedDuration').get(function() {
 });
 
 // Indexes for better query performance
-liveSessionSchema.index({ instructor: 1 });
+liveSessionSchema.index({ teacher: 1 });
 liveSessionSchema.index({ scheduledAt: 1 });
 liveSessionSchema.index({ status: 1 });
 liveSessionSchema.index({ category: 1 });
@@ -284,9 +284,9 @@ liveSessionSchema.statics.findLive = function() {
   return this.find({ status: 'live' });
 };
 
-// Static method to find sessions by instructor
-liveSessionSchema.statics.findByInstructor = function(instructorId) {
-  return this.find({ instructor: instructorId }).sort({ scheduledAt: -1 });
+// Static method to find sessions by teacher
+liveSessionSchema.statics.findByTeacher = function(teacherId) {
+  return this.find({ teacher: teacherId }).sort({ scheduledAt: -1 });
 };
 
 module.exports = mongoose.model('LiveSession', liveSessionSchema);

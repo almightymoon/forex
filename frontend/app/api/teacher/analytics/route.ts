@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '../../../../lib/auth';
+import jwt from 'jsonwebtoken';
 
 export async function GET(request: NextRequest) {
   try {
@@ -9,9 +9,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const user = await verifyToken(token);
-    if (!user || (user.role !== 'teacher' && user.role !== 'instructor' && user.role !== 'admin')) {
-      return NextResponse.json({ error: 'Forbidden - Only teachers, instructors and admins can access this route' }, { status: 403 });
+    // Verify JWT token directly
+    let decodedToken;
+    try {
+      decodedToken = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
+    } catch (error) {
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    if (!decodedToken || (decodedToken.role !== 'teacher' && decodedToken.role !== 'admin')) {
+      return NextResponse.json({ error: 'Forbidden - Only teachers and admins can access this route' }, { status: 403 });
     }
 
     // Proxy to your actual backend

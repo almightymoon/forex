@@ -7,7 +7,12 @@ const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
+    console.log('Auth middleware - Headers:', req.headers);
+    console.log('Auth middleware - Auth header:', authHeader);
+    console.log('Auth middleware - Token:', token ? `${token.substring(0, 20)}...` : 'No token');
+
     if (!token) {
+      console.log('Auth middleware - No token provided');
       return res.status(401).json({ 
         error: 'Access token required',
         message: 'Please provide a valid authentication token'
@@ -15,9 +20,13 @@ const authenticateToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    console.log('Auth middleware - Decoded token:', decoded);
+    
     const user = await User.findById(decoded.userId).select('-password');
+    console.log('Auth middleware - Found user:', user ? { id: user._id, email: user.email, role: user.role } : 'No user found');
 
     if (!user) {
+      console.log('Auth middleware - User not found in database');
       return res.status(401).json({ 
         error: 'Invalid token',
         message: 'User not found'
@@ -25,16 +34,21 @@ const authenticateToken = async (req, res, next) => {
     }
 
     if (!user.isActive) {
+      console.log('Auth middleware - User account deactivated');
       return res.status(401).json({ 
         error: 'Account deactivated',
         message: 'Your account has been deactivated'
       });
     }
 
+    console.log('Auth middleware - Authentication successful for user:', user.email);
     req.user = user;
     next();
   } catch (error) {
+    console.error('Auth middleware - Error details:', error);
+    
     if (error.name === 'JsonWebTokenError') {
+      console.log('Auth middleware - Invalid token format');
       return res.status(401).json({ 
         error: 'Invalid token',
         message: 'Token is not valid'
@@ -42,6 +56,7 @@ const authenticateToken = async (req, res, next) => {
     }
     
     if (error.name === 'TokenExpiredError') {
+      console.log('Auth middleware - Token expired');
       return res.status(401).json({ 
         error: 'Token expired',
         message: 'Token has expired, please login again'
@@ -77,8 +92,8 @@ const requireRole = (roles) => {
   };
 };
 
-// Middleware to check if user is instructor
-const requireInstructor = requireRole(['instructor', 'admin']);
+// Middleware to check if user is teacher
+const requireTeacher = requireRole(['teacher', 'admin']);
 
 // Middleware to check if user is admin
 const requireAdmin = requireRole(['admin']);
@@ -119,7 +134,7 @@ const requireOwnership = (modelName) => {
       }
 
       // Check if user owns the resource
-      if (resource.instructor && resource.instructor.toString() === req.user._id.toString()) {
+      if (resource.teacher && resource.teacher.toString() === req.user._id.toString()) {
         return next();
       }
 
@@ -288,32 +303,15 @@ const requireSubscription = async (req, res, next) => {
   }
 };
 
-const requireTeacher = async (req, res, next) => {
-  try {
-    if (!req.user) {
-      return res.status(401).json({ error: 'Access denied. No token provided.' });
-    }
 
-    // Check if user has teacher or instructor role (both are equivalent)
-    if (req.user.role !== 'teacher' && req.user.role !== 'instructor' && req.user.role !== 'admin') {
-      return res.status(403).json({ error: 'Access denied. Teacher/Instructor role required.' });
-    }
-
-    next();
-  } catch (error) {
-    console.error('Teacher middleware error:', error);
-    res.status(500).json({ error: 'Internal server error' });
-  }
-};
 
 module.exports = {
   authenticateToken,
   requireRole,
-  requireInstructor,
+  requireTeacher,
   requireAdmin,
   requireOwnership,
   requireEnrollment,
   requireSignalSubscription,
-  requireSubscription,
-  requireTeacher
+  requireSubscription
 };

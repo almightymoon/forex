@@ -3,6 +3,7 @@ import { Plus, Search, BookOpen } from 'lucide-react';
 import CourseCard from './CourseCard';
 import CourseCreator from './CourseCreator';
 import { Course } from '../types';
+import { useToast } from '../../../components/Toast';
 
 interface CoursesProps {
   courses: Course[];
@@ -27,6 +28,7 @@ export default function Courses({
   onRefresh,
   getStatusColor
 }: CoursesProps) {
+  const { showToast } = useToast();
   const [showCourseCreator, setShowCourseCreator] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
 
@@ -36,7 +38,7 @@ export default function Courses({
       console.log('Token from localStorage:', token ? 'Token exists' : 'No token');
       
       if (!token) {
-        alert('Please log in to create a course');
+        showToast('Please log in to create a course', 'warning');
         window.location.href = '/login';
         return;
       }
@@ -71,7 +73,7 @@ export default function Courses({
         onRefresh();
         
         const statusMessage = courseData.status === 'published' ? 'published' : 'saved as draft';
-        alert(`Course ${action} and ${statusMessage} successfully!`);
+        showToast(`Course ${action} and ${statusMessage} successfully!`, 'success');
       } else {
         const action = editingCourse ? 'update' : 'create';
         let errorMessage = `Failed to ${action} course`;
@@ -83,11 +85,11 @@ export default function Courses({
           console.error(`Failed to ${action} course:`, response.status, response.statusText);
           errorMessage = `HTTP ${response.status}: ${response.statusText}`;
         }
-        alert(`Failed to ${action} course: ${errorMessage}`);
+        showToast(`Failed to ${action} course: ${errorMessage}`, 'error');
       }
     } catch (error) {
       console.error('Error creating course:', error);
-      alert('Error creating course. Please try again.');
+      showToast('Error creating course. Please try again.', 'error');
     }
   };
 
@@ -109,11 +111,11 @@ export default function Courses({
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        alert('Please log in to delete courses');
+        showToast('Please log in to delete courses', 'warning');
         return;
       }
 
-      const response = await fetch(`/api/teacher/courses/${courseId}`, {
+      const response = await fetch(`http://localhost:4000/api/teacher/courses/${courseId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -122,15 +124,15 @@ export default function Courses({
       });
 
       if (response.ok) {
-        alert('Course deleted successfully!');
+        showToast('Course deleted successfully!', 'success');
         onRefresh(); // Refresh the courses list
       } else {
         const error = await response.json();
-        alert(`Failed to delete course: ${error.error || 'Unknown error'}`);
+        showToast(`Failed to delete course: ${error.error || 'Unknown error'}`, 'error');
       }
     } catch (error) {
       console.error('Error deleting course:', error);
-      alert('Error deleting course. Please try again.');
+      showToast('Error deleting course. Please try again.', 'error');
     }
   };
 

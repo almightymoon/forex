@@ -104,10 +104,10 @@ const courseSchema = new mongoose.Schema({
     trim: true,
     maxlength: [10000, 'Course description cannot exceed 10000 characters']
   },
-  instructor: {
+  teacher: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'Instructor is required']
+    required: [true, 'Teacher is required']
   },
   price: {
     type: Number,
@@ -249,12 +249,15 @@ courseSchema.virtual('averageRating').get(function() {
 
 // Virtual for formatted price
 courseSchema.virtual('formattedPrice').get(function() {
-  return `${this.currency} ${this.price.toFixed(2)}`;
+  if (!this.price || typeof this.price !== 'number') {
+    return `${this.currency || 'USD'} 0.00`;
+  }
+  return `${this.currency || 'USD'} ${this.price.toFixed(2)}`;
 });
 
 // Indexes for better query performance
 courseSchema.index({ title: 'text', description: 'text' });
-courseSchema.index({ instructor: 1 });
+courseSchema.index({ teacher: 1 });
 courseSchema.index({ category: 1 });
 courseSchema.index({ level: 1 });
 courseSchema.index({ isPublished: 1 });

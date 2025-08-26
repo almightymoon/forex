@@ -5,16 +5,24 @@ import Header from './components/Header';
 import Navigation from './components/Navigation';
 import Overview from './components/Overview';
 import Courses from './components/Courses';
+import Students from './components/Students';
+import Assignments from './components/Assignments';
+import Analytics from './components/Analytics';
+import Communication from './components/Communication';
+import LiveSessions from './components/LiveSessions';
+import TradingSignals from './components/TradingSignals';
 import LoadingSpinner from './components/LoadingSpinner';
-import { Course, Student, LiveSession, Analytics } from './types';
+import { Course, Student, LiveSession, Analytics as AnalyticsType } from './types';
 import { getStatusColor, getSessionStatusColor, calculateAnalytics } from './utils/helpers';
+import { useToast } from '../../components/Toast';
 
 export default function TeacherDashboard() {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('overview');
   const [courses, setCourses] = useState<Course[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [liveSessions, setLiveSessions] = useState<LiveSession[]>([]);
-  const [analytics, setAnalytics] = useState<Analytics | null>(null);
+  const [analytics, setAnalytics] = useState<AnalyticsType | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFilter, setSelectedFilter] = useState('all');
@@ -32,35 +40,41 @@ export default function TeacherDashboard() {
         setIsLoading(true);
         const token = localStorage.getItem('token');
         
+        console.log('Token retrieved from localStorage:', token ? `${token.substring(0, 20)}...` : 'No token');
+        
         if (!token) {
           console.log('No token found, redirecting to login');
           // Show a more user-friendly message before redirecting
-          alert('Please login first to access the teacher dashboard');
+          showToast('Please login first to access the teacher dashboard', 'warning');
           window.location.href = '/login';
           return;
         }
 
+        console.log('Fetching teacher data...');
+
+        console.log('Making API calls to backend...');
+        
         // Fetch all data in parallel with proper error handling
         const [coursesRes, studentsRes, liveSessionsRes, analyticsRes] = await Promise.all([
-          fetch('/api/teacher/courses', {
+          fetch('http://localhost:4000/api/teacher/courses', {
             headers: { 
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
           }),
-          fetch('/api/teacher/students', {
+          fetch('http://localhost:4000/api/teacher/students', {
             headers: { 
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
           }),
-          fetch('/api/teacher/live-sessions', {
+          fetch('http://localhost:4000/api/teacher/live-sessions', {
             headers: { 
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
           }),
-          fetch('/api/teacher/analytics', {
+          fetch('http://localhost:4000/api/teacher/analytics', {
             headers: { 
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -68,44 +82,52 @@ export default function TeacherDashboard() {
           })
         ]);
 
+        console.log('API Responses - Status codes:', {
+          courses: coursesRes.status,
+          students: studentsRes.status,
+          liveSessions: liveSessionsRes.status,
+          analytics: analyticsRes.status
+        });
+
+        console.log('Token being used:', token ? `${token.substring(0, 20)}...` : 'No token');
+
         // Handle courses response
         if (coursesRes.ok) {
           const coursesData = await coursesRes.json();
-          // Backend returns { success: true, data: courses }
-          setCourses(coursesData.data || coursesData.courses || []);
+          console.log('Courses response:', coursesData);
+          setCourses(coursesData.courses || []);
         } else {
           console.error('Failed to fetch courses:', coursesRes.status);
-          // Set empty array instead of mock data
           setCourses([]);
         }
 
         // Handle students response
         if (studentsRes.ok) {
           const studentsData = await studentsRes.json();
-          // Backend returns { success: true, data: students }
-          setStudents(studentsData.data || studentsData.students || []);
+          console.log('Students response:', studentsData);
+          setStudents(studentsData.data || []);
         } else {
           console.error('Failed to fetch students:', studentsRes.status);
-          // Set empty array instead of mock data
           setStudents([]);
         }
 
         // Handle live sessions response
         if (liveSessionsRes.ok) {
           const sessionsData = await liveSessionsRes.json();
-          // Backend returns { success: true, data: sessions }
-          setLiveSessions(sessionsData.data || sessionsData.sessions || []);
+          console.log('Live sessions response:', sessionsData);
+          setLiveSessions(sessionsData.data || []);
         } else {
           console.error('Failed to fetch live sessions:', liveSessionsRes.status);
-          // Set empty array instead of mock data
+          const errorData = await liveSessionsRes.text();
+          console.error('Live sessions error response:', errorData);
           setLiveSessions([]);
         }
 
         // Handle analytics response
         if (analyticsRes.ok) {
           const analyticsData = await analyticsRes.json();
-          // Backend returns { success: true, data: analytics }
-          setAnalytics(analyticsData.data || analyticsData.analytics || null);
+          console.log('Analytics response:', analyticsData);
+          setAnalytics(analyticsData.data || null);
         } else {
           console.error('Failed to fetch analytics:', analyticsRes.status);
           // Analytics will be calculated from fetched data
@@ -113,6 +135,11 @@ export default function TeacherDashboard() {
 
     } catch (error) {
         console.error('Error fetching teacher data:', error);
+        console.error('Error details:', {
+          name: error.name,
+          message: error.message,
+          stack: error.stack
+        });
         // Set empty arrays on error - no more mock data
         setCourses([]);
         setStudents([]);
@@ -177,8 +204,47 @@ export default function TeacherDashboard() {
           />
         )}
 
+        {activeTab === 'students' && (
+          <Students 
+            students={students}
+            courses={courses}
+            isLoading={isLoading}
+            onRefresh={refreshData}
+          />
+        )}
+
+        {activeTab === 'assignments' && (
+          <Assignments 
+            courses={courses}
+            isLoading={isLoading}
+            onRefresh={refreshData}
+          />
+        )}
+
+        {activeTab === 'analytics' && (
+          <Analytics />
+        )}
+
+        {activeTab === 'live-sessions' && (
+          <LiveSessions />
+        )}
+
+        {activeTab === 'signals' && (
+          <TradingSignals />
+        )}
+
+        {activeTab === 'communications' && (
+          <Communication />
+        )}
+
         {/* Other tabs placeholder */}
-        {activeTab !== 'overview' && activeTab !== 'courses' && (
+        {activeTab !== 'overview' && 
+         activeTab !== 'courses' && 
+         activeTab !== 'students' && 
+         activeTab !== 'analytics' && 
+         activeTab !== 'live-sessions' && 
+         activeTab !== 'signals' && 
+         activeTab !== 'communications' && (
           <div className="text-center py-12">
             <h2 className="text-xl font-semibold text-gray-900 mb-2">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}

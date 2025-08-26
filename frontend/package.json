@@ -13,6 +13,7 @@
     "@hookform/resolvers": "^3.3.2",
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.10",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.9.0",
     "@types/react": "^18.2.37",
     "@types/react-datepicker": "^4.19.4",
@@ -24,6 +25,7 @@
     "clsx": "^2.0.0",
     "date-fns": "^2.30.0",
     "framer-motion": "^10.16.5",
+    "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.292.0",
     "next": "14.0.3",
     "next-seo": "^6.4.0",
@@ -41,6 +43,7 @@
     "react-markdown": "^9.0.1",
     "react-player": "^2.13.0",
     "react-query": "^3.39.3",
+    "react-quill": "^2.0.0",
     "recharts": "^2.8.0",
     "remark-gfm": "^4.0.0",
     "socket.io-client": "^4.7.4",
@@ -51,6 +54,7 @@
     "zustand": "^4.4.6"
   },
   "devDependencies": {
+    "@types/quill": "^2.0.14",
     "@typescript-eslint/eslint-plugin": "^6.10.0",
     "@typescript-eslint/parser": "^6.10.0",
     "eslint": "^8.53.0",

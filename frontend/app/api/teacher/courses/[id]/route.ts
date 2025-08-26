@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyToken } from '../../../../../lib/auth';
+import jwt from 'jsonwebtoken';
 
 export async function PUT(
   request: NextRequest,
@@ -17,12 +17,19 @@ export async function PUT(
 
     console.log('Token received, length:', token.length);
 
-    const user = await verifyToken(token);
-    console.log('User verification result:', user);
-    
-    if (!user || (user.role !== 'teacher' && user.role !== 'instructor' && user.role !== 'admin')) {
-      console.log('User not authorized:', user?.role);
-      return NextResponse.json({ error: 'Forbidden - Only teachers, instructors and admins can access this route' }, { status: 403 });
+    // Verify JWT token directly
+    let decodedToken;
+    try {
+      decodedToken = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
+      console.log('Token decoded successfully, role:', decodedToken?.role);
+    } catch (error) {
+      console.log('Token verification failed:', error);
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    if (!decodedToken || (decodedToken.role !== 'teacher' && decodedToken.role !== 'admin')) {
+      console.log('User not authorized:', decodedToken?.role);
+      return NextResponse.json({ error: 'Forbidden - Only teachers and admins can access this route' }, { status: 403 });
     }
 
     const courseData = await request.json();
@@ -78,12 +85,19 @@ export async function DELETE(
 
     console.log('Token received, length:', token.length);
 
-    const user = await verifyToken(token);
-    console.log('User verification result:', user);
-    
-    if (!user || (user.role !== 'teacher' && user.role !== 'instructor' && user.role !== 'admin')) {
-      console.log('User not authorized:', user?.role);
-      return NextResponse.json({ error: 'Forbidden - Only teachers, instructors and admins can access this route' }, { status: 403 });
+    // Verify JWT token directly
+    let decodedToken;
+    try {
+      decodedToken = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
+      console.log('Token decoded successfully, role:', decodedToken?.role);
+    } catch (error) {
+      console.log('Token verification failed:', error);
+      return NextResponse.json({ error: 'Invalid token' }, { status: 401 });
+    }
+
+    if (!decodedToken || (decodedToken.role !== 'teacher' && decodedToken.role !== 'admin')) {
+      console.log('User not authorized:', decodedToken?.role);
+      return NextResponse.json({ error: 'Forbidden - Only teachers and admins can access this route' }, { status: 403 });
     }
 
     // Check if backend is accessible

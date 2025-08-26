@@ -43,7 +43,7 @@ router.put('/:id', [
   body('lastName').optional().trim().notEmpty().withMessage('Last name cannot be empty'),
   body('phone').optional().trim(),
   body('country').optional().trim(),
-  body('role').optional().isIn(['student', 'instructor', 'admin']).withMessage('Invalid role')
+  body('role').optional().isIn(['student', 'teacher', 'admin']).withMessage('Invalid role')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);

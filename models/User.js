@@ -29,7 +29,7 @@ const userSchema = new mongoose.Schema({
   },
   role: {
     type: String,
-    enum: ['student', 'instructor', 'admin'],
+    enum: ['student', 'instructor', 'teacher', 'admin'],
     default: 'student'
   },
   isVerified: {
@@ -108,6 +108,34 @@ const userSchema = new mongoose.Schema({
       userAgent: String
     }]
   },
+  enrolledCourses: [{
+    courseId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Course'
+    },
+    enrolledAt: {
+      type: Date,
+      default: Date.now
+    },
+    progress: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100
+    },
+    completedLessons: {
+      type: Number,
+      default: 0
+    },
+    totalLessons: {
+      type: Number,
+      default: 0
+    },
+    lastAccessed: {
+      type: Date,
+      default: Date.now
+    }
+  }],
   preferences: {
     emailNotifications: {
       type: Boolean,

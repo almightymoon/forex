@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const TradingSignal = require('../models/TradingSignal');
-const { authenticateToken, requireInstructor, requireOwnership } = require('../middleware/auth');
+const { authenticateToken, requireTeacher, requireOwnership } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -10,53 +10,14 @@ const router = express.Router();
 // @access  Public
 router.get('/', async (req, res) => {
   try {
-    // For now, return sample data since we don't have actual signals yet
-    const sampleSignals = [
-      {
-        _id: '1',
-        symbol: 'EUR/USD',
-        type: 'buy',
-        entryPrice: 1.0850,
-        targetPrice: 1.0920,
-        stopLoss: 1.0800,
-        description: 'Strong support at 1.0850 with bullish divergence on RSI. Expecting a bounce towards resistance at 1.0920.',
-        timeframe: '4h',
-        confidence: 85,
-        instructor: { firstName: 'John', lastName: 'Doe' },
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-        comments: 12
-      },
-      {
-        _id: '2',
-        symbol: 'GBP/JPY',
-        type: 'sell',
-        entryPrice: 185.50,
-        targetPrice: 184.00,
-        stopLoss: 186.50,
-        description: 'Price rejected at key resistance level. Bearish engulfing pattern suggests a reversal. Target support at 184.00.',
-        timeframe: '1h',
-        confidence: 78,
-        instructor: { firstName: 'Jane', lastName: 'Smith' },
-        createdAt: new Date(Date.now() - 6 * 60 * 60 * 1000), // 6 hours ago
-        comments: 8
-      },
-      {
-        _id: '3',
-        symbol: 'USD/CAD',
-        type: 'hold',
-        entryPrice: 1.3650,
-        targetPrice: 1.3700,
-        stopLoss: 1.3600,
-        description: 'Market in consolidation phase. Wait for breakout above 1.3700 or breakdown below 1.3600 before taking action.',
-        timeframe: '1d',
-        confidence: 65,
-        instructor: { firstName: 'Mike', lastName: 'Johnson' },
-        createdAt: new Date(Date.now() - 12 * 60 * 60 * 1000), // 12 hours ago
-        comments: 5
-      }
-    ];
+    // Fetch real signals from database and populate teacher information
+    const signals = await TradingSignal.find({ isPublished: true })
+      .populate('teacher', 'firstName lastName profileImage email')
+      .sort({ createdAt: -1 })
+      .limit(50);
     
-    res.json(sampleSignals);
+    // If no real signals exist yet, return empty array instead of sample data
+    res.json(signals);
   } catch (error) {
     console.error('Get signals error:', error);
     res.status(500).json({ error: 'Failed to fetch signals' });
@@ -69,7 +30,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const signal = await TradingSignal.findById(req.params.id)
-      .populate('instructor', 'firstName lastName profileImage email');
+      .populate('teacher', 'firstName lastName profileImage email');
     
     if (!signal) {
       return res.status(404).json({ error: 'Signal not found' });
@@ -87,7 +48,7 @@ router.get('/:id', async (req, res) => {
 // @access  Private/Instructor
 router.post('/', [
   authenticateToken,
-  requireInstructor,
+  requireTeacher,
   body('symbol').trim().notEmpty().withMessage('Symbol is required'),
   body('type').isIn(['buy', 'sell', 'hold', 'strong_buy', 'strong_sell']).withMessage('Invalid signal type'),
   body('entryPrice').isNumeric().withMessage('Entry price is required'),
@@ -96,7 +57,13 @@ router.post('/', [
   body('description').trim().notEmpty().withMessage('Description is required'),
   body('timeframe').isIn(['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M']).withMessage('Invalid timeframe'),
   body('confidence').isInt({ min: 1, max: 100 }).withMessage('Confidence must be between 1-100'),
-  body('market').isIn(['forex', 'crypto', 'stocks', 'commodities', 'indices', 'futures']).withMessage('Invalid market')
+  body('instrumentType').isIn(['forex', 'crypto', 'stocks', 'commodities', 'indices', 'futures']).withMessage('Invalid instrument type'),
+  body('currentBid').isNumeric().withMessage('Current bid price is required'),
+  body('currentAsk').isNumeric().withMessage('Current ask price is required'),
+  body('dailyHigh').isNumeric().withMessage('Daily high is required'),
+  body('dailyLow').isNumeric().withMessage('Daily low is required'),
+  body('priceChange').isNumeric().withMessage('Price change is required'),
+  body('priceChangePercent').isNumeric().withMessage('Price change percentage is required')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -106,7 +73,7 @@ router.post('/', [
 
     const signalData = {
       ...req.body,
-      instructor: req.user._id
+      teacher: req.user._id
     };
 
     const signal = new TradingSignal(signalData);
@@ -142,7 +109,7 @@ router.put('/:id', [
       req.params.id,
       req.body,
       { new: true, runValidators: true }
-    ).populate('instructor', 'firstName lastName profileImage');
+    ).populate('teacher', 'firstName lastName profileImage');
 
     if (!signal) {
       return res.status(404).json({ error: 'Signal not found' });
@@ -156,6 +123,30 @@ router.put('/:id', [
   } catch (error) {
     console.error('Update signal error:', error);
     res.status(500).json({ error: 'Failed to update signal' });
+  }
+});
+
+// @route   POST /api/signals/:id/close
+// @desc    Close signal
+// @access  Private/Instructor (owner)
+router.post('/:id/close', authenticateToken, requireOwnership('TradingSignal'), async (req, res) => {
+  try {
+    const signal = await TradingSignal.findById(req.params.id);
+    if (!signal) {
+      return res.status(404).json({ error: 'Signal not found' });
+    }
+
+    signal.status = 'closed';
+    await signal.save();
+
+    res.json({ 
+      message: 'Signal closed successfully',
+      signal
+    });
+
+  } catch (error) {
+    console.error('Close signal error:', error);
+    res.status(500).json({ error: 'Failed to close signal' });
   }
 });
 

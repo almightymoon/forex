@@ -5,7 +5,7 @@ export interface User {
   email: string;
   phone?: string;
   country?: string;
-  role: 'student' | 'instructor' | 'admin';
+  role: 'student' | 'teacher' | 'admin';
   profileImage?: string;
   subscription: {
     plan: string;
@@ -121,7 +121,7 @@ export interface UserForm {
   password: string;
   phone: string;
   country: string;
-  role: 'admin' | 'instructor' | 'student';
+  role: 'admin' | 'teacher' | 'student';
   isActive: boolean;
   isVerified: boolean;
 }
@@ -149,7 +149,7 @@ export interface BulkNotification {
   title: string;
   message: string;
   type: 'info' | 'success' | 'warning' | 'error';
-  targetAudience: 'all' | 'students' | 'instructors' | 'admins' | 'custom';
+  targetAudience: 'all' | 'students' | 'teachers' | 'admins' | 'custom';
   targetUsers?: string[];
   scheduledFor?: Date;
   sentAt?: Date;

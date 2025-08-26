@@ -2,7 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Course = require('../models/Course');
 const User = require('../models/User');
-const { authenticateToken, requireInstructor, requireOwnership, requireEnrollment } = require('../middleware/auth');
+const { authenticateToken, requireTeacher, requireOwnership, requireEnrollment } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -13,7 +13,12 @@ router.get('/', async (req, res) => {
   try {
     const { category, level, search, sort = 'createdAt', order = 'desc' } = req.query;
     
-    let query = { isPublished: true };
+    let query = { 
+      $or: [
+        { isPublished: true },
+        { status: 'published' }
+      ]
+    };
     
     if (category) query.category = category;
     if (level) query.level = level;
@@ -25,7 +30,7 @@ router.get('/', async (req, res) => {
     sortObj[sort] = order === 'desc' ? -1 : 1;
     
     const courses = await Course.find(query)
-      .populate('instructor', 'firstName lastName profileImage')
+      .populate('teacher', 'firstName lastName profileImage')
       .sort(sortObj)
       .limit(20);
     
@@ -49,7 +54,7 @@ router.get('/enrolled', authenticateToken, async (req, res) => {
     // Find courses where the user is enrolled
     const enrolledCourses = await Course.find({
       'enrolledStudents.student': user._id
-    }).populate('instructor', 'firstName lastName');
+    }).populate('teacher', 'firstName lastName');
     
     // Format the response with user-specific progress
     const formattedCourses = enrolledCourses.map(course => {
@@ -61,9 +66,9 @@ router.get('/enrolled', authenticateToken, async (req, res) => {
         _id: course._id,
         title: course.title,
         description: course.description,
-        instructor: course.instructor,
+        teacher: course.teacher,
         progress: enrollment ? enrollment.progress : 0,
-        totalLessons: course.videos.length,
+        totalLessons: course.content ? course.content.length : (course.videos ? course.videos.length : 0),
         completedLessons: enrollment ? enrollment.completedVideos.length : 0,
         category: course.category,
         level: course.level,
@@ -88,7 +93,7 @@ router.get('/enrolled', authenticateToken, async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const course = await Course.findById(req.params.id)
-      .populate('instructor', 'firstName lastName profileImage email')
+      .populate('teacher', 'firstName lastName profileImage email')
       .populate('enrolledStudents.student', 'firstName lastName profileImage');
     
     if (!course) {
@@ -104,10 +109,10 @@ router.get('/:id', async (req, res) => {
 
 // @route   POST /api/courses
 // @desc    Create new course
-// @access  Private/Instructor
+// @access  Private/Teacher
 router.post('/', [
   authenticateToken,
-  requireInstructor,
+  requireTeacher,
   body('title').trim().notEmpty().withMessage('Title is required'),
   body('description').trim().notEmpty().withMessage('Description is required'),
   body('price').isNumeric().withMessage('Price must be a number'),
@@ -122,7 +127,7 @@ router.post('/', [
 
     const courseData = {
       ...req.body,
-      instructor: req.user._id
+              teacher: req.user._id
     };
 
     const course = new Course(courseData);
@@ -141,7 +146,7 @@ router.post('/', [
 
 // @route   PUT /api/courses/:id
 // @desc    Update course
-// @access  Private/Instructor (owner)
+// @access  Private/Teacher (owner)
 router.put('/:id', [
   authenticateToken,
   requireOwnership('Course'),
@@ -161,7 +166,7 @@ router.put('/:id', [
       req.params.id,
       req.body,
       { new: true, runValidators: true }
-    ).populate('instructor', 'firstName lastName profileImage');
+    ).populate('teacher', 'firstName lastName profileImage');
 
     if (!course) {
       return res.status(404).json({ error: 'Course not found' });
@@ -180,7 +185,7 @@ router.put('/:id', [
 
 // @route   DELETE /api/courses/:id
 // @desc    Delete course
-// @access  Private/Instructor (owner)
+// @access  Private/Teacher (owner)
 router.delete('/:id', authenticateToken, requireOwnership('Course'), async (req, res) => {
   try {
     const course = await Course.findById(req.params.id);
@@ -208,7 +213,7 @@ router.post('/:id/enroll', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'Course not found' });
     }
 
-    if (!course.isPublished) {
+    if (!course.isPublished && course.status !== 'published') {
       return res.status(400).json({ error: 'Course is not published' });
     }
 
@@ -292,8 +297,9 @@ router.put('/:id/progress', authenticateToken, requireEnrollment, async (req, re
       );
     }
 
-    // Calculate progress percentage
-    enrollment.progress = Math.round((enrollment.completedVideos.length / req.course.videos.length) * 100);
+    // Calculate progress percentage based on total content
+    const totalContent = req.course.content ? req.course.content.length : (req.course.videos ? req.course.videos.length : 0);
+    enrollment.progress = totalContent > 0 ? Math.round((enrollment.completedVideos.length / totalContent) * 100) : 0;
     enrollment.lastAccessed = new Date();
 
     await req.course.save();

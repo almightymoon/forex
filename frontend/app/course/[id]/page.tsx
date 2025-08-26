@@ -16,7 +16,8 @@ import {
   BarChart3,
   Target,
   Award,
-  FileText
+  FileText,
+  CheckSquare
 } from 'lucide-react';
 
 interface Content {
@@ -43,6 +44,9 @@ interface Content {
   }>;
   totalPoints?: number;
   passingScore?: number;
+  // Assignment specific fields
+  assignmentType?: string;
+  maxPoints?: number;
 }
 
 // Legacy interface for backward compatibility
@@ -56,7 +60,7 @@ interface Course {
   _id: string;
   title: string;
   description: string;
-  instructor: {
+  teacher: {
     firstName: string;
     lastName: string;
     profileImage?: string;
@@ -96,6 +100,9 @@ export default function CourseDetail() {
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [userProgress, setUserProgress] = useState(0);
   const [completedVideos, setCompletedVideos] = useState<string[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+
+
 
   useEffect(() => {
     if (courseId) {
@@ -108,7 +115,45 @@ export default function CourseDetail() {
       const response = await fetch(`/api/courses/${courseId}`);
       if (response.ok) {
         const courseData = await response.json();
-        setCourse(courseData);
+        
+        // Clean up the course data to prevent rendering issues
+        const cleanCourseData = { ...courseData };
+        
+        // Remove enrolledStudents if it's an array of objects that might cause rendering issues
+        if (cleanCourseData.enrolledStudents && Array.isArray(cleanCourseData.enrolledStudents)) {
+          // Keep only the count, not the full objects
+          cleanCourseData.enrolledStudents = cleanCourseData.enrolledStudents.length;
+        }
+        
+        // Ensure all required fields are present with safe defaults
+        cleanCourseData.totalVideos = cleanCourseData.totalVideos || 0;
+        cleanCourseData.totalDuration = cleanCourseData.totalDuration || 0;
+        cleanCourseData.rating = cleanCourseData.rating || 0;
+        cleanCourseData.totalStudents = cleanCourseData.totalStudents || 0;
+        cleanCourseData.totalRatings = cleanCourseData.totalRatings || 0;
+        
+        setCourse(cleanCourseData);
+        
+        // Fetch assignments for this course
+        try {
+          const token = localStorage.getItem('token');
+          const assignmentsResponse = await fetch(`http://localhost:4000/api/assignments?courseId=${courseId}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+          });
+          if (assignmentsResponse.ok) {
+            const assignmentsData = await assignmentsResponse.json();
+            setAssignments(assignmentsData.assignments || assignmentsData || []);
+          } else if (assignmentsResponse.status === 401) {
+            // User not authenticated, set empty assignments
+            setAssignments([]);
+          } else {
+            console.error('Error fetching assignments:', assignmentsResponse.status);
+            setAssignments([]);
+          }
+        } catch (error) {
+          console.error('Error fetching assignments:', error);
+          setAssignments([]);
+        }
         
         // Check if user is enrolled
         const token = localStorage.getItem('token');
@@ -140,6 +185,45 @@ export default function CourseDetail() {
 
   const handleContentSelect = (content: Content) => {
     setSelectedContent(content);
+  };
+
+  // Helper function to get content icon
+  const getContentIcon = (type: string) => {
+    switch (type) {
+      case 'video':
+        return <Play className="w-5 h-5 text-blue-600" />;
+      case 'text':
+        return <FileText className="w-5 h-5 text-green-600" />;
+      case 'assignment':
+        return <FileText className="w-5 h-5 text-blue-600" />;
+      case 'quiz':
+        return <CheckSquare className="w-5 h-5 text-purple-600" />;
+      default:
+        return <FileText className="w-5 h-5 text-gray-600" />;
+    }
+  };
+
+  // Helper function to get content type styling
+  const getContentTypeStyle = (type: string) => {
+    switch (type) {
+      case 'video':
+        return 'bg-blue-100 text-blue-700';
+      case 'text':
+        return 'bg-green-100 text-green-700';
+      case 'assignment':
+        return 'bg-blue-100 text-blue-700';
+      case 'quiz':
+        return 'bg-purple-100 text-purple-700';
+      default:
+        return 'bg-gray-100 text-gray-700';
+    }
+  };
+
+  // Helper function to format duration
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   const renderContent = (content: Content) => {
@@ -227,6 +311,23 @@ export default function CourseDetail() {
           </div>
         );
 
+      case 'assignment':
+        return (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">{content.title}</h2>
+            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 mb-4">
+              <p className="text-gray-700 mb-4">{content.description}</p>
+              <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+                <span>Assignment Type: {content.assignmentType || 'N/A'}</span>
+                <span>Max Points: {content.maxPoints || 0}</span>
+              </div>
+              <button className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors">
+                View Assignment
+              </button>
+            </div>
+          </div>
+        );
+
       default:
         return (
           <div>
@@ -266,45 +367,7 @@ export default function CourseDetail() {
     }
   };
 
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = seconds % 60;
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-  };
 
-  const getContentIcon = (type: string) => {
-    switch (type) {
-      case 'video':
-        return <Play className="w-5 h-5 text-blue-600" />;
-      case 'text':
-        return <FileText className="w-5 h-5 text-green-600" />;
-      case 'ppt':
-        return <FileText className="w-5 h-5 text-purple-600" />;
-      case 'quiz':
-        return <Target className="w-5 h-5 text-orange-600" />;
-      case 'assignment':
-        return <FileText className="w-5 h-5 text-red-600" />;
-      default:
-        return <FileText className="w-5 h-5 text-gray-600" />;
-    }
-  };
-
-  const getContentTypeStyle = (type: string) => {
-    switch (type) {
-      case 'video':
-        return 'bg-blue-100 text-blue-700';
-      case 'text':
-        return 'bg-green-100 text-green-700';
-      case 'ppt':
-        return 'bg-purple-100 text-purple-700';
-      case 'quiz':
-        return 'bg-orange-100 text-orange-700';
-      case 'assignment':
-        return 'bg-red-100 text-red-700';
-      default:
-        return 'bg-gray-100 text-gray-700';
-    }
-  };
 
   if (loading) {
     return (
@@ -361,7 +424,7 @@ export default function CourseDetail() {
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900">{course.title}</h1>
-                  <p className="text-gray-600">by {course.instructor.firstName} {course.instructor.lastName}</p>
+                  <p className="text-gray-600">by {course.instructor?.firstName || 'Unknown'} {course.instructor?.lastName || 'Instructor'}</p>
                 </div>
               </div>
               
@@ -373,28 +436,28 @@ export default function CourseDetail() {
                     <Play className="w-6 h-6 text-blue-600" />
                   </div>
                   <p className="text-sm text-gray-600">Videos</p>
-                  <p className="text-lg font-semibold text-gray-900">{course.totalVideos}</p>
+                  <p className="text-lg font-semibold text-gray-900">{typeof course.totalVideos === 'number' ? course.totalVideos : 0}</p>
                 </div>
                 <div className="text-center">
                   <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-2">
                     <Clock className="w-6 h-6 text-green-600" />
                   </div>
                   <p className="text-sm text-gray-600">Duration</p>
-                  <p className="text-lg font-semibold text-gray-900">{Math.round(course.totalDuration / 60)} min</p>
+                  <p className="text-lg font-semibold text-gray-900">{typeof course.totalDuration === 'number' ? Math.round(course.totalDuration / 60) : 0} min</p>
                 </div>
                 <div className="text-center">
                   <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-2">
                     <Star className="w-6 h-6 text-yellow-600" />
                   </div>
                   <p className="text-sm text-gray-600">Rating</p>
-                  <p className="text-lg font-semibold text-gray-900">{course.rating}/5</p>
+                  <p className="text-lg font-semibold text-gray-900">{typeof course.rating === 'number' ? course.rating : 0}/5</p>
                 </div>
                 <div className="text-center">
                   <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-2">
                     <User className="w-6 h-6 text-purple-600" />
                   </div>
                   <p className="text-sm text-gray-600">Students</p>
-                  <p className="text-lg font-semibold text-gray-900">{course.totalStudents}</p>
+                  <p className="text-lg font-semibold text-gray-900">{typeof course.totalStudents === 'number' ? course.totalStudents : 0}</p>
                 </div>
               </div>
             </motion.div>
@@ -419,6 +482,7 @@ export default function CourseDetail() {
             >
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Course Content</h2>
               <div className="space-y-3">
+                {/* Course Content */}
                 {(course.content || course.videos || []).map((item, index) => (
                   <div
                     key={item._id}
@@ -464,6 +528,54 @@ export default function CourseDetail() {
                     </div>
                   </div>
                 ))}
+                
+                {/* Course Assignments */}
+                {assignments.length > 0 && (
+                  <>
+                    <div className="pt-4 border-t border-gray-200">
+                      <h4 className="text-lg font-semibold text-gray-900 mb-3">Course Assignments</h4>
+                    </div>
+                    {assignments.map((assignment, index) => (
+                      <div
+                        key={assignment._id}
+                        onClick={() => handleContentSelect({
+                          _id: assignment._id,
+                          title: assignment.title,
+                          description: assignment.description,
+                          type: 'assignment',
+                          order: assignment.order || index + 1000,
+                          isPreview: false,
+                          views: 0,
+                          assignmentType: assignment.assignmentType,
+                          maxPoints: assignment.maxPoints
+                        })}
+                        className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
+                          selectedContent?._id === assignment._id
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-4">
+                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                            <FileText className="w-5 h-5 text-blue-600" />
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center space-x-2">
+                              <h3 className="font-medium text-gray-900">{assignment.title}</h3>
+                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
+                                ASSIGNMENT
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-600">{assignment.description}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-sm text-gray-500">{assignment.maxPoints || 'N/A'} pts</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
               </div>
             </motion.div>
           </div>
@@ -511,7 +623,7 @@ export default function CourseDetail() {
                 <ul className="space-y-2 text-sm text-gray-600">
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-green-500" />
-                    <span>{course.totalVideos} video lessons</span>
+                    <span>{typeof course.totalVideos === 'number' ? course.totalVideos : 0} video lessons</span>
                   </li>
                   <li className="flex items-center space-x-2">
                     <CheckCircle className="w-4 h-4 text-green-500" />
@@ -552,7 +664,7 @@ export default function CourseDetail() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-gray-600">Rating:</span>
-                  <span className="text-gray-900 font-medium">{course.rating}/5 ({course.totalRatings} ratings)</span>
+                  <span className="text-gray-900 font-medium">{typeof course.rating === 'number' ? course.rating : 0}/5 ({typeof course.totalRatings === 'number' ? course.totalRatings : 0} ratings)</span>
                 </div>
               </div>
             </motion.div>

@@ -18,10 +18,10 @@ const assignmentSchema = new mongoose.Schema({
     ref: 'Course',
     required: [true, 'Course is required']
   },
-  instructor: {
+  teacher: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'Instructor is required']
+    required: [true, 'Teacher is required']
   },
   dueDate: {
     type: Date,
@@ -155,7 +155,7 @@ const assignmentSchema = new mongoose.Schema({
 
 // Indexes for better query performance
 assignmentSchema.index({ course: 1 });
-assignmentSchema.index({ instructor: 1 });
+assignmentSchema.index({ teacher: 1 });
 assignmentSchema.index({ dueDate: 1 });
 assignmentSchema.index({ isPublished: 1 });
 assignmentSchema.index({ 'submissions.student': 1 });

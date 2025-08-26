@@ -5,7 +5,9 @@ import {
   Users, 
   Video, 
   TrendingUp, 
-  MessageSquare 
+  MessageSquare,
+  Target,
+  FileText
 } from 'lucide-react';
 
 interface NavigationProps {
@@ -17,7 +19,9 @@ const tabs = [
   { id: 'overview', name: 'Overview', icon: BarChart3 },
   { id: 'courses', name: 'Courses', icon: BookOpen },
   { id: 'students', name: 'Students', icon: Users },
+  { id: 'assignments', name: 'Assignments', icon: FileText },
   { id: 'live-sessions', name: 'Live Sessions', icon: Video },
+  { id: 'signals', name: 'Trading Signals', icon: Target },
   { id: 'analytics', name: 'Analytics', icon: TrendingUp },
   { id: 'communications', name: 'Communications', icon: MessageSquare }
 ];

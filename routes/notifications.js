@@ -356,7 +356,7 @@ router.post('/broadcast', [
   requireAdmin,
   body('type').notEmpty().withMessage('Notification type is required'),
   body('data').isObject().withMessage('Notification data object is required'),
-  body('userRole').optional().isIn(['admin', 'instructor', 'student']).withMessage('Invalid user role')
+  body('userRole').optional().isIn(['admin', 'teacher', 'student']).withMessage('Invalid user role')
 ], async (req, res) => {
   try {
     // Check validation errors

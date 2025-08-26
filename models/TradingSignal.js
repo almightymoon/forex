@@ -7,12 +7,50 @@ const tradingSignalSchema = new mongoose.Schema({
     trim: true,
     uppercase: true
   },
+  instrumentType: {
+    type: String,
+    required: [true, 'Instrument type is required'],
+    enum: ['forex', 'crypto', 'stocks', 'commodities', 'indices', 'futures'],
+    default: 'forex'
+  },
   type: {
     type: String,
     required: [true, 'Signal type is required'],
-    enum: ['buy', 'sell', 'hold'],
+    enum: ['buy', 'sell', 'hold', 'strong_buy', 'strong_sell'],
     lowercase: true
   },
+  // Current market prices (like MT5 quotes)
+  currentBid: {
+    type: Number,
+    required: [true, 'Current bid price is required'],
+    min: [0, 'Bid price cannot be negative']
+  },
+  currentAsk: {
+    type: Number,
+    required: [true, 'Current ask price is required'],
+    min: [0, 'Ask price cannot be negative']
+  },
+  // Daily high/low (like MT5 H:/L:)
+  dailyHigh: {
+    type: Number,
+    required: [true, 'Daily high is required'],
+    min: [0, 'Daily high cannot be negative']
+  },
+  dailyLow: {
+    type: Number,
+    required: [true, 'Daily low is required'],
+    min: [0, 'Daily low cannot be negative']
+  },
+  // Price change (like MT5 change display)
+  priceChange: {
+    type: Number,
+    required: [true, 'Price change is required']
+  },
+  priceChangePercent: {
+    type: Number,
+    required: [true, 'Price change percentage is required']
+  },
+  // Signal entry/exit prices
   entryPrice: {
     type: Number,
     required: [true, 'Entry price is required'],
@@ -27,6 +65,19 @@ const tradingSignalSchema = new mongoose.Schema({
     type: Number,
     required: [true, 'Stop loss is required'],
     min: [0, 'Stop loss cannot be negative']
+  },
+  // Risk management
+  riskRewardRatio: {
+    type: Number,
+    min: [0, 'Risk-reward ratio cannot be negative']
+  },
+  positionSize: {
+    type: Number,
+    min: [0, 'Position size cannot be negative']
+  },
+  maxRisk: {
+    type: Number,
+    min: [0, 'Maximum risk cannot be negative']
   },
   description: {
     type: String,
@@ -45,10 +96,10 @@ const tradingSignalSchema = new mongoose.Schema({
     min: [1, 'Confidence must be at least 1%'],
     max: [100, 'Confidence cannot exceed 100%']
   },
-  instructor: {
+  teacher: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'Instructor is required']
+    required: [true, 'Teacher is required']
   },
   status: {
     type: String,
@@ -120,7 +171,7 @@ const tradingSignalSchema = new mongoose.Schema({
 
 // Indexes for better query performance
 tradingSignalSchema.index({ symbol: 1, type: 1 });
-tradingSignalSchema.index({ instructor: 1 });
+tradingSignalSchema.index({ teacher: 1 });
 tradingSignalSchema.index({ status: 1 });
 tradingSignalSchema.index({ createdAt: -1 });
 tradingSignalSchema.index({ isPublished: 1 });
@@ -173,16 +224,32 @@ tradingSignalSchema.methods.expireSignal = function() {
   return this.save();
 };
 
-// Pre-save middleware to validate prices
+// Pre-save middleware to validate prices and market data
 tradingSignalSchema.pre('save', function(next) {
-  if (this.type === 'buy') {
+  // Validate bid/ask relationship
+  if (this.currentBid >= this.currentAsk) {
+    return next(new Error('Bid price must be lower than ask price'));
+  }
+  
+  // Validate daily high/low relationship
+  if (this.dailyLow >= this.dailyHigh) {
+    return next(new Error('Daily low must be lower than daily high'));
+  }
+  
+  // Validate current prices are within daily range (with flexibility for market volatility and news events)
+  if (this.currentBid < this.dailyLow * 0.8 || this.currentAsk > this.dailyHigh * 1.2) {
+    return next(new Error('Current prices should be reasonably within daily high/low range (allowing 20% tolerance for market volatility and news events)'));
+  }
+  
+  // Validate signal prices based on type
+  if (this.type === 'buy' || this.type === 'strong_buy') {
     if (this.targetPrice <= this.entryPrice) {
       return next(new Error('Target price must be higher than entry price for buy signals'));
     }
     if (this.stopLoss >= this.entryPrice) {
       return next(new Error('Stop loss must be lower than entry price for buy signals'));
     }
-  } else if (this.type === 'sell') {
+  } else if (this.type === 'sell' || this.type === 'strong_sell') {
     if (this.targetPrice >= this.entryPrice) {
       return next(new Error('Target price must be lower than entry price for sell signals'));
     }
@@ -190,6 +257,16 @@ tradingSignalSchema.pre('save', function(next) {
       return next(new Error('Stop loss must be higher than entry price for sell signals'));
     }
   }
+  
+  // Calculate and validate risk-reward ratio
+  if (this.entryPrice && this.targetPrice && this.stopLoss) {
+    const risk = Math.abs(this.entryPrice - this.stopLoss);
+    const reward = Math.abs(this.targetPrice - this.entryPrice);
+    if (risk > 0) {
+      this.riskRewardRatio = reward / risk;
+    }
+  }
+  
   next();
 });
 

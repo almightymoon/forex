@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
+import { useToast } from '../../../components/Toast';
 import { 
   Plus, 
   Save, 
@@ -57,6 +58,8 @@ interface Course {
   learningOutcomes?: string[];
   content?: any[];
   quizzes?: any[];
+  assignments?: any[];
+  instructor?: string;
 }
 
 interface ContentBlock {
@@ -71,6 +74,40 @@ interface ContentBlock {
   description?: string;
 }
 
+interface Assignment {
+  id: string;
+  title: string;
+  description: string;
+  courseId: string;
+  instructor: string;
+  dueDate: string;
+  maxPoints: number;
+  passingScore: number;
+  assignmentType: 'essay' | 'quiz' | 'project' | 'presentation' | 'analysis' | 'other';
+  instructions?: string;
+  attachments?: Array<{
+    title: string;
+    description: string;
+    fileUrl: string;
+    fileType: string;
+    fileSize: number;
+  }>;
+  rubric?: Array<{
+    criterion: string;
+    description: string;
+    maxPoints: number;
+    weight: number;
+  }>;
+  isPublished: boolean;
+  allowLateSubmission: boolean;
+  latePenalty: number;
+  difficulty: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+  estimatedTime?: number;
+  isGroupAssignment: boolean;
+  maxGroupSize?: number;
+  tags?: string[];
+}
+
 interface CourseCreatorProps {
   onSave: (courseData: any) => void;
   onCancel: () => void;
@@ -80,6 +117,7 @@ interface CourseCreatorProps {
 
 // Client-side only component to prevent hydration issues
 const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: CourseCreatorProps) => {
+  const { showToast } = useToast();
   const [activeTab, setActiveTab] = useState('basic');
   const [courseData, setCourseData] = useState({
     title: editingCourse?.title || initialData?.title || '',
@@ -104,8 +142,11 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
 
   const [contentBlocks, setContentBlocks] = useState<ContentBlock[]>(editingCourse?.content || initialData?.content || []);
   const [quizzes, setQuizzes] = useState<Question[]>(editingCourse?.quizzes || initialData?.quizzes || []);
+  const [assignments, setAssignments] = useState<Assignment[]>(editingCourse?.assignments || initialData?.assignments || []);
   const [showQuizBuilder, setShowQuizBuilder] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
+  const [editingAssignment, setEditingAssignment] = useState<Assignment | null>(null);
+  const [showAssignmentBuilder, setShowAssignmentBuilder] = useState(false);
   const [editingBlock, setEditingBlock] = useState<ContentBlock | null>(null);
   const [customCategories, setCustomCategories] = useState<string[]>(['forex', 'crypto', 'stocks', 'commodities', 'options', 'futures', 'general']);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -139,6 +180,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
       });
       setContentBlocks(editingCourse.content || []);
       setQuizzes(editingCourse.quizzes || []);
+      setAssignments(editingCourse.assignments || []);
     }
   }, [editingCourse]);
 
@@ -175,6 +217,31 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
     setShowQuizBuilder(true);
   };
 
+  const addAssignment = () => {
+    const newAssignment: Assignment = {
+      id: Date.now().toString(),
+      title: 'New Assignment',
+      description: 'Assignment description',
+      courseId: editingCourse?.id || '',
+      instructor: editingCourse?.instructor || '',
+      dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(), // 7 days from now
+      maxPoints: 100,
+      passingScore: 70,
+      assignmentType: 'essay',
+      instructions: 'Complete this assignment according to the instructions.',
+      isPublished: false,
+      allowLateSubmission: false,
+      latePenalty: 0,
+      difficulty: 'intermediate',
+      isGroupAssignment: false,
+      maxGroupSize: 1,
+      tags: []
+    };
+    setAssignments([...assignments, newAssignment]);
+    setEditingAssignment(newAssignment);
+    setShowAssignmentBuilder(true);
+  };
+
   const updateContentBlock = (id: string, updates: Partial<ContentBlock>) => {
     setContentBlocks(blocks => 
       blocks.map(block => 
@@ -191,12 +258,24 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
     );
   };
 
+  const updateAssignment = (id: string, updates: Partial<Assignment>) => {
+    setAssignments(assignments => 
+      assignments.map(a => 
+        a.id === id ? { ...a, ...updates } : a
+      )
+    );
+  };
+
   const deleteContentBlock = (id: string) => {
     setContentBlocks(blocks => blocks.filter(block => block.id !== id));
   };
 
   const deleteQuiz = (id: string) => {
     setQuizzes(quiz => quiz.filter(q => q.id !== id));
+  };
+
+  const deleteAssignment = (id: string) => {
+    setAssignments(assignments => assignments.filter(a => a.id !== id));
   };
 
   const handleThumbnailUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -255,11 +334,11 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
             errorMessage = response.statusText;
             console.error('Upload failed:', response.status, response.statusText);
           }
-          alert(`File upload failed: ${errorMessage}. Please try again.`);
+          showToast(`File upload failed: ${errorMessage}. Please try again.`, 'error');
         }
       } catch (error) {
         console.error('Error uploading file:', error);
-        alert('Error uploading file. Please try again.');
+        showToast('Error uploading file. Please try again.', 'error');
       } finally {
         setIsUploading(false);
       }
@@ -283,22 +362,22 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
     }
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     // Validate required fields
     if (!courseData.title.trim()) {
-      alert('Please enter a course title');
+      showToast('Please enter a course title', 'warning');
       return;
     }
     if (!courseData.description.trim()) {
-      alert('Please enter a course description');
+      showToast('Please enter a course description', 'warning');
       return;
     }
     if (!courseData.category) {
-      alert('Please select a course category');
+      showToast('Please select a course category', 'warning');
       return;
     }
     if (!courseData.thumbnail) {
-      alert('Please upload a course thumbnail');
+      showToast('Please upload a course thumbnail', 'warning');
       return;
     }
 
@@ -350,8 +429,41 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         content: transformedContent,
         quizzes,
         updatedAt: new Date().toISOString(),
-        status: 'draft'
+        status: 'draft',
+        isPublished: false
       };
+
+      // Save assignments separately to the database
+      if (assignments.length > 0) {
+        try {
+          const token = localStorage.getItem('token');
+          if (token) {
+            for (const assignment of assignments) {
+              const assignmentData = {
+                ...assignment,
+                course: editingCourse?.id || 'temp-course-id',
+                instructor: editingCourse?.instructor || 'temp-instructor-id'
+              };
+              
+              // Save assignment to database
+              const response = await fetch('/api/assignments', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(assignmentData)
+              });
+              
+              if (!response.ok) {
+                console.error('Failed to save assignment:', assignment.title);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error saving assignments:', error);
+        }
+      }
 
       // If editing, preserve existing fields, if creating, add new fields
       if (editingCourse) {
@@ -371,22 +483,22 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
       onSave(finalCourseData);
   };
 
-  const handlePublish = () => {
+  const handlePublish = async () => {
     // Validate required fields
     if (!courseData.title.trim()) {
-      alert('Please enter a course title');
+      showToast('Please enter a course title', 'warning');
       return;
     }
     if (!courseData.description.trim()) {
-      alert('Please enter a course description');
+      showToast('Please enter a course description', 'warning');
       return;
     }
     if (!courseData.category) {
-      alert('Please select a course category');
+      showToast('Please select a course category', 'warning');
       return;
     }
     if (!courseData.thumbnail) {
-      alert('Please upload a course thumbnail');
+      showToast('Please upload a course thumbnail', 'warning');
       return;
     }
 
@@ -438,8 +550,41 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         content: transformedContent,
         quizzes,
         updatedAt: new Date().toISOString(),
-        status: 'published'
+        status: 'published',
+        isPublished: true
       };
+
+      // Save assignments separately to the database
+      if (assignments.length > 0) {
+        try {
+          const token = localStorage.getItem('token');
+          if (token) {
+            for (const assignment of assignments) {
+              const assignmentData = {
+                ...assignment,
+                course: editingCourse?.id || 'temp-course-id',
+                instructor: editingCourse?.instructor || 'temp-instructor-id'
+              };
+              
+              // Save assignment to database
+              const response = await fetch('/api/assignments', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${token}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(assignmentData)
+              });
+              
+              if (!response.ok) {
+                console.error('Failed to save assignment:', assignment.title);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error saving assignments:', error);
+        }
+      }
 
       // If editing, preserve existing fields, if creating, add new fields
       if (editingCourse) {
@@ -507,6 +652,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
               { id: 'basic', name: 'Basic Info', icon: Settings },
               { id: 'content', name: 'Content Builder', icon: FileText },
               { id: 'quizzes', name: 'Assessments', icon: CheckSquare },
+              { id: 'assignments', name: 'Assignments', icon: FileText },
               { id: 'preview', name: 'Preview', icon: Eye }
             ].map((tab) => {
               const Icon = tab.icon;
@@ -576,6 +722,20 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
             setEditingQuestion={setEditingQuestion}
             showQuizBuilder={showQuizBuilder}
             setShowQuizBuilder={setShowQuizBuilder}
+          />
+        )}
+
+        {activeTab === 'assignments' && (
+          <AssignmentsTab
+            assignments={assignments}
+            setAssignments={setAssignments}
+            addAssignment={addAssignment}
+            updateAssignment={updateAssignment}
+            deleteAssignment={deleteAssignment}
+            editingAssignment={editingAssignment}
+            setEditingAssignment={setEditingAssignment}
+            showAssignmentBuilder={showAssignmentBuilder}
+            setShowAssignmentBuilder={setShowAssignmentBuilder}
           />
         )}
 
@@ -2141,6 +2301,326 @@ function PreviewTab({ courseData, contentBlocks, quizzes }: any) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Assignments Tab Component
+function AssignmentsTab({ 
+  assignments, 
+  setAssignments, 
+  addAssignment, 
+  updateAssignment, 
+  deleteAssignment,
+  editingAssignment,
+  setEditingAssignment,
+  showAssignmentBuilder,
+  setShowAssignmentBuilder
+}: {
+  assignments: Assignment[];
+  setAssignments: (assignments: Assignment[]) => void;
+  addAssignment: () => void;
+  updateAssignment: (id: string, updates: Partial<Assignment>) => void;
+  deleteAssignment: (id: string) => void;
+  editingAssignment: Assignment | null;
+  setEditingAssignment: (assignment: Assignment | null) => void;
+  showAssignmentBuilder: boolean;
+  setShowAssignmentBuilder: (show: boolean) => void;
+}) {
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Course Assignments</h2>
+          <p className="text-gray-600 mt-2">Create and manage assignments for your students</p>
+        </div>
+        <button
+          onClick={addAssignment}
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+        >
+          <Plus className="w-4 h-4 mr-2" />
+          Add Assignment
+        </button>
+      </div>
+
+      {assignments.length === 0 ? (
+        <div className="text-center py-12">
+          <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No assignments yet</h3>
+          <p className="text-gray-500 mb-4">Create your first assignment to get started</p>
+          <button
+            onClick={addAssignment}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+          >
+            <Plus className="w-4 h-4 mr-2" />
+            Create Assignment
+          </button>
+        </div>
+      ) : (
+        <div className="grid gap-6">
+          {assignments.map((assignment) => (
+            <div key={assignment.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+              <div className="flex items-start justify-between">
+                <div className="flex-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{assignment.title}</h3>
+                  <p className="text-gray-600 mb-3">{assignment.description}</p>
+                  
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-500">Type:</span>
+                      <span className="ml-2 text-gray-900 capitalize">{assignment.assignmentType}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Points:</span>
+                      <span className="ml-2 text-gray-900">{assignment.maxPoints}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Due Date:</span>
+                      <span className="ml-2 text-gray-900">
+                        {new Date(assignment.dueDate).toLocaleDateString()}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-gray-500">Difficulty:</span>
+                      <span className="ml-2 text-gray-900 capitalize">{assignment.difficulty}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="flex items-center space-x-2 ml-4">
+                  <button
+                    onClick={() => {
+                      setEditingAssignment(assignment);
+                      setShowAssignmentBuilder(true);
+                    }}
+                    className="p-2 text-gray-400 hover:text-gray-600"
+                  >
+                    <Settings className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => deleteAssignment(assignment.id)}
+                    className="p-2 text-red-400 hover:text-red-600"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Assignment Builder Modal */}
+      {showAssignmentBuilder && editingAssignment && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">
+                {editingAssignment.id ? 'Edit Assignment' : 'Create Assignment'}
+              </h3>
+              <button
+                onClick={() => {
+                  setShowAssignmentBuilder(false);
+                  setEditingAssignment(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  value={editingAssignment.title}
+                  onChange={(e) => setEditingAssignment({
+                    ...editingAssignment,
+                    title: e.target.value
+                  })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description
+                </label>
+                <textarea
+                  value={editingAssignment.description}
+                  onChange={(e) => setEditingAssignment({
+                    ...editingAssignment,
+                    description: e.target.value
+                  })}
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Assignment Type
+                  </label>
+                  <select
+                    value={editingAssignment.assignmentType}
+                    onChange={(e) => setEditingAssignment({
+                      ...editingAssignment,
+                      assignmentType: e.target.value as any
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="essay">Essay</option>
+                    <option value="quiz">Quiz</option>
+                    <option value="project">Project</option>
+                    <option value="presentation">Presentation</option>
+                    <option value="analysis">Analysis</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Difficulty
+                  </label>
+                  <select
+                    value={editingAssignment.difficulty}
+                    onChange={(e) => setEditingAssignment({
+                      ...editingAssignment,
+                      difficulty: e.target.value as any
+                    })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="beginner">Beginner</option>
+                    <option value="intermediate">Intermediate</option>
+                    <option value="advanced">Advanced</option>
+                    <option value="expert">Expert</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Max Points
+                  </label>
+                  <input
+                    type="number"
+                    value={editingAssignment.maxPoints}
+                    onChange={(e) => setEditingAssignment({
+                      ...editingAssignment,
+                      maxPoints: parseInt(e.target.value) || 0
+                    })}
+                    min="1"
+                    max="1000"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Passing Score
+                  </label>
+                  <input
+                    type="number"
+                    value={editingAssignment.passingScore}
+                    onChange={(e) => setEditingAssignment({
+                      ...editingAssignment,
+                      passingScore: parseInt(e.target.value) || 0
+                    })}
+                    min="0"
+                    max={editingAssignment.maxPoints}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Due Date
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editingAssignment.dueDate.slice(0, 16)}
+                  onChange={(e) => setEditingAssignment({
+                    ...editingAssignment,
+                    dueDate: new Date(e.target.value).toISOString()
+                  })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Instructions
+                </label>
+                <textarea
+                  value={editingAssignment.instructions || ''}
+                  onChange={(e) => setEditingAssignment({
+                    ...editingAssignment,
+                    instructions: e.target.value
+                  })}
+                  rows={4}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+
+              <div className="flex items-center space-x-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={editingAssignment.isPublished}
+                    onChange={(e) => setEditingAssignment({
+                      ...editingAssignment,
+                      isPublished: e.target.checked
+                    })}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Publish Assignment</span>
+                </label>
+
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={editingAssignment.allowLateSubmission}
+                    onChange={(e) => setEditingAssignment({
+                      ...editingAssignment,
+                      allowLateSubmission: e.target.checked
+                    })}
+                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Allow Late Submission</span>
+                </label>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4 border-t">
+                <button
+                  onClick={() => {
+                    setShowAssignmentBuilder(false);
+                    setEditingAssignment(null);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => {
+                    updateAssignment(editingAssignment.id, editingAssignment);
+                    setShowAssignmentBuilder(false);
+                    setEditingAssignment(null);
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700"
+                >
+                  Save Assignment
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

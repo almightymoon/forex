@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const LiveSession = require('../models/LiveSession');
-const { authenticateToken, requireInstructor, requireOwnership } = require('../middleware/auth');
+const { authenticateToken, requireTeacher, requireOwnership } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -18,7 +18,7 @@ router.get('/', async (req, res) => {
     if (instructor) query.instructor = instructor;
     
     const sessions = await LiveSession.find(query)
-      .populate('instructor', 'firstName lastName profileImage')
+      .populate('teacher', 'firstName lastName profileImage')
       .sort({ scheduledAt: 1 });
     
     res.json(sessions);
@@ -34,7 +34,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const session = await LiveSession.findById(req.params.id)
-      .populate('instructor', 'firstName lastName profileImage email')
+      .populate('teacher', 'firstName lastName profileImage email')
       .populate('currentParticipants.student', 'firstName lastName profileImage');
     
     if (!session) {
@@ -53,7 +53,7 @@ router.get('/:id', async (req, res) => {
 // @access  Private/Instructor
 router.post('/', [
   authenticateToken,
-  requireInstructor,
+  requireTeacher,
   body('title').trim().notEmpty().withMessage('Title is required'),
   body('description').trim().notEmpty().withMessage('Description is required'),
   body('scheduledAt').isISO8601().withMessage('Valid date is required'),
@@ -69,7 +69,7 @@ router.post('/', [
 
     const sessionData = {
       ...req.body,
-      instructor: req.user._id
+      teacher: req.user._id
     };
 
     const session = new LiveSession(sessionData);

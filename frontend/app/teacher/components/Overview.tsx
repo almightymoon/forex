@@ -85,16 +85,26 @@ export default function Overview({
           <div className="space-y-3">
             {Array.isArray(students) && students.length > 0 ? (
               students.slice(0, 5).map((student) => (
-                <div key={student.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={student.id || student._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                       <span className="text-blue-600 text-sm font-medium">
-                        {student.name ? student.name.charAt(0) : 'U'}
+                        {student.firstName ? student.firstName.charAt(0) : 
+                         student.name ? student.name.charAt(0) : 'U'}
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{student.name || 'Unknown User'}</p>
+                      <p className="text-sm font-medium text-gray-900">
+                        {student.firstName && student.lastName ? 
+                          `${student.firstName} ${student.lastName}` : 
+                          student.name || 'Unknown User'}
+                      </p>
                       <p className="text-xs text-gray-500">{student.email}</p>
+                      {student.enrolledCourses && student.enrolledCourses.length > 0 && (
+                        <p className="text-xs text-blue-600">
+                          {student.enrolledCourses.length} course{student.enrolledCourses.length > 1 ? 's' : ''}
+                        </p>
+                      )}
                     </div>
                   </div>
                   <span className="text-xs text-gray-500">

@@ -6,6 +6,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { useToast } from '../../components/Toast';
 import { useMaintenanceMode, fetchWithMaintenanceCheck } from '../../hooks/useMaintenanceMode';
 import MaintenancePage from '../../components/MaintenancePage';
+import StudentAssignments from './components/StudentAssignments';
 import { 
   BookOpen, 
   TrendingUp, 
@@ -24,7 +25,10 @@ import {
   Trophy,
   Bell,
   Settings,
-  LogOut
+  LogOut,
+  RefreshCw,
+  XCircle,
+  Video
 } from 'lucide-react';
 
 interface User {
@@ -64,19 +68,40 @@ interface Course {
 interface TradingSignal {
   _id: string;
   symbol: string;
-  type: 'buy' | 'sell' | 'hold';
+  instrumentType: 'forex' | 'crypto' | 'stocks' | 'commodities' | 'indices' | 'futures';
+  type: 'buy' | 'sell' | 'hold' | 'strong_buy' | 'strong_sell';
+  // Current market prices (like MT5 quotes)
+  currentBid: number;
+  currentAsk: number;
+  dailyHigh: number;
+  dailyLow: number;
+  priceChange: number;
+  priceChangePercent: number;
+  // Signal entry/exit prices
   entryPrice: number;
   targetPrice: number;
   stopLoss: number;
+  // Risk management
+  riskRewardRatio?: number;
+  positionSize?: number;
+  maxRisk?: number;
   description: string;
   timeframe: string;
   confidence: number;
-  instructor: {
+  teacher?: {
     firstName: string;
     lastName: string;
+    profileImage?: string;
+    email?: string;
   };
   createdAt: string;
-  comments: number;
+  comments?: Array<{
+    user: string;
+    text: string;
+    createdAt: string;
+  }>;
+  status?: string;
+  isPublished?: boolean;
 }
 
 interface Assignment {
@@ -95,6 +120,9 @@ export default function Dashboard() {
   const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [liveSessions, setLiveSessions] = useState<any[]>([]);
+  const [selectedSession, setSelectedSession] = useState<any>(null);
+  const [showMeetingModal, setShowMeetingModal] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -122,6 +150,8 @@ export default function Dashboard() {
 
       if (result.data) {
         setAvailableCourses(result.data);
+      } else if (result.error) {
+        console.error('Error fetching available courses:', result.error);
       }
     } catch (error) {
       console.error('Error fetching available courses:', error);
@@ -131,7 +161,6 @@ export default function Dashboard() {
   const fetchUserData = async () => {
     try {
       const token = localStorage.getItem('token');
-      console.log('Fetching user data, token exists:', !!token);
       
       if (token) {
         const result = await fetchWithMaintenanceCheck('http://localhost:4000/api/auth/me', {
@@ -146,19 +175,17 @@ export default function Dashboard() {
         }
 
         if (result.data) {
-          console.log('User data fetched:', result.data);
           setUser(result.data);
           await fetchUserCourses(token);
           await fetchUserSignals(token);
           await fetchUserAssignments(token);
+          await fetchLiveSessions(token);
         } else {
-          console.log('Token invalid, redirecting to login');
           // Token invalid, redirect to login
           localStorage.removeItem('token');
           window.location.href = '/login';
         }
       } else {
-        console.log('No token, redirecting to login');
         // No token, redirect to login immediately
         window.location.href = '/login';
         return;
@@ -236,6 +263,26 @@ export default function Dashboard() {
     }
   };
 
+  const fetchLiveSessions = async (token: string) => {
+    try {
+      const response = await fetch('http://localhost:4000/api/sessions', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setLiveSessions(data);
+      } else {
+        const error = await response.text();
+        console.error('Live sessions error response:', error);
+      }
+    } catch (error) {
+      console.error('Error fetching live sessions:', error);
+    }
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('token');
     setUser(null);
@@ -248,8 +295,6 @@ export default function Dashboard() {
   const handleEnrollCourse = async (courseId: string) => {
     try {
       const token = localStorage.getItem('token');
-      console.log('Enrolling in course:', courseId);
-      console.log('Token exists:', !!token);
       
       if (!token) {
         showToast('Please log in to enroll in courses', 'warning');
@@ -257,7 +302,6 @@ export default function Dashboard() {
         return;
       }
 
-      console.log('Making enrollment request...');
       const response = await fetch(`/api/courses/${courseId}/enroll`, {
         method: 'POST',
         headers: {
@@ -265,12 +309,9 @@ export default function Dashboard() {
           'Content-Type': 'application/json'
         }
       });
-
-      console.log('Enrollment response status:', response.status);
       
       if (response.ok) {
         const result = await response.json();
-        console.log('Enrollment successful:', result);
         
         // Refresh courses data
         await fetchUserCourses(token);
@@ -280,11 +321,75 @@ export default function Dashboard() {
       } else {
         const error = await response.json();
         console.error('Enrollment failed:', error);
-        showToast(`Enrollment failed: ${error.message || 'Unknown error'}`, 'error');
+        showToast(`Enrollment failed: ${error.message || error.error || 'Unknown error'}`, 'error');
       }
     } catch (error) {
       console.error('Error enrolling in course:', error);
       showToast('Enrollment failed. Please try again.', 'error');
+    }
+  };
+
+  const handleSignUpSession = async (sessionId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        showToast('Please log in to sign up for sessions', 'warning');
+        window.location.href = '/login';
+        return;
+      }
+
+      const response = await fetch(`http://localhost:4000/api/sessions/${sessionId}/book`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        showToast('Successfully signed up for the session!', 'success');
+        // Refresh live sessions data
+        await fetchLiveSessions(token);
+      } else {
+        const error = await response.json();
+        showToast(`Failed to sign up for session: ${error.message || error.error || 'Unknown error'}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error signing up for session:', error);
+      showToast('Failed to sign up for session. Please try again.', 'error');
+    }
+  };
+
+  const handleCancelSession = async (sessionId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        showToast('Please log in to cancel sessions', 'warning');
+        window.location.href = '/login';
+        return;
+      }
+
+      const response = await fetch(`http://localhost:4000/api/sessions/${sessionId}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        showToast('Successfully canceled the session booking!', 'success');
+        // Refresh live sessions data
+        await fetchLiveSessions(token);
+      } else {
+        const error = await response.json();
+        showToast(`Failed to cancel session: ${error.message || error.error || 'Unknown error'}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error canceling session:', error);
+      showToast('Failed to cancel session. Please try again.', 'error');
     }
   };
 
@@ -480,6 +585,7 @@ export default function Dashboard() {
               { id: 'overview', label: 'Overview', icon: BarChart3 },
               { id: 'courses', label: 'My Courses', icon: BookOpen },
               { id: 'browse', label: 'Browse Courses', icon: TrendingUp },
+              { id: 'live-sessions', label: 'Live Sessions', icon: Play },
               { id: 'signals', label: 'Trading Signals', icon: Target },
               { id: 'assignments', label: 'Assignments', icon: FileText },
               { id: 'community', label: 'Community', icon: Users },
@@ -545,6 +651,8 @@ export default function Dashboard() {
                 </div>
               </div>
               
+
+              
               <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
                 <div className="flex items-center justify-between">
                   <div>
@@ -572,6 +680,37 @@ export default function Dashboard() {
                   </div>
                   <span className="text-gray-500 text-sm">2 hours ago</span>
                 </div>
+                
+                {liveSessions.filter(s => s.status === 'scheduled').slice(0, 2).map((session) => (
+                  <div key={session._id} className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
+                      <Play className="w-5 h-5 text-white" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-gray-900 font-medium">Live Session Available</p>
+                      <p className="text-gray-600 text-sm">{session.title} - {new Date(session.scheduledAt).toLocaleDateString()}</p>
+                    </div>
+                    <div className="flex space-x-2">
+                                                                    <button
+                        onClick={() => handleSignUpSession(session._id)}
+                        className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
+                      >
+                        Sign up
+                      </button>
+                      {session.meetingLink && (
+                        <button
+                          onClick={() => {
+                            setSelectedSession(session);
+                            setShowMeetingModal(true);
+                          }}
+                          className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
+                        >
+                          Meeting
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
                 
                 <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
                   <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
@@ -746,51 +885,116 @@ export default function Dashboard() {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {signals.map((signal) => (
+                  {signals.filter(signal => signal && signal._id).map((signal) => (
                     <div key={signal._id} className="p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl border border-gray-200 hover:border-blue-300 transition-all duration-200">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center space-x-3">
                           <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                            signal.type === 'buy' ? 'bg-gradient-to-br from-green-500 to-green-600' :
-                            signal.type === 'sell' ? 'bg-gradient-to-br from-red-500 to-red-600' :
+                            signal.type === 'buy' || signal.type === 'strong_buy' ? 'bg-gradient-to-br from-green-500 to-green-600' :
+                            signal.type === 'sell' || signal.type === 'strong_sell' ? 'bg-gradient-to-br from-red-500 to-red-600' :
                             'bg-gradient-to-br from-yellow-500 to-yellow-600'
                           }`}>
-                            <span className="text-white text-lg font-bold uppercase">{signal.type}</span>
+                            <span className="text-white text-lg font-bold uppercase">
+                              {signal.type === 'strong_buy' ? 'STRONG BUY' : 
+                               signal.type === 'strong_sell' ? 'STRONG SELL' : 
+                               signal.type || 'hold'}
+                            </span>
                           </div>
-                          <div>
-                            <h4 className="text-xl font-bold text-gray-900">{signal.symbol}</h4>
-                            <p className="text-gray-600 text-sm">Posted by {signal.instructor.firstName} {signal.instructor.lastName}</p>
-                          </div>
+                                                      <div>
+                              <h4 className="text-xl font-bold text-gray-900">{signal.symbol || 'Unknown Symbol'}</h4>
+                              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                                <span className="px-2 py-1 bg-gray-100 rounded-full text-xs font-medium">
+                                  {signal.instrumentType || 'forex'}
+                                </span>
+                                <span>•</span>
+                                <span>Posted by {signal.teacher?.firstName || 'Unknown'} {signal.teacher?.lastName || 'Teacher'}</span>
+                              </div>
+                            </div>
                         </div>
-                        <span className="text-gray-500 text-sm">{new Date(signal.createdAt).toLocaleDateString()}</span>
+                        <span className="text-gray-500 text-sm">{signal.createdAt ? new Date(signal.createdAt).toLocaleDateString() : 'Unknown Date'}</span>
                       </div>
                       
-                      <p className="text-gray-700 mb-4 leading-relaxed">{signal.description}</p>
+                      <p className="text-gray-700 mb-4 leading-relaxed">{signal.description || 'No description available'}</p>
                       
+                      {/* Current Market Prices (MT5 Style) */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div className="text-center p-3 bg-blue-50 rounded-xl border border-blue-200">
+                          <p className="text-blue-600 text-xs font-medium">Current Bid</p>
+                          <p className="text-blue-900 font-bold">${signal.currentBid || 0}</p>
+                        </div>
+                        <div className="text-center p-3 bg-red-50 rounded-xl border border-red-200">
+                          <p className="text-red-600 text-xs font-medium">Current Ask</p>
+                          <p className="text-red-900 font-bold">${signal.currentAsk || 0}</p>
+                        </div>
+                        <div className="text-center p-3 bg-green-50 rounded-xl border border-green-200">
+                          <p className="text-green-600 text-xs font-medium">Daily High</p>
+                          <p className="text-green-900 font-bold">${signal.dailyHigh || 0}</p>
+                        </div>
+                        <div className="text-center p-3 bg-orange-50 rounded-xl border border-orange-200">
+                          <p className="text-orange-600 text-xs font-medium">Daily Low</p>
+                          <p className="text-orange-900 font-bold">${signal.dailyLow || 0}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Price Change Display */}
+                      <div className="mb-4 p-3 bg-gray-50 rounded-xl border border-gray-200">
+                        <div className="flex items-center justify-between">
+                          <span className="text-gray-600 text-sm font-medium">Price Change:</span>
+                          <div className={`flex items-center space-x-2 ${
+                            (signal.priceChange || 0) >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            <span className="font-bold">${signal.priceChange || 0}</span>
+                            <span className="text-sm">({signal.priceChangePercent || 0}%)</span>
+                            {(signal.priceChange || 0) >= 0 ? (
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+                              </svg>
+                            ) : (
+                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                <path fillRule="evenodd" d="M14.707 12.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L9 14.586V3a1 1 0 012 0v11.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      {/* Signal Entry/Exit Prices */}
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                         <div className="text-center p-3 bg-white rounded-xl border border-gray-200">
                           <p className="text-gray-500 text-xs font-medium">Entry Price</p>
-                          <p className="text-gray-900 font-bold">${signal.entryPrice}</p>
+                          <p className="text-gray-900 font-bold">${signal.entryPrice || 0}</p>
                         </div>
                         <div className="text-center p-3 bg-white rounded-xl border border-gray-200">
                           <p className="text-gray-500 text-xs font-medium">Target</p>
-                          <p className="text-gray-900 font-bold">${signal.targetPrice}</p>
+                          <p className="text-gray-900 font-bold">${signal.targetPrice || 0}</p>
                         </div>
                         <div className="text-center p-3 bg-white rounded-xl border border-gray-200">
                           <p className="text-gray-500 text-xs font-medium">Stop Loss</p>
-                          <p className="text-gray-900 font-bold">${signal.stopLoss}</p>
+                          <p className="text-gray-900 font-bold">${signal.stopLoss || 0}</p>
                         </div>
+                      </div>
+                      
+                      {/* Risk Management */}
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
                         <div className="text-center p-3 bg-white rounded-xl border border-gray-200">
                           <p className="text-gray-500 text-xs font-medium">Confidence</p>
-                          <p className="text-gray-900 font-bold">{signal.confidence}%</p>
+                          <p className="text-gray-900 font-bold">{signal.confidence || 0}%</p>
+                        </div>
+                        <div className="text-center p-3 bg-white rounded-xl border border-gray-200">
+                          <p className="text-gray-500 text-xs font-medium">Risk/Reward</p>
+                          <p className="text-gray-900 font-bold">{signal.riskRewardRatio ? signal.riskRewardRatio.toFixed(2) : 'N/A'}</p>
+                        </div>
+                        <div className="text-center p-3 bg-white rounded-xl border border-gray-200">
+                          <p className="text-gray-500 text-xs font-medium">Position Size</p>
+                          <p className="text-gray-900 font-bold">{signal.positionSize || 'N/A'}</p>
                         </div>
                       </div>
                       
                       <div className="flex items-center justify-between">
-                        <span className="text-gray-600 text-sm">Timeframe: {signal.timeframe}</span>
+                        <span className="text-gray-600 text-sm">Timeframe: {signal.timeframe || 'Unknown'}</span>
                         <div className="flex items-center space-x-2 text-gray-500 text-sm">
                           <MessageSquare className="w-4 h-4" />
-                          <span>{signal.comments} comments</span>
+                          <span>{signal.comments?.length || 0} comments</span>
                         </div>
                       </div>
                     </div>
@@ -802,53 +1006,345 @@ export default function Dashboard() {
         )}
 
         {activeTab === 'assignments' && (
+          <StudentAssignments userId={user?._id || ''} />
+        )}
+
+        {activeTab === 'live-sessions' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+            {/* My Enrolled Sessions */}
             <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6">My Assignments</h3>
-              {assignments.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-24 h-24 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <FileText className="w-12 h-12 text-gray-600" />
-                  </div>
-                  <p className="text-gray-600 mb-4 text-lg font-medium">No assignments available</p>
-                  <p className="text-gray-500 text-sm mb-8 max-w-md mx-auto">Complete course modules to unlock assignments and test your knowledge</p>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">My Enrolled Sessions</h3>
+                <button
+                  onClick={() => fetchLiveSessions(localStorage.getItem('token') || '')}
+                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Refresh</span>
+                </button>
+              </div>
+              {liveSessions.filter(s => s.currentParticipants.some(p => p.student === user?._id)).length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-gray-600 mb-4">You haven't signed up for any live sessions yet</p>
+                  <p className="text-gray-500 text-sm">Browse available sessions below and sign up for the ones that interest you</p>
                 </div>
               ) : (
                 <div className="space-y-4">
-                  {assignments.map((assignment) => (
-                    <div key={assignment._id} className="p-6 bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl border border-gray-200 hover:border-blue-300 transition-all duration-200">
-                      <div className="flex items-start justify-between mb-4">
+                  {liveSessions
+                    .filter(s => s.currentParticipants.some(p => p.student === user?._id))
+                    .map((session) => (
+                    <div key={session._id} className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-200">
+                      <div className="flex items-center justify-between">
                         <div>
-                          <h4 className="text-xl font-bold text-gray-900 mb-2">{assignment.title}</h4>
-                          <p className="text-gray-600 leading-relaxed">{assignment.description}</p>
+                          <h4 className="text-lg font-semibold text-gray-900">{session.title}</h4>
+                          <p className="text-gray-600 text-sm">{new Date(session.scheduledAt).toLocaleDateString()} at {new Date(session.scheduledAt).toLocaleTimeString()}</p>
                         </div>
-                        <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-                          assignment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          assignment.status === 'submitted' ? 'bg-blue-100 text-blue-800' :
-                          'bg-green-100 text-green-800'
-                        }`}>
-                          {assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1)}
+                        <div className="flex items-center space-x-2">
+                          <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">Enrolled</span>
+                          {session.meetingLink && (
+                            <button
+                              onClick={() => {
+                                setSelectedSession(session);
+                                setShowMeetingModal(true);
+                              }}
+                              className={`px-3 py-1 text-white text-sm rounded-lg transition-colors ${
+                                session.meetingLink.includes(window.location.origin) 
+                                  ? 'bg-blue-600 hover:bg-blue-700' 
+                                  : 'bg-green-600 hover:bg-green-700'
+                              }`}
+                            >
+                              {session.status === 'live' 
+                                ? 'Join Live Session' 
+                                : session.meetingLink.includes(window.location.origin) 
+                                  ? 'Join Room' 
+                                  : 'Join Meeting'}
+                            </button>
+                          )}
+                          <button
+                            onClick={() => handleCancelSession(session._id)}
+                            className="px-3 py-1 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Available Sessions */}
+            <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900">Available Live Sessions</h3>
+                <button
+                  onClick={() => fetchLiveSessions(localStorage.getItem('token') || '')}
+                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Refresh</span>
+                </button>
+              </div>
+              {liveSessions.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="w-24 h-24 bg-gradient-to-br from-gray-300 to-gray-400 rounded-full flex items-center justify-center mx-auto mb-6">
+                    <Play className="w-12 h-12 text-gray-600" />
+                  </div>
+                  <p className="text-gray-600 mb-4 text-lg font-medium">No live sessions available</p>
+                  <p className="text-gray-500 text-sm mb-8 max-w-md mx-auto">Check back later for upcoming live trading sessions and Q&A sessions</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {liveSessions
+                    .filter(session => session.status === 'scheduled' || session.status === 'live')
+                    .map((session) => (
+                    <div key={session._id} className="p-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl border border-blue-200 hover:border-blue-300 transition-all duration-200">
+                      <div className="flex items-start justify-between mb-4">
+                        <div className="flex-1">
+                          <h4 className="text-xl font-bold text-gray-900 mb-2">{session.title}</h4>
+                          <p className="text-gray-600 leading-relaxed mb-3">{session.description}</p>
+                          
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                            <div className="text-center p-3 bg-white rounded-xl border border-blue-200">
+                              <p className="text-blue-500 text-xs font-medium">Date</p>
+                              <p className="text-gray-900 font-bold">{new Date(session.scheduledAt).toLocaleDateString()}</p>
+                            </div>
+                            <div className="text-center p-3 bg-white rounded-xl border border-blue-200">
+                              <p className="text-blue-500 text-xs font-medium">Time</p>
+                              <p className="text-gray-900 font-bold">{new Date(session.scheduledAt).toLocaleTimeString()}</p>
+                            </div>
+                            <div className="text-center p-3 bg-white rounded-xl border border-blue-200">
+                              <p className="text-blue-500 text-xs font-medium">Duration</p>
+                              <p className="text-gray-900 font-bold">{session.duration} min</p>
+                            </div>
+                            <div className="text-center p-3 bg-white rounded-xl border border-blue-200">
+                              <p className="text-blue-500 text-xs font-medium">Spots</p>
+                              <p className="text-gray-900 font-bold">{session.currentParticipants.length}/{session.maxParticipants}</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center space-x-4 text-sm text-gray-600 mb-4">
+                            <span className="flex items-center">
+                              <Target className="w-4 h-4 mr-2" />
+                              {session.category}
+                            </span>
+                            <span className="flex items-center">
+                              <Star className="w-4 h-4 mr-2" />
+                              {session.level}
+                            </span>
+                            <span className="flex items-center">
+                              <Users className="w-4 h-4 mr-2" />
+                              {session.teacher?.firstName} {session.teacher?.lastName}
+                            </span>
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                              session.status === 'live' 
+                                ? 'bg-red-100 text-red-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {session.status === 'live' ? 'LIVE NOW' : 'Scheduled'}
+                            </span>
+                          </div>
+
+                          {session.topics && session.topics.length > 0 && (
+                            <div className="mb-4">
+                              <p className="text-xs font-medium text-gray-700 mb-2">Topics:</p>
+                              <div className="flex flex-wrap gap-1">
+                                {session.topics.slice(0, 3).map((topic, idx) => (
+                                  <span key={idx} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                                    {topic}
+                                  </span>
+                                ))}
+                                {session.topics.length > 3 && (
+                                  <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                                    +{session.topics.length - 3} more
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
                       
-                      <div className="flex items-center justify-between text-sm text-gray-500">
-                        <span>Due: {new Date(assignment.dueDate).toLocaleDateString()}</span>
-                        {assignment.grade && (
-                          <span className="font-medium text-gray-900">Grade: {assignment.grade}%</span>
-                        )}
-                      </div>
-                      
-                      {assignment.feedback && (
-                        <div className="mt-4 p-4 bg-white rounded-xl border border-gray-200">
-                          <p className="text-gray-700 text-sm"><strong>Feedback:</strong> {assignment.feedback}</p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          {session.isFree ? (
+                            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">Free</span>
+                          ) : (
+                            <span className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+                              ${session.price} {session.currency}
+                            </span>
+                          )}
                         </div>
-                      )}
+                        
+                        <div className="flex space-x-2">
+                          {session.status === 'scheduled' ? (
+                            <button
+                              onClick={() => handleSignUpSession(session._id)}
+                              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                            >
+                              Sign up for Session
+                            </button>
+                          ) : (
+                            <span className="px-4 py-2 bg-green-100 text-green-800 rounded-lg font-medium">
+                              Already Enrolled
+                            </span>
+                          )}
+                          {session.meetingLink && (
+                            <button
+                              onClick={() => {
+                                setSelectedSession(session);
+                                setShowMeetingModal(true);
+                              }}
+                              className={`px-4 py-2 text-white rounded-lg transition-colors font-medium ${
+                                session.meetingLink.includes(window.location.origin) 
+                                  ? 'bg-blue-600 hover:bg-blue-700' 
+                                  : 'bg-green-600 hover:bg-green-700'
+                              }`}
+                            >
+                              {session.status === 'live' 
+                                ? 'Join Live Session' 
+                                : session.meetingLink.includes(window.location.origin) 
+                                  ? 'Join Room' 
+                                  : 'Join Meeting'}
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
               )}
             </div>
           </motion.div>
+        )}
+
+        {/* Meeting Modal */}
+        {showMeetingModal && selectedSession && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg w-full max-w-6xl max-h-[90vh] overflow-hidden">
+              <div className="flex items-center justify-between p-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold">
+                  Live Session: {selectedSession.title}
+                </h3>
+                                  <div className="flex items-center space-x-2">
+                    {selectedSession.meetingLink && (
+                      <>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(selectedSession.meetingLink);
+                              // You can add a toast notification here if you have one
+                            } catch (error) {
+                              console.error('Failed to copy link');
+                            }
+                          }}
+                          className="px-3 py-1 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors"
+                          title="Copy meeting link"
+                        >
+                          Copy Link
+                        </button>
+                        <button
+                          onClick={() => window.open(selectedSession.meetingLink, '_blank')}
+                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                          title="Open in new tab"
+                        >
+                          Open Tab
+                        </button>
+                      </>
+                    )}
+                    <button
+                      onClick={() => setShowMeetingModal(false)}
+                      className="text-gray-400 hover:text-gray-600"
+                    >
+                      <XCircle className="w-6 h-6" />
+                    </button>
+                  </div>
+              </div>
+              
+              <div className="relative w-full h-[70vh] bg-gray-100 flex items-center justify-center">
+                {selectedSession.meetingLink ? (
+                                      <div className="text-center space-y-6">
+                      <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
+                        <Video className="w-12 h-12 text-blue-600" />
+                      </div>
+                      {/* Check if it's an external meeting link or our internal meeting room */}
+                      {selectedSession.meetingLink.includes(window.location.origin) ? (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                          <p className="text-blue-800 text-sm">
+                            <strong>Meeting Room Ready!</strong> You can now join the meeting room or share the link with participants.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                          <p className="text-green-800 text-sm">
+                            <strong>External Meeting Link!</strong> This will open in a new tab to the external meeting service.
+                          </p>
+                        </div>
+                      )}
+                    <div>
+                      <h4 className="text-xl font-semibold text-gray-800 mb-2">
+                        {selectedSession.meetingLink.includes(window.location.origin) 
+                          ? 'Ready to join the meeting room?' 
+                          : 'Ready to join the external meeting?'}
+                      </h4>
+                                          <p className="text-gray-600 mb-6 max-w-md">
+                      {selectedSession.meetingLink.includes(window.location.origin)
+                        ? 'Click the button below to join the meeting room. You can also copy the link to share with participants.'
+                        : 'Click the button below to join the external meeting. This will open in a new tab.'}
+                    </p>
+                      <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                        <button
+                          onClick={() => window.open(selectedSession.meetingLink, '_blank')}
+                          className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                        >
+                          <Video className="w-5 h-5" />
+                          <span>
+                            {selectedSession.meetingLink.includes(window.location.origin) 
+                              ? 'Join Meeting Room' 
+                              : 'Join External Meeting'}
+                          </span>
+                        </button>
+                        <button
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(selectedSession.meetingLink);
+                              // You can add a toast notification here if you have one
+                            } catch (error) {
+                              console.error('Failed to copy link');
+                            }
+                          }}
+                          className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                        >
+                          <span>Copy Meeting Link</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center text-gray-500">
+                    <p>No meeting room link available for this session.</p>
+                  </div>
+                )}
+              </div>
+              
+              <div className="p-4 border-t border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm text-gray-600">
+                    <p><strong>Duration:</strong> {selectedSession.duration} minutes</p>
+                    <p><strong>Instructor:</strong> {selectedSession.teacher?.firstName} {selectedSession.teacher?.lastName}</p>
+                    <p><strong>Category:</strong> {selectedSession.category}</p>
+                  </div>
+                  <button
+                    onClick={() => setShowMeetingModal(false)}
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                  >
+                    Close Meeting
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
         {activeTab === 'community' && (

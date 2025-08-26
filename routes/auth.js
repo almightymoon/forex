@@ -17,8 +17,8 @@ const stripe = require('../config/stripe');
 const router = express.Router();
 
 // Generate JWT token
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, process.env.JWT_SECRET, { expiresIn: '7d' });
+const generateToken = (userId, role) => {
+  return jwt.sign({ userId, role }, process.env.JWT_SECRET, { expiresIn: '7d' });
 };
 
 // @route   POST /api/auth/register
@@ -148,7 +148,7 @@ router.post('/register', [
       }
 
       // Generate token
-      const token = generateToken(user._id);
+      const token = generateToken(user._id, user.role);
 
       return res.status(201).json({
         message: 'User registered successfully with promo code',
@@ -350,8 +350,9 @@ router.post('/login', [
     user.lastLogin = new Date();
     await user.save();
 
-    // Generate token with session timeout
-    const token = await generateTokenWithTimeout(user._id);
+    // Generate token with session timeout and role - temporarily simplified
+    // const token = await generateTokenWithTimeout(user._id, user.role);
+    const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
 
     res.json({
       message: 'Login successful',

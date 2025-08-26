@@ -9,19 +9,34 @@ interface User {
 
 export async function verifyToken(token: string): Promise<User | null> {
   try {
-    // For now, just check if token exists
-    // TODO: Implement proper JWT verification
     if (!token) {
       return null;
     }
 
-    // Mock user data - replace with actual JWT decode
-    // This is just a placeholder until your backend auth is ready
-    return {
-      id: '1',
-      email: 'teacher@example.com',
-      role: 'teacher'
-    };
+    // Verify token with the backend using /api/auth/me endpoint
+    const response = await fetch('http://localhost:4000/api/auth/me', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const userData = await response.json();
+    
+    if (userData.success && userData.user) {
+      return {
+        id: userData.user.id || userData.user._id,
+        email: userData.user.email,
+        role: userData.user.role
+      };
+    }
+
+    return null;
   } catch (error) {
     console.error('Token verification error:', error);
     return null;

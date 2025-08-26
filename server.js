@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
+const multer = require('multer');
 const maintenanceMiddleware = require('./middleware/maintenanceMode');
 const { checkSessionTimeout } = require('./middleware/sessionTimeout');
 const morgan = require('morgan');
@@ -31,7 +32,7 @@ app.use(cors({
   origin: true, // Allow all origins
   credentials: true, // Allow credentials
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Access-Control-Request-Method', 'Access-Control-Request-Headers'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin', 'Access-Control-Request-Method', 'Access-Control-Request-Headers', 'Cache-Control', 'Pragma'],
   exposedHeaders: ['Content-Length', 'X-Requested-With'],
   preflightContinue: false,
   optionsSuccessStatus: 200 // Some legacy browsers choke on 204
@@ -58,6 +59,18 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Multer configuration for handling file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: {
+    fileSize: 10 * 1024 * 1024, // 10MB limit
+    files: 5 // Maximum 5 files
+  }
+});
+
+// Apply multer to assignment submission routes
+app.use('/api/assignments/*/submit', upload.any());
+
 // Logging middleware
 app.use(morgan('combined'));
 
@@ -67,6 +80,12 @@ mongoose.connect(mongoUri)
   .then(() => console.log(`Connected to MongoDB Atlas database: ${process.env.DB_NAME}`))
   .catch(err => console.error('MongoDB connection error:', err));
 
+// Debug environment variables
+console.log('Environment variables check:');
+console.log('- JWT_SECRET length:', process.env.JWT_SECRET ? process.env.JWT_SECRET.length : 'NOT SET');
+console.log('- NODE_ENV:', process.env.NODE_ENV);
+console.log('- PORT:', process.env.PORT);
+
 // Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/admin', adminRoutes);
@@ -75,8 +94,8 @@ app.use('/api/settings', settingsRoutes);
 app.use('/api/2fa', twoFactorRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-// Apply session timeout check to all protected routes
-app.use(checkSessionTimeout);
+// Apply session timeout check to all protected routes - temporarily disabled for debugging
+// app.use(checkSessionTimeout);
 
 // Apply maintenance mode middleware to all other routes
 app.use(maintenanceMiddleware);

@@ -84,4 +84,51 @@
   .flex-responsive {
     @apply flex flex-col sm:flex-row;
   }
+
+  /* Submission content styling */
+  .submission-content {
+    @apply prose prose-sm max-w-none;
+  }
+
+  .submission-content h1,
+  .submission-content h2,
+  .submission-content h3,
+  .submission-content h4,
+  .submission-content h5,
+  .submission-content h6 {
+    @apply text-gray-900 font-semibold mb-2;
+  }
+
+  .submission-content p {
+    @apply text-gray-800 mb-3 leading-relaxed;
+  }
+
+  .submission-content ul,
+  .submission-content ol {
+    @apply mb-3 pl-6;
+  }
+
+  .submission-content li {
+    @apply text-gray-800 mb-1;
+  }
+
+  .submission-content strong {
+    @apply font-semibold text-gray-900;
+  }
+
+  .submission-content em {
+    @apply italic text-gray-700;
+  }
+
+  .submission-content blockquote {
+    @apply border-l-4 border-blue-200 pl-4 italic text-gray-700 bg-blue-50 py-2 rounded-r;
+  }
+
+  .submission-content code {
+    @apply bg-gray-100 text-gray-800 px-1 py-0.5 rounded text-sm font-mono;
+  }
+
+  .submission-content pre {
+    @apply bg-gray-100 text-gray-800 p-3 rounded text-sm font-mono overflow-x-auto;
+  }
 }
