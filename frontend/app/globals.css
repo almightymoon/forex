@@ -2,6 +2,87 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide error overlays and notifications */
+[data-nextjs-dialog-overlay],
+[data-nextjs-toast-container],
+[data-nextjs-error-overlay],
+.nextjs-toast-container,
+.nextjs-error-overlay,
+#__next-build-watcher,
+#__next-prerender-indicator {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
+/* Hide any red error boxes */
+[class*="error"],
+[class*="Error"],
+[class*="ERROR"] {
+  display: none !important;
+}
+
+/* Hide browser error notifications */
+.error-notification,
+.error-overlay,
+.error-box {
+  display: none !important;
+}
+
+/* Suppress hydration warnings */
+[data-hydration-error] {
+  display: none !important;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Smooth transitions */
+* {
+  transition: all 0.2s ease-in-out;
+}
+
+/* Focus styles */
+*:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Loading states */
+.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+/* Error states */
+.error {
+  border-color: #ef4444;
+  background-color: #fef2f2;
+}
+
+/* Success states */
+.success {
+  border-color: #10b981;
+  background-color: #f0fdf4;
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;

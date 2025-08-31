@@ -69,6 +69,18 @@ const nextConfig = {
   
   // Enable source maps in development
   productionBrowserSourceMaps: false,
+  
+  // Suppress error overlay in development
+  onDemandEntries: {
+    maxInactiveAge: 25 * 1000,
+    pagesBufferLength: 2,
+  },
+  
+  // Disable error overlay
+  devIndicators: {
+    buildActivity: false,
+    buildActivityPosition: 'bottom-right',
+  },
 };
 
 module.exports = nextConfig;

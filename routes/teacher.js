@@ -11,7 +11,6 @@ const Message = require('../models/Message');
 router.get('/test-jwt', async (req, res) => {
   try {
     const token = req.headers['authorization']?.replace('Bearer ', '');
-    console.log('Test JWT - Token received:', token ? `${token.substring(0,20)}...` : 'No token');
     
     if (!token) {
       return res.status(401).json({ error: 'No token provided' });
@@ -19,7 +18,6 @@ router.get('/test-jwt', async (req, res) => {
     
     const jwt = require('jsonwebtoken');
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    console.log('Test JWT - Decoded token:', decoded);
     
     res.json({ 
       success: true, 
@@ -355,9 +353,7 @@ router.get('/students', async (req, res) => {
       // Get all enrollments for this student (from their enrolledCourses field)
       const studentEnrollments = student.enrolledCourses || [];
       
-      console.log(`Processing student ${student._id}:`);
-      console.log(`- Student enrollments:`, studentEnrollments);
-      console.log(`- Total student enrollments:`, studentEnrollments.length);
+      
       
       // Calculate progress and counts from student's own enrollment data
       let totalProgress = 0;
@@ -381,8 +377,7 @@ router.get('/students', async (req, res) => {
         lastAccessed: enrollment.lastAccessed || enrollment.enrolledAt
       }));
       
-      console.log(`- Processed enrollments:`, enrolledCoursesWithTitles);
-      console.log(`- Total courses:`, enrollmentCount);
+      
       
       return {
         id: student._id,
@@ -827,6 +822,28 @@ router.post('/enroll-student', async (req, res) => {
       }
     });
     
+    // Create notification for the student about course enrollment
+    try {
+      const Notification = require('../models/Notification');
+      
+      const notification = new Notification({
+        userId: studentId,
+        type: 'course',
+        title: `Welcome to ${course.title}!`,
+        message: `You have been successfully enrolled in "${course.title}" by your teacher. Start learning now!`,
+        priority: 'medium',
+        data: {
+          courseId: courseId,
+          teacherId: teacherId,
+          courseTitle: course.title
+        }
+      });
+      
+      await notification.save();
+    } catch (notifError) {
+      console.error('Failed to create notification for course enrollment:', notifError);
+    }
+    
     res.json({ success: true, message: 'Student enrolled successfully' });
   } catch (error) {
     console.error('Error enrolling student:', error);
@@ -942,16 +959,11 @@ router.post('/assign-course', async (req, res) => {
     const { studentId, courseId, progress = 0 } = req.body;
     const teacherId = req.user._id;
     
-    console.log('Assign course request:', { studentId, courseId, progress, teacherId });
-    
     // Verify course belongs to teacher
     const course = await Course.findOne({ _id: courseId, teacher: teacherId });
     if (!course) {
-      console.log('Course not found or not owned by teacher');
       return res.status(404).json({ success: false, error: 'Course not found' });
     }
-    
-    console.log('Course found:', course.title);
     
     // Verify student exists and is a student
     const student = await User.findOne({
@@ -960,11 +972,8 @@ router.post('/assign-course', async (req, res) => {
     });
     
     if (!student) {
-      console.log('Student not found or not a student');
       return res.status(404).json({ success: false, error: 'Student not found' });
     }
-    
-    console.log('Student found:', student.firstName, student.lastName);
     
     // Check if student is already enrolled in this course
     const existingEnrollment = await User.findOne({
@@ -973,11 +982,8 @@ router.post('/assign-course', async (req, res) => {
     });
     
     if (existingEnrollment) {
-      console.log('Student already enrolled in this course');
       return res.status(400).json({ success: false, error: 'Student is already enrolled in this course' });
     }
-    
-    console.log('Student not enrolled, proceeding with enrollment');
     
     // Add course to student's enrolled courses
     await User.findByIdAndUpdate(studentId, {
@@ -1005,7 +1011,7 @@ router.post('/assign-course', async (req, res) => {
       }
     });
     
-    console.log('Course assigned successfully');
+
     res.json({ success: true, message: 'Course assigned successfully' });
   } catch (error) {
     console.error('Error assigning course:', error);
@@ -1108,7 +1114,32 @@ router.post('/messages/:id/send', async (req, res) => {
     message.sentAt = new Date();
     await message.save();
     
-    // TODO: Implement actual sending logic (email, push notification, etc.)
+    // Create notifications for all recipients
+    if (message.recipients && message.recipients.length > 0) {
+      const Notification = require('../models/Notification');
+      
+      for (const recipient of message.recipients) {
+        try {
+          // Create notification for each student
+          const notification = new Notification({
+            userId: recipient.studentId || recipient, // Handle both object and string formats
+            type: 'message',
+            title: `Message from ${message.senderName || 'Teacher'}`,
+            message: message.content,
+            priority: 'medium',
+            data: {
+              messageId: message._id,
+              senderId: teacherId,
+              messageType: message.type
+            }
+          });
+          
+      await notification.save();
+    } catch (notifError) {
+      console.error(`Failed to create notification for student ${recipient.studentId || recipient}:`, notifError);
+    }
+      }
+    }
     
     res.json({ success: true, data: message, message: 'Message sent successfully' });
   } catch (error) {
@@ -1213,18 +1244,8 @@ router.get('/courses/:courseId/assignments/:assignmentId', async (req, res) => {
     }
     
     // Verify assignment belongs to the course
-    console.log('Assignment course:', assignment.course);
-    console.log('CourseId from params:', courseId);
-    console.log('Assignment course type:', typeof assignment.course);
-    console.log('Assignment course toString:', assignment.course.toString());
-    console.log('Comparison result:', assignment.course.toString() !== courseId);
-    
     // For now, let's be more flexible with the course verification
     // since the teacher can already see this assignment in their dashboard
-    if (assignment.course && assignment.course.toString() !== courseId) {
-      console.log('Course ID mismatch, but continuing...');
-      // return res.status(404).json({ success: false, error: 'Assignment not found in this course' });
-    }
     
     res.json({ success: true, data: assignment });
   } catch (error) {
@@ -1267,7 +1288,7 @@ router.put('/courses/:courseId/assignments/:assignmentId', async (req, res) => {
 });
 
 // Grade assignment submission
-router.post('/courses/:courseId/assignments/:assignmentId/grade', async (req, res) => {
+router.post('/courses/:courseId/assignments/:assignmentId/grade', authenticateToken, requireTeacher, async (req, res) => {
   try {
     const { courseId, assignmentId } = req.params;
     const { studentId, grade, feedback } = req.body;
@@ -1299,8 +1320,39 @@ router.post('/courses/:courseId/assignments/:assignmentId/grade', async (req, re
     assignment.submissions[submissionIndex].feedback = feedback;
     assignment.submissions[submissionIndex].gradedAt = new Date();
     assignment.submissions[submissionIndex].gradedBy = teacherId;
+    assignment.submissions[submissionIndex].status = 'graded';
     
     await assignment.save();
+    
+    // Create notification for the student about their graded assignment
+    try {
+      const Notification = require('../models/Notification');
+      const User = require('../models/User');
+      
+      // Get student details
+      const student = await User.findById(studentId).select('firstName lastName');
+      const studentName = student ? `${student.firstName} ${student.lastName}` : 'Student';
+      
+      // Create notification
+      const notification = new Notification({
+        userId: studentId,
+        type: 'assignment',
+        title: `Assignment Graded: ${assignment.title}`,
+        message: `Your submission for "${assignment.title}" has been graded with ${grade} points. ${feedback ? `Feedback: ${feedback}` : ''}`,
+        priority: 'high',
+        data: {
+          assignmentId: assignmentId,
+          courseId: courseId,
+          grade: grade,
+          feedback: feedback,
+          teacherId: teacherId
+        }
+      });
+      
+      await notification.save();
+    } catch (notifError) {
+      console.error('Failed to create notification for graded assignment:', notifError);
+    }
     
     res.json({ success: true, message: 'Submission graded successfully' });
   } catch (error) {

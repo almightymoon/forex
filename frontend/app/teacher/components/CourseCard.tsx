@@ -1,6 +1,7 @@
 import React from 'react';
 import { BookOpen, Edit, Eye, Trash2 } from 'lucide-react';
 import { Course } from '../types';
+import { useLanguage } from '../../../context/LanguageContext';
 
 interface CourseCardProps {
   course: Course;
@@ -11,6 +12,18 @@ interface CourseCardProps {
 }
 
 export default function CourseCard({ course, getStatusColor, onEdit, onDelete, onView }: CourseCardProps) {
+  const { t } = useLanguage();
+  
+  // Safety check for t function
+  const safeT = (key: string) => {
+    try {
+      return t(key);
+    } catch (error) {
+      console.warn('Translation function not ready:', error);
+      return key;
+    }
+  };
+  
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow">
       <div className="h-48 bg-gray-200 flex items-center justify-center overflow-hidden">
@@ -44,11 +57,11 @@ export default function CourseCard({ course, getStatusColor, onEdit, onDelete, o
         
         <div className="space-y-3 mb-4">
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Students</span>
+            <span className="text-gray-500">{safeT('students')}</span>
             <span className="font-medium">{typeof course.enrolledStudents === 'number' ? course.enrolledStudents : (Array.isArray(course.enrolledStudents) ? (course.enrolledStudents as any[]).length : 0)}</span>
           </div>
           <div className="flex justify-between text-sm">
-            <span className="text-gray-500">Lessons</span>
+            <span className="text-gray-500">{safeT('lessons')}</span>
             <span className="font-medium">{course.completedLessons}/{course.totalLessons}</span>
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
@@ -65,14 +78,14 @@ export default function CourseCard({ course, getStatusColor, onEdit, onDelete, o
             className="flex-1 bg-blue-100 text-blue-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-blue-200 flex items-center justify-center space-x-1"
           >
             <Edit className="w-3 h-3" />
-            <span>Edit</span>
+            <span>{safeT('edit')}</span>
           </button>
           <button 
             onClick={() => onView(course)}
             className="flex-1 bg-green-100 text-green-700 px-3 py-2 rounded-lg text-sm font-medium hover:bg-green-200 flex items-center justify-center space-x-1"
           >
             <Eye className="w-3 h-3" />
-            <span>View</span>
+            <span>{safeT('view')}</span>
           </button>
           <button 
             onClick={() => onDelete(course.id)}

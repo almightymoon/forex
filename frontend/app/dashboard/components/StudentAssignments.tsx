@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
   FileText, 
@@ -25,6 +25,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { useToast } from '../../../components/Toast';
+import { useLanguage } from '../../../context/LanguageContext';
 import dynamic from 'next/dynamic';
 
 // Dynamically import ReactQuill to avoid SSR issues
@@ -97,6 +98,18 @@ interface StudentAssignmentsProps {
 
 export default function StudentAssignments({ userId }: StudentAssignmentsProps) {
   const { showToast } = useToast();
+  const { t } = useLanguage();
+  
+  // Safety check for t function
+  const safeT = (key: string) => {
+    try {
+      return t(key);
+    } catch (error) {
+      console.warn('Translation function not ready:', error);
+      return key;
+    }
+  };
+  
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -110,11 +123,14 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
     textContent: '',
     files: [] as File[]
   });
+  const hasFetchedRef = useRef(false);
 
   // Rich text editor state
   const [isRichTextMode, setIsRichTextMode] = useState(false);
 
   useEffect(() => {
+    if (hasFetchedRef.current) return; // Prevent dev-mode double mount causing repeated refreshes
+    hasFetchedRef.current = true;
     // Check if user is logged in
     const token = localStorage.getItem('token');
     if (!token) {
@@ -124,13 +140,28 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
     
     fetchAssignments();
     
-    // Set up auto-refresh every 10 seconds to check for new grades (faster response)
-    const interval = setInterval(() => {
-      fetchAssignments();
-    }, 10000); // 10 seconds
+    // DISABLED: Auto-refresh was causing form interruption
+    // Users can manually refresh using the refresh buttons when needed
+    // const interval = setInterval(() => {
+    //   fetchAssignments();
+    // }, 10000); // 10 seconds
     
-    return () => clearInterval(interval);
+    // return () => clearInterval(interval);
   }, []);
+
+  // Listen for language changes
+  useEffect(() => {
+    const handleLanguageChange = () => {
+      // Force re-render when language changes
+      setAssignments([...assignments]);
+    };
+    
+    window.addEventListener('languageChanged', handleLanguageChange);
+    
+    return () => {
+      window.removeEventListener('languageChanged', handleLanguageChange);
+    };
+  }, [assignments]);
 
   const fetchAssignments = async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
@@ -211,63 +242,9 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
       console.error('Error fetching assignments:', error);
       showToast('Error fetching assignments', 'error');
       
-      // Fallback to sample data for demonstration
-      const sampleAssignments = [
-        {
-          _id: 'sample-1',
-          title: 'Risk Management Quiz',
-          description: 'Test your understanding of risk management principles in forex trading',
-          courseId: 'sample-course-1',
-          courseTitle: 'Forex Fundamentals',
-          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-          maxPoints: 100,
-          passingScore: 60,
-          assignmentType: 'quiz',
-          instructions: 'Answer all questions based on the course material covered in modules 1-3.',
-          difficulty: 'intermediate',
-          estimatedTime: 45,
-          isPublished: true,
-          allowLateSubmission: false,
-          latePenalty: 0,
-          tags: ['risk-management', 'quiz'],
-          status: 'pending'
-        },
-        {
-          _id: 'sample-2',
-          title: 'Chart Analysis Assignment',
-          description: 'Analyze the EUR/USD chart and identify key support and resistance levels',
-          courseId: 'sample-course-2',
-          courseTitle: 'Technical Analysis',
-          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-          maxPoints: 150,
-          passingScore: 90,
-          assignmentType: 'analysis',
-          instructions: 'Use the chart analysis tools provided and submit your findings with screenshots.',
-          difficulty: 'advanced',
-          estimatedTime: 90,
-          isPublished: true,
-          allowLateSubmission: true,
-          latePenalty: 10,
-          tags: ['chart-analysis', 'technical-analysis'],
-          status: 'pending'
-        }
-      ];
-      
-      const processedSampleAssignments = sampleAssignments.map((assignment: Assignment) => {
-        const dueDate = new Date(assignment.dueDate);
-        const now = new Date();
-        const daysUntilDue = Math.ceil((dueDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-        const isOverdue = dueDate < now && !assignment.submission;
-        
-        return {
-          ...assignment,
-          isOverdue,
-          daysUntilDue,
-          status: getAssignmentStatus(assignment, isOverdue, daysUntilDue)
-        };
-      });
-      
-      setAssignments(processedSampleAssignments);
+      // No fallback data - show error message
+      showToast('No assignments found. Please check your course enrollment.', 'info');
+      setAssignments([]);
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -277,8 +254,8 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
   const getAssignmentStatus = (assignment: Assignment, isOverdue: boolean, daysUntilDue: number): string => {
     // Check if assignment has been graded
     if (assignment.grade !== undefined && assignment.grade !== null) return 'graded';
-    // Check if assignment has been submitted
-    if (assignment.submission && (assignment.submission.textContent || assignment.submission.files?.length > 0)) return 'submitted';
+    // Treat any existing submission as submitted (disable further submissions)
+    if (assignment.submission) return 'submitted';
     // Check if overdue
     if (isOverdue) return 'overdue';
     // Check due dates
@@ -356,9 +333,9 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
 
       // Log what's being sent
       console.log('FormData contents:');
-      for (let [key, value] of formData.entries()) {
+      formData.forEach((value, key) => {
         console.log(`${key}:`, value);
-      }
+      });
 
       const response = await fetch(`http://localhost:4000/api/assignments/${selectedAssignment._id}/submit`, {
         method: 'POST',
@@ -369,10 +346,31 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
       });
 
       if (response.ok) {
+        const result = await response.json().catch(() => ({}));
         showToast('Assignment submitted successfully!', 'success');
         setShowSubmitModal(false);
         setSubmissionForm({ textContent: '', files: [] });
-        fetchAssignments(); // Refresh assignments
+        // Optimistically update local state for immediate UI feedback
+        setAssignments(prev => prev.map(a => a._id === selectedAssignment._id ? {
+          ...a,
+          submission: result?.submission || {
+            submittedAt: new Date().toISOString(),
+            textContent: submissionForm.textContent,
+            files: submissionForm.files.map(f => ({ title: f.name, fileUrl: '', fileType: f.type, fileSize: f.size })),
+            status: 'submitted'
+          },
+          status: 'submitted'
+        } : a));
+        setSelectedAssignment(prev => prev ? {
+          ...prev,
+          submission: result?.submission || {
+            submittedAt: new Date().toISOString(),
+            textContent: submissionForm.textContent,
+            files: submissionForm.files.map(f => ({ title: f.name, fileUrl: '', fileType: f.type, fileSize: f.size })),
+            status: 'submitted'
+          }
+        } : prev);
+        fetchAssignments(); // Refresh assignments from server
       } else {
         const error = await response.json();
         showToast(error.message || 'Failed to submit assignment', 'error');
@@ -475,77 +473,6 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
             <span>Check Grades</span>
-          </button>
-          <button
-            onClick={async () => {
-              try {
-                const token = localStorage.getItem('token');
-                console.log('Current token:', token ? `${token.substring(0, 20)}...` : 'No token');
-                
-                if (!token) {
-                  showToast('No authentication token found', 'error');
-                  return;
-                }
-                
-                // Check if token is wrapped in quotes
-                let cleanToken = token;
-                if (token.startsWith('"') && token.endsWith('"')) {
-                  cleanToken = token.slice(1, -1);
-                  console.log('Token was wrapped in quotes, cleaned:', cleanToken.substring(0, 20));
-                }
-                
-                // Try to decode the token to see if it's valid
-                try {
-                  const tokenParts = cleanToken.split('.');
-                  if (tokenParts.length === 3) {
-                    const payload = JSON.parse(atob(tokenParts[1]));
-                    console.log('Token payload:', payload);
-                  }
-                } catch (e) {
-                  console.log('Could not decode token payload:', e);
-                }
-                
-                const response = await fetch('http://localhost:4000/api/assignments', {
-                  headers: {
-                    'Authorization': `Bearer ${cleanToken}`
-                  }
-                });
-                
-                console.log('API Response Status:', response.status);
-                console.log('API Response Headers:', Object.fromEntries(response.headers.entries()));
-                
-                if (response.ok) {
-                  const data = await response.json();
-                  console.log('API Response Data:', data);
-                  showToast('API test successful - check console for details', 'success');
-                } else {
-                  const errorData = await response.json().catch(() => ({}));
-                  console.error('API Error Response:', errorData);
-                  showToast(`API test failed: ${response.status} ${errorData.error || errorData.message || 'Unknown error'}`, 'error');
-                }
-              } catch (error) {
-                console.error('API Test Error:', error);
-                showToast(`API test error: ${error.message}`, 'error');
-              }
-            }}
-            className="flex items-center space-x-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors"
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span>Test API</span>
-          </button>
-          <button
-            onClick={() => {
-              localStorage.removeItem('token');
-              localStorage.removeItem('user');
-              showToast('Token cleared. Please refresh the page and log in again.', 'info');
-              setTimeout(() => {
-                window.location.href = '/login';
-              }, 2000);
-            }}
-            className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-          >
-            <XCircle className="w-4 h-4" />
-            <span>Clear Token</span>
           </button>
         </div>
       </div>
@@ -803,27 +730,18 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
                             grade: assignment.grade
                           });
                           
-                          return !assignment.submission ? (
+                          // Consider any submission as final; disable submit button
+                          const hasSubmission = !!assignment.submission;
+                          
+                          return (
                             <button
                               onClick={() => openSubmitModal(assignment)}
-                              className="text-green-600 hover:text-green-900 p-1"
-                              title="Submit Assignment"
+                              className={`p-1 ${hasSubmission ? 'text-gray-400 cursor-not-allowed' : 'text-green-600 hover:text-green-900'}`}
+                              title={hasSubmission ? 'Already Submitted' : 'Submit Assignment'}
+                              disabled={hasSubmission}
                             >
-                              <Upload className="w-4 h-4" />
+                              {hasSubmission ? <CheckCircle className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
                             </button>
-                          ) : (
-                            <div className="flex items-center space-x-2 text-blue-600 p-1" title="Already Submitted">
-                              <CheckCircle className="w-4 h-4" />
-                              <span className="text-xs">Submitted</span>
-                              {assignment.submission && !assignment.submission.textContent && assignment.submission.files?.length === 0 && (
-                                <span className="text-xs text-orange-600">(Empty)</span>
-                              )}
-                              {assignment.grade !== undefined && assignment.grade !== null && (
-                                <span className="text-xs text-green-600">
-                                  • Grade: {assignment.grade}%
-                                </span>
-                              )}
-                            </div>
                           );
                         })()}
                       </div>

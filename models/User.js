@@ -48,6 +48,18 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'Pakistan'
   },
+  dateOfBirth: {
+    type: Date
+  },
+  address: {
+    type: String,
+    trim: true
+  },
+  bio: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Bio cannot exceed 500 characters']
+  },
   paymentMethod: {
     type: String,
     enum: ['credit_card', 'easypaisa', 'jazz_cash'],
@@ -148,6 +160,10 @@ const userSchema = new mongoose.Schema({
     pushNotifications: {
       type: Boolean,
       default: true
+    },
+    marketingEmails: {
+      type: Boolean,
+      default: false
     },
     language: {
       type: String,

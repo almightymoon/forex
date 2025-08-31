@@ -652,7 +652,7 @@ router.get('/preferences', [
         },
         sms: {
           available: !!user.phone,
-          enabled: preferences.smsNotifications
+          enabled: preferences.pushNotifications
         },
         push: {
           available: true,
@@ -665,6 +665,198 @@ router.get('/preferences', [
     console.error('Get preferences error:', error);
     res.status(500).json({
       error: 'Failed to get notification preferences',
+      message: error.message
+    });
+  }
+});
+
+// ==================== USER NOTIFICATIONS ====================
+
+// @route   GET /api/notifications/user
+// @desc    Get user's notifications
+// @access  Private
+router.get('/user', [
+  authenticateToken
+], async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const { limit = 50, unreadOnly = false, type } = req.query;
+    
+    const notifications = await Notification.getUserNotifications(req.user._id, {
+      limit: parseInt(limit),
+      unreadOnly: unreadOnly === 'true',
+      type
+    });
+
+    const unreadCount = await Notification.getUnreadCount(req.user._id);
+
+    res.json({
+      success: true,
+      notifications,
+      unreadCount,
+      total: notifications.length
+    });
+
+  } catch (error) {
+    console.error('Get user notifications error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get user notifications',
+      message: error.message
+    });
+  }
+});
+
+// @route   PUT /api/notifications/user/read
+// @desc    Mark notifications as read
+// @access  Private
+router.put('/user/read', [
+  authenticateToken,
+  body('notificationIds').isArray().withMessage('Notification IDs array is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const Notification = require('../models/Notification');
+    const { notificationIds } = req.body;
+
+    await Notification.markAsRead(req.user._id, notificationIds);
+
+    const unreadCount = await Notification.getUnreadCount(req.user._id);
+
+    res.json({
+      success: true,
+      message: 'Notifications marked as read',
+      unreadCount
+    });
+
+  } catch (error) {
+    console.error('Mark notifications as read error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to mark notifications as read',
+      message: error.message
+    });
+  }
+});
+
+// @route   PUT /api/notifications/user/read-all
+// @desc    Mark all user notifications as read
+// @access  Private
+router.put('/user/read-all', [
+  authenticateToken
+], async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+
+    await Notification.markAllAsRead(req.user._id);
+
+    res.json({
+      success: true,
+      message: 'All notifications marked as read'
+    });
+
+  } catch (error) {
+    console.error('Mark all notifications as read error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to mark all notifications as read',
+      message: error.message
+    });
+  }
+});
+
+// @route   DELETE /api/notifications/user/:id
+// @desc    Delete a user notification
+// @access  Private
+router.delete('/user/:id', [
+  authenticateToken
+], async (req, res) => {
+  try {
+    const Notification = require('../models/Notification');
+    const { id } = req.params;
+
+    const notification = await Notification.findOneAndDelete({
+      _id: id,
+      userId: req.user._id
+    });
+
+    if (!notification) {
+      return res.status(404).json({
+        success: false,
+        error: 'Notification not found'
+      });
+    }
+
+    const unreadCount = await Notification.getUnreadCount(req.user._id);
+
+    res.json({
+      success: true,
+      message: 'Notification deleted',
+      unreadCount
+    });
+
+  } catch (error) {
+    console.error('Delete notification error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to delete notification',
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/notifications/create
+// @desc    Create a test notification (for testing purposes)
+// @access  Private
+router.post('/create', [
+  authenticateToken,
+  body('type').isIn(['assignment', 'course', 'message', 'system', 'payment', 'security']).withMessage('Valid type required'),
+  body('title').notEmpty().withMessage('Title is required'),
+  body('message').notEmpty().withMessage('Message is required'),
+  body('priority').optional().isIn(['low', 'medium', 'high', 'urgent']).withMessage('Valid priority required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const Notification = require('../models/Notification');
+    const { type, title, message, priority = 'medium' } = req.body;
+
+    const notification = new Notification({
+      userId: req.user._id,
+      type,
+      title,
+      message,
+      priority
+    });
+
+    await notification.save();
+
+    res.status(201).json({
+      success: true,
+      data: notification,
+      message: 'Notification created successfully'
+    });
+
+  } catch (error) {
+    console.error('Create notification error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to create notification',
       message: error.message
     });
   }

@@ -97,9 +97,9 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
     dueDate: '',
     maxPoints: 100,
     passingScore: 60,
-    assignmentType: 'essay' as const,
+    assignmentType: 'essay' as 'essay' | 'quiz' | 'project' | 'presentation' | 'analysis' | 'other',
     instructions: '',
-    difficulty: 'intermediate' as const,
+    difficulty: 'intermediate' as 'beginner' | 'intermediate' | 'advanced' | 'expert',
     estimatedTime: 60,
     isGroupAssignment: false,
     maxGroupSize: 2,
@@ -129,7 +129,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
       // Fetch assignments for all teacher's courses
       const assignmentPromises = courses.map(async (course) => {
         try {
-          const response = await fetch(`http://localhost:4000/api/teacher/courses/${course.id || course._id}/assignments?includeSubmissions=true`, {
+          const response = await fetch(`http://localhost:4000/api/teacher/courses/${course.id}/assignments?includeSubmissions=true`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -139,7 +139,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
             const result = await response.json();
             return result.data.map((assignment: any) => ({
               ...assignment,
-              courseId: course.id || course._id,
+              courseId: course.id,
               courseTitle: course.title
             }));
           }
@@ -286,7 +286,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
         // Try to fetch submissions from the backend as fallback
         const token = localStorage.getItem('token');
         if (token) {
-          const courseId = assignment.courseId || assignment.course;
+          const courseId = assignment.courseId;
           console.log('Trying to fetch submissions from backend for course:', courseId);
           
           const response = await fetch(`http://localhost:4000/api/teacher/courses/${courseId}/assignments/${assignment._id}`, {
@@ -352,7 +352,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
         return;
       }
 
-      const courseId = selectedAssignment.courseId || selectedAssignment.course;
+      const courseId = selectedAssignment.courseId;
       console.log('Grading submission for course:', courseId, 'assignment:', selectedAssignment._id);
 
       const response = await fetch(`http://localhost:4000/api/teacher/courses/${courseId}/assignments/${selectedAssignment._id}/grade`, {
@@ -401,7 +401,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
         return;
       }
 
-      const courseId = selectedAssignment.courseId || selectedAssignment.course;
+      const courseId = selectedAssignment.courseId;
       // Handle both populated and unpopulated student objects
       const studentId = submissionToDelete.student?._id || submissionToDelete.student;
       
@@ -421,9 +421,10 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
         
         // Remove the submission from local state immediately
         setSubmissions(prevSubmissions => 
-          prevSubmissions.filter(sub => 
-            sub.student._id !== studentId && sub.student !== studentId
-          )
+          prevSubmissions.filter(sub => {
+            const subStudentId = sub.student?._id || sub.student;
+            return subStudentId !== studentId;
+          })
         );
         
         // Close the confirmation modal
@@ -676,7 +677,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
             >
               <option value="all">All Courses</option>
               {courses.map(course => (
-                <option key={course.id || course._id} value={course.id || course._id}>
+                <option key={course.id} value={course.id}>
                   {course.title}
                 </option>
               ))}
@@ -828,68 +829,74 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">Create New Assignment</h3>
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
                 <input
                   type="text"
                   value={assignmentForm.title}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, title: e.target.value })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, title: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Assignment title"
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Course *</label>
                 <select
                   value={assignmentForm.courseId}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, courseId: e.target.value })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, courseId: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Select a course...</option>
-                  {courses.map(course => (
-                    <option key={course.id || course._id} value={course.id || course._id}>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
                       {course.title}
                     </option>
                   ))}
                 </select>
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
                 <input
                   type="date"
                   value={assignmentForm.dueDate}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, dueDate: e.target.value })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, dueDate: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Max Points</label>
                 <input
                   type="number"
                   value={assignmentForm.maxPoints}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, maxPoints: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, maxPoints: parseInt(e.target.value)})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   min="1"
                   max="1000"
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Passing Score</label>
                 <input
                   type="number"
                   value={assignmentForm.passingScore}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, passingScore: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, passingScore: parseInt(e.target.value)})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   min="0"
                   max={assignmentForm.maxPoints}
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Assignment Type</label>
                 <select
                   value={assignmentForm.assignmentType}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, assignmentType: e.target.value as any })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, assignmentType: e.target.value as any})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="essay">Essay</option>
@@ -900,11 +907,12 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                   <option value="other">Other</option>
                 </select>
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Difficulty</label>
                 <select
                   value={assignmentForm.difficulty}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, difficulty: e.target.value as any })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, difficulty: e.target.value as any})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="beginner">Beginner</option>
@@ -913,58 +921,64 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                   <option value="expert">Expert</option>
                 </select>
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Estimated Time (minutes)</label>
                 <input
                   type="number"
                   value={assignmentForm.estimatedTime}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, estimatedTime: parseInt(e.target.value) || 60 })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, estimatedTime: parseInt(e.target.value)})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  min="1"
+                  min="15"
                   max="480"
                 />
               </div>
             </div>
+            
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
               <textarea
                 value={assignmentForm.description}
-                onChange={(e) => setAssignmentForm({ ...assignmentForm, description: e.target.value })}
+                onChange={(e) => setAssignmentForm({...assignmentForm, description: e.target.value})}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Assignment description"
               />
             </div>
+            
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Instructions</label>
               <textarea
                 value={assignmentForm.instructions}
-                onChange={(e) => setAssignmentForm({ ...assignmentForm, instructions: e.target.value })}
+                onChange={(e) => setAssignmentForm({...assignmentForm, instructions: e.target.value})}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Detailed instructions for students"
               />
             </div>
+            
             <div className="flex items-center space-x-4 mt-4">
               <label className="flex items-center">
                 <input
                   type="checkbox"
                   checked={assignmentForm.isPublished}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, isPublished: e.target.checked })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, isPublished: e.target.checked})}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="ml-2 text-sm text-gray-700">Publish immediately</span>
               </label>
+              
               <label className="flex items-center">
                 <input
                   type="checkbox"
                   checked={assignmentForm.allowLateSubmission}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, allowLateSubmission: e.target.checked })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, allowLateSubmission: e.target.checked})}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="ml-2 text-sm text-gray-700">Allow late submissions</span>
               </label>
             </div>
+            
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowCreateModal(false)}
@@ -988,69 +1002,74 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">Edit Assignment</h3>
-            {/* Same form as create modal but with update button */}
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
                 <input
                   type="text"
                   value={assignmentForm.title}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, title: e.target.value })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, title: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   placeholder="Assignment title"
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Course *</label>
                 <select
                   value={assignmentForm.courseId}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, courseId: e.target.value })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, courseId: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="">Select a course...</option>
-                  {courses.map(course => (
-                    <option key={course.id || course._id} value={course.id || course._id}>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
                       {course.title}
                     </option>
                   ))}
                 </select>
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
                 <input
                   type="date"
                   value={assignmentForm.dueDate}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, dueDate: e.target.value })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, dueDate: e.target.value})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Max Points</label>
                 <input
                   type="number"
                   value={assignmentForm.maxPoints}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, maxPoints: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, maxPoints: parseInt(e.target.value)})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   min="1"
                   max="1000"
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Passing Score</label>
                 <input
                   type="number"
                   value={assignmentForm.passingScore}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, passingScore: parseInt(e.target.value) || 0 })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, passingScore: parseInt(e.target.value)})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   min="0"
                   max={assignmentForm.maxPoints}
                 />
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Assignment Type</label>
                 <select
                   value={assignmentForm.assignmentType}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, assignmentType: e.target.value as any })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, assignmentType: e.target.value as any})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="essay">Essay</option>
@@ -1061,11 +1080,12 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                   <option value="other">Other</option>
                 </select>
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Difficulty</label>
                 <select
                   value={assignmentForm.difficulty}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, difficulty: e.target.value as any })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, difficulty: e.target.value as any})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 >
                   <option value="beginner">Beginner</option>
@@ -1074,58 +1094,64 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                   <option value="expert">Expert</option>
                 </select>
               </div>
+              
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Estimated Time (minutes)</label>
                 <input
                   type="number"
                   value={assignmentForm.estimatedTime}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, estimatedTime: parseInt(e.target.value) || 60 })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, estimatedTime: parseInt(e.target.value)})}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  min="1"
+                  min="15"
                   max="480"
                 />
               </div>
             </div>
+            
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
               <textarea
                 value={assignmentForm.description}
-                onChange={(e) => setAssignmentForm({ ...assignmentForm, description: e.target.value })}
+                onChange={(e) => setAssignmentForm({...assignmentForm, description: e.target.value})}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Assignment description"
               />
             </div>
+            
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-700 mb-2">Instructions</label>
               <textarea
                 value={assignmentForm.instructions}
-                onChange={(e) => setAssignmentForm({ ...assignmentForm, instructions: e.target.value })}
+                onChange={(e) => setAssignmentForm({...assignmentForm, instructions: e.target.value})}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Detailed instructions for students"
               />
             </div>
+            
             <div className="flex items-center space-x-4 mt-4">
               <label className="flex items-center">
                 <input
                   type="checkbox"
                   checked={assignmentForm.isPublished}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, isPublished: e.target.checked })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, isPublished: e.target.checked})}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="ml-2 text-sm text-gray-700">Published</span>
               </label>
+              
               <label className="flex items-center">
                 <input
                   type="checkbox"
                   checked={assignmentForm.allowLateSubmission}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, allowLateSubmission: e.target.checked })}
+                  onChange={(e) => setAssignmentForm({...assignmentForm, allowLateSubmission: e.target.checked})}
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                 />
                 <span className="ml-2 text-sm text-gray-700">Allow late submissions</span>
               </label>
             </div>
+            
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowEditModal(false)}
@@ -1155,12 +1181,14 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                   <strong>Warning:</strong> This action will permanently delete the assignment "{selectedAssignment.title}" and all associated submissions. This action cannot be undone.
                 </p>
               </div>
+              
               <div className="text-sm text-gray-600">
                 <p><strong>Course:</strong> {selectedAssignment.courseTitle}</p>
                 <p><strong>Type:</strong> {selectedAssignment.assignmentType}</p>
                 <p><strong>Submissions:</strong> {selectedAssignment.submissionCount || 0}</p>
               </div>
             </div>
+            
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowDeleteModal(false)}

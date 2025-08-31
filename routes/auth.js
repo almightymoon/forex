@@ -394,7 +394,11 @@ router.put('/profile', [
   body('firstName').optional().trim().notEmpty().withMessage('First name cannot be empty'),
   body('lastName').optional().trim().notEmpty().withMessage('Last name cannot be empty'),
   body('phone').optional().trim(),
-  body('country').optional().trim()
+  body('country').optional().trim(),
+  body('dateOfBirth').optional().isISO8601().withMessage('Invalid date format'),
+  body('address').optional().trim(),
+  body('bio').optional().trim(),
+  body('preferences').optional().isObject().withMessage('Preferences must be an object')
 ], async (req, res) => {
   try {
     // Check validation errors
@@ -406,13 +410,27 @@ router.put('/profile', [
       });
     }
 
-    const { firstName, lastName, phone, country } = req.body;
+    const { 
+      firstName, 
+      lastName, 
+      phone, 
+      country, 
+      dateOfBirth, 
+      address, 
+      bio, 
+      preferences 
+    } = req.body;
+    
     const updateData = {};
 
     if (firstName) updateData.firstName = firstName;
     if (lastName) updateData.lastName = lastName;
     if (phone) updateData.phone = phone;
     if (country) updateData.country = country;
+    if (dateOfBirth) updateData.dateOfBirth = dateOfBirth;
+    if (address) updateData.address = address;
+    if (bio) updateData.bio = bio;
+    if (preferences) updateData.preferences = preferences;
 
     const user = await User.findByIdAndUpdate(
       req.user._id,

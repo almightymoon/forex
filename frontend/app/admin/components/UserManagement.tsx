@@ -205,7 +205,7 @@ export default function UserManagement({
                   <td className="py-4 px-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       user.role === 'admin' ? 'bg-red-100 text-red-800' :
-                      user.role === 'instructor' ? 'bg-blue-100 text-blue-800' :
+                      user.role === 'teacher' ? 'bg-blue-100 text-blue-800' :
                       'bg-green-100 text-green-800'
                     }`}>
                       {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
@@ -357,12 +357,12 @@ export default function UserManagement({
                   <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
                   <select
                     value={userForm.role}
-                    onChange={(e) => setUserForm(prev => ({ ...prev, role: e.target.value as 'admin' | 'instructor' | 'student' }))}
+                    onChange={(e) => setUserForm(prev => ({ ...prev, role: e.target.value as 'admin' | 'teacher' | 'student' }))}
                     className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
-                    <option value="student">Student</option>
-                    <option value="instructor">Instructor</option>
-                    <option value="admin">Admin</option>
+                                          <option value="student">Student</option>
+                      <option value="teacher">Teacher</option>
+                      <option value="admin">Admin</option>
                   </select>
                 </div>
 

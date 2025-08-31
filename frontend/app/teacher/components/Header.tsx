@@ -1,24 +1,20 @@
 import React from 'react';
-import { Bell, Settings, LogOut } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { Bell, Settings } from 'lucide-react';
+import UserProfileDropdown from '../../components/UserProfileDropdown';
 
 interface HeaderProps {
   title: string;
   subtitle: string;
+  user?: {
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+    profileImage?: string;
+  } | null;
 }
 
-export default function Header({ title, subtitle }: HeaderProps) {
-  const router = useRouter();
-
-  const handleLogout = () => {
-    // Clear localStorage
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    
-    // Redirect to login page
-    router.push('/login');
-  };
-
+export default function Header({ title, subtitle, user }: HeaderProps) {
   return (
     <div className="bg-white shadow-sm border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -34,16 +30,9 @@ export default function Header({ title, subtitle }: HeaderProps) {
             <button className="p-2 text-gray-400 hover:text-gray-600">
               <Settings className="w-5 h-5" />
             </button>
-            <button 
-              onClick={handleLogout}
-              className="flex items-center space-x-2 px-3 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>Logout</span>
-            </button>
-            <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white text-sm font-medium">T</span>
-            </div>
+            
+            {/* User Profile Dropdown */}
+            <UserProfileDropdown user={user} />
           </div>
         </div>
       </div>

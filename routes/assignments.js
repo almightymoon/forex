@@ -7,129 +7,80 @@ const User = require('../models/User');
 
 // Get all assignments for a student
 router.get('/', authenticateToken, async (req, res) => {
-  // Disable caching to ensure fresh data
-  res.set({
-    'Cache-Control': 'no-cache, no-store, must-revalidate',
-    'Pragma': 'no-cache',
-    'Expires': '0'
-  });
-  
   try {
     const userId = req.user.userId || req.user._id;
-    console.log('Fetching assignments for user:', userId);
+    console.log('=== FETCHING ASSIGNMENTS ===');
+    console.log('User ID:', userId);
+    console.log('User object:', { id: req.user._id, userId: req.user.userId, email: req.user.email });
     
-    // Get all published assignments from courses the student is enrolled in
-    let courseIds = [];
-    try {
-      const student = await User.findById(userId).populate('enrolledCourses.courseId');
-      
-      if (!student) {
-        console.log('Student not found:', userId);
-        return res.json([]);
-      }
-      
-      console.log('Student found:', {
-        id: student._id,
-        email: student.email,
-        enrolledCoursesCount: student.enrolledCourses?.length || 0
-      });
-      
-      if (!student.enrolledCourses || student.enrolledCourses.length === 0) {
-        console.log('Student has no enrolled courses:', userId);
-        return res.json([]);
-      }
-      
-      console.log('Student enrolled courses:', student.enrolledCourses.length);
-      
-      // Check if courseId population worked
-      courseIds = student.enrolledCourses.map(enrollment => {
-        if (enrollment.courseId && enrollment.courseId._id) {
-          return enrollment.courseId._id;
-        } else if (enrollment.courseId) {
-          return enrollment.courseId;
-        } else {
-          console.log('Enrollment missing courseId:', enrollment);
-          return null;
-        }
-      }).filter(Boolean); // Remove null entries
-      
-      console.log('Course IDs:', courseIds);
-      console.log('Course IDs types:', courseIds.map(id => typeof id));
-      console.log('Student enrolled courses:', student.enrolledCourses.map(ec => ({
-        courseId: ec.courseId,
-        courseIdType: typeof ec.courseId,
-        hasId: !!ec.courseId,
-        isObjectId: ec.courseId && ec.courseId._id
-      })));
-      
-      if (courseIds.length === 0) {
-        console.log('No valid course IDs found');
-        return res.json([]);
-      }
-    } catch (error) {
-      console.error('Error processing student data:', error);
-      return res.status(500).json({ error: 'Failed to process student data', details: error.message });
+    // Get student's enrolled courses
+    const student = await User.findById(userId);
+    if (!student || !student.enrolledCourses || student.enrolledCourses.length === 0) {
+      console.log('No enrolled courses found for student');
+      return res.json([]);
     }
     
-    // First, let's check if there are any assignments at all
-    const allAssignments = await Assignment.find({});
-    console.log('Total assignments in database:', allAssignments.length);
+    const courseIds = student.enrolledCourses.map(ec => ec.courseId).filter(Boolean);
+    console.log('Enrolled course IDs:', courseIds);
     
-    // Check if there are any published assignments
-    const publishedAssignments = await Assignment.find({ isPublished: true });
-    console.log('Published assignments in database:', publishedAssignments.length);
+    // Get ALL assignments for enrolled courses (including unpublished for debugging)
+    const allAssignments = await Assignment.find({
+      course: { $in: courseIds }
+    }).populate('course', 'title');
     
-    // Find all published assignments for enrolled courses with submissions populated
-    const assignments = await Assignment.find({
-      course: { $in: courseIds },
-      isPublished: true
-    }).populate('course', 'title').populate('submissions.student', 'firstName lastName email');
+    console.log('Total assignments found:', allAssignments.length);
     
-    console.log('Found assignments for enrolled courses:', assignments.length);
-    if (assignments.length > 0) {
-      console.log('Sample assignment structure:', {
-        _id: assignments[0]._id,
-        course: assignments[0].course,
-        hasCourse: !!assignments[0].course,
-        courseId: assignments[0].course?._id,
-        courseType: typeof assignments[0].course,
-        courseKeys: assignments[0].course ? Object.keys(assignments[0].course) : 'N/A'
-      });
-    } else {
-      console.log('No assignments found for enrolled courses');
-    }
-    
-    // Get student's submissions for these assignments - FIXED LOGIC
-    const assignmentsWithSubmissions = assignments.map(assignment => {
-      // Check if course is properly populated
-      if (!assignment.course || !assignment.course._id) {
-        console.log('Assignment missing course data:', assignment._id);
-        return null; // Skip this assignment
+    // Process each assignment to find student submissions
+    const processedAssignments = allAssignments.map(assignment => {
+      console.log(`\n--- Processing Assignment: ${assignment._id} ---`);
+      console.log(`Title: ${assignment.title}`);
+      console.log(`Course: ${assignment.course?.title}`);
+      console.log(`Submissions count: ${assignment.submissions?.length || 0}`);
+      
+      // Find this student's submission
+      let studentSubmission = null;
+      let submissionFound = false;
+      
+      if (assignment.submissions && assignment.submissions.length > 0) {
+        console.log('All submissions in this assignment:');
+        assignment.submissions.forEach((sub, index) => {
+          const subStudentId = sub.student?.toString();
+          const isMatch = subStudentId === userId.toString();
+          console.log(`  Submission ${index}:`, {
+            student: sub.student,
+            studentId: subStudentId,
+            matchesCurrentUser: isMatch,
+            submittedAt: sub.submittedAt,
+            grade: sub.grade,
+            status: sub.status,
+            textContent: sub.textContent ? 'Has text' : 'No text',
+            files: sub.files?.length || 0
+          });
+          
+          if (isMatch) {
+            studentSubmission = sub;
+            submissionFound = true;
+            console.log(`  *** FOUND MATCHING SUBMISSION ***`);
+          }
+        });
       }
       
-      // Find the student's submission directly from the assignment
-      const studentSubmission = assignment.submissions?.find(s => 
-        s.student.toString() === userId
-      );
-      
-      console.log(`Assignment ${assignment._id}:`, {
-        hasSubmissions: !!assignment.submissions,
-        submissionsCount: assignment.submissions?.length || 0,
-        studentSubmission: studentSubmission ? {
-          hasSubmission: true,
-          hasTextContent: !!studentSubmission.textContent,
-          hasFiles: studentSubmission.files?.length > 0,
+      console.log(`Final result for assignment ${assignment._id}:`, {
+        hasSubmission: submissionFound,
+        submission: studentSubmission ? {
           grade: studentSubmission.grade,
-          status: studentSubmission.status
-        } : { hasSubmission: false }
+          status: studentSubmission.status,
+          submittedAt: studentSubmission.submittedAt
+        } : null
       });
       
+      // Return processed assignment
       return {
         _id: assignment._id,
         title: assignment.title,
         description: assignment.description,
-        courseId: assignment.course._id,
-        courseTitle: assignment.course.title,
+        courseId: assignment.course?._id,
+        courseTitle: assignment.course?.title,
         dueDate: assignment.dueDate,
         maxPoints: assignment.maxPoints,
         passingScore: assignment.passingScore,
@@ -141,84 +92,42 @@ router.get('/', authenticateToken, async (req, res) => {
         allowLateSubmission: assignment.allowLateSubmission,
         latePenalty: assignment.latePenalty,
         tags: assignment.tags,
+        // Map submission data
         submission: studentSubmission ? {
           submittedAt: studentSubmission.submittedAt,
           files: studentSubmission.files || [],
           textContent: studentSubmission.textContent || '',
           status: studentSubmission.status || 'submitted'
         } : undefined,
+        // Map grade data
         grade: studentSubmission?.grade,
         feedback: studentSubmission?.feedback,
         gradedAt: studentSubmission?.gradedAt,
         gradedBy: studentSubmission?.gradedBy
       };
-    }).filter(Boolean); // Remove null entries
+    });
     
-    console.log('Returning assignments:', assignmentsWithSubmissions.length);
+    console.log('\n=== FINAL RESULTS ===');
+    console.log('Processed assignments:', processedAssignments.length);
     
-    // Log the final data being returned
-    if (assignmentsWithSubmissions.length > 0) {
-      console.log('Final assignment data:', assignmentsWithSubmissions[0]);
-      console.log('Submission data:', assignmentsWithSubmissions[0].submission);
-      console.log('Grade data:', assignmentsWithSubmissions[0].grade);
-      console.log('Full response data:', JSON.stringify(assignmentsWithSubmissions[0], null, 2));
+    // Filter to only published assignments for final response
+    const publishedAssignments = processedAssignments.filter(a => a.isPublished);
+    console.log('Published assignments:', publishedAssignments.length);
+    
+    if (publishedAssignments.length > 0) {
+      console.log('Sample published assignment:', {
+        id: publishedAssignments[0]._id,
+        title: publishedAssignments[0].title,
+        hasSubmission: !!publishedAssignments[0].submission,
+        grade: publishedAssignments[0].grade,
+        status: publishedAssignments[0].submission?.status
+      });
     }
     
-    // If no assignments found, return sample data for demonstration
-    if (assignmentsWithSubmissions.length === 0) {
-      console.log('No assignments found, returning sample data');
-      console.log('This could be because:');
-      console.log('- No assignments exist in the database');
-      console.log('- No assignments are published');
-      console.log('- No assignments match the enrolled courses');
-      console.log('- Course population failed');
-      
-      const sampleAssignments = [
-        {
-          _id: 'sample-1',
-          title: 'Risk Management Quiz',
-          description: 'Test your understanding of risk management principles in forex trading',
-          courseId: 'sample-course-1',
-          courseTitle: 'Forex Fundamentals',
-          dueDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
-          maxPoints: 100,
-          passingScore: 60,
-          assignmentType: 'quiz',
-          instructions: 'Answer all questions based on the course material covered in modules 1-3.',
-          difficulty: 'intermediate',
-          estimatedTime: 45,
-          isPublished: true,
-          allowLateSubmission: false,
-          latePenalty: 0,
-          tags: ['risk-management', 'quiz'],
-          status: 'pending'
-        },
-        {
-          _id: 'sample-2',
-          title: 'Chart Analysis Assignment',
-          description: 'Analyze the EUR/USD chart and identify key support and resistance levels',
-          courseId: 'sample-course-2',
-          courseTitle: 'Technical Analysis',
-          dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
-          maxPoints: 150,
-          passingScore: 90,
-          assignmentType: 'analysis',
-          instructions: 'Use the chart analysis tools provided and submit your findings with screenshots.',
-          difficulty: 'advanced',
-          estimatedTime: 90,
-          isPublished: true,
-          allowLateSubmission: true,
-          latePenalty: 10,
-          tags: ['chart-analysis', 'technical-analysis'],
-          status: 'pending'
-        }
-      ];
-      return res.json(sampleAssignments);
-    }
+    res.json(publishedAssignments);
     
-    res.json(assignmentsWithSubmissions);
   } catch (error) {
-    console.error('Error fetching assignments:', error);
+    console.error('Error in assignments route:', error);
     res.status(500).json({ error: 'Failed to fetch assignments', details: error.message });
   }
 });
@@ -291,10 +200,14 @@ router.post('/:assignmentId/submit', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'You are not enrolled in this course' });
     }
     
-    // Check if submission already exists
+    // Check if submission already exists - PREVENT MULTIPLE SUBMISSIONS
     const existingSubmissionIndex = assignment.submissions.findIndex(
       sub => sub.student.toString() === userId
     );
+    
+    if (existingSubmissionIndex >= 0) {
+      return res.status(400).json({ error: 'You have already submitted this assignment. Multiple submissions are not allowed.' });
+    }
     
     const submissionData = {
       student: userId,
@@ -306,13 +219,8 @@ router.post('/:assignmentId/submit', authenticateToken, async (req, res) => {
     
     console.log('Saving submission data:', submissionData);
     
-    if (existingSubmissionIndex >= 0) {
-      // Update existing submission
-      assignment.submissions[existingSubmissionIndex] = submissionData;
-    } else {
-      // Add new submission
-      assignment.submissions.push(submissionData);
-    }
+    // Add new submission (no updates allowed)
+    assignment.submissions.push(submissionData);
     
     await assignment.save();
     console.log('Submission saved successfully');
@@ -394,25 +302,41 @@ router.put('/:assignmentId', authenticateToken, requireRole(['admin', 'teacher']
 // Admin/Teacher: Grade assignment
 router.post('/:assignmentId/grade', authenticateToken, requireRole(['admin', 'teacher']), async (req, res) => {
   try {
-    const { grade, feedback } = req.body;
+    const { grade, feedback, studentId } = req.body;
     
-    const assignment = await Assignment.findByIdAndUpdate(
-      req.params.assignmentId,
-      { 
-        grade, 
-        feedback, 
-        status: 'graded',
-        gradedAt: new Date(),
-        gradedBy: req.user.userId
-      },
-      { new: true }
-    );
+    if (!studentId) {
+      return res.status(400).json({ error: 'Student ID is required for grading' });
+    }
     
+    // Find the assignment and update the specific student's submission
+    const assignment = await Assignment.findById(req.params.assignmentId);
     if (!assignment) {
       return res.status(404).json({ error: 'Assignment not found' });
     }
     
-    res.json(assignment);
+    // Find the student's submission
+    const submissionIndex = assignment.submissions.findIndex(
+      sub => sub.student.toString() === studentId
+    );
+    
+    if (submissionIndex === -1) {
+      return res.status(404).json({ error: 'Student submission not found' });
+    }
+    
+    // Update the specific submission
+    assignment.submissions[submissionIndex].grade = grade;
+    assignment.submissions[submissionIndex].feedback = feedback;
+    assignment.submissions[submissionIndex].gradedAt = new Date();
+    assignment.submissions[submissionIndex].gradedBy = req.user.userId;
+    assignment.submissions[submissionIndex].status = 'graded';
+    
+    await assignment.save();
+    
+    res.json({ 
+      success: true, 
+      message: 'Assignment graded successfully',
+      submission: assignment.submissions[submissionIndex]
+    });
   } catch (error) {
     console.error('Error grading assignment:', error);
     res.status(500).json({ error: 'Failed to grade assignment' });

@@ -68,25 +68,19 @@ interface CreateMessageData {
   }>;
 }
 
-interface Student {
-  _id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  enrolledCourses: string[];
+import { Student, Course } from '../types';
+
+interface CommunicationProps {
+  students: Student[];
+  courses: Course[];
 }
 
-interface Course {
-  _id: string;
-  title: string;
-  enrolledStudents: string[];
-}
-
-export default function Communication() {
+export default function Communication({ students, courses }: CommunicationProps) {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [students, setStudents] = useState<Student[]>([]);
-  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
+  
+
+  
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showPreviewModal, setShowPreviewModal] = useState(false);
@@ -113,8 +107,6 @@ export default function Communication() {
 
   useEffect(() => {
     fetchMessages();
-    fetchStudents();
-    fetchCourses();
   }, []);
 
   const fetchMessages = async () => {
@@ -143,29 +135,7 @@ export default function Communication() {
     }
   };
 
-  const fetchStudents = async () => {
-    try {
-      const response = await fetch('http://localhost:4000/api/teacher/students');
-      if (response.ok) {
-        const data = await response.json();
-        setStudents(data.students || []);
-      }
-    } catch (error) {
-      console.error('Error fetching students:', error);
-    }
-  };
 
-  const fetchCourses = async () => {
-    try {
-      const response = await fetch('http://localhost:4000/api/teacher/courses');
-      if (response.ok) {
-        const data = await response.json();
-        setCourses(data.courses || []);
-      }
-    } catch (error) {
-      console.error('Error fetching courses:', error);
-    }
-  };
 
   const handleCreateMessage = async () => {
     if (!newMessage.title || !newMessage.content || newMessage.recipients.length === 0) {
@@ -174,13 +144,40 @@ export default function Communication() {
     }
 
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        showToast('Authentication required', 'error');
+        return;
+      }
+
+      // Transform recipients from IDs to the expected structure
+      const transformedRecipients = newMessage.recipients.map(studentId => {
+        const student = students.find(s => s.id === studentId);
+        return {
+          studentId: studentId,
+          studentName: student ? `${student.firstName} ${student.lastName}` : 'Unknown Student',
+          email: student ? student.email : 'unknown@email.com',
+          read: false
+        };
+      });
+
+      // Prepare message data with correct structure
+      const messageData = {
+        ...newMessage,
+        recipients: transformedRecipients,
+        courseId: newMessage.courseId || undefined, // Only send if not empty
+        scheduledFor: newMessage.scheduledFor || undefined // Only send if not empty
+      };
+
+  
+
       const response = await fetch('http://localhost:4000/api/teacher/messages', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(newMessage),
+        body: JSON.stringify(messageData),
       });
 
       if (response.ok) {
@@ -210,9 +207,16 @@ export default function Communication() {
     if (!editingMessage) return;
 
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        showToast('Authentication required', 'error');
+        return;
+      }
+
       const response = await fetch(`http://localhost:4000/api/teacher/messages/${editingMessage._id}`, {
         method: 'PUT',
         headers: {
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(editingMessage),
@@ -236,8 +240,17 @@ export default function Communication() {
     if (!confirm('Are you sure you want to delete this message?')) return;
 
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        showToast('Authentication required', 'error');
+        return;
+      }
+
       const response = await fetch(`http://localhost:4000/api/teacher/messages/${messageId}`, {
         method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
 
       if (response.ok) {
@@ -254,8 +267,17 @@ export default function Communication() {
 
   const handleSendNow = async (messageId: string) => {
     try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        showToast('Authentication required', 'error');
+        return;
+      }
+
       const response = await fetch(`http://localhost:4000/api/teacher/messages/${messageId}/send`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
       });
 
       if (response.ok) {
@@ -288,22 +310,22 @@ export default function Communication() {
   };
 
   const selectRecipientsByCourse = (courseId: string) => {
-    const course = courses.find(c => c._id === courseId);
+    const course = courses.find(c => c.id === courseId);
     if (course) {
       const courseStudents = students.filter(student => 
-        student.enrolledCourses.includes(courseId)
+        student.enrolledCourses?.some(enrollment => enrollment.courseId === courseId)
       );
-      setSelectedRecipients(courseStudents.map(s => s._id));
+      setSelectedRecipients(courseStudents.map(s => s.id));
       setNewMessage({
         ...newMessage,
         courseId,
-        recipients: courseStudents.map(s => s._id)
+        recipients: courseStudents.map(s => s.id)
       });
     }
   };
 
   const selectAllStudents = () => {
-    const allStudentIds = students.map(s => s._id);
+    const allStudentIds = students.map(s => s.id);
     setSelectedRecipients(allStudentIds);
     setNewMessage({
       ...newMessage,
@@ -350,7 +372,7 @@ export default function Communication() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 border-b border-gray-200 pb-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -646,7 +668,7 @@ export default function Communication() {
                   >
                     <option value="">All Students</option>
                     {courses.map(course => (
-                      <option key={course._id} value={course._id}>{course.title}</option>
+                      <option key={course.id} value={course.id}>{course.title}</option>
                     ))}
                   </select>
                 </div>
@@ -683,7 +705,7 @@ export default function Communication() {
                   Recipients *
                 </label>
                 <div className="space-y-3">
-                  <div className="flex space-x-2">
+                  <div className="flex space-x-2 mb-3">
                     <button
                       onClick={selectAllStudents}
                       className="px-3 py-2 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-700 transition-colors"
@@ -698,35 +720,79 @@ export default function Communication() {
                         Select Course Students
                       </button>
                     )}
+                    <button
+                      onClick={() => {
+                        setSelectedRecipients([]);
+                        setNewMessage({
+                          ...newMessage,
+                          recipients: []
+                        });
+                      }}
+                      className="px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                    >
+                      Clear Selection
+                    </button>
+                  </div>
+                  
+                  {/* Student Search */}
+                  <div className="mb-3">
+                    <input
+                      type="text"
+                      placeholder="Search students..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      onChange={(e) => {
+                        const searchTerm = e.target.value.toLowerCase();
+                        const filtered = students.filter(student => 
+                          student.firstName.toLowerCase().includes(searchTerm) ||
+                          student.lastName.toLowerCase().includes(searchTerm) ||
+                          student.email.toLowerCase().includes(searchTerm)
+                        );
+                        // For now, just log the filtered results
+                    
+                      }}
+                    />
                   </div>
                   <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-3">
-                    {students.map(student => (
-                      <label key={student._id} className="flex items-center space-x-2 py-1">
-                        <input
-                          type="checkbox"
-                          checked={selectedRecipients.includes(student._id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedRecipients([...selectedRecipients, student._id]);
-                              setNewMessage({
-                                ...newMessage,
-                                recipients: [...newMessage.recipients, student._id]
-                              });
-                            } else {
-                              setSelectedRecipients(selectedRecipients.filter(id => id !== student._id));
-                              setNewMessage({
-                                ...newMessage,
-                                recipients: newMessage.recipients.filter(id => id !== student._id)
-                              });
-                            }
-                          }}
-                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                        />
-                        <span className="text-sm text-gray-700">
-                          {student.firstName} {student.lastName} ({student.email})
-                        </span>
-                      </label>
-                    ))}
+                    {students.length === 0 ? (
+                      <div className="text-center py-4 text-gray-500">
+                        <Users className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                        <p>No students available</p>
+                        <p className="text-xs">Try refreshing or check the console for errors</p>
+                      </div>
+                    ) : (
+                      students.map(student => (
+                        <label key={student._id} className="flex items-center space-x-3 py-2 px-2 hover:bg-gray-50 rounded cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={selectedRecipients.includes(student._id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedRecipients([...selectedRecipients, student._id]);
+                                setNewMessage({
+                                  ...newMessage,
+                                  recipients: [...newMessage.recipients, student._id]
+                                });
+                              } else {
+                                setSelectedRecipients(selectedRecipients.filter(id => id !== student._id));
+                                setNewMessage({
+                                  ...newMessage,
+                                  recipients: newMessage.recipients.filter(id => id !== student._id)
+                                });
+                              }
+                            }}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          <div className="flex-1">
+                            <span className="text-sm font-medium text-gray-900">
+                              {student.firstName} {student.lastName}
+                            </span>
+                            <span className="text-xs text-gray-500 block">
+                              {student.email}
+                            </span>
+                          </div>
+                        </label>
+                      ))
+                    )}
                   </div>
                   <p className="text-sm text-gray-600">
                     Selected: {selectedRecipients.length} students

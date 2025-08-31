@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
@@ -19,6 +19,296 @@ import {
   FileText,
   CheckSquare
 } from 'lucide-react';
+
+// Video Player Component
+const VideoPlayer = ({ videoUrl, title, thumbnail }: { videoUrl: string; title: string; thumbnail?: string }) => {
+  // Helper function to detect video type and format URL
+  const getVideoType = (url: string) => {
+    console.log('Processing video URL:', url);
+    
+    if (!url) {
+      console.log('No video URL provided');
+      return null;
+    }
+    
+    if (url.includes('youtube.com') || url.includes('youtu.be')) {
+      // Convert YouTube URLs to embed format
+      const videoId = url.includes('youtube.com/watch?v=') 
+        ? url.split('v=')[1]?.split('&')[0]
+        : url.includes('youtu.be/') 
+          ? url.split('youtu.be/')[1]?.split('?')[0]
+          : null;
+      const embedUrl = videoId ? `https://www.youtube.com/embed/${videoId}` : url;
+      console.log('YouTube video ID:', videoId, 'Embed URL:', embedUrl);
+      return embedUrl;
+    }
+    if (url.includes('vimeo.com')) {
+      const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
+      const embedUrl = videoId ? `https://player.vimeo.com/video/${videoId}` : url;
+      console.log('Vimeo video ID:', videoId, 'Embed URL:', embedUrl);
+      return embedUrl;
+    }
+    if (url.includes('dailymotion.com')) {
+      const videoId = url.split('dailymotion.com/video/')[1]?.split('?')[0];
+      const embedUrl = videoId ? `https://www.dailymotion.com/embed/video/${videoId}` : url;
+      console.log('Dailymotion video ID:', videoId, 'Embed URL:', embedUrl);
+      return embedUrl;
+    }
+    
+    console.log('Local video file detected');
+    return url;
+  };
+
+  const processedVideoUrl = getVideoType(videoUrl);
+  const isExternalVideo = processedVideoUrl !== videoUrl && processedVideoUrl !== null;
+  
+  console.log('VideoPlayer props:', { videoUrl, title, thumbnail });
+  console.log('Processed URL:', processedVideoUrl);
+  console.log('Is external video:', isExternalVideo);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [showControls, setShowControls] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Auto-hide controls after 3 seconds
+  useEffect(() => {
+    if (!isPlaying) return;
+    
+    const timer = setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+
+    return () => clearTimeout(timer);
+  }, [isPlaying]);
+
+  const togglePlay = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+      } else {
+        videoRef.current.play();
+      }
+      setIsPlaying(!isPlaying);
+    }
+  };
+
+  const handleTimeUpdate = () => {
+    if (videoRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
+    }
+  };
+
+  const handleLoadedMetadata = () => {
+    if (videoRef.current) {
+      setDuration(videoRef.current.duration);
+    }
+  };
+
+  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const time = parseFloat(e.target.value);
+    if (videoRef.current) {
+      videoRef.current.currentTime = time;
+      setCurrentTime(time);
+    }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    if (videoRef.current) {
+      videoRef.current.volume = newVolume;
+      setVolume(newVolume);
+    }
+  };
+
+  const toggleMute = () => {
+    if (videoRef.current) {
+      videoRef.current.muted = !isMuted;
+      setIsMuted(!isMuted);
+    }
+  };
+
+  const toggleFullscreen = () => {
+    if (containerRef.current) {
+      if (!isFullscreen) {
+        containerRef.current.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+      setIsFullscreen(!isFullscreen);
+    }
+  };
+
+  const formatTime = (time: number) => {
+    const minutes = Math.floor(time / 60);
+    const seconds = Math.floor(time % 60);
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  return (
+    <div 
+      ref={containerRef}
+      className="relative w-full h-full bg-black group"
+      onMouseEnter={() => setShowControls(true)}
+      onMouseLeave={() => isPlaying && setShowControls(false)}
+    >
+      {!videoUrl || !processedVideoUrl ? (
+        <div className="w-full h-full flex items-center justify-center">
+          <div className="text-center text-white">
+            <Play className="w-16 h-16 mx-auto mb-4 opacity-50" />
+            <p className="text-lg">No video available</p>
+            <p className="text-sm opacity-75">Video URL is missing or invalid</p>
+          </div>
+        </div>
+      ) : isExternalVideo ? (
+        <iframe
+          src={processedVideoUrl}
+          title={title}
+          className="w-full h-full"
+          allowFullScreen
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        />
+      ) : (
+        <video
+          ref={videoRef}
+          className="w-full h-full object-contain"
+          poster={thumbnail}
+          onTimeUpdate={handleTimeUpdate}
+          onLoadedMetadata={handleLoadedMetadata}
+          onPlay={() => setIsPlaying(true)}
+          onPause={() => setIsPlaying(false)}
+          onEnded={() => setIsPlaying(false)}
+          onError={(e) => {
+            console.error('Video error:', e);
+            console.error('Video error details:', e.currentTarget.error);
+            // Show error message
+            const videoContainer = e.currentTarget.parentElement;
+            if (videoContainer) {
+              videoContainer.innerHTML = `
+                <div class="w-full h-full flex items-center justify-center text-white">
+                  <div class="text-center">
+                    <div class="w-16 h-16 bg-red-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <svg class="w-8 h-8" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                      </svg>
+                    </div>
+                    <p class="text-lg font-medium">Video playback error</p>
+                    <p class="text-sm opacity-75">URL: ${videoUrl}</p>
+                    <p class="text-sm opacity-75">Please check the video URL or try again later</p>
+                  </div>
+                </div>
+              `;
+            }
+          }}
+          controls={true}
+          preload="metadata"
+        >
+          <source src={videoUrl} type="video/mp4" />
+          <source src={videoUrl} type="video/webm" />
+          <source src={videoUrl} type="video/ogg" />
+          <source src={videoUrl} type="video/mov" />
+          <source src={videoUrl} type="video/avi" />
+          Your browser does not support the video tag.
+        </video>
+      )}
+
+      {/* Play Button Overlay - Only for local videos */}
+      {!isExternalVideo && !isPlaying && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <button
+            onClick={togglePlay}
+            className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white/30 transition-all duration-200"
+          >
+            <Play className="w-8 h-8 text-white ml-1" />
+          </button>
+        </div>
+      )}
+
+      {/* Video Controls - Only for local videos */}
+      {!isExternalVideo && (
+        <div className={`absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-4 transition-opacity duration-300 ${
+          showControls ? 'opacity-100' : 'opacity-0'
+        }`}>
+        {/* Progress Bar */}
+        <div className="mb-3">
+          <input
+            type="range"
+            min={0}
+            max={duration || 0}
+            value={currentTime}
+            onChange={handleSeek}
+            className="w-full h-1 bg-white/30 rounded-lg appearance-none cursor-pointer slider"
+            style={{
+              background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(currentTime / duration) * 100}%, rgba(255,255,255,0.3) ${(currentTime / duration) * 100}%)`
+            }}
+          />
+        </div>
+
+        {/* Control Buttons */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={togglePlay}
+              className="text-white hover:text-blue-400 transition-colors"
+            >
+              {isPlaying ? (
+                <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+                  <div className="w-3 h-3 bg-white rounded-sm"></div>
+                </div>
+              ) : (
+                <Play className="w-6 h-6" />
+              )}
+            </button>
+
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={toggleMute}
+                className="text-white hover:text-blue-400 transition-colors"
+              >
+                {isMuted ? (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.793L5.5 14H3a1 1 0 01-1-1V7a1 1 0 011-1h2.5l3.883-3.707zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.414 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                ) : (
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M9.383 3.076A1 1 0 0110 4v12a1 1 0 01-1.617.793L5.5 14H3a1 1 0 01-1-1V7a1 1 0 011-1h2.5l3.883-3.707zM12.293 7.293a1 1 0 011.414 0L15 8.586l1.293-1.293a1 1 0 111.414 1.414L16.586 10l1.293 1.293a1 1 0 01-1.414 1.414L15 11.414l-1.293 1.293a1 1 0 01-1.414-1.414L13.586 10l-1.293-1.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                )}
+              </button>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.1}
+                value={volume}
+                onChange={handleVolumeChange}
+                className="w-16 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer"
+              />
+            </div>
+
+            <span className="text-white text-sm">
+              {formatTime(currentTime)} / {formatTime(duration)}
+            </span>
+          </div>
+
+          <button
+            onClick={toggleFullscreen}
+            className="text-white hover:text-blue-400 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M3 4a1 1 0 011-1h4a1 1 0 010 2H6.414l2.293 2.293a1 1 0 11-1.414 1.414L5 6.414V8a1 1 0 01-2 0V4zm9 1a1 1 0 010-2h4a1 1 0 011 1v4a1 1 0 01-2 0V6.414l-2.293 2.293a1 1 0 11-1.414-1.414L13.586 5H12zm-9 7a1 1 0 012 0v1.586l2.293-2.293a1 1 0 111.414 1.414L6.414 15H8a1 1 0 010 2H4a1 1 0 01-1-1v-4zm13-1a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 010-2h1.586l-2.293-2.293a1 1 0 111.414-1.414L15 13.586V12a1 1 0 011-1z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </div>
+      </div>
+      )}
+    </div>
+  );
+};
 
 interface Content {
   _id: string;
@@ -170,10 +460,18 @@ export default function CourseDetail() {
         }
         
         // Set first content item as selected
+        console.log('Course data:', courseData);
+        console.log('Course content:', courseData.content);
+        console.log('Course videos:', courseData.videos);
+        
         if (courseData.content && courseData.content.length > 0) {
+          console.log('Setting selected content from content array:', courseData.content[0]);
           setSelectedContent(courseData.content[0]);
         } else if (courseData.videos && courseData.videos.length > 0) {
+          console.log('Setting selected content from videos array:', courseData.videos[0]);
           setSelectedContent(courseData.videos[0]);
+        } else {
+          console.log('No content or videos found in course data');
         }
       }
     } catch (error) {
@@ -226,20 +524,119 @@ export default function CourseDetail() {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  // Helper function to convert YouTube URLs to embed format
+  const getYouTubeEmbedUrl = (url: string) => {
+    if (url.includes('youtube.com/watch?v=')) {
+      const videoId = url.split('v=')[1]?.split('&')[0];
+      return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
+    }
+    if (url.includes('youtu.be/')) {
+      const videoId = url.split('youtu.be/')[1]?.split('?')[0];
+      return videoId ? `https://www.youtube.com/embed/${videoId}` : url;
+    }
+    return url;
+  };
+
+  // Helper function to convert Vimeo URLs to embed format
+  const getVimeoEmbedUrl = (url: string) => {
+    const videoId = url.split('vimeo.com/')[1]?.split('?')[0];
+    return videoId ? `https://player.vimeo.com/video/${videoId}` : url;
+  };
+
+  // Helper function to convert Dailymotion URLs to embed format
+  const getDailymotionEmbedUrl = (url: string) => {
+    const videoId = url.split('dailymotion.com/video/')[1]?.split('?')[0];
+    return videoId ? `https://www.dailymotion.com/embed/video/${videoId}` : url;
+  };
+
   const renderContent = (content: Content) => {
-    switch (content.type) {
+    console.log('Rendering content:', content);
+    console.log('Content type:', content.type);
+    console.log('Video URL:', content.videoUrl);
+    console.log('Content keys:', Object.keys(content));
+    
+    // Keep original content type - don't auto-correct
+    let actualType = content.type;
+    
+    // For debugging only - don't change the type
+    console.log('Content type analysis (no changes):', {
+      type: content.type,
+      actualType,
+      hasVideoUrl: !!content.videoUrl,
+      videoUrlLength: content.videoUrl?.length || 0,
+      hasTextContent: !!content.textContent
+    });
+    
+    console.log('Final content type:', actualType);
+    
+    switch (actualType) {
       case 'video':
         return (
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">{content.title}</h2>
+            
+            {/* YouTube Video Player */}
             <div className="aspect-video bg-gray-900 rounded-xl mb-4 overflow-hidden">
-              <iframe
-                src={content.videoUrl}
-                title={content.title}
-                className="w-full h-full"
-                allowFullScreen
-              />
+              {content.videoUrl ? (
+                <div className="w-full h-full">
+                  {/* Check if it's a YouTube URL and convert to embed */}
+                  {content.videoUrl.includes('youtube.com') || content.videoUrl.includes('youtu.be') ? (
+                    <iframe
+                      src={getYouTubeEmbedUrl(content.videoUrl)}
+                      title={content.title}
+                      className="w-full h-full"
+                      allowFullScreen
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    />
+                  ) : content.videoUrl.includes('vimeo.com') ? (
+                    <iframe
+                      src={getVimeoEmbedUrl(content.videoUrl)}
+                      title={content.title}
+                      className="w-full h-full"
+                      allowFullScreen
+                    />
+                  ) : content.videoUrl.includes('dailymotion.com') ? (
+                    <iframe
+                      src={getDailymotionEmbedUrl(content.videoUrl)}
+                      title={content.title}
+                      className="w-full h-full"
+                      allowFullScreen
+                    />
+                  ) : (
+                    /* Local video file */
+                    <video
+                      src={content.videoUrl}
+                      controls
+                      className="w-full h-full object-contain"
+                      poster={content.thumbnail}
+                    >
+                      <source src={content.videoUrl} type="video/mp4" />
+                      <source src={content.videoUrl} type="video/webm" />
+                      <source src={content.videoUrl} type="video/ogg" />
+                      Your browser does not support the video tag.
+                    </video>
+                  )}
+                </div>
+              ) : (
+                /* No video URL - show placeholder with text content */
+                <div className="w-full h-full flex items-center justify-center">
+                  <div className="text-center text-white p-6">
+                    <Play className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">Video Content</p>
+                    {content.videoUrl && content.videoUrl.length > 100 && !content.videoUrl.startsWith('http') ? (
+                      <div className="bg-white/10 p-4 rounded-lg max-h-32 overflow-y-auto">
+                        <p className="text-sm text-left whitespace-pre-wrap">
+                          {content.videoUrl.substring(0, 200)}...
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-sm opacity-75">No video URL provided</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
+            
             <p className="text-gray-700 mb-4">{content.description}</p>
             <div className="flex items-center justify-between text-sm text-gray-500">
               <span>Duration: {formatDuration(content.duration || 0)}</span>
@@ -259,7 +656,25 @@ export default function CourseDetail() {
             <h2 className="text-2xl font-bold text-gray-900 mb-4">{content.title}</h2>
             <div className="prose prose-lg max-w-none">
               <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-                <div dangerouslySetInnerHTML={{ __html: content.textContent || '' }} />
+                {/* Try to get text content from textContent field first */}
+                {content.textContent ? (
+                  <div dangerouslySetInnerHTML={{ __html: content.textContent }} />
+                ) : (
+                  /* If no textContent, check if videoUrl contains text content */
+                  content.videoUrl && content.videoUrl.length > 100 && 
+                  !content.videoUrl.startsWith('http') && !content.videoUrl.startsWith('data:') && 
+                  !content.videoUrl.includes('.mp4') && !content.videoUrl.includes('.webm') && 
+                  !content.videoUrl.includes('.ogg') && !content.videoUrl.includes('.mov') && 
+                  !content.videoUrl.includes('.avi') ? (
+                    <div className="text-gray-800 whitespace-pre-wrap">
+                      {content.videoUrl}
+                    </div>
+                  ) : (
+                    <div className="text-gray-500 italic">
+                      No text content available
+                    </div>
+                  )
+                )}
               </div>
             </div>
             <p className="text-gray-600 mt-4 text-sm">{content.description}</p>
@@ -391,7 +806,29 @@ export default function CourseDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+    <>
+      <style jsx>{`
+        .slider::-webkit-slider-thumb {
+          appearance: none;
+          height: 16px;
+          width: 16px;
+          border-radius: 50%;
+          background: #3b82f6;
+          cursor: pointer;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .slider::-moz-range-thumb {
+          height: 16px;
+          width: 16px;
+          border-radius: 50%;
+          background: #3b82f6;
+          cursor: pointer;
+          border: none;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+        }
+      `}</style>
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -424,7 +861,7 @@ export default function CourseDetail() {
                 </div>
                 <div>
                   <h1 className="text-3xl font-bold text-gray-900">{course.title}</h1>
-                  <p className="text-gray-600">by {course.instructor?.firstName || 'Unknown'} {course.instructor?.lastName || 'Instructor'}</p>
+                  <p className="text-gray-600">by {course.teacher?.firstName || 'Unknown'} {course.teacher?.lastName || 'Teacher'}</p>
                 </div>
               </div>
               
@@ -711,6 +1148,7 @@ export default function CourseDetail() {
           </div>
         </div>
       </div>
-    </div>
+      </div>
+    </>
   );
 }

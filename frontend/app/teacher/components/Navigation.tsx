@@ -7,7 +7,8 @@ import {
   TrendingUp, 
   MessageSquare,
   Target,
-  FileText
+  FileText,
+  Award
 } from 'lucide-react';
 
 interface NavigationProps {
@@ -23,7 +24,9 @@ const tabs = [
   { id: 'live-sessions', name: 'Live Sessions', icon: Video },
   { id: 'signals', name: 'Trading Signals', icon: Target },
   { id: 'analytics', name: 'Analytics', icon: TrendingUp },
-  { id: 'communications', name: 'Communications', icon: MessageSquare }
+  { id: 'communications', name: 'Communications', icon: MessageSquare },
+  { id: 'community', name: 'Community', icon: Users },
+  { id: 'certificates', name: 'Certificates', icon: Award }
 ];
 
 export default function Navigation({ activeTab, onTabChange }: NavigationProps) {

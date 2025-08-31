@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Users, BookOpen, Target, FileText, Award, BarChart3, 
-  Settings as SettingsIcon, LogOut, TrendingUp, DollarSign, Shield, 
+  Settings as SettingsIcon, TrendingUp, DollarSign, Shield, 
   Mail, X, AlertTriangle, CheckCircle, Clock, Star, 
   Calendar, MessageSquare, Search, CreditCard, Globe, 
   Lock, Bell, Smartphone, Server, Database, Key, Zap,
@@ -23,8 +23,16 @@ import {
   User, Payment, Analytics as AnalyticsType, PromoCode, 
   AdminSettings, UserForm, PromoForm 
 } from './types';
+import UserProfileDropdown from '../../components/UserProfileDropdown';
 
 export default function AdminDashboard() {
+  const [user, setUser] = useState<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: string;
+    profileImage?: string;
+  } | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [loading, setLoading] = useState(true);
   const [authChecking, setAuthChecking] = useState(true);
@@ -131,6 +139,15 @@ export default function AdminDashboard() {
           return;
         }
         
+        // Set user data for the profile dropdown
+        setUser({
+          firstName: userData.user?.firstName || userData.firstName || 'Admin',
+          lastName: userData.user?.lastName || userData.lastName || 'User',
+          email: userData.user?.email || userData.email || '',
+          role: userRole,
+          profileImage: userData.user?.profileImage || userData.profileImage
+        });
+        
         setAuthChecking(false);
         fetchAdminData(token);
       } else {
@@ -165,10 +182,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    window.location.href = '/login';
-  };
+
 
   // User management functions
   const handleUserCreate = async (userData: UserForm) => {
@@ -635,13 +649,7 @@ export default function AdminDashboard() {
               <button className="p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200">
                 <SettingsIcon className="w-5 h-5" />
               </button>
-              <button 
-                onClick={handleLogout}
-                className="flex items-center space-x-2 px-6 py-3 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all duration-200 border border-gray-300 hover:border-red-300"
-              >
-                <LogOut className="w-4 h-4" />
-                <span>Logout</span>
-              </button>
+              <UserProfileDropdown user={user} />
             </div>
           </div>
         </div>

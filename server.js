@@ -23,6 +23,8 @@ const settingsRoutes = require('./routes/settings');
 const twoFactorRoutes = require('./routes/twoFactor');
 const notificationRoutes = require('./routes/notifications');
 const teacherRoutes = require('./routes/teacher');
+const communityRoutes = require('./routes/community');
+const certificateRoutes = require('./routes/certificates');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -92,7 +94,11 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/teacher', teacherRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/2fa', twoFactorRoutes);
+app.use('/api/user2fa', require('./routes/user2fa'));
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/community', communityRoutes);
+app.use('/api/certificates', certificateRoutes);
+app.use('/api/certificate-templates', require('./routes/certificateTemplates'));
 
 // Apply session timeout check to all protected routes - temporarily disabled for debugging
 // app.use(checkSessionTimeout);
