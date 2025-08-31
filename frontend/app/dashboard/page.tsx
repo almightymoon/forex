@@ -7,6 +7,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useToast } from '../../components/Toast';
 import { useMaintenanceMode, fetchWithMaintenanceCheck } from '../../hooks/useMaintenanceMode';
+import { buildApiUrl } from '../../utils/api';
 import MaintenancePage from '../../components/MaintenancePage';
 import StudentAssignments from './components/StudentAssignments';
 import NotificationDropdown from './components/NotificationDropdown';
@@ -296,7 +297,7 @@ export default function Dashboard() {
       const token = localStorage.getItem('token');
       
       if (token) {
-        const result = await fetchWithMaintenanceCheck('http://localhost:4000/api/auth/me', {
+        const result = await fetchWithMaintenanceCheck(buildApiUrl('api/auth/me'), {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -345,7 +346,7 @@ export default function Dashboard() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(`http://localhost:4000/api/notifications/user?unreadOnly=true&limit=1&t=${Date.now()}`, {
+              const response = await fetch(buildApiUrl(`api/notifications/user?unreadOnly=true&limit=1&t=${Date.now()}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Cache-Control': 'no-cache',
@@ -456,7 +457,7 @@ export default function Dashboard() {
 
   const fetchUserSignals = async (token: string) => {
     try {
-      const result = await fetchWithMaintenanceCheck('http://localhost:4000/api/signals', {
+              const result = await fetchWithMaintenanceCheck(buildApiUrl('api/signals'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -477,7 +478,7 @@ export default function Dashboard() {
 
   const fetchUserAssignments = async (token: string) => {
     try {
-      const result = await fetchWithMaintenanceCheck('http://localhost:4000/api/assignments', {
+              const result = await fetchWithMaintenanceCheck(buildApiUrl('api/assignments'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -499,7 +500,7 @@ export default function Dashboard() {
   const fetchUserCertificates = async (token: string) => {
     try {
       console.log('Fetching certificates...');
-      const result = await fetchWithMaintenanceCheck('http://localhost:4000/api/certificates/student', {
+              const result = await fetchWithMaintenanceCheck(buildApiUrl('api/certificates/student'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }

@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { buildApiUrl } from '@/utils/api';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -55,7 +56,7 @@ export default function RegisterPage() {
     if (!promoCode.trim()) return;
 
     try {
-      const response = await fetch('http://localhost:4000/api/promos/validate', {
+      const response = await fetch(buildApiUrl('api/promos/validate'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -104,7 +105,7 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:4000/api/auth/register', {
+      const response = await fetch(buildApiUrl('api/auth/register'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

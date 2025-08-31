@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock, TrendingUp, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { buildApiUrl } from '@/utils/api';
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -33,7 +34,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:4000/api/auth/login', {
+      const response = await fetch(buildApiUrl('api/auth/login'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -79,7 +80,7 @@ export default function LoginPage() {
     setError('');
 
     try {
-      const response = await fetch('http://localhost:4000/api/2fa/verify', {
+      const response = await fetch(buildApiUrl('api/2fa/verify'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

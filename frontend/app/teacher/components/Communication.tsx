@@ -26,6 +26,7 @@ import {
   BookOpen
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
+import { buildApiUrl } from '@/utils/api';
 
 interface Message {
   _id: string;
@@ -117,7 +118,7 @@ export default function Communication({ students, courses }: CommunicationProps)
         return;
       }
 
-      const response = await fetch('http://localhost:4000/api/teacher/messages', {
+      const response = await fetch(buildApiUrl('api/teacher/messages'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -171,7 +172,7 @@ export default function Communication({ students, courses }: CommunicationProps)
 
   
 
-      const response = await fetch('http://localhost:4000/api/teacher/messages', {
+      const response = await fetch(buildApiUrl('api/teacher/messages'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -213,7 +214,7 @@ export default function Communication({ students, courses }: CommunicationProps)
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/messages/${editingMessage._id}`, {
+      const response = await fetch(buildApiUrl(`api/teacher/messages/${editingMessage._id}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -246,7 +247,7 @@ export default function Communication({ students, courses }: CommunicationProps)
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/messages/${messageId}`, {
+      const response = await fetch(buildApiUrl(`api/teacher/messages/${messageId}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -273,7 +274,7 @@ export default function Communication({ students, courses }: CommunicationProps)
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/messages/${messageId}/send`, {
+      const response = await fetch(buildApiUrl(`api/teacher/messages/${messageId}/send`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
