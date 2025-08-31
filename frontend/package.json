@@ -4,8 +4,12 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:3001": "next dev -p 3001",
+    "dev:3002": "next dev -p 3002",
     "build": "next build",
     "start": "next start",
+    "start:3001": "next start -p 3001",
+    "start:3002": "next start -p 3002",
     "lint": "next lint",
     "type-check": "tsc --noEmit"
   },
