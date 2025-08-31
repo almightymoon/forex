@@ -891,7 +891,8 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="hover:bg-gray-50"
+                  className="hover:bg-gray-50 focus:outline-none focus:bg-transparent"
+                  tabIndex={-1}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
                     <button

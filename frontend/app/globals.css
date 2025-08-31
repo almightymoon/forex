@@ -59,11 +59,7 @@
   transition: all 0.2s ease-in-out;
 }
 
-/* Focus styles */
-*:focus {
-  outline: 2px solid #3b82f6;
-  outline-offset: 2px;
-}
+/* Focus styles - removed to prevent unwanted blue highlights */
 
 /* Loading states */
 .loading {
