@@ -30,8 +30,8 @@ export default function PaymentManagement({
   // Filter payments based on search term, status, and method
   const filteredPayments = payments.filter(payment => {
     const matchesSearch = 
-      payment.user.firstName.toLowerCase().includes(paymentSearchTerm.toLowerCase()) ||
-      payment.user.lastName.toLowerCase().includes(paymentSearchTerm.toLowerCase()) ||
+      (payment.user?.firstName?.toLowerCase().includes(paymentSearchTerm.toLowerCase()) || false) ||
+      (payment.user?.lastName?.toLowerCase().includes(paymentSearchTerm.toLowerCase()) || false) ||
       payment._id.toLowerCase().includes(paymentSearchTerm.toLowerCase());
     
     const matchesStatus = paymentStatusFilter === 'all' || payment.status === paymentStatusFilter;
@@ -113,8 +113,10 @@ export default function PaymentManagement({
                 <tr key={payment._id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="py-4 px-4">
                     <div>
-                      <p className="font-medium text-gray-900">{payment.user.firstName} {payment.user.lastName}</p>
-                      <p className="text-sm text-gray-500">{payment.user.email}</p>
+                      <p className="font-medium text-gray-900">
+                        {payment.user?.firstName || 'Unknown'} {payment.user?.lastName || ''}
+                      </p>
+                      <p className="text-sm text-gray-500">{payment.user?.email || 'No email'}</p>
                     </div>
                   </td>
                   <td className="py-4 px-4">
@@ -204,8 +206,10 @@ export default function PaymentManagement({
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">User</label>
-                  <p className="text-gray-900">{selectedPayment.user.firstName} {selectedPayment.user.lastName}</p>
-                  <p className="text-sm text-gray-500">{selectedPayment.user.email}</p>
+                  <p className="text-gray-900">
+                    {selectedPayment.user?.firstName || 'Unknown'} {selectedPayment.user?.lastName || ''}
+                  </p>
+                  <p className="text-sm text-gray-500">{selectedPayment.user?.email || 'No email'}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
