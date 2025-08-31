@@ -3,6 +3,7 @@ import { SettingsProvider } from '../context/SettingsContext'
 import { LanguageProvider } from '../context/LanguageContext'
 import { ToastProvider } from '../components/Toast'
 import Script from 'next/script'
+import { isDevelopment } from '../lib/env'
 
 export const metadata = {
   title: 'Forex Navigators - Master the Art of Forex Trading',
@@ -26,10 +27,13 @@ export default function RootLayout({
               (function() {
                 'use strict';
                 
+                // Check if we're in development mode
+                const isDevelopment = ${isDevelopment()};
+                
                 // Suppress console errors
                 const originalConsoleError = console.error;
                 console.error = function(...args) {
-                                         if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+                  if (typeof window !== 'undefined' && isDevelopment) {
                     console.log('🔴 Suppressed Error:', ...args);
                   }
                 };

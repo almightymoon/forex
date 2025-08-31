@@ -26,11 +26,16 @@ export default function LandingPage() {
   const [isVisible, setIsVisible] = useState(false);
   const { scrollYProgress } = useScroll();
   const y = useTransform(scrollYProgress, [0, 1], [0, -50]);
-  const { settings } = useSettings();
+  const { settings, loading } = useSettings();
 
   useEffect(() => {
-    setIsVisible(true);
-  }, []);
+    // Add a small delay to ensure proper hydration
+    const timer = setTimeout(() => {
+      setIsVisible(true);
+    }, 100);
+    
+    return () => clearTimeout(timer);
+  }, [loading, settings]);
 
   const features = [
     {
@@ -118,6 +123,18 @@ export default function LandingPage() {
     { icon: <CheckCircle className="w-6 h-6" />, text: 'Certificate upon completion' }
   ];
 
+  // Show loading state while settings are being fetched
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 overflow-hidden">
       {/* Animated Background Elements */}
@@ -162,6 +179,9 @@ export default function LandingPage() {
                   src="/all-07.png" 
                   alt={`${settings.platformName} Logo`} 
                   className="w-20 h-20 object-contain"
+                  onError={(e) => {
+                    e.currentTarget.style.display = 'none';
+                  }}
                 />
               <span className="ml-2 text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 {settings.platformName}

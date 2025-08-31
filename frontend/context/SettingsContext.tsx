@@ -46,13 +46,20 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
   const fetchSettings = async () => {
     try {
-      const response = await fetch('http://localhost:4000/api/settings/public');
+      const response = await fetch('http://localhost:4000/api/settings/public', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        mode: 'cors',
+        signal: AbortSignal.timeout(3000) // 3 second timeout
+      });
       if (response.ok) {
         const data = await response.json();
         setSettings(data);
       }
     } catch (error) {
-      console.error('Failed to fetch settings:', error);
+      console.warn('Failed to fetch settings, using defaults:', error);
       // Keep default settings on error
     } finally {
       setLoading(false);
@@ -66,6 +73,16 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
 
   useEffect(() => {
     fetchSettings();
+    
+    // Add a fallback timeout to prevent infinite loading
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.warn('Settings fetch timeout, using defaults');
+        setLoading(false);
+      }
+    }, 2000); // 2 second timeout
+    
+    return () => clearTimeout(timeout);
   }, []);
 
   return (

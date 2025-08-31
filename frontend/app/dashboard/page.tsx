@@ -8,6 +8,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useToast } from '../../components/Toast';
 import { useMaintenanceMode, fetchWithMaintenanceCheck } from '../../hooks/useMaintenanceMode';
 import { buildApiUrl } from '../../utils/api';
+import { isDevelopment } from '../../lib/env';
 import MaintenancePage from '../../components/MaintenancePage';
 import StudentAssignments from './components/StudentAssignments';
 import NotificationDropdown from './components/NotificationDropdown';
@@ -196,7 +197,7 @@ export default function Dashboard() {
       // Override console.error to prevent error overlay
       const originalConsoleError = console.error;
       console.error = (...args) => {
-        if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+        if (typeof window !== 'undefined' && isDevelopment()) {
           console.warn('Suppressed error:', ...args);
         }
       };
@@ -221,7 +222,7 @@ export default function Dashboard() {
     const handleGlobalError = (event: ErrorEvent) => {
       event.preventDefault();
       event.stopPropagation();
-      if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      if (typeof window !== 'undefined' && isDevelopment()) {
         console.warn('Global error suppressed:', event.error);
       }
       return false;
@@ -230,7 +231,7 @@ export default function Dashboard() {
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
       event.preventDefault();
       event.stopPropagation();
-      if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      if (typeof window !== 'undefined' && isDevelopment()) {
         console.warn('Unhandled promise rejection suppressed:', event.reason);
       }
       return false;
@@ -246,7 +247,7 @@ export default function Dashboard() {
     // Override window.onerror
     const originalOnError = window.onerror;
     window.onerror = (message, source, lineno, colno, error) => {
-      if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+      if (typeof window !== 'undefined' && isDevelopment()) {
         console.warn('Window error suppressed:', { message, source, lineno, colno, error });
       }
       return true; // Prevent default error handling
@@ -328,7 +329,7 @@ export default function Dashboard() {
       }
     } catch (error) {
       // Silent error handling to prevent error overlay
-      if (process.env.NODE_ENV === 'development') {
+      if (isDevelopment()) {
         console.warn('Error fetching user data:', error);
       }
       // On error, redirect to login

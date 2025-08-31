@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { isDevelopment } from '../lib/env';
 
 interface Props {
   children: ReactNode;
@@ -25,7 +26,7 @@ class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     // Log error to console in development only
-            if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+            if (typeof window !== 'undefined' && isDevelopment()) {
       console.warn('Error caught by boundary:', error, errorInfo);
     }
   }

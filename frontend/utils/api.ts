@@ -1,5 +1,7 @@
 // API configuration utility
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+import { env } from '../lib/env';
+
+export const API_BASE_URL = env.API_BASE_URL;
 
 // Helper function to build API URLs
 export const buildApiUrl = (endpoint: string): string => {
