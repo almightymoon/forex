@@ -6,8 +6,8 @@ import { motion } from 'framer-motion';
 import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useToast } from '../../components/Toast';
-import { useMaintenanceMode, fetchWithMaintenanceCheck } from '../../hooks/useMaintenanceMode';
-import { buildApiUrl } from '../../utils/api';
+import { useMaintenanceMode } from '../../hooks/useMaintenanceMode';
+import { useDashboard } from '../../context/DashboardContext';
 import { isDevelopment } from '../../lib/env';
 import MaintenancePage from '../../components/MaintenancePage';
 import StudentAssignments from './components/StudentAssignments';
@@ -43,135 +43,13 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-interface User {
-  _id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: 'student' | 'instructor' | 'admin';
-  profileImage?: string;
-  subscription: {
-    plan: string;
-    isActive: boolean;
-  };
-}
-
-interface Course {
-  _id: string;
-  title: string;
-  description: string;
-  thumbnail?: string;
-  instructor: {
-    firstName: string;
-    lastName: string;
-  };
-  progress?: number;
-  totalLessons?: number;
-  completedLessons?: number;
-  category: string;
-  level: string;
-  rating: number;
-  totalVideos?: number;
-  totalDuration?: number;
-  price?: number;
-  currency?: string;
-  enrolledAt?: string;
-  lastAccessedAt?: string;
-  currentLesson?: number;
-  totalQuizzes?: number;
-  completedQuizzes?: number;
-  totalAssignments?: number;
-  completedAssignments?: number;
-  averageGrade?: number;
-  certificateEligible?: boolean;
-  certificateIssued?: boolean;
-  certificateIssuedAt?: string;
-}
-
-interface Certificate {
-  _id: string;
-  courseId: string;
-  courseTitle: string;
-  studentId: string;
-  studentName: string;
-  issuedAt: string;
-  grade: number;
-  instructor: {
-    firstName: string;
-    lastName: string;
-  };
-  certificateNumber: string;
-  status: 'issued' | 'pending' | 'expired';
-  validUntil?: string;
-  downloadUrl?: string;
-}
-
-interface TradingSignal {
-  _id: string;
-  symbol: string;
-  instrumentType: 'forex' | 'crypto' | 'stocks' | 'commodities' | 'indices' | 'futures';
-  type: 'buy' | 'sell' | 'hold' | 'strong_buy' | 'strong_sell';
-  // Current market prices (like MT5 quotes)
-  currentBid: number;
-  currentAsk: number;
-  dailyHigh: number;
-  dailyLow: number;
-  priceChange: number;
-  priceChangePercent: number;
-  // Signal entry/exit prices
-  entryPrice: number;
-  targetPrice: number;
-  stopLoss: number;
-  // Risk management
-  riskRewardRatio?: number;
-  positionSize?: number;
-  maxRisk?: number;
-  description: string;
-  timeframe: string;
-  confidence: number;
-  teacher?: {
-    firstName: string;
-    lastName: string;
-    profileImage?: string;
-    email?: string;
-  };
-  createdAt: string;
-  comments?: Array<{
-    user: string;
-    text: string;
-    createdAt: string;
-  }>;
-  status?: string;
-  isPublished?: boolean;
-}
-
-interface Assignment {
-  _id: string;
-  title: string;
-  description: string;
-  dueDate: string;
-  status: 'pending' | 'submitted' | 'graded';
-  grade?: number;
-  feedback?: string;
-}
-
 export default function Dashboard() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [availableCourses, setAvailableCourses] = useState<Course[]>([]);
-  const [signals, setSignals] = useState<TradingSignal[]>([]);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [liveSessions, setLiveSessions] = useState<any[]>([]);
-  const [certificates, setCertificates] = useState<Certificate[]>([]);
   const [selectedSession, setSelectedSession] = useState<any>(null);
   const [showMeetingModal, setShowMeetingModal] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notificationCount, setNotificationCount] = useState(0);
   const { settings } = useSettings();
   const { t } = useLanguage();
   
@@ -187,6 +65,14 @@ export default function Dashboard() {
   
   const { showToast } = useToast();
   const { isMaintenanceMode, maintenanceMessage, checkMaintenanceMode } = useMaintenanceMode();
+  const { 
+    data: { user, courses, availableCourses, signals, assignments, liveSessions, certificates, notificationCount },
+    loading,
+    refreshing,
+    refreshData,
+    updateCourseProgress,
+    addEnrolledCourse
+  } = useDashboard();
 
   // Set mounted state to prevent hydration issues
   useEffect(() => {
@@ -272,100 +158,9 @@ export default function Dashboard() {
     }
   }, [mounted]);
 
-  const fetchAvailableCourses = async () => {
-    try {
-      const result = await fetchWithMaintenanceCheck('/api/courses');
-
-      if (result.isMaintenanceMode) {
-        checkMaintenanceMode(result.error);
-        return;
-      }
-
-      if (result.data) {
-        setAvailableCourses(result.data);
-      } else if (result.error) {
-        console.error('Error fetching available courses:', result.error);
-      }
-    } catch (error) {
-      console.error('Error fetching available courses:', error);
-    }
-  };
-
-  const fetchUserData = async () => {
-    try {
-      if (typeof window === 'undefined') return; // Prevent SSR issues
-      
-      const token = localStorage.getItem('token');
-      
-      if (token) {
-        const result = await fetchWithMaintenanceCheck(buildApiUrl('api/auth/me'), {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (result.isMaintenanceMode) {
-          checkMaintenanceMode(result.error);
-          return;
-        }
-
-        if (result.data) {
-          setUser(result.data);
-          await fetchUserCourses(token);
-          await fetchUserSignals(token);
-          await fetchUserAssignments(token);
-          await fetchLiveSessions(token);
-          await fetchUserCertificates(token);
-          await fetchNotificationCount();
-        } else {
-          // Token invalid, redirect to login
-          localStorage.removeItem('token');
-          window.location.href = '/login';
-        }
-      } else {
-        // No token, redirect to login immediately
-        window.location.href = '/login';
-        return;
-      }
-    } catch (error) {
-      // Silent error handling to prevent error overlay
-      if (isDevelopment()) {
-        console.warn('Error fetching user data:', error);
-      }
-      // On error, redirect to login
-      window.location.href = '/login';
-      return;
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchNotificationCount = async () => {
-    try {
-      if (typeof window === 'undefined') return; // Prevent SSR issues
-      
-      const token = localStorage.getItem('token');
-      if (!token) return;
-
-              const response = await fetch(buildApiUrl(`api/notifications/user?unreadOnly=true&limit=1&t=${Date.now()}`), {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Cache-Control': 'no-cache',
-          'Pragma': 'no-cache'
-        }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setNotificationCount(data.unreadCount || 0);
-      }
-    } catch (error) {
-      console.error('Error fetching notification count:', error);
-    }
-  };
-
   const refreshNotifications = () => {
-    fetchNotificationCount();
+    // Refresh data from context
+    refreshData();
   };
 
   const createTestNotification = async () => {
@@ -389,7 +184,7 @@ export default function Dashboard() {
 
       if (response.ok) {
         showToast('Test notification created!', 'success');
-        await fetchNotificationCount();
+        await refreshData();
         // Refresh notifications in the dropdown
         if (showNotifications) {
           // Trigger a refresh of the notification dropdown
@@ -426,109 +221,13 @@ export default function Dashboard() {
       });
 
       if (response.ok) {
-        await fetchNotificationCount();
+        await refreshData();
         return true;
       }
     } catch (error) {
       console.error('Error creating notification:', error);
     }
     return false;
-  };
-
-  const fetchUserCourses = async (token: string) => {
-    try {
-      const result = await fetchWithMaintenanceCheck('/api/courses/enrolled', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (result.isMaintenanceMode) {
-        checkMaintenanceMode(result.error);
-        return;
-      }
-
-      if (result.data) {
-        setCourses(result.data);
-      }
-    } catch (error) {
-      console.error('Error fetching enrolled courses:', error);
-    }
-  };
-
-  const fetchUserSignals = async (token: string) => {
-    try {
-              const result = await fetchWithMaintenanceCheck(buildApiUrl('api/signals'), {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (result.isMaintenanceMode) {
-        checkMaintenanceMode(result.error);
-        return;
-      }
-
-      if (result.data) {
-        setSignals(result.data);
-      }
-    } catch (error) {
-      console.error('Error fetching signals:', error);
-    }
-  };
-
-  const fetchUserAssignments = async (token: string) => {
-    try {
-              const result = await fetchWithMaintenanceCheck(buildApiUrl('api/assignments'), {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (result.isMaintenanceMode) {
-        checkMaintenanceMode(result.error);
-        return;
-      }
-
-      if (result.data) {
-        setAssignments(result.data);
-      }
-    } catch (error) {
-      console.error('Error fetching assignments:', error);
-    }
-  };
-
-  const fetchUserCertificates = async (token: string) => {
-    try {
-      console.log('Fetching certificates...');
-              const result = await fetchWithMaintenanceCheck(buildApiUrl('api/certificates/student'), {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      console.log('Certificates API result:', result);
-
-      if (result.isMaintenanceMode) {
-        checkMaintenanceMode(result.error);
-        return;
-      }
-
-      if (result.data && result.data.certificates && Array.isArray(result.data.certificates)) {
-        console.log('Setting certificates:', result.data.certificates);
-        setCertificates(result.data.certificates);
-      } else if (result.data && Array.isArray(result.data)) {
-        // Handle case where API returns array directly
-        console.log('Setting certificates (direct array):', result.data);
-        setCertificates(result.data);
-      } else {
-        console.warn('Invalid certificates data received:', result.data);
-        setCertificates([]);
-      }
-    } catch (error) {
-      console.error('Error fetching certificates:', error);
-      setCertificates([]);
-    }
   };
 
   const viewCertificate = async (certificateId: string) => {
@@ -580,7 +279,7 @@ export default function Dashboard() {
   };
 
   // Calculate certificate eligibility for courses
-  const calculateCertificateEligibility = (course: Course) => {
+  const calculateCertificateEligibility = (course: any) => {
     const lessonProgress = course.totalLessons ? (course.completedLessons || 0) / course.totalLessons : 0;
     const quizProgress = course.totalQuizzes ? (course.completedQuizzes || 0) / course.totalQuizzes : 0;
     const assignmentProgress = course.totalAssignments ? (course.completedAssignments || 0) / course.totalAssignments : 0;
@@ -589,28 +288,6 @@ export default function Dashboard() {
     // Course is eligible if all progress is >= 80% and grade is >= 70%
     return lessonProgress >= 0.8 && quizProgress >= 0.8 && assignmentProgress >= 0.8 && gradeRequirement;
   };
-
-  const fetchLiveSessions = async (token: string) => {
-    try {
-      const response = await fetch('http://localhost:4000/api/sessions', {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setLiveSessions(data);
-      } else {
-        const error = await response.text();
-        console.error('Live sessions error response:', error);
-      }
-    } catch (error) {
-      console.error('Error fetching live sessions:', error);
-    }
-  };
-
-
 
   const handleEnrollCourse = async (courseId: string) => {
     try {
@@ -634,8 +311,7 @@ export default function Dashboard() {
         const result = await response.json();
         
         // Refresh courses data
-        await fetchUserCourses(token);
-        await fetchAvailableCourses();
+        await refreshData();
         // Show success message
         showToast('Successfully enrolled in course!', 'success');
       } else {
@@ -670,7 +346,7 @@ export default function Dashboard() {
         const result = await response.json();
         showToast('Successfully signed up for the session!', 'success');
         // Refresh live sessions data
-        await fetchLiveSessions(token);
+        await refreshData();
       } else {
         const error = await response.json();
         showToast(`Failed to sign up for session: ${error.message || error.error || 'Unknown error'}`, 'error');
@@ -702,7 +378,7 @@ export default function Dashboard() {
         const result = await response.json();
         showToast('Successfully canceled the session booking!', 'success');
         // Refresh live sessions data
-        await fetchLiveSessions(token);
+                  await refreshData();
       } else {
         const error = await response.json();
         showToast(`Failed to cancel session: ${error.message || error.error || 'Unknown error'}`, 'error');
@@ -735,7 +411,7 @@ export default function Dashboard() {
 
       if (response.ok) {
         // Refresh user courses to update progress
-        await fetchUserCourses(token);
+        await refreshData();
       } else {
         console.error('Failed to update progress');
       }
@@ -745,8 +421,7 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetchUserData();
-    fetchAvailableCourses();
+    // Data is now managed by DashboardContext
   }, []);
 
   // Listen for language changes
@@ -876,9 +551,7 @@ export default function Dashboard() {
                     
                     const token = localStorage.getItem('token');
                     if (token) {
-                      setRefreshing(true);
-                      await fetchUserData();
-                      setRefreshing(false);
+                      await refreshData();
                     }
                   }}
                   className={`p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200 group hover:shadow-md ${refreshing ? 'animate-spin' : ''}`}
@@ -1456,7 +1129,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-semibold text-gray-900">{safeT('myEnrolledSessions')}</h3>
                 <button
-                  onClick={() => fetchLiveSessions(localStorage.getItem('token') || '')}
+                  onClick={() => refreshData()}
                   className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
                 >
                   <RefreshCw className="w-4 h-4" />
@@ -1519,7 +1192,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xl font-semibold text-gray-900">{safeT('availableLiveSessions')}</h3>
                 <button
-                  onClick={() => fetchLiveSessions(localStorage.getItem('token') || '')}
+                  onClick={() => refreshData()}
                   className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
                 >
                   <RefreshCw className="w-4 h-4" />

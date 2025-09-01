@@ -41,7 +41,7 @@ export default function LandingPage() {
     {
       icon: <BookOpen className="w-10 h-10" />,
       title: 'Comprehensive Courses',
-      description: 'Learn trading from beginner to advanced levels with structured courses from expert instructors.',
+      description: 'Learn trading from beginner to advanced levels with structured courses.',
       gradient: 'from-blue-500 to-cyan-500',
       delay: 0.1
     },
@@ -83,9 +83,9 @@ export default function LandingPage() {
   ];
 
   const stats = [
-    { number: '10,000+', label: 'Active Students', icon: <Users className="w-8 h-8" />, color: 'text-blue-600' },
-    { number: '500+', label: 'Trading Courses', icon: <BookOpen className="w-8 h-8" />, color: 'text-green-600' },
-    { number: '50+', label: 'Expert Instructors', icon: <Award className="w-8 h-8" />, color: 'text-purple-600' },
+    { number: '500+', label: 'Active Students', icon: <Users className="w-8 h-8" />, color: 'text-blue-600' },
+    { number: '2', label: ' Courses', icon: <BookOpen className="w-8 h-8" />, color: 'text-green-600' },
+    { number: '3', label: 'Expert Instructors', icon: <Award className="w-8 h-8" />, color: 'text-purple-600' },
     { number: '95%', label: 'Success Rate', icon: <Target className="w-8 h-8" />, color: 'text-orange-600' }
   ];
 

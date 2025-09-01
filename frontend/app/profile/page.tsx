@@ -21,6 +21,7 @@ import { showToast } from '@/utils/toast';
 import { useRouter } from 'next/navigation';
 import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { useDashboard } from '../../context/DashboardContext';
 import UserProfileDropdown from '@/app/components/UserProfileDropdown';
 
 interface UserProfile {
@@ -52,6 +53,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { settings } = useSettings();
   const { t } = useLanguage();
+  const { data: dashboardData } = useDashboard();
 
   useEffect(() => {
     setMounted(true);
@@ -59,9 +61,44 @@ export default function ProfilePage() {
 
   useEffect(() => {
     if (mounted) {
-      fetchUserProfile();
+      // Use dashboard context data if available, otherwise fetch from API
+      if (dashboardData.user) {
+        // Create a basic user profile from dashboard data
+        const basicUser: UserProfile = {
+          _id: dashboardData.user._id,
+          firstName: dashboardData.user.firstName,
+          lastName: dashboardData.user.lastName,
+          email: dashboardData.user.email,
+          role: dashboardData.user.role,
+          profileImage: dashboardData.user.profileImage,
+          phone: '',
+          address: '',
+          dateOfBirth: '',
+          bio: '',
+          preferences: {
+            emailNotifications: true,
+            pushNotifications: true,
+            marketingEmails: false
+          }
+        };
+        setUser(basicUser);
+        setEditForm({
+          firstName: basicUser.firstName || '',
+          lastName: basicUser.lastName || '',
+          phone: basicUser.phone || '',
+          address: basicUser.address || '',
+          dateOfBirth: basicUser.dateOfBirth || '',
+          bio: basicUser.bio || '',
+          preferences: basicUser.preferences
+        });
+        setLoading(false);
+        // Still fetch full profile data for complete information
+        fetchUserProfile();
+      } else {
+        fetchUserProfile();
+      }
     }
-  }, [mounted]);
+  }, [mounted, dashboardData.user]);
 
   // Listen for language changes
   useEffect(() => {
@@ -123,8 +160,6 @@ export default function ProfilePage() {
       setLoading(false);
     }
   };
-
-
 
   const handleSave = async () => {
     try {
@@ -206,8 +241,6 @@ export default function ProfilePage() {
       return 'Invalid date';
     }
   };
-
-
 
   // Prevent hydration mismatch by not rendering until mounted
   if (!mounted) {
@@ -335,8 +368,6 @@ export default function ProfilePage() {
               </>
             )}
           </div>
-          
-
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -558,10 +589,10 @@ export default function ProfilePage() {
               transition={{ delay: 0.1 }}
               className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm"
             >
-                              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                  <Settings className="w-5 h-5 mr-2 text-green-600" />
-                  {t('notifications')}
-                </h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <Settings className="w-5 h-5 mr-2 text-green-600" />
+                {t('notifications')}
+              </h3>
               
               <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
