@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../components/Toast';
+import { useAdmin } from '../../../context/AdminContext';
 import Overview from './Overview';
 import UserManagement from './UserManagement';
 import PaymentManagement from './PaymentManagement';
@@ -24,163 +25,20 @@ import {
   AdminSettings, UserForm, PromoForm 
 } from './types';
 import UserProfileDropdown from '../../components/UserProfileDropdown';
+import DarkModeToggle from '../../../components/DarkModeToggle';
+import CoolLoader from '../../../components/CoolLoader';
 
 export default function AdminDashboard() {
-  const [user, setUser] = useState<{
-    firstName: string;
-    lastName: string;
-    email: string;
-    role: string;
-    profileImage?: string;
-  } | null>(null);
   const [activeTab, setActiveTab] = useState('overview');
-  const [loading, setLoading] = useState(true);
-  const [authChecking, setAuthChecking] = useState(true);
-  const [users, setUsers] = useState<User[]>([]);
-  const { settings: globalSettings, refreshSettings } = useSettings();
-  const { showToast } = useToast();
-
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [analytics, setAnalytics] = useState<AnalyticsType>({
-    totalUsers: 0,
-    totalRevenue: 0,
-    monthlyGrowth: 0,
-    activeUsers: 0,
-    totalPayments: 0,
-    paymentsThisMonth: 0,
-    activePromoCodes: 0,
-    monthlyRevenue: [],
-    monthlyUserGrowth: [],
-    paymentMethodStats: []
-  });
-
-  const [promoCodes, setPromoCodes] = useState<PromoCode[]>([]);
-  const [settings, setSettings] = useState<AdminSettings>({
-    general: {
-      platformName: 'Forex Navigators',
-      description: 'Premier Trading Education Platform',
-      defaultCurrency: 'USD',
-      timezone: 'UTC',
-      language: 'en',
-      maintenanceMode: false
-    },
-    security: {
-      twoFactorAuth: false,
-      sessionTimeout: 60,
-      passwordPolicy: {
-        minLength: 8,
-        requireUppercase: true,
-        requireNumbers: true,
-        requireSymbols: true
-      },
-      loginAttempts: 5,
-      accountLockDuration: 30
-    },
-    notifications: {
-      emailNotifications: true,
-      smsNotifications: false,
-      pushNotifications: true,
-      newUserRegistration: true,
-      paymentReceived: true,
-      systemAlerts: true,
-      courseCompletions: false
-    },
-    payments: {
-      stripeEnabled: true,
-      paypalEnabled: true,
-      easypaisaEnabled: true,
-      jazzCashEnabled: true,
-      currency: 'USD',
-      taxRate: 0,
-      promoCodesEnabled: true
-    },
-    courses: {
-      autoApproval: false,
-      maxFileSize: 100,
-      allowedFileTypes: ['pdf', 'mp4', 'ppt', 'pptx'],
-      certificateEnabled: true,
-      completionThreshold: 80
-    },
-    email: {
-      smtpHost: '',
-      smtpPort: 587,
-      smtpUser: '',
-      smtpPassword: '',
-      fromEmail: 'noreply@forexnavigators.com',
-      fromName: 'Forex Navigators'
-    }
-  });
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const { settings: globalSettings, refreshSettings } = useSettings();
+  const { showToast } = useToast();
+  const { data, loading, refreshing, refreshData } = useAdmin();
+  
+  const { user, users, payments, analytics, promoCodes, settings } = data;
 
-  // Route guard - check admin authentication
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      window.location.href = '/login';
-      return;
-    }
-    checkAdminRole(token);
-  }, []);
-
-  const checkAdminRole = async (token: string) => {
-    try {
-      const response = await fetch('http://localhost:4000/api/auth/me', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (response.ok) {
-        const userData = await response.json();
-        const userRole = userData.user?.role || userData.role;
-        
-        if (userRole !== 'admin') {
-          showToast(`Access denied. Admin privileges required. Current role: ${userRole}`, 'error');
-          window.location.href = '/dashboard';
-          return;
-        }
-        
-        // Set user data for the profile dropdown
-        setUser({
-          firstName: userData.user?.firstName || userData.firstName || 'Admin',
-          lastName: userData.user?.lastName || userData.lastName || 'User',
-          email: userData.user?.email || userData.email || '',
-          role: userRole,
-          profileImage: userData.user?.profileImage || userData.profileImage
-        });
-        
-        setAuthChecking(false);
-        fetchAdminData(token);
-      } else {
-        window.location.href = '/login';
-      }
-    } catch (error) {
-      console.error('Auth check failed:', error);
-      window.location.href = '/login';
-    }
-  };
-
-  const fetchAdminData = async (token: string) => {
-    try {
-      const [usersRes, paymentsRes, analyticsRes, promoCodesRes, settingsRes] = await Promise.all([
-        fetch('http://localhost:4000/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://localhost:4000/api/admin/payments', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://localhost:4000/api/admin/analytics', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://localhost:4000/api/admin/promocodes', { headers: { 'Authorization': `Bearer ${token}` } }),
-        fetch('http://localhost:4000/api/admin/settings', { headers: { 'Authorization': `Bearer ${token}` } })
-      ]);
-
-      if (usersRes.ok) setUsers(await usersRes.json());
-      if (paymentsRes.ok) setPayments(await paymentsRes.json());
-      if (analyticsRes.ok) setAnalytics(await analyticsRes.json());
-      if (promoCodesRes.ok) setPromoCodes(await promoCodesRes.json());
-      if (settingsRes.ok) setSettings(await settingsRes.json());
-
-      setLoading(false);
-    } catch (error) {
-      console.error('Failed to fetch admin data:', error);
-      setLoading(false);
-    }
-  };
+  // No need for route guard or data fetching - handled by AdminContext
 
 
 
@@ -198,8 +56,7 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        const newUser = await response.json();
-        setUsers(prev => [newUser, ...prev]);
+        await refreshData();
         showToast('User created successfully!', 'success');
       } else {
         const error = await response.json();
@@ -230,10 +87,7 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        const updatedUser = await response.json();
-        setUsers(prev => prev.map(user => 
-          user._id === userId ? updatedUser : user
-        ));
+        await refreshData();
         showToast('User updated successfully!', 'success');
       } else {
         const error = await response.json();
@@ -256,7 +110,7 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        setUsers(prev => prev.filter(user => user._id !== userId));
+        await refreshData();
         showToast('User deleted successfully!', 'success');
       } else {
         const error = await response.json();
@@ -281,10 +135,7 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        const updatedUser = await response.json();
-        setUsers(prev => prev.map(u => 
-          u._id === user._id ? updatedUser : u
-        ));
+        await refreshData();
         showToast(`User ${!user.isActive ? 'activated' : 'deactivated'} successfully!`, 'success');
       } else {
         const error = await response.json();
@@ -310,10 +161,7 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        const updatedPayment = await response.json();
-        setPayments(prev => prev.map(payment => 
-          payment._id === paymentId ? updatedPayment : payment
-        ));
+        await refreshData();
         showToast(`Payment ${newStatus} successfully!`, 'success');
       } else {
         const error = await response.json();
@@ -372,8 +220,7 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        const newPromo = await response.json();
-        setPromoCodes(prev => [newPromo, ...prev]);
+        await refreshData();
         showToast('Promo code created successfully!', 'success');
       } else {
         const error = await response.json();
@@ -401,10 +248,7 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        const updatedPromo = await response.json();
-        setPromoCodes(prev => prev.map(promo => 
-          promo._id === promoId ? updatedPromo : promo
-        ));
+        await refreshData();
         showToast('Promo code updated successfully!', 'success');
       } else {
         const error = await response.json();
@@ -427,7 +271,7 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        setPromoCodes(prev => prev.filter(promo => promo._id !== promoId));
+        await refreshData();
         showToast('Promo code deleted successfully!', 'success');
       } else {
         const error = await response.json();
@@ -441,13 +285,14 @@ export default function AdminDashboard() {
 
   // Settings management functions
   const handleSettingsChange = async (category: string, field: string, value: any) => {
-    setSettings(prev => ({
-      ...prev,
+    // Update local settings state for immediate UI feedback
+    const updatedSettings = {
+      ...settings,
       [category]: {
-        ...prev[category as keyof typeof prev],
+        ...settings[category as keyof typeof settings],
         [field]: value
       }
-    }));
+    };
 
     if (category === 'email') {
       try {
@@ -476,16 +321,17 @@ export default function AdminDashboard() {
   };
 
   const handleNestedSettingsChange = (category: string, nestedField: string, field: string, value: any) => {
-    setSettings(prev => ({
-      ...prev,
+    // Update local settings state for immediate UI feedback
+    const updatedSettings = {
+      ...settings,
       [category]: {
-        ...prev[category as keyof typeof prev],
+        ...settings[category as keyof typeof settings],
         [nestedField]: {
-          ...prev[category as keyof typeof prev][nestedField as any],
+          ...settings[category as keyof typeof settings][nestedField as any],
           [field]: value
         }
       }
-    }));
+    };
   };
 
   const handleSaveSettings = async () => {
@@ -520,61 +366,9 @@ export default function AdminDashboard() {
   const handleResetSettings = () => {
     const confirmReset = window.confirm('Are you sure you want to reset all settings to default values? This action cannot be undone.');
     if (confirmReset) {
-      setSettings({
-        general: {
-          platformName: 'Forex Navigators',
-          description: 'Premier Trading Education Platform',
-          defaultCurrency: 'USD',
-          timezone: 'UTC',
-          language: 'en',
-          maintenanceMode: false
-        },
-        security: {
-          twoFactorAuth: false,
-          sessionTimeout: 60,
-          passwordPolicy: {
-            minLength: 8,
-            requireUppercase: true,
-            requireNumbers: true,
-            requireSymbols: true
-          },
-          loginAttempts: 5,
-          accountLockDuration: 30
-        },
-        notifications: {
-          emailNotifications: true,
-          smsNotifications: false,
-          pushNotifications: true,
-          newUserRegistration: true,
-          paymentReceived: true,
-          systemAlerts: true,
-          courseCompletions: false
-        },
-        payments: {
-          stripeEnabled: true,
-          paypalEnabled: true,
-          easypaisaEnabled: true,
-          jazzCashEnabled: true,
-          currency: 'USD',
-          taxRate: 0,
-          promoCodesEnabled: true
-        },
-        courses: {
-          autoApproval: false,
-          maxFileSize: 100,
-          allowedFileTypes: ['pdf', 'mp4', 'ppt', 'pptx'],
-          certificateEnabled: true,
-          completionThreshold: 80
-        },
-        email: {
-          smtpHost: '',
-          smtpPort: 587,
-          smtpUser: '',
-          smtpPassword: '',
-          fromEmail: 'noreply@forexnavigators.com',
-          fromName: 'Forex Navigators'
-        }
-      });
+      // Reset settings by refreshing data from server
+      refreshData();
+      showToast('Settings reset to default values', 'success');
     }
   };
 
@@ -605,32 +399,22 @@ export default function AdminDashboard() {
     }
   };
 
-  if (authChecking) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-red-500 mx-auto"></div>
-          <p className="text-gray-700 text-xl mt-4 font-medium">Checking Admin Access...</p>
-        </div>
-      </div>
-    );
-  }
+
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="text-gray-700 text-xl mt-4 font-medium">Loading Admin Dashboard...</p>
-        </div>
-      </div>
+      <CoolLoader 
+        message="Loading Admin Dashboard..."
+        size="md"
+        variant="admin"
+      />
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm sticky top-0 z-50">
+      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center space-x-4">
@@ -641,12 +425,13 @@ export default function AdminDashboard() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">
                   Admin Panel
                 </h1>
-                <p className="text-sm text-gray-500">{globalSettings.platformName} LMS Management</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{globalSettings.platformName} LMS Management</p>
               </div>
             </div>
             
             <div className="flex items-center space-x-4">
-              <button className="p-3 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all duration-200">
+              <DarkModeToggle size="sm" />
+              <button className="p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200">
                 <SettingsIcon className="w-5 h-5" />
               </button>
               <UserProfileDropdown user={user} />
@@ -657,7 +442,7 @@ export default function AdminDashboard() {
 
       <div className="admin-container">
         {/* Navigation Tabs */}
-        <div className="bg-white rounded-2xl p-2 border border-gray-200 shadow-lg mb-8 mt-10">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-2 border border-gray-200 dark:border-gray-700 shadow-lg mb-8 mt-10">
           <nav className="flex space-x-1 overflow-x-auto">
             {[
               { id: 'overview', label: 'Overview', icon: BarChart3 },
@@ -676,7 +461,7 @@ export default function AdminDashboard() {
                   className={`flex items-center space-x-2 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                     activeTab === tab.id
                       ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg'
-                      : 'text-gray-600 hover:text-red-600 hover:bg-red-50'
+                      : 'text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
                   }`}
                 >
                   <Icon className="w-4 h-4" />

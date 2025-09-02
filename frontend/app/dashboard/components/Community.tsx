@@ -360,19 +360,19 @@ export default function Community() {
 
   if (loading) {
     return (
-      <div className="flex h-[calc(100vh-200px)] items-center justify-center bg-gray-50 rounded-lg">
+      <div className="flex h-[calc(100vh-200px)] items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading community...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading community...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-[calc(100vh-200px)] bg-gray-50 rounded-lg overflow-hidden shadow-lg">
+    <div className="flex h-[calc(100vh-200px)] bg-gray-50 dark:bg-gray-800 rounded-lg overflow-hidden shadow-lg">
       {/* Left Sidebar - Channels */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+      <div className="w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col">
         <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Trading Community</h2>
@@ -382,7 +382,7 @@ export default function Community() {
         </div>
         
         <div className="p-4">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
             Channels ({channels.length})
           </h3>
           <div className="space-y-1">
@@ -392,8 +392,8 @@ export default function Community() {
                 onClick={() => setActiveChannel(channel._id)}
                 className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
                   activeChannel === channel._id
-                    ? 'bg-blue-100 text-blue-900'
-                    : 'hover:bg-gray-100 text-gray-700'
+                    ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-900 dark:text-blue-200'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
                 }`}
               >
                 {channel.isPrivate ? <Lock className="w-4 h-4" /> : <Hash className="w-4 h-4" />}
@@ -417,17 +417,17 @@ export default function Community() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col bg-white dark:bg-gray-800">
         {/* Channel Header */}
-        <div className="p-4 border-b border-gray-200 bg-white">
-          <h3 className="font-semibold text-gray-900">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <h3 className="font-semibold text-gray-900 dark:text-white">
             {channels.find(c => c._id === activeChannel)?.name ? 
               `#${channels.find(c => c._id === activeChannel)?.name}` : 
               'Select a channel'
             }
           </h3>
           {channels.find(c => c._id === activeChannel)?.description && (
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               {channels.find(c => c._id === activeChannel)?.description}
             </p>
           )}
@@ -437,20 +437,20 @@ export default function Community() {
         <div className="flex-1 p-4 overflow-y-auto">
           {!activeChannel ? (
             <div className="text-center py-12">
-              <Hash className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Channel</h3>
-              <p className="text-gray-500">Choose a channel from the sidebar to start chatting</p>
+              <Hash className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Select a Channel</h3>
+              <p className="text-gray-500 dark:text-gray-400">Choose a channel from the sidebar to start chatting</p>
             </div>
           ) : messages.length === 0 ? (
             <div className="text-center py-12">
-              <Hash className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No messages yet</h3>
-              <p className="text-gray-500">Be the first to start the conversation!</p>
+              <Hash className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No messages yet</h3>
+              <p className="text-gray-500 dark:text-gray-400">Be the first to start the conversation!</p>
             </div>
           ) : (
             <div className="space-y-3">
               {messages.map((message) => (
-                <div key={message._id} className="flex space-x-3 group relative p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors duration-200 border border-gray-100">
+                <div key={message._id} className="flex space-x-3 group relative p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200 border border-gray-100 dark:border-gray-600">
                   <div className="flex-shrink-0">
                     <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
                       {message.author?.firstName?.charAt(0) || 'U'}
@@ -458,10 +458,10 @@ export default function Community() {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-gray-900 dark:text-white">
                         {message.author?.firstName || 'Unknown'} {message.author?.lastName || 'User'}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
                         {new Date(message.timestamp).toLocaleString()}
                       </span>
                       {message.author?.role === 'admin' && (
@@ -496,7 +496,7 @@ export default function Community() {
                       </div>
                     ) : (
                       <div className="mt-1">
-                        <p className="text-gray-700">{message.content}</p>
+                        <p className="text-gray-700 dark:text-gray-300">{message.content}</p>
                         {message.isEdited && (
                           <p className="text-xs text-gray-400 mt-1 italic">(edited)</p>
                         )}

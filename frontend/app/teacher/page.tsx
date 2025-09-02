@@ -287,7 +287,7 @@ export default function TeacherDashboard() {
          activeTab !== 'community' && 
          activeTab !== 'certificates' && (
           <div className="text-center py-12">
-            <h2 className="text-xl font-semibold text-gray-900 mb-2">
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
             </h2>
           </div>

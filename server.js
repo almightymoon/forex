@@ -47,10 +47,10 @@ app.use(helmet({
 }));
 app.use(compression());
 
-// Rate limiting - More generous for admin operations
+// Rate limiting - More generous for development
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Increased limit for admin operations
+  max: 5000, // Increased limit for development
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false

@@ -56,13 +56,13 @@ export default function Overview({
       {/* Header with Refresh Button */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-semibold text-gray-900">Dashboard Overview</h2>
-          <p className="text-gray-600">Real-time insights into your teaching performance</p>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Dashboard Overview</h2>
+          <p className="text-gray-600 dark:text-gray-300">Real-time insights into your teaching performance</p>
         </div>
         <button
           onClick={onRefresh}
           disabled={isLoading}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2 transition-colors"
         >
           <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -80,34 +80,34 @@ export default function Overview({
 
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Enrollments</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Enrollments</h3>
           <div className="space-y-3">
             {Array.isArray(students) && students.length > 0 ? (
               students.slice(0, 5).map((student) => (
-                <div key={student.id || student._id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={student.id || student._id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 text-sm font-medium">
+                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                      <span className="text-blue-600 dark:text-blue-400 text-sm font-medium">
                         {student.firstName ? student.firstName.charAt(0) : 
                          student.name ? student.name.charAt(0) : 'U'}
                       </span>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">
                         {student.firstName && student.lastName ? 
                           `${student.firstName} ${student.lastName}` : 
                           student.name || 'Unknown User'}
                       </p>
-                      <p className="text-xs text-gray-500">{student.email}</p>
+                      <p className="text-xs dark:text-white text-gray-500">{student.email}</p>
                       {student.enrolledCourses && student.enrolledCourses.length > 0 && (
-                        <p className="text-xs text-blue-600">
+                        <p className="text-xs  text-blue-600">
                           {student.enrolledCourses.length} course{student.enrolledCourses.length > 1 ? 's' : ''}
                         </p>
                       )}
                     </div>
                   </div>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs dark:text-white text-gray-500">
                     {student.enrolledDate ? new Date(student.enrolledDate).toLocaleDateString() : 'N/A'}
                   </span>
                 </div>
@@ -122,8 +122,8 @@ export default function Overview({
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">Upcoming Live Sessions</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+          <h3 className="text-lg dark:text-white font-semibold text-gray-900 mb-4">Upcoming Live Sessions</h3>
           <div className="space-y-3">
             {Array.isArray(liveSessions) && liveSessions.filter(s => s.status === 'scheduled').length > 0 ? (
               liveSessions.filter(s => s.status === 'scheduled').slice(0, 3).map((session) => (

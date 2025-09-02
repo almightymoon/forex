@@ -605,36 +605,36 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Simple Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center py-4">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                 {editingCourse ? 'Edit Course' : 'Create New Course'}
               </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-600 dark:text-gray-300">
                 {editingCourse ? 'Update your course content and settings' : 'Build your course with essential tools'}
               </p>
             </div>
             <div className="flex space-x-3">
               <button
                 onClick={onCancel}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSaveDraft}
-                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center space-x-2"
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center space-x-2 transition-colors"
               >
                 <Save className="w-4 h-4" />
                 <span>Save Draft</span>
               </button>
               <button
                 onClick={handlePublish}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 transition-colors"
               >
                 <Save className="w-4 h-4" />
                 <span>Publish Course</span>
@@ -645,7 +645,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
       </div>
 
       {/* Navigation Tabs */}
-      <div className="bg-white border-b border-gray-200">
+      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <nav className="flex space-x-8">
             {[
@@ -660,10 +660,10 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                  className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors ${
                     activeTab === tab.id
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                      ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                      : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -795,32 +795,32 @@ function BasicInfoTab({
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Course Information</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Course Information</h3>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Course Title *
             </label>
             <input
               type="text"
               value={courseData.title}
               onChange={(e) => setCourseData({ ...courseData, title: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               placeholder="Enter course title"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Category *
             </label>
             <div className="flex space-x-2">
               <select
                 value={courseData.category}
                 onChange={(e) => setCourseData({ ...courseData, category: e.target.value })}
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">Select category</option>
                 {customCategories.map((category) => (
@@ -837,7 +837,7 @@ function BasicInfoTab({
               </select>
               <button
                 onClick={() => setShowCategoryModal(true)}
-                className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+                className="px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
               >
                 +
               </button>
@@ -845,13 +845,13 @@ function BasicInfoTab({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Level *
             </label>
             <select
               value={courseData.level}
               onChange={(e) => setCourseData({ ...courseData, level: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="beginner">Beginner</option>
               <option value="intermediate">Intermediate</option>
@@ -860,14 +860,14 @@ function BasicInfoTab({
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Price (USD)
             </label>
             <input
               type="number"
               value={courseData.price}
               onChange={(e) => setCourseData({ ...courseData, price: parseFloat(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               placeholder="0.00"
               min="0"
               step="0.01"
@@ -876,20 +876,20 @@ function BasicInfoTab({
         </div>
 
         <div className="mt-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Description *
           </label>
           <textarea
             value={courseData.description}
             onChange={(e) => setCourseData({ ...courseData, description: e.target.value })}
             rows={4}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             placeholder="Describe your course..."
           />
         </div>
 
         <div className="mt-6">
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
             Course Thumbnail
           </label>
           <div className="flex items-center space-x-4">
@@ -909,7 +909,7 @@ function BasicInfoTab({
             />
             <button
               onClick={() => thumbnailInputRef.current?.click()}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               Upload Thumbnail
             </button>
@@ -917,33 +917,33 @@ function BasicInfoTab({
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Requirements & Outcomes</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Requirements & Outcomes</h3>
         
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Prerequisites (use bullet points with • or -)
             </label>
             <textarea
               value={requirements}
               onChange={(e) => updateRequirements(e.target.value)}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               placeholder="• Basic understanding of finance\n• Familiarity with trading concepts\n• No prior experience required"
             />
 
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Learning Outcomes (use bullet points with • or -)
             </label>
             <textarea
               value={outcomes}
               onChange={(e) => updateOutcomes(e.target.value)}
               rows={4}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               placeholder="• Understand forex trading fundamentals\n• Learn risk management strategies\n• Master technical analysis techniques"
             />
 
@@ -1076,8 +1076,8 @@ function ContentBuilderTab({
   return (
     <div className="space-y-6">
       {/* Content Block Types */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Add Content</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Add Content</h3>
         
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
@@ -1089,10 +1089,10 @@ function ContentBuilderTab({
             <button
               key={type}
               onClick={() => addContentBlock(type)}
-              className="p-4 border-2 border-dashed border-gray-300 rounded-lg hover:border-blue-400 hover:bg-blue-50 transition-colors text-center"
+              className="p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-center"
             >
-              <Icon className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-              <span className="text-sm font-medium text-gray-700">{label}</span>
+              <Icon className="w-8 h-8 mx-auto mb-2 text-gray-400 dark:text-gray-500" />
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">{label}</span>
             </button>
           ))}
         </div>
@@ -1101,8 +1101,8 @@ function ContentBuilderTab({
       {/* Content Blocks */}
       <div className="space-y-4">
         {contentBlocks.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-            <p className="text-sm text-blue-700 flex items-center space-x-2">
+          <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3 mb-4">
+            <p className="text-sm text-blue-700 dark:text-blue-300 flex items-center space-x-2">
               <GripVertical className="w-4 h-4" />
               <span>💡 <strong>Drag and drop</strong> content blocks to reorder them. The sequence will be saved automatically.</span>
             </p>
@@ -1183,38 +1183,38 @@ function ContentBlock({
       onDragLeave={onDragLeave}
       onDrop={(e) => onDrop(e, index)}
       onDragEnd={onDragEnd}
-      className={`bg-white rounded-xl shadow-sm border-2 p-4 transition-all duration-200 cursor-move ${
+      className={`bg-white dark:bg-gray-800 rounded-xl shadow-sm border-2 p-4 transition-all duration-200 cursor-move ${
         isDragging 
-          ? 'border-blue-500 bg-blue-50 shadow-lg scale-105' 
+          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 shadow-lg scale-105' 
           : isDragOver 
-            ? 'border-green-400 bg-green-50' 
-            : 'border-gray-200 hover:border-gray-300'
+            ? 'border-green-400 bg-green-50 dark:bg-green-900/20' 
+            : 'border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500'
       }`}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-3">
-          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-            <GripVertical className="w-4 h-4 text-gray-400" />
+          <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+            <GripVertical className="w-4 h-4 text-gray-400 dark:text-gray-500" />
           </div>
-          <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center">
-            <Icon className="w-4 h-4 text-gray-600" />
+          <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-lg flex items-center justify-center">
+            <Icon className="w-4 h-4 text-gray-600 dark:text-gray-400" />
           </div>
           <div>
-            <h4 className="font-medium text-gray-900">{block.title}</h4>
-            <p className="text-sm text-gray-500">Order: {index + 1}</p>
+            <h4 className="font-medium text-gray-900 dark:text-white">{block.title}</h4>
+            <p className="text-sm text-gray-500 dark:text-gray-400">Order: {index + 1}</p>
           </div>
         </div>
         
         <div className="flex space-x-2">
           <button
             onClick={onEdit}
-            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+            className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
           >
             <FileText className="w-4 h-4" />
           </button>
           <button
             onClick={() => onDelete(block.id)}
-            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+            className="p-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
           >
             <Trash2 className="w-4 h-4" />
           </button>
@@ -1223,7 +1223,7 @@ function ContentBlock({
       
       {/* Drag indicator */}
       {isDragOver && (
-        <div className="mt-2 p-2 bg-green-100 border border-green-300 rounded text-sm text-green-700 text-center">
+        <div className="mt-2 p-2 bg-green-100 dark:bg-green-900/20 border border-green-300 dark:border-green-600 rounded text-sm text-green-700 dark:text-green-300 text-center">
           Drop here to reorder
         </div>
       )}
@@ -1289,94 +1289,94 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (value: 
   };
 
   return (
-    <div className="border border-gray-300 rounded-lg">
+    <div className="border border-gray-300 dark:border-gray-600 rounded-lg">
       {/* Toolbar */}
-      <div className="border-b border-gray-300 p-2 bg-gray-50 flex flex-wrap gap-1">
+      <div className="border-b border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-700 flex flex-wrap gap-1">
         <button
           onClick={() => execCommand('bold')}
-          className="p-2 hover:bg-gray-200 rounded"
+          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
           title="Bold"
         >
-          <Bold className="w-4 h-4" />
+          <Bold className="w-4 h-4 text-gray-700 dark:text-gray-300" />
         </button>
         <button
           onClick={() => execCommand('italic')}
-          className="p-2 hover:bg-gray-200 rounded"
+          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
           title="Italic"
         >
-          <Italic className="w-4 h-4" />
+          <Italic className="w-4 h-4 text-gray-700 dark:text-gray-300" />
         </button>
         <button
           onClick={() => execCommand('underline')}
-          className="p-2 hover:bg-gray-200 rounded"
+          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
           title="Underline"
         >
-          <Underline className="w-4 h-4" />
+          <Underline className="w-4 h-4 text-gray-700 dark:text-gray-300" />
         </button>
         
-        <div className="w-px h-6 bg-gray-300 mx-1"></div>
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
         
         <button
           onClick={() => execCommand('justifyLeft')}
-          className="p-2 hover:bg-gray-200 rounded"
+          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
           title="Align Left"
         >
-          <AlignLeft className="w-4 h-4" />
+          <AlignLeft className="w-4 h-4 text-gray-700 dark:text-gray-300" />
         </button>
         <button
           onClick={() => execCommand('justifyCenter')}
-          className="p-2 hover:bg-gray-200 rounded"
+          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
           title="Align Center"
         >
-          <AlignCenter className="w-4 h-4" />
+          <AlignCenter className="w-4 h-4 text-gray-700 dark:text-gray-300" />
         </button>
         <button
           onClick={() => execCommand('justifyRight')}
-          className="p-2 hover:bg-gray-200 rounded"
+          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
           title="Align Right"
         >
-          <AlignRight className="w-4 h-4" />
+          <AlignRight className="w-4 h-4 text-gray-700 dark:text-gray-300" />
         </button>
         
-        <div className="w-px h-6 bg-gray-300 mx-1"></div>
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
         
         <button
           onClick={() => execCommand('insertUnorderedList')}
-          className="p-2 hover:bg-gray-200 rounded"
+          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
           title="Bullet List"
         >
-          <List className="w-4 h-4" />
+          <List className="w-4 h-4 text-gray-700 dark:text-gray-300" />
         </button>
         <button
           onClick={() => execCommand('insertOrderedList')}
-          className="p-2 hover:bg-gray-200 rounded"
+          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
           title="Numbered List"
         >
-          <ListOrdered className="w-4 h-4" />
+          <ListOrdered className="w-4 h-4 text-gray-700 dark:text-gray-300" />
         </button>
         
-        <div className="w-px h-6 bg-gray-300 mx-1"></div>
+        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
         
         <button
           onClick={insertImage}
-          className="p-2 hover:bg-gray-200 rounded"
+          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
           title="Insert Image"
         >
-          <ImageIcon className="w-4 h-4" />
+          <ImageIcon className="w-4 h-4 text-gray-700 dark:text-gray-300" />
         </button>
         <button
           onClick={insertVideo}
-          className="p-2 hover:bg-gray-200 rounded"
+          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
           title="Insert Video"
         >
-          <VideoIcon className="w-4 h-4" />
+          <VideoIcon className="w-4 h-4 text-gray-700 dark:text-gray-300" />
         </button>
         <button
           onClick={insertLink}
-          className="p-2 hover:bg-gray-200 rounded"
+          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
           title="Insert Link"
         >
-          <LinkIcon className="w-4 h-4" />
+          <LinkIcon className="w-4 h-4 text-gray-700 dark:text-gray-300" />
         </button>
       </div>
       
@@ -1384,7 +1384,7 @@ function RichTextEditor({ value, onChange }: { value: string; onChange: (value: 
       <div
         ref={editorRef}
         contentEditable
-        className="p-4 min-h-[200px] focus:outline-none"
+        className="p-4 min-h-[200px] focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
         dangerouslySetInnerHTML={{ __html: value }}
         onInput={handleInput}
         onBlur={handleInput}
@@ -1403,15 +1403,15 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="text-xl font-semibold text-gray-900">
+            <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
               Edit {block.type.charAt(0).toUpperCase() + block.type.slice(1)} Content
             </h3>
             <button
               onClick={onCancel}
-              className="p-2 text-gray-400 hover:text-gray-600"
+              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
             >
               <X className="w-6 h-6" />
             </button>
@@ -1419,14 +1419,14 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                 Title
               </label>
               <input
                 type="text"
                 value={editingData.title}
                 onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               />
             </div>
 
@@ -1444,14 +1444,14 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
 
             {block.type === 'video' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Video URL
                 </label>
                 <input
                   type="url"
                   value={editingData.content}
                   onChange={(e) => setEditingData({ ...editingData, content: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="https://youtube.com/watch?v=..."
                 />
               </div>
@@ -1459,10 +1459,10 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
 
             {block.type === 'image' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Image
                 </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 text-center">
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -1507,7 +1507,7 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
                       {/* Image Size Controls */}
                       <div className="mt-4 space-y-3">
                         <div className="flex items-center space-x-4">
-                          <label className="text-sm font-medium text-gray-700">Width:</label>
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Width:</label>
                           <input
                             type="number"
                             value={editingData.metadata?.imageWidth || ''}
@@ -1519,12 +1519,12 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
                               }
                             })}
                             placeholder="Auto"
-                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                            className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           />
-                          <span className="text-xs text-gray-500">px</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">px</span>
                         </div>
                         <div className="flex items-center space-x-4">
-                          <label className="text-sm font-medium text-gray-700">Height:</label>
+                          <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Height:</label>
                           <input
                             type="number"
                             value={editingData.metadata?.imageHeight || ''}
@@ -1536,9 +1536,9 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
                               }
                             })}
                             placeholder="Auto"
-                            className="w-20 px-2 py-1 border border-gray-300 rounded text-sm"
+                            className="w-20 px-2 py-1 border border-gray-300 dark:border-gray-600 rounded text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                           />
-                          <span className="text-xs text-gray-500">px</span>
+                          <span className="text-xs text-gray-500 dark:text-gray-400">px</span>
                         </div>
                         <button
                           onClick={() => setEditingData({
@@ -1636,13 +1636,13 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
           <div className="flex justify-end space-x-3 mt-6">
             <button
               onClick={onCancel}
-              className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSave}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Save Changes
             </button>
@@ -1667,12 +1667,12 @@ function QuizzesTab({
 }: any) {
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Assessments</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Assessments</h3>
           <button
             onClick={addQuiz}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2 transition-colors"
           >
             <Plus className="w-4 h-4" />
             <span>Add Question</span>
@@ -1681,12 +1681,12 @@ function QuizzesTab({
 
         {quizzes.length === 0 ? (
           <div className="text-center py-12">
-            <CheckSquare className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No questions yet</h3>
-            <p className="text-gray-500 mb-4">Start building your assessment by adding questions</p>
+            <CheckSquare className="w-16 h-16 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No questions yet</h3>
+            <p className="text-gray-500 dark:text-gray-400 mb-4">Start building your assessment by adding questions</p>
             <button
               onClick={addQuiz}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
             >
               Add Your First Question
             </button>
@@ -2131,11 +2131,11 @@ function QuizBuilder({ question, onSave, onCancel }: any) {
 function PreviewTab({ courseData, contentBlocks, quizzes }: any) {
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Course Preview</h3>
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 dark:bg-gray-800 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-gray-900 mb-4 dark:text-white">Course Preview</h3>
         
         {/* Course Header */}
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 mb-6">
+        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 mb-6">
           {courseData.thumbnail && (
             <img 
               src={courseData.thumbnail} 
@@ -2143,9 +2143,9 @@ function PreviewTab({ courseData, contentBlocks, quizzes }: any) {
               className="w-32 h-32 object-cover rounded-xl mx-auto mb-4"
             />
           )}
-          <h1 className="text-3xl font-bold text-gray-900 text-center mb-2">{courseData.title}</h1>
-          <p className="text-gray-600 text-center mb-4">{courseData.description}</p>
-          <div className="flex justify-center space-x-4 text-sm text-gray-500">
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white text-center mb-2">{courseData.title}</h1>
+          <p className="text-gray-600 dark:text-gray-300 text-center mb-4">{courseData.description}</p>
+          <div className="flex justify-center space-x-4 text-sm text-gray-500 dark:text-gray-400">
             <span>Category: {courseData.category}</span>
             <span>Level: {courseData.level}</span>
             <span>Price: ${courseData.price}</span>
@@ -2155,8 +2155,8 @@ function PreviewTab({ courseData, contentBlocks, quizzes }: any) {
         {/* Requirements */}
         {courseData.requirements.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Prerequisites</h3>
-            <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Prerequisites</h3>
+            <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300">
               {courseData.requirements.map((req, index) => (
                 <li key={index}>{req}</li>
               ))}
@@ -2167,8 +2167,8 @@ function PreviewTab({ courseData, contentBlocks, quizzes }: any) {
         {/* Learning Outcomes */}
         {courseData.learningOutcomes.length > 0 && (
           <div className="mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">What You'll Learn</h3>
-            <ul className="list-disc list-inside space-y-1 text-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">What You'll Learn</h3>
+            <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300">
               {courseData.learningOutcomes.map((outcome, index) => (
                 <li key={index}>{outcome}</li>
               ))}
@@ -2178,21 +2178,21 @@ function PreviewTab({ courseData, contentBlocks, quizzes }: any) {
 
         {/* Content Preview */}
         <div className="mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-3">Course Content</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Course Content</h3>
           <div className="space-y-3">
             {contentBlocks.map((block, index) => (
-              <div key={block.id} className="border border-gray-200 rounded-lg p-4">
+              <div key={block.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
                 <div className="flex items-center space-x-3 mb-2">
-                  <span className="text-sm font-medium text-gray-500">{index + 1}.</span>
-                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                  <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{index + 1}.</span>
+                  <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-full">
                     {block.type}
                   </span>
-                  <h4 className="font-medium text-gray-900">{block.title}</h4>
+                  <h4 className="font-medium text-gray-900 dark:text-white">{block.title}</h4>
                 </div>
                 
                 {block.type === 'text' && (
                   <div 
-                    className="text-gray-700 prose max-w-none"
+                    className="text-gray-700 dark:text-gray-300 prose max-w-none dark:prose-invert"
                     dangerouslySetInnerHTML={{ __html: block.content }}
                   />
                 )}
@@ -2209,7 +2209,7 @@ function PreviewTab({ courseData, contentBlocks, quizzes }: any) {
                       }}
                     />
                     {(block.metadata?.imageWidth || block.metadata?.imageHeight) && (
-                      <p className="text-xs text-gray-500 mt-2">
+                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                         Custom size: {block.metadata.imageWidth || 'auto'} × {block.metadata.imageHeight || 'auto'}
                       </p>
                     )}
@@ -2256,21 +2256,21 @@ function PreviewTab({ courseData, contentBlocks, quizzes }: any) {
         {/* Assessment Preview */}
         {quizzes.length > 0 && (
           <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">Assessments</h3>
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Assessments</h3>
             <div className="space-y-4">
               {quizzes.map((quiz, index) => (
-                <div key={quiz.id} className="border border-gray-200 rounded-lg p-4">
+                <div key={quiz.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
                   <div className="flex items-center space-x-3 mb-3">
-                    <span className="text-sm font-medium text-gray-500">Q{index + 1}</span>
-                    <span className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                    <span className="text-sm font-medium text-gray-500 dark:text-gray-400">Q{index + 1}</span>
+                    <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300 text-xs rounded-full">
                       {quiz.type}
                     </span>
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                    <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-full">
                       {quiz.points} pts
                     </span>
                   </div>
                   
-                  <p className="text-gray-900 mb-3">{quiz.question}</p>
+                  <p className="text-gray-900 dark:text-white mb-3">{quiz.question}</p>
                   
                   {quiz.options && quiz.options.length > 0 && (
                     <div className="space-y-2">
@@ -2280,17 +2280,17 @@ function PreviewTab({ courseData, contentBlocks, quizzes }: any) {
                             type="radio" 
                             name={`quiz-${quiz.id}`} 
                             disabled 
-                            className="text-blue-600 border-gray-300"
+                            className="text-blue-600 border-gray-300 dark:border-gray-600"
                           />
-                          <span className="text-gray-700">{option}</span>
+                          <span className="text-gray-700 dark:text-gray-300">{option}</span>
                         </div>
                       ))}
                     </div>
                   )}
                   
                   {quiz.explanation && (
-                    <div className="mt-3 p-3 bg-blue-50 rounded-lg">
-                      <p className="text-sm text-blue-800">
+                    <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                      <p className="text-sm text-blue-800 dark:text-blue-300">
                         <strong>Explanation:</strong> {quiz.explanation}
                       </p>
                     </div>
@@ -2331,12 +2331,12 @@ function AssignmentsTab({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Course Assignments</h2>
-          <p className="text-gray-600 mt-2">Create and manage assignments for your students</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Course Assignments</h2>
+          <p className="text-gray-600 dark:text-gray-300 mt-2">Create and manage assignments for your students</p>
         </div>
         <button
           onClick={addAssignment}
-          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
         >
           <Plus className="w-4 h-4 mr-2" />
           Add Assignment
@@ -2345,12 +2345,12 @@ function AssignmentsTab({
 
       {assignments.length === 0 ? (
         <div className="text-center py-12">
-          <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No assignments yet</h3>
-          <p className="text-gray-500 mb-4">Create your first assignment to get started</p>
+          <FileText className="w-12 h-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No assignments yet</h3>
+          <p className="text-gray-500 dark:text-gray-400 mb-4">Create your first assignment to get started</p>
           <button
             onClick={addAssignment}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-4 h-4 mr-2" />
             Create Assignment
@@ -2359,24 +2359,24 @@ function AssignmentsTab({
       ) : (
         <div className="grid gap-6">
           {assignments.map((assignment) => (
-            <div key={assignment.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
+            <div key={assignment.id} className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-6 shadow-sm">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{assignment.title}</h3>
-                  <p className="text-gray-600 mb-3">{assignment.description}</p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{assignment.title}</h3>
+                  <p className="text-gray-600 dark:text-gray-300 mb-3">{assignment.description}</p>
                   
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                     <div>
-                      <span className="text-gray-500">Type:</span>
-                      <span className="ml-2 text-gray-900 capitalize">{assignment.assignmentType}</span>
+                      <span className="text-gray-500 dark:text-gray-400">Type:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white capitalize">{assignment.assignmentType}</span>
                     </div>
                     <div>
-                      <span className="text-gray-500">Points:</span>
-                      <span className="ml-2 text-gray-900">{assignment.maxPoints}</span>
+                      <span className="text-gray-500 dark:text-gray-400">Points:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white">{assignment.maxPoints}</span>
                     </div>
                     <div>
-                      <span className="text-gray-500">Due Date:</span>
-                      <span className="ml-2 text-gray-900">
+                      <span className="text-gray-500 dark:text-gray-400">Due Date:</span>
+                      <span className="ml-2 text-gray-900 dark:text-white">
                         {new Date(assignment.dueDate).toLocaleDateString()}
                       </span>
                     </div>

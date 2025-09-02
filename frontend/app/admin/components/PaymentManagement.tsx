@@ -42,9 +42,9 @@ export default function PaymentManagement({
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-xl font-semibold text-gray-900">Payment Management</h3>
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Payment Management</h3>
           <button 
             onClick={onExportPayments}
             className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
@@ -58,13 +58,13 @@ export default function PaymentManagement({
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           <div className="flex-1">
             <div className="relative">
-              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
               <input
                 type="text"
                 placeholder="Search by user name or payment ID..."
                 value={paymentSearchTerm}
                 onChange={(e) => setPaymentSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               />
             </div>
           </div>
@@ -73,7 +73,7 @@ export default function PaymentManagement({
             <select
               value={paymentStatusFilter}
               onChange={(e) => setPaymentStatusFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="all">All Status</option>
               <option value="completed">Completed</option>
@@ -84,7 +84,7 @@ export default function PaymentManagement({
             <select
               value={paymentMethodFilter}
               onChange={(e) => setPaymentMethodFilter(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="all">All Methods</option>
               <option value="stripe">Stripe</option>
@@ -99,30 +99,30 @@ export default function PaymentManagement({
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-200">
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">User</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Amount</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Method</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Status</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Date</th>
-                <th className="text-left py-3 px-4 font-semibold text-gray-900">Actions</th>
+              <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">User</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Amount</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Method</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Status</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Date</th>
+                <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Actions</th>
               </tr>
             </thead>
             <tbody>
               {filteredPayments.map((payment) => (
-                <tr key={payment._id} className="border-b border-gray-100 hover:bg-gray-50">
+                <tr key={payment._id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="py-4 px-4">
                     <div>
-                      <p className="font-medium text-gray-900">
+                      <p className="font-medium text-gray-900 dark:text-white">
                         {payment.user?.firstName || 'Unknown'} {payment.user?.lastName || ''}
                       </p>
-                      <p className="text-sm text-gray-500">{payment.user?.email || 'No email'}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{payment.user?.email || 'No email'}</p>
                     </div>
                   </td>
                   <td className="py-4 px-4">
-                    <p className="font-semibold text-gray-900">${payment.amount} {payment.currency}</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">${payment.amount} {payment.currency}</p>
                   </td>
-                  <td className="py-4 px-4 text-sm text-gray-600">{payment.paymentMethod}</td>
+                  <td className="py-4 px-4 text-sm text-gray-600 dark:text-gray-400">{payment.paymentMethod}</td>
                   <td className="py-4 px-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                       payment.status === 'completed' ? 'bg-green-100 text-green-800' :
@@ -132,14 +132,14 @@ export default function PaymentManagement({
                       {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
                     </span>
                   </td>
-                  <td className="py-4 px-4 text-sm text-gray-500">
+                  <td className="py-4 px-4 text-sm text-gray-500 dark:text-gray-400">
                     {new Date(payment.createdAt).toLocaleDateString()}
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex space-x-2">
                       <button 
                         onClick={() => openPaymentModal(payment)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                         title="View Details"
                       >
                         <Eye className="w-4 h-4" />
@@ -147,7 +147,7 @@ export default function PaymentManagement({
                       {payment.status === 'pending' && (
                         <button 
                           onClick={() => onPaymentStatusUpdate(payment._id, 'completed')}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
                           title="Mark as Completed"
                         >
                           <CheckCircle className="w-4 h-4" />
@@ -156,7 +156,7 @@ export default function PaymentManagement({
                       {payment.status === 'completed' && (
                         <button 
                           onClick={() => onPaymentStatusUpdate(payment._id, 'refunded')}
-                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           title="Refund"
                         >
                           <X className="w-4 h-4" />
@@ -174,12 +174,12 @@ export default function PaymentManagement({
       {/* Payment Details Modal */}
       {showPaymentModal && selectedPayment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-900">Payment Details</h3>
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Payment Details</h3>
               <button 
                 onClick={() => setShowPaymentModal(false)}
-                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+                className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>

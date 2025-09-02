@@ -659,8 +659,8 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Student Management</h2>
-          <p className="text-gray-600">Manage student enrollments and track performance</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Student Management</h2>
+          <p className="text-gray-600 dark:text-gray-300">Manage student enrollments and track performance</p>
         </div>
         <div className="flex space-x-3">
           <button
@@ -686,15 +686,15 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Users className="w-6 h-6 text-blue-600" />
+            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
+              <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Students</p>
-              <p className="text-2xl font-bold text-gray-900">{students.length}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Total Students</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{students.length}</p>
             </div>
           </div>
         </motion.div>
@@ -703,15 +703,15 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <BookOpen className="w-6 h-6 text-green-600" />
+            <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
+              <BookOpen className="w-6 h-6 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Active Enrollments</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-gray-600 dark:text-gray-300">Active Enrollments</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {students.reduce((total, student) => total + student.totalCourses, 0)}
               </p>
             </div>
@@ -722,15 +722,15 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Target className="w-6 h-6 text-purple-600" />
+            <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
+              <Target className="w-6 h-6 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Avg Progress</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-gray-600 dark:text-gray-300">Avg Progress</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {students.length > 0 
                   ? Math.round(students.reduce((total, student) => total + (student.progress || student.averageProgress || 0), 0) / students.length)
                   : 0}%
@@ -743,15 +743,15 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <BarChart3 className="w-6 h-6 text-orange-600" />
+            <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
+              <BarChart3 className="w-6 h-6 text-orange-600 dark:text-orange-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Avg Score</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-gray-600 dark:text-gray-300">Avg Score</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {students.length > 0 
                   ? Math.round(students.reduce((total, student) => total + (student.averageScore || 0), 0) / students.length)
                   : 0}%
@@ -762,7 +762,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
       </div>
 
       {/* Search */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
         <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-4">
           <div className="flex-1">
             <div className="relative">
@@ -772,7 +772,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                 placeholder="Search students by name or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-white"
               />
             </div>
           </div>
@@ -824,7 +824,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
 
 
       {/* Students Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden dark:bg-gray-800 dark:border-gray-700">
         {filteredStudents.length === 0 && !isLoading ? (
           <div className="text-center py-12">
             <Users className="mx-auto h-12 w-12 text-gray-400" />
@@ -847,7 +847,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   <button
@@ -861,37 +861,37 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                     )}
                   </button>
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white">
                   Student
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white ">
                   Enrolled Courses
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white">
                   Progress
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white">
                   Performance
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white">
                   Status
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white  ">
                   Last Active
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
               {filteredStudents.map((student, index) => (
                 <motion.tr
                   key={student._id}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="hover:bg-gray-50 focus:outline-none focus:bg-transparent"
+                  className="hover:bg-gray-50 focus:outline-none focus:bg-transparent dark:hover:bg-gray-700 dark:focus:bg-transparent"
                   tabIndex={-1}
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -902,7 +902,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                       {selectedStudents.includes(student.id || student._id || '') ? (
                         <CheckSquare className="w-4 h-4 text-blue-600" />
                       ) : (
-                        <Square className="w-4 h-4 text-gray-400" />
+                        <Square className="w-4 h-4 text-gray-400 dark:text-white" />
                       )}
                     </button>
                   </td>
@@ -916,26 +916,26 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                             alt={`${student.firstName || student.name || 'Student'}`}
                           />
                         ) : (
-                          <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm">
+                          <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm dark:text-white">
                             {getUserInitials(student)}
                           </div>
                         )}
                       </div>
                       <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">
                           {student.firstName && student.lastName 
                             ? `${student.firstName} ${student.lastName}`
                             : student.name || 'Unknown Student'
                           }
                         </div>
-                        <div className="text-sm text-gray-500">{student.email}</div>
+                        <div className="text-sm text-gray-500 dark:text-white">{student.email}</div>
                         {student.role && <div className="text-xs text-gray-400 capitalize">{student.role}</div>}
                       </div>
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{student.totalCourses}</div>
-                    <div className="text-xs text-gray-500">courses enrolled</div>
+                    <div className="text-sm text-gray-900 dark:text-white">{student.totalCourses}</div>
+                    <div className="text-xs text-gray-500 dark:text-white">courses enrolled</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
@@ -951,8 +951,8 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{student.averageScore || 'N/A'}</div>
-                    <div className="text-xs text-gray-500">{student.totalAssignments || 0} assignments</div>
+                    <div className="text-sm text-gray-900 dark:text-white">{student.averageScore || 'N/A'}</div>
+                    <div className="text-xs text-gray-500 dark:text-white">{student.totalAssignments || 0} assignments</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {/* Status column - updated to use correct field names */}
@@ -1070,17 +1070,17 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
       {/* Enroll Student Modal */}
       {showEnrollModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Enroll Student in Course</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Enroll Student in Course</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Select Student
                 </label>
                 <select
                   value={enrollmentData.studentId}
                   onChange={(e) => setEnrollmentData({ ...enrollmentData, studentId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Choose a student...</option>
                   {students.map(student => (
@@ -1094,13 +1094,13 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Select Course
                 </label>
                 <select
                   value={enrollmentData.courseId}
                   onChange={(e) => setEnrollmentData({ ...enrollmentData, courseId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Choose a course...</option>
                   {courses.filter(c => c.isPublished || c.status === 'published' || c.status === 'active').map(course => (
@@ -1114,13 +1114,13 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowEnrollModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleEnrollStudent}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
               >
                 Enroll Student
               </button>
@@ -1132,17 +1132,17 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
       {/* Remove Student Modal */}
       {showRemoveModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Remove Student from Course</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Remove Student from Course</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Select Student
                 </label>
                 <select
                   value={removalData.studentId}
                   onChange={(e) => setRemovalData({ ...removalData, studentId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Choose a student...</option>
                   {students.map(student => (
@@ -1156,13 +1156,13 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Select Course
                 </label>
                 <select
                   value={removalData.courseId}
                   onChange={(e) => setRemovalData({ ...removalData, courseId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Choose a course...</option>
                   {courses.map(course => (
@@ -1176,13 +1176,13 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowRemoveModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRemoveStudent}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
               >
                 Remove Student
               </button>
@@ -1276,8 +1276,8 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                     </div>
                     <div className="flex items-center space-x-2">
                       <Clock className="w-4 h-4 text-orange-600" />
-                      <span className="text-sm text-gray-600">Last Active:</span>
-                      <span className="font-medium text-gray-900">
+                      <span className="text-sm text-gray-600 dark:text-white">Last Active:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
                         {new Date(enrollment.lastAccessed).toLocaleDateString()}
                       </span>
                     </div>
@@ -1314,17 +1314,17 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
       {/* Block Student Modal */}
       {showBlockModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Block Student</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Block Student</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Student
                 </label>
                 <select
                   value={blockData.studentId}
                   onChange={(e) => setBlockData({ ...blockData, studentId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Choose a student...</option>
                   {students.map(student => (
@@ -1338,25 +1338,25 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Reason for Blocking
                 </label>
                 <textarea
                   value={blockData.reason}
                   onChange={(e) => setBlockData({ ...blockData, reason: e.target.value })}
                   placeholder="Enter reason for blocking..."
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   rows={3}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Block Duration
                 </label>
                 <select
                   value={blockData.duration}
                   onChange={(e) => setBlockData({ ...blockData, duration: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="24h">24 Hours</option>
                   <option value="7d">7 Days</option>
@@ -1368,13 +1368,13 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowBlockModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleBlockStudent}
-                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700"
+                className="flex-1 px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors"
               >
                 Block Student
               </button>
@@ -1386,17 +1386,17 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
       {/* Course Assignment Modal */}
       {showCourseAssignmentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Assign Course to Student</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Assign Course to Student</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Student
                 </label>
                 <select
                   value={courseAssignmentData.studentId}
                   onChange={(e) => setCourseAssignmentData({ ...courseAssignmentData, studentId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Choose a student...</option>
                   {students.map(student => (
@@ -1410,7 +1410,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Course
                 </label>
                 <select

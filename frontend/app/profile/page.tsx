@@ -22,7 +22,10 @@ import { useRouter } from 'next/navigation';
 import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useDashboard } from '../../context/DashboardContext';
+import { getDashboardRoute, getUserRole } from '../../utils/dashboardUtils';
 import UserProfileDropdown from '@/app/components/UserProfileDropdown';
+import DarkModeToggle from '../../components/DarkModeToggle';
+import CoolLoader from '../../components/CoolLoader';
 
 interface UserProfile {
   _id: string;
@@ -245,11 +248,37 @@ export default function ProfilePage() {
   // Prevent hydration mismatch by not rendering until mounted
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Profile</h2>
-          <p className="text-gray-600">Please wait...</p>
+          <div className="relative mx-auto mb-6">
+            {/* Logo-inspired loader */}
+            <div className="w-32 h-32 mx-auto relative">
+              {/* Main logo container with gradient background */}
+              <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-2xl animate-pulse">
+                {/* Logo image or placeholder */}
+                <img 
+                  src="/all-07.png" 
+                  alt="Logo" 
+                  className="w-20 h-20 object-contain animate-pulse"
+                />
+              </div>
+              
+              {/* Animated rings around the logo */}
+              <div className="absolute inset-0 border-4 border-blue-400 rounded-full animate-ping opacity-20"></div>
+              <div className="absolute inset-0 border-4 border-purple-400 rounded-full animate-ping opacity-20" style={{ animationDelay: '0.5s' }}></div>
+              
+              {/* Rotating border */}
+              <div className="absolute inset-0 border-4 border-transparent border-t-blue-600 border-r-purple-600 rounded-full animate-spin"></div>
+            </div>
+            
+            {/* Loading text with gradient */}
+            <div className="mt-4">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent animate-pulse">
+                Initializing Profile
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400 mt-2">Please wait while we set up your profile</p>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -257,25 +286,23 @@ export default function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-2">Loading Profile</h2>
-          <p className="text-gray-600">Please wait...</p>
-        </div>
-      </div>
+      <CoolLoader 
+        message="Loading Profile"
+        size="md"
+        variant="student"
+      />
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 bg-gray-400 rounded-full flex items-center justify-center mx-auto mb-4">
+          <div className="w-16 h-16 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <User className="w-8 h-8 text-white" />
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-3">Profile Not Found</h2>
-          <p className="text-gray-600 mb-6">Unable to load your profile information.</p>
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Profile Not Found</h2>
+          <p className="text-gray-600 dark:text-gray-400 mb-6">Unable to load your profile information.</p>
           <button
             onClick={() => router.push('/dashboard')}
             className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -288,9 +315,9 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm sticky top-0 z-50">
+      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center space-x-4">
@@ -303,11 +330,13 @@ export default function ProfilePage() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   {settings.platformName}
                 </h1>
-                <p className="text-sm text-gray-500">Trading Education Platform</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Trading Education Platform</p>
               </div>
             </div>
             
             <div className="flex items-center space-x-4">
+              {/* Dark Mode Toggle */}
+              <DarkModeToggle size="sm" />
               {/* User Profile Dropdown */}
               <UserProfileDropdown user={user} />
             </div>
@@ -320,16 +349,20 @@ export default function ProfilePage() {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div className="text-center flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 mb-3">
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
                 {t('profile')}
               </h1>
-              <p className="text-gray-600 max-w-2xl mx-auto">
+              <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
                 Manage your personal information and account preferences
               </p>
             </div>
             <button
-              onClick={() => router.push('/dashboard')}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors flex items-center space-x-2"
+              onClick={() => {
+                const userRole = getUserRole();
+                const dashboardRoute = getDashboardRoute(userRole || 'student');
+                router.push(dashboardRoute);
+              }}
+              className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center space-x-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
@@ -352,7 +385,7 @@ export default function ProfilePage() {
               <>
                 <button
                   onClick={handleCancel}
-                  className="px-8 py-4 border-2 border-gray-300 text-gray-700 rounded-2xl hover:bg-gray-50 hover:border-gray-400 transition-all duration-300 transform hover:scale-105 flex items-center space-x-3 text-lg font-semibold"
+                  className="px-8 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-300 transform hover:scale-105 flex items-center space-x-3 text-lg font-semibold"
                 >
                   <X className="w-5 h-5" />
                   <span>{t('cancel')}</span>
@@ -373,7 +406,7 @@ export default function ProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Classic Profile Card */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
               <div className="text-center">
                 {/* Profile Image */}
                 <div className="relative inline-block mb-4">
@@ -404,14 +437,14 @@ export default function ProfilePage() {
                   </div>
                 </div>
 
-                <h2 className="text-xl font-semibold text-gray-900 mb-2">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
                   {user.firstName} {user.lastName}
                 </h2>
-                <p className="text-gray-600 capitalize mb-3">{user.role}</p>
+                <p className="text-gray-600 dark:text-gray-400 capitalize mb-3">{user.role}</p>
                 
                 {user.bio && (
-                  <div className="bg-gray-50 rounded-lg p-3 mb-4 border border-gray-100">
-                    <p className="text-gray-700 text-sm leading-relaxed">
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4 border border-gray-100 dark:border-gray-600">
+                    <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
                       {user.bio}
                     </p>
                   </div>
@@ -428,7 +461,7 @@ export default function ProfilePage() {
                   </button>
                   <button
                     onClick={() => router.push('/dashboard?tab=settings')}
-                    className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors flex items-center justify-center space-x-2 text-sm"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2 text-sm"
                   >
                     <Settings className="w-4 h-4" />
                     <span>Settings</span>
@@ -444,16 +477,16 @@ export default function ProfilePage() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm"
+              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
             >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                 <User className="w-5 h-5 mr-2 text-blue-600" />
                 Personal Information
               </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t('firstName')}
                   </label>
                   {isEditing ? (
@@ -461,18 +494,18 @@ export default function ProfilePage() {
                       type="text"
                       value={editForm.firstName || ''}
                       onChange={(e) => handleInputChange('firstName', e.target.value)}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                       placeholder="Enter your first name"
                     />
                   ) : (
-                    <div className="px-3 py-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-gray-900">{user.firstName}</p>
+                    <div className="px-3 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                      <p className="text-gray-900 dark:text-white">{user.firstName}</p>
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t('lastName')}
                   </label>
                   {isEditing ? (
@@ -480,28 +513,28 @@ export default function ProfilePage() {
                       type="text"
                       value={editForm.lastName || ''}
                       onChange={(e) => handleInputChange('lastName', e.target.value)}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                       placeholder="Enter your last name"
                     />
                   ) : (
-                    <div className="px-3 py-3 bg-gray-50 rounded-lg border border-gray-200">
-                      <p className="text-gray-900">{user.lastName}</p>
+                    <div className="px-3 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                      <p className="text-gray-900 dark:text-white">{user.lastName}</p>
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t('email')}
                   </label>
-                  <div className="px-3 py-3 bg-gray-50 rounded-lg border border-gray-200 flex items-center">
-                    <Mail className="w-4 h-4 mr-2 text-gray-500" />
-                    <span className="text-gray-900">{user.email}</span>
+                  <div className="px-3 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center">
+                    <Mail className="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" />
+                    <span className="text-gray-900 dark:text-white">{user.email}</span>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t('phone')}
                   </label>
                   {isEditing ? (
@@ -509,19 +542,19 @@ export default function ProfilePage() {
                       type="tel"
                       value={editForm.phone || ''}
                       onChange={(e) => handleInputChange('phone', e.target.value)}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                       placeholder="Enter phone number"
                     />
                   ) : (
-                    <div className="px-3 py-3 bg-gray-50 rounded-lg border border-gray-200 flex items-center">
-                      <Phone className="w-4 h-4 mr-2 text-gray-500" />
-                      <span className="text-gray-900">{user.phone || 'Not provided'}</span>
+                    <div className="px-3 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center">
+                      <Phone className="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" />
+                      <span className="text-gray-900 dark:text-white">{user.phone || 'Not provided'}</span>
                     </div>
                   )}
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t('dateOfBirth')}
                   </label>
                   {isEditing ? (
@@ -529,12 +562,12 @@ export default function ProfilePage() {
                       type="date"
                       value={editForm.dateOfBirth || ''}
                       onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   ) : (
-                    <div className="px-3 py-3 bg-gray-50 rounded-lg border border-gray-200 flex items-center">
-                      <Calendar className="w-4 h-4 mr-2 text-gray-500" />
-                      <span className="text-gray-900">
+                    <div className="px-3 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center">
+                      <Calendar className="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" />
+                      <span className="text-gray-900 dark:text-white">
                         {formatDate(user.dateOfBirth)}
                       </span>
                     </div>
@@ -542,7 +575,7 @@ export default function ProfilePage() {
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t('address')}
                   </label>
                   {isEditing ? (
@@ -550,19 +583,19 @@ export default function ProfilePage() {
                       value={editForm.address || ''}
                       onChange={(e) => handleInputChange('address', e.target.value)}
                       rows={3}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                       placeholder="Enter your address"
                     />
                   ) : (
-                    <p className="text-gray-900 flex items-start">
-                      <MapPin className="w-4 h-4 mr-2 text-gray-400 mt-0.5" />
+                    <p className="text-gray-900 dark:text-white flex items-start">
+                      <MapPin className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500 mt-0.5" />
                       {user.address || 'Not provided'}
                     </p>
                   )}
                 </div>
 
                 <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     {t('bio')}
                   </label>
                   {isEditing ? (
@@ -570,11 +603,11 @@ export default function ProfilePage() {
                       value={editForm.bio || ''}
                       onChange={(e) => handleInputChange('bio', e.target.value)}
                       rows={4}
-                      className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                       placeholder="Tell us about yourself..."
                     />
                   ) : (
-                    <p className="text-gray-900">
+                    <p className="text-gray-900 dark:text-white">
                       {user.bio || 'No bio provided'}
                     </p>
                   )}
@@ -587,18 +620,18 @@ export default function ProfilePage() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm"
+              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
             >
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                 <Settings className="w-5 h-5 mr-2 text-green-600" />
                 {t('notifications')}
               </h3>
               
               <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                   <div>
-                    <h4 className="font-medium text-gray-900">{t('emailNotifications')}</h4>
-                    <p className="text-sm text-gray-600">Receive notifications via email</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white">{t('emailNotifications')}</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Receive notifications via email</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -612,10 +645,10 @@ export default function ProfilePage() {
                   </label>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                   <div>
-                    <h4 className="font-medium text-gray-900">{t('security')}</h4>
-                    <p className="text-sm text-gray-600">Manage password, 2FA, and security preferences</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white">{t('security')}</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Manage password, 2FA, and security preferences</p>
                   </div>
                   <button 
                     onClick={() => router.push('/settings')}
@@ -629,10 +662,10 @@ export default function ProfilePage() {
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                   <div>
-                    <h4 className="font-medium text-gray-900">{t('pushNotifications')}</h4>
-                    <p className="text-sm text-gray-600">Receive push notifications in browser</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white">{t('pushNotifications')}</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Receive push notifications in browser</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input
@@ -646,10 +679,10 @@ export default function ProfilePage() {
                   </label>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                   <div>
-                    <h4 className="font-medium text-gray-900">{t('marketingEmails')}</h4>
-                    <p className="text-sm text-gray-600">Receive promotional and marketing emails</p>
+                    <h4 className="font-medium text-gray-900 dark:text-white">{t('marketingEmails')}</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Receive promotional and marketing emails</p>
                   </div>
                   <label className="relative inline-flex items-center cursor-pointer">
                     <input

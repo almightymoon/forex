@@ -82,7 +82,7 @@ export default function UserProfileDropdown({
               {/* Profile Button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200 relative"
+          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 relative"
         >
           {/* Profile Avatar */}
           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
@@ -103,17 +103,17 @@ export default function UserProfileDropdown({
         
         {/* User Info */}
         <div className="text-left hidden sm:block">
-          <p className="text-sm font-medium text-gray-900">
+          <p className="text-sm font-medium text-gray-900 dark:text-white">
             {user.firstName} {user.lastName}
           </p>
-          <p className="text-xs text-gray-500 capitalize">
+          <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
             {user.role}
           </p>
         </div>
         
         {/* Chevron Icon */}
         <ChevronDown 
-          className={`w-4 h-4 text-gray-400 transition-transform duration-200 ${
+          className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform duration-200 ${
             isOpen ? 'rotate-180' : ''
           }`}
         />
@@ -121,14 +121,14 @@ export default function UserProfileDropdown({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+        <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
           {/* User Header */}
-          <div className="px-4 py-3 border-b border-gray-100">
-            <p className="text-sm font-medium text-gray-900">
+          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
+            <p className="text-sm font-medium text-gray-900 dark:text-white">
               {user.firstName} {user.lastName}
             </p>
-            <p className="text-xs text-gray-500">{user.email}</p>
-                              <p className="text-xs text-gray-400 capitalize mt-1">
+            <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500 capitalize mt-1">
                     {user.role} {t('account')}
                   </p>
           </div>
@@ -138,9 +138,9 @@ export default function UserProfileDropdown({
             {/* Profile */}
             <button
               onClick={handleProfileClick}
-              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
             >
-                              <User className="w-4 h-4 mr-3 text-gray-400" />
+                              <User className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
                 {t('profile')}
             </button>
 
@@ -148,9 +148,9 @@ export default function UserProfileDropdown({
             {showSettings && (
               <button
                 onClick={handleSettingsClick}
-                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
               >
-                <Settings className="w-4 h-4 mr-3 text-gray-400" />
+                <Settings className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
                 {t('settings')}
               </button>
             )}
@@ -162,20 +162,20 @@ export default function UserProfileDropdown({
                   setIsOpen(false);
                   router.push('/notifications');
                 }}
-                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors duration-150"
+                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
               >
-                <Bell className="w-4 h-4 mr-3 text-gray-400" />
+                <Bell className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
                 <span>{t('notifications')}</span>
               </button>
             )}
 
             {/* Divider */}
-            <div className="border-t border-gray-100 my-1"></div>
+            <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
 
             {/* Logout */}
             <button
               onClick={handleLogout}
-              className="w-full flex items-center px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors duration-150"
+              className="w-full flex items-center px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-150"
             >
                               <LogOut className="w-4 h-4 mr-3" />
                 {t('logout')}

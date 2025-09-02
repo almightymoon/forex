@@ -87,14 +87,14 @@ export default function CertificateTemplateManager() {
   });
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold">Certificate Templates</h1>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Certificate Templates</h1>
           <button
             onClick={() => setIsFormOpen(true)}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2"
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-4 h-4" />
             Create Template
@@ -102,21 +102,21 @@ export default function CertificateTemplateManager() {
         </div>
 
         {/* Filters */}
-        <div className="bg-white p-4 rounded-lg border mb-6 flex flex-col sm:flex-row gap-4">
+        <div className="bg-white dark:bg-gray-800 p-4 rounded-lg border border-gray-200 dark:border-gray-700 mb-6 flex flex-col sm:flex-row gap-4">
           <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder="Search templates..."
-              className="w-full pl-10 pr-4 py-2 border rounded-lg"
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
             />
           </div>
           <select
             value={selectedCategory}
             onChange={(e) => setSelectedCategory(e.target.value)}
-            className="px-3 py-2 border rounded-lg"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           >
             <option value="all">All</option>
             <option value="academic">Academic</option>
@@ -129,13 +129,13 @@ export default function CertificateTemplateManager() {
 
         {/* Templates Grid */}
         {isLoading ? (
-          <p className="text-center py-12">Loading templates...</p>
+          <p className="text-center py-12 text-gray-600 dark:text-gray-300">Loading templates...</p>
         ) : filtered.length === 0 ? (
-          <p className="text-center py-12 text-gray-600">No templates found.</p>
+          <p className="text-center py-12 text-gray-600 dark:text-gray-300">No templates found.</p>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((t) => (
-              <div key={t._id} className="bg-white rounded-lg border shadow-sm">
+              <div key={t._id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
                 <div
                   className="h-40 rounded-t-lg bg-center bg-cover"
                   style={{
@@ -145,20 +145,20 @@ export default function CertificateTemplateManager() {
                   }}
                 />
                 <div className="p-4">
-                  <h3 className="font-semibold">{t.name}</h3>
-                  <p className="text-sm text-gray-600">{t.description || 'No description'}</p>
-                  <div className="flex justify-between mt-3 text-sm text-gray-500">
+                  <h3 className="font-semibold text-gray-900 dark:text-white">{t.name}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">{t.description || 'No description'}</p>
+                  <div className="flex justify-between mt-3 text-sm text-gray-500 dark:text-gray-400">
                     <span>{t.category}</span>
                     <span>{t.usageCount} uses</span>
                   </div>
                   <div className="flex gap-2 mt-3">
-                    <button onClick={() => setActiveTemplate(t)} className="p-2 text-gray-600 hover:text-blue-600">
+                    <button onClick={() => setActiveTemplate(t)} className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
                       <Eye className="w-4 h-4" />
                     </button>
-                    <button onClick={() => duplicateTemplate(t._id)} className="p-2 text-gray-600 hover:text-green-600">
+                    <button onClick={() => duplicateTemplate(t._id)} className="p-2 text-gray-600 dark:text-gray-400 hover:text-green-600 dark:hover:text-green-400 transition-colors">
                       <Copy className="w-4 h-4" />
                     </button>
-                    <button onClick={() => deleteTemplate(t._id)} className="p-2 text-gray-600 hover:text-red-600">
+                    <button onClick={() => deleteTemplate(t._id)} className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -172,14 +172,14 @@ export default function CertificateTemplateManager() {
       {/* Preview Modal */}
       {activeTemplate && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-6">
-          <div className="bg-white rounded-lg max-w-3xl w-full p-6 relative">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-3xl w-full p-6 relative">
             <button
               onClick={() => setActiveTemplate(null)}
-              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+              className="absolute top-3 right-3 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
             >
               ✕
             </button>
-            <h2 className="text-xl font-bold mb-4">{activeTemplate.name}</h2>
+            <h2 className="text-xl font-bold mb-4 text-gray-900 dark:text-white">{activeTemplate.name}</h2>
             <div
               className="w-full h-96 border rounded-lg bg-center bg-cover"
               style={{

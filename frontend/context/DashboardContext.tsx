@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { buildApiUrl } from '../utils/api';
+import { buildApiUrl, apiRequest } from '../utils/api';
 import { fetchWithMaintenanceCheck } from '../hooks/useMaintenanceMode';
 
 interface User {
@@ -219,32 +219,49 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           fetchWithMaintenanceCheck('/api/courses/enrolled', {
             headers: { 'Authorization': `Bearer ${token}` }
           }),
-          fetchWithMaintenanceCheck(buildApiUrl('api/signals'), {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }),
-          fetchWithMaintenanceCheck(buildApiUrl('api/assignments'), {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }),
-          fetch('http://localhost:4000/api/sessions', {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }),
-          fetchWithMaintenanceCheck(buildApiUrl('api/certificates/student'), {
-            headers: { 'Authorization': `Bearer ${token}` }
-          }),
-          fetch(buildApiUrl(`api/notifications/user?unreadOnly=true&limit=1&t=${Date.now()}`), {
-            headers: { 'Authorization': `Bearer ${token}` }
-          })
+          apiRequest('api/signals'),
+          apiRequest('api/assignments'),
+          apiRequest('api/sessions'),
+          apiRequest('api/certificates/student'),
+          apiRequest(`api/notifications/user?unreadOnly=true&limit=1&t=${Date.now()}`)
         ]);
 
         // Parse responses that need JSON parsing
         let liveSessionsData = [];
         let notificationCountData = 0;
+        let signalsData = [];
+        let assignmentsData = [];
+        let certificatesData = [];
 
         if (liveSessionsResult.ok) {
           try {
             liveSessionsData = await liveSessionsResult.json();
           } catch (error) {
             console.error('Error parsing live sessions:', error);
+          }
+        }
+
+        if (signalsResult.ok) {
+          try {
+            signalsData = await signalsResult.json();
+          } catch (error) {
+            console.error('Error parsing signals:', error);
+          }
+        }
+
+        if (assignmentsResult.ok) {
+          try {
+            assignmentsData = await assignmentsResult.json();
+          } catch (error) {
+            console.error('Error parsing assignments:', error);
+          }
+        }
+
+        if (certificatesResult.ok) {
+          try {
+            certificatesData = await certificatesResult.json();
+          } catch (error) {
+            console.error('Error parsing certificates:', error);
           }
         }
 
@@ -261,11 +278,11 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setData(prev => ({
           ...prev,
           courses: coursesResult.data || [],
-          signals: signalsResult.data || [],
-          assignments: assignmentsResult.data || [],
+          signals: signalsData,
+          assignments: assignmentsData,
           liveSessions: liveSessionsData,
-          certificates: Array.isArray(certificatesResult.data) ? certificatesResult.data : 
-                      certificatesResult.data?.certificates || [],
+          certificates: Array.isArray(certificatesData) ? certificatesData : 
+                      (certificatesData as any)?.certificates || [],
           notificationCount: notificationCountData,
           lastUpdated: Date.now()
         }));
@@ -300,7 +317,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch (error) {
       console.error('Error fetching available courses:', error);
     }
-  }, [data.availableCourses.length]);
+  }, []); // Remove dependency to prevent infinite loops
 
   const refreshData = useCallback(async () => {
     setRefreshing(true);
@@ -358,18 +375,27 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   useEffect(() => {
     fetchUserData();
     fetchAvailableCourses();
-  }, [fetchUserData, fetchAvailableCourses]);
+  }, []); // Only run once on mount
 
   // Auto-refresh data if it's stale when component becomes visible
   useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+    
     const handleVisibilityChange = () => {
       if (!document.hidden && isDataStale()) {
-        refreshData();
+        // Debounce the refresh to prevent rapid calls
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+          refreshData();
+        }, 1000); // 1 second debounce
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearTimeout(timeoutId);
+    };
   }, [refreshData]);
 
   const value: DashboardContextType = {

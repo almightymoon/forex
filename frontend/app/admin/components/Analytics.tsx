@@ -40,8 +40,8 @@ export default function Analytics({ analytics }: AnalyticsProps) {
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Revenue Chart */}
-        <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 mb-6">Revenue Overview</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Revenue Overview</h3>
           <div className="h-64">
             <Line
               data={{
@@ -110,8 +110,8 @@ export default function Analytics({ analytics }: AnalyticsProps) {
         </div>
 
         {/* User Growth */}
-        <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
-          <h3 className="text-xl font-semibold text-gray-900 mb-6">User Growth</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
+          <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">User Growth</h3>
           <div className="h-64">
             <Bar
               data={{
@@ -175,8 +175,8 @@ export default function Analytics({ analytics }: AnalyticsProps) {
       </div>
 
       {/* Payment Methods Breakdown */}
-      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
-        <h3 className="text-xl font-semibold text-gray-900 mb-6">Payment Methods</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
+        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Payment Methods</h3>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className="h-64 flex items-center justify-center">
             <div className="w-64 h-64">
@@ -245,7 +245,7 @@ export default function Analytics({ analytics }: AnalyticsProps) {
           </div>
           
           <div className="space-y-4">
-            <h4 className="text-lg font-medium text-gray-900">Payment Method Details</h4>
+            <h4 className="text-lg font-medium text-gray-900 dark:text-white">Payment Method Details</h4>
             {analytics.paymentMethodStats.map((stat, index) => {
               const methodNames: { [key: string]: string } = {
                 'promo_code': 'Promo Code',
@@ -263,16 +263,16 @@ export default function Analytics({ analytics }: AnalyticsProps) {
               ];
               
               return (
-                <div key={stat.method} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                <div key={stat.method} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div className="flex items-center space-x-3">
                     <div className={`w-4 h-4 rounded-full ${colors[index % colors.length]}`}></div>
-                    <span className="font-medium text-gray-900">
+                    <span className="font-medium text-gray-900 dark:text-white">
                       {methodNames[stat.method] || stat.method}
                     </span>
                   </div>
                   <div className="text-right">
-                    <p className="font-semibold text-gray-900">{stat.count} payments</p>
-                    <p className="text-sm text-gray-500">${stat.totalAmount}</p>
+                    <p className="font-semibold text-gray-900 dark:text-white">{stat.count} payments</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">${stat.totalAmount}</p>
                   </div>
                 </div>
               );
@@ -282,34 +282,34 @@ export default function Analytics({ analytics }: AnalyticsProps) {
       </div>
 
       {/* Platform Statistics */}
-      <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg">
-        <h3 className="text-xl font-semibold text-gray-900 mb-6">Platform Statistics</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
+        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Platform Statistics</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 rounded-xl">
+          <div className="text-center p-4 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl">
             <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-3">
               <Users className="w-6 h-6 text-white" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">{analytics.activeUsers}</p>
-            <p className="text-sm text-gray-600">Active Users</p>
-            <p className="text-xs text-blue-600 mt-1">Last 30 days</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.activeUsers}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Active Users</p>
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Last 30 days</p>
           </div>
           
-          <div className="text-center p-4 bg-gradient-to-r from-green-50 to-green-100 rounded-xl">
+          <div className="text-center p-4 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl">
             <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center mx-auto mb-3">
               <CreditCard className="w-6 h-6 text-white" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">{analytics.paymentsThisMonth}</p>
-            <p className="text-sm text-gray-600">Payments</p>
-            <p className="text-xs text-green-600 mt-1">This month</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.paymentsThisMonth}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Payments</p>
+            <p className="text-xs text-green-600 dark:text-green-400 mt-1">This month</p>
           </div>
           
-          <div className="text-center p-4 bg-gradient-to-r from-purple-50 to-purple-100 rounded-xl">
+          <div className="text-center p-4 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl">
             <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center mx-auto mb-3">
               <Target className="w-6 h-6 text-white" />
             </div>
-            <p className="text-2xl font-bold text-gray-900">{analytics.activePromoCodes}</p>
-            <p className="text-sm text-gray-600">Active Promo Codes</p>
-            <p className="text-xs text-purple-600 mt-1">Currently available</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.activePromoCodes}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-300">Active Promo Codes</p>
+            <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">Currently available</p>
           </div>
         </div>
       </div>

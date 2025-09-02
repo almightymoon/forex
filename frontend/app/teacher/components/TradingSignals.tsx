@@ -109,6 +109,7 @@ export default function TradingSignals() {
   const [showViewModal, setShowViewModal] = useState(false);
   const [selectedSignal, setSelectedSignal] = useState<TradingSignal | null>(null);
   const [editingSignal, setEditingSignal] = useState<TradingSignal | null>(null);
+  const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [newSignal, setNewSignal] = useState<CreateSignalData>({
     symbol: '',
     instrumentType: 'forex',
@@ -402,16 +403,57 @@ export default function TradingSignals() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Trading Signals</h2>
-          <p className="text-gray-600">Create and manage professional trading signals for your students</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Trading Signals</h2>
+          <p className="text-gray-600 dark:text-gray-300">Create and manage professional trading signals for your students</p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span>Create Signal</span>
-        </button>
+        <div className="flex items-center space-x-4">
+          {/* View Toggle */}
+          <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <button
+              onClick={() => setViewMode('card')}
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                viewMode === 'card'
+                  ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <div className="grid grid-cols-2 gap-0.5">
+                  <div className="w-2 h-2 bg-current rounded-sm"></div>
+                  <div className="w-2 h-2 bg-current rounded-sm"></div>
+                  <div className="w-2 h-2 bg-current rounded-sm"></div>
+                  <div className="w-2 h-2 bg-current rounded-sm"></div>
+                </div>
+                <span>Cards</span>
+              </div>
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                viewMode === 'list'
+                  ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-gray-100'
+              }`}
+            >
+              <div className="flex items-center space-x-2">
+                <div className="flex flex-col space-y-0.5">
+                  <div className="w-4 h-1 bg-current rounded-sm"></div>
+                  <div className="w-4 h-1 bg-current rounded-sm"></div>
+                  <div className="w-4 h-1 bg-current rounded-sm"></div>
+                </div>
+                <span>List</span>
+              </div>
+            </button>
+          </div>
+          
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Create Signal</span>
+          </button>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -419,15 +461,15 @@ export default function TradingSignals() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <Target className="w-6 h-6 text-blue-600" />
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <Target className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Signals</p>
-              <p className="text-2xl font-bold text-gray-900">{signals.length}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Total Signals</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{signals.length}</p>
             </div>
           </div>
         </motion.div>
@@ -436,15 +478,15 @@ export default function TradingSignals() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-green-600" />
+            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+              <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Active</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-gray-600 dark:text-gray-300">Active</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {signals.filter(s => s.status === 'active').length}
               </p>
             </div>
@@ -455,15 +497,15 @@ export default function TradingSignals() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Users className="w-6 h-6 text-purple-600" />
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Views</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-gray-600 dark:text-gray-300">Total Views</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {signals.reduce((total, signal) => total + signal.views, 0)}
               </p>
             </div>
@@ -474,15 +516,15 @@ export default function TradingSignals() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <MessageSquare className="w-6 h-6 text-orange-600" />
+            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+              <MessageSquare className="w-6 h-6 text-orange-600 dark:text-orange-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Comments</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-gray-600 dark:text-gray-300">Total Comments</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {signals.reduce((total, signal) => total + signal.comments.length, 0)}
               </p>
             </div>
@@ -490,154 +532,313 @@ export default function TradingSignals() {
         </motion.div>
       </div>
 
-      {/* Signals Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {signals.map((signal, index) => (
-          <motion.div
-            key={signal._id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: index * 0.05 }}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
-          >
-            <div className="p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{signal.symbol}</h3>
-                  <p className="text-sm text-gray-600 line-clamp-2">{signal.description}</p>
-                </div>
-                <div className="flex flex-col items-end space-y-2">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(signal.status)}`}>
-                    {signal.status}
-                  </span>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(signal.type)}`}>
-                    {signal.type.toUpperCase()}
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-3 mb-4">
-                <div className="grid grid-cols-3 gap-2 text-sm">
-                  <div className="text-center p-2 bg-gray-50 rounded">
-                    <p className="text-gray-500 text-xs">Entry</p>
-                    <p className="font-semibold">${signal.entryPrice}</p>
+      {/* Signals Display */}
+      {viewMode === 'card' ? (
+        /* Card View */
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {signals.map((signal, index) => (
+            <motion.div
+              key={signal._id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden"
+            >
+              <div className="p-6">
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{signal.symbol}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{signal.description}</p>
                   </div>
-                  <div className="text-center p-2 bg-gray-50 rounded">
-                    <p className="text-gray-500 text-xs">Target</p>
-                    <p className="font-semibold">${signal.targetPrice}</p>
-                  </div>
-                  <div className="text-center p-2 bg-gray-50 rounded">
-                    <p className="text-gray-500 text-xs">Stop Loss</p>
-                    <p className="font-semibold">${signal.stopLoss}</p>
+                  <div className="flex flex-col items-end space-y-2">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(signal.status)}`}>
+                      {signal.status}
+                    </span>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(signal.type)}`}>
+                      {signal.type.toUpperCase()}
+                    </span>
                   </div>
                 </div>
-                
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Confidence: {signal.confidence}%</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskColor(signal.riskLevel)}`}>
-                    {signal.riskLevel}
-                  </span>
+
+                <div className="space-y-3 mb-4">
+                  <div className="grid grid-cols-3 gap-2 text-sm">
+                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                      <p className="text-gray-500 dark:text-gray-400 text-xs">Entry</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">${signal.entryPrice}</p>
+                    </div>
+                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                      <p className="text-gray-500 dark:text-gray-400 text-xs">Target</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">${signal.targetPrice}</p>
+                    </div>
+                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                      <p className="text-gray-500 dark:text-gray-400 text-xs">Stop Loss</p>
+                      <p className="font-semibold text-gray-900 dark:text-white">${signal.stopLoss}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-600 dark:text-gray-300">Confidence: {signal.confidence}%</span>
+                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskColor(signal.riskLevel)}`}>
+                      {signal.riskLevel}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300 mb-4">
+                  <span>Timeframe: {signal.timeframe}</span>
+                  <span>{new Date(signal.createdAt).toLocaleDateString()}</span>
+                </div>
+
+                <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300 mb-4">
+                  <div className="flex items-center space-x-2">
+                    <Eye className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                    <span>{signal.views}</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <MessageSquare className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                    <span>{signal.comments.length}</span>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2">
+                  {signal.status === 'active' && (
+                    <>
+                      <button
+                        onClick={() => handleTogglePublish(signal._id, signal.isPublished)}
+                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${
+                          signal.isPublished 
+                            ? 'bg-yellow-600 text-white hover:bg-yellow-700' 
+                            : 'bg-green-600 text-white hover:bg-green-700'
+                        }`}
+                      >
+                        {signal.isPublished ? 'Unpublish' : 'Publish'}
+                      </button>
+                      <button
+                        onClick={() => handleCloseSignal(signal._id)}
+                        className="px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                      >
+                        Close Signal
+                      </button>
+                    </>
+                  )}
+                  
+                  <button
+                    onClick={() => {
+                      setSelectedSignal(signal);
+                      setShowViewModal(true);
+                    }}
+                    className="px-3 py-2 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 transition-colors"
+                    title="View Signal"
+                  >
+                    <Eye className="w-4 h-4" />
+                  </button>
+                  
+                  <button
+                    onClick={() => {
+                      setEditingSignal(signal);
+                      setShowEditModal(true);
+                    }}
+                    className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+                    title="Edit Signal"
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  
+                  <button
+                    onClick={() => handleDeleteSignal(signal._id)}
+                    className="px-3 py-2 text-red-600 hover:text-red-900 transition-colors"
+                    title="Delete Signal"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-
-              <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-                <span>Timeframe: {signal.timeframe}</span>
-                <span>{new Date(signal.createdAt).toLocaleDateString()}</span>
-              </div>
-
-              <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
-                <div className="flex items-center space-x-2">
-                  <Eye className="w-4 h-4" />
-                  <span>{signal.views}</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <MessageSquare className="w-4 h-4" />
-                  <span>{signal.comments.length}</span>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {signal.status === 'active' && (
-                  <>
-                    <button
-                      onClick={() => handleTogglePublish(signal._id, signal.isPublished)}
-                      className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                        signal.isPublished 
-                          ? 'bg-yellow-600 text-white hover:bg-yellow-700' 
-                          : 'bg-green-600 text-white hover:bg-green-700'
-                      }`}
-                    >
-                      {signal.isPublished ? 'Unpublish' : 'Publish'}
-                    </button>
-                    <button
-                      onClick={() => handleCloseSignal(signal._id)}
-                      className="px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
-                    >
-                      Close Signal
-                    </button>
-                  </>
-                )}
-                
-                <button
-                  onClick={() => {
-                    setSelectedSignal(signal);
-                    setShowViewModal(true);
-                  }}
-                  className="px-3 py-2 text-blue-600 hover:text-blue-900 transition-colors"
-                  title="View Signal"
-                >
-                  <Eye className="w-4 h-4" />
-                </button>
-                
-                <button
-                  onClick={() => {
-                    setEditingSignal(signal);
-                    setShowEditModal(true);
-                  }}
-                  className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors"
-                  title="Edit Signal"
-                >
-                  <Edit className="w-4 h-4" />
-                </button>
-                
-                <button
-                  onClick={() => handleDeleteSignal(signal._id)}
-                  className="px-3 py-2 text-red-600 hover:text-red-900 transition-colors"
-                  title="Delete Signal"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        ))}
-      </div>
+            </motion.div>
+          ))}
+        </div>
+      ) : (
+        /* List View */
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Signal
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Type
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Prices
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Performance
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+                {signals.map((signal, index) => (
+                  <motion.tr
+                    key={signal._id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div>
+                        <div className="text-sm font-medium text-gray-900 dark:text-white">{signal.symbol}</div>
+                        <div className="text-sm text-gray-500 dark:text-gray-300 line-clamp-2 max-w-xs">{signal.description}</div>
+                        <div className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                          {new Date(signal.createdAt).toLocaleDateString()} • {signal.timeframe}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col space-y-1">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(signal.type)}`}>
+                          {signal.type.toUpperCase()}
+                        </span>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRiskColor(signal.riskLevel)}`}>
+                          {signal.riskLevel}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 dark:text-gray-400">Entry:</span>
+                          <span className="font-medium text-gray-900 dark:text-white">${signal.entryPrice}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 dark:text-gray-400">Target:</span>
+                          <span className="font-medium text-green-600 dark:text-green-400">${signal.targetPrice}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500 dark:text-gray-400">Stop:</span>
+                          <span className="font-medium text-red-600 dark:text-red-400">${signal.stopLoss}</span>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex flex-col space-y-1">
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(signal.status)}`}>
+                          {signal.status}
+                        </span>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          Confidence: {signal.confidence}%
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm space-y-1">
+                        <div className="flex items-center space-x-2">
+                          <Eye className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                          <span className="text-gray-900 dark:text-white">{signal.views}</span>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <MessageSquare className="w-4 h-4 text-gray-400 dark:text-gray-500" />
+                          <span className="text-gray-900 dark:text-white">{signal.comments.length}</span>
+                        </div>
+                        <div className="text-xs text-gray-500 dark:text-gray-400">
+                          {signal.isPublished ? 'Published' : 'Draft'}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                      <div className="flex items-center space-x-2">
+                        {signal.status === 'active' && (
+                          <>
+                            <button
+                              onClick={() => handleTogglePublish(signal._id, signal.isPublished)}
+                              className={`px-2 py-1 rounded text-xs transition-colors ${
+                                signal.isPublished 
+                                  ? 'bg-yellow-600 text-white hover:bg-yellow-700' 
+                                  : 'bg-green-600 text-white hover:bg-green-700'
+                              }`}
+                            >
+                              {signal.isPublished ? 'Unpub' : 'Pub'}
+                            </button>
+                            <button
+                              onClick={() => handleCloseSignal(signal._id)}
+                              className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition-colors"
+                            >
+                              Close
+                            </button>
+                          </>
+                        )}
+                        
+                        <button
+                          onClick={() => {
+                            setSelectedSignal(signal);
+                            setShowViewModal(true);
+                          }}
+                          className="px-2 py-1 text-blue-600 hover:text-blue-900 transition-colors"
+                          title="View Signal"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        
+                        <button
+                          onClick={() => {
+                            setEditingSignal(signal);
+                            setShowEditModal(true);
+                          }}
+                          className="px-2 py-1 text-gray-600 hover:text-gray-900 transition-colors"
+                          title="Edit Signal"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        
+                        <button
+                          onClick={() => handleDeleteSignal(signal._id)}
+                          className="px-2 py-1 text-red-600 hover:text-red-900 transition-colors"
+                          title="Delete Signal"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </motion.tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Create Signal Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Create New Trading Signal</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Create New Trading Signal</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Symbol *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Symbol *</label>
                 <input
                   type="text"
                   value={newSignal.symbol}
                   onChange={(e) => {
                     setNewSignal({ ...newSignal, symbol: e.target.value.toUpperCase() });
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="e.g., EUR/USD, BTC/USD"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Instrument Type *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Instrument Type *</label>
                 <select
                   value={newSignal.instrumentType}
                   onChange={(e) => setNewSignal({ ...newSignal, instrumentType: e.target.value as 'forex' | 'crypto' | 'stocks' | 'commodities' | 'indices' | 'futures' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="forex">Forex</option>
                   <option value="crypto">Cryptocurrency</option>
@@ -649,11 +850,11 @@ export default function TradingSignals() {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Signal Type *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Signal Type *</label>
                 <select
                   value={newSignal.type}
                   onChange={(e) => setNewSignal({ ...newSignal, type: e.target.value as 'buy' | 'sell' | 'hold' | 'strong_buy' | 'strong_sell' })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="buy">Buy</option>
                   <option value="sell">Sell</option>
@@ -664,11 +865,11 @@ export default function TradingSignals() {
               </div>
               
               {/* Current Market Prices Section */}
-              <div className="col-span-full mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                <h4 className="font-semibold text-blue-800 mb-3">📊 Current Market Prices (MT5 Style)</h4>
+              <div className="col-span-full mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
+                <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-3">📊 Current Market Prices (MT5 Style)</h4>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-blue-700 mb-2">Current Bid *</label>
+                    <label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">Current Bid *</label>
                     <input
                       type="number"
                       step="0.0001"
@@ -677,7 +878,7 @@ export default function TradingSignals() {
                         const value = parseFloat(e.target.value) || 0;
                         setNewSignal({ ...newSignal, currentBid: value });
                       }}
-                      className="w-full px-3 py-2 border border-blue-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-blue-300 dark:border-blue-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                       placeholder="0.0000"
                     />
                   </div>
@@ -1078,7 +1279,7 @@ export default function TradingSignals() {
       {/* Edit Signal Modal */}
       {showEditModal && editingSignal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <h3 className="text-lg font-semibold mb-4">Edit Trading Signal</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -1181,7 +1382,7 @@ export default function TradingSignals() {
       {/* View Signal Modal */}
       {showViewModal && selectedSignal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-lg font-semibold">Trading Signal Details</h3>
               <button

@@ -9,6 +9,7 @@ import ChangePasswordModal from '@/app/components/ChangePasswordModal';
 import TwoFactorModal from '@/app/components/TwoFactorModal';
 import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
+import DarkModeToggle from '../../components/DarkModeToggle';
 
 interface UserSettings {
   emailNotifications: boolean;
@@ -36,7 +37,7 @@ export default function SettingsPage() {
     backupCodesCount: 0
   });
   const router = useRouter();
-  const { settings: platformSettings } = useSettings();
+  const { settings: platformSettings, toggleDarkMode } = useSettings();
   const { language, setLanguage, t } = useLanguage();
 
   useEffect(() => {
@@ -145,16 +146,16 @@ export default function SettingsPage() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm sticky top-0 z-50">
+              <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center space-x-4">
@@ -163,7 +164,7 @@ export default function SettingsPage() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   {platformSettings.platformName}
                 </h1>
-                <p className="text-sm text-gray-500">Trading Education Platform</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Trading Education Platform</p>
               </div>
             </div>
             <div className="flex items-center space-x-4">
@@ -179,13 +180,13 @@ export default function SettingsPage() {
           <div className="flex items-center space-x-4">
             <button
               onClick={() => router.back()}
-              className="p-2 text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{t('settings')}</h1>
-              <p className="text-gray-600">Manage your account preferences and settings</p>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{t('settings')}</h1>
+              <p className="text-gray-600 dark:text-gray-300">Manage your account preferences and settings</p>
             </div>
           </div>
         </div>
@@ -193,17 +194,17 @@ export default function SettingsPage() {
         {/* Settings Sections */}
         <div className="space-y-6">
           {/* Notifications */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                 <Bell className="w-5 h-5 mr-2 text-blue-600" />
                 {t('notifications')}
               </h3>
             
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                 <div>
-                                      <h4 className="font-medium text-gray-900">{t('emailNotifications')}</h4>
-                    <p className="text-sm text-gray-600">Receive notifications via email</p>
+                                      <h4 className="font-medium text-gray-900 dark:text-white">{t('emailNotifications')}</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Receive notifications via email</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -216,10 +217,10 @@ export default function SettingsPage() {
                 </label>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                 <div>
-                                      <h4 className="font-medium text-gray-900">{t('pushNotifications')}</h4>
-                    <p className="text-sm text-gray-600">Receive push notifications in browser</p>
+                                      <h4 className="font-medium text-gray-900 dark:text-white">{t('pushNotifications')}</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Receive push notifications in browser</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -232,10 +233,10 @@ export default function SettingsPage() {
                 </label>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                 <div>
-                                      <h4 className="font-medium text-gray-900">{t('marketingEmails')}</h4>
-                    <p className="text-sm text-gray-600">Receive promotional and marketing emails</p>
+                                      <h4 className="font-medium text-gray-900 dark:text-white">{t('marketingEmails')}</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Receive promotional and marketing emails</p>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input
@@ -250,18 +251,43 @@ export default function SettingsPage() {
             </div>
           </div>
 
+          {/* Appearance */}
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+              <svg className="w-5 h-5 mr-2 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z" />
+              </svg>
+              Appearance
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div>
+                  <h4 className="font-medium text-gray-900 dark:text-white">Dark Mode</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Switch between light and dark themes</p>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                    {platformSettings.darkMode ? 'Dark' : 'Light'}
+                  </span>
+                  <DarkModeToggle size="sm" />
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* Security */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                 <Shield className="w-5 h-5 mr-2 text-red-600" />
                 {t('security')}
               </h3>
             
             <div className="space-y-4">
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                 <div>
-                                      <h4 className="font-medium text-gray-900">{t('password')}</h4>
-                    <p className="text-sm text-gray-600">Change your account password</p>
+                                      <h4 className="font-medium text-gray-900 dark:text-white">{t('password')}</h4>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Change your account password</p>
                 </div>
                 <button 
                   onClick={() => setShowChangePasswordModal(true)}
@@ -274,10 +300,10 @@ export default function SettingsPage() {
                 </button>
               </div>
 
-              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
                 <div>
-                  <h4 className="font-medium text-gray-900">{t('twoFactorAuth')}</h4>
-                  <p className="text-sm text-gray-600">
+                  <h4 className="font-medium text-gray-900 dark:text-white">{t('twoFactorAuth')}</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
                     {twoFactorStatus.twoFactorEnabled 
                       ? `Enabled (${twoFactorStatus.backupCodesCount} backup codes available)`
                       : 'Add an extra layer of security'
@@ -300,15 +326,15 @@ export default function SettingsPage() {
           </div>
 
           {/* Regional */}
-          <div className="bg-white rounded-lg border border-gray-200 p-6 shadow-sm">
-                          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
+                          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
                 <Globe className="w-5 h-5 mr-2 text-green-600" />
                 {t('regional')}
               </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       {t('language')}
                     </label>
                                   <select
@@ -318,7 +344,7 @@ export default function SettingsPage() {
                       handleSettingChange('language', newLang);
                       setLanguage(newLang); // Update the global language context
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="en">English</option>
                     <option value="es">Español</option>
@@ -329,13 +355,13 @@ export default function SettingsPage() {
               </div>
 
               <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       {t('timezone')}
                     </label>
                                   <select
                     value={settings.timezone}
                     onChange={(e) => handleSettingChange('timezone', e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="UTC">{t('UTC')}</option>
                     <option value="America/New_York">{t('easternTime')}</option>

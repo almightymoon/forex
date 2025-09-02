@@ -3,6 +3,7 @@ import { SettingsProvider } from '../context/SettingsContext'
 import { LanguageProvider } from '../context/LanguageContext'
 import { ToastProvider } from '../components/Toast'
 import { DashboardProvider } from '../context/DashboardContext'
+import { AdminProvider } from '../context/AdminContext'
 import Script from 'next/script'
 import { isDevelopment } from '../lib/env'
 
@@ -88,7 +89,9 @@ export default function RootLayout({
           <LanguageProvider>
             <SettingsProvider>
               <DashboardProvider>
-                {children}
+                <AdminProvider>
+                  {children}
+                </AdminProvider>
               </DashboardProvider>
             </SettingsProvider>
           </LanguageProvider>

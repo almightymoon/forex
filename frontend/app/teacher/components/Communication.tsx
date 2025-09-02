@@ -373,12 +373,12 @@ export default function Communication({ students, courses }: CommunicationProps)
   }
 
   return (
-    <div className="space-y-6 border-b border-gray-200 pb-6">
+    <div className="space-y-6 border-b border-gray-200 dark:border-gray-700 pb-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Communication Center</h2>
-          <p className="text-gray-600">Send announcements, messages, and notifications to your students</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Communication Center</h2>
+          <p className="text-gray-600 dark:text-gray-300">Send announcements, messages, and notifications to your students</p>
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
@@ -394,15 +394,15 @@ export default function Communication({ students, courses }: CommunicationProps)
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <MessageSquare className="w-6 h-6 text-blue-600" />
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <MessageSquare className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Messages</p>
-              <p className="text-2xl font-bold text-gray-900">{messages.length}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Total Messages</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{messages.length}</p>
             </div>
           </div>
         </motion.div>
@@ -411,15 +411,15 @@ export default function Communication({ students, courses }: CommunicationProps)
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Send className="w-6 h-6 text-green-600" />
+            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+              <Send className="w-6 h-6 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Sent</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-gray-600 dark:text-gray-300">Sent</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {messages.filter(m => m.status === 'sent').length}
               </p>
             </div>
@@ -430,15 +430,15 @@ export default function Communication({ students, courses }: CommunicationProps)
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <Users className="w-6 h-6 text-purple-600" />
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <Users className="w-6 h-6 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Recipients</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-gray-600 dark:text-gray-300">Total Recipients</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {messages.reduce((total, message) => total + message.totalRecipients, 0)}
               </p>
             </div>
@@ -449,15 +449,15 @@ export default function Communication({ students, courses }: CommunicationProps)
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <Eye className="w-6 h-6 text-orange-600" />
+            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+              <Eye className="w-6 h-6 text-orange-600 dark:text-orange-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Read Rate</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm text-gray-600 dark:text-gray-300">Read Rate</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">
                 {messages.length > 0 
                   ? Math.round(
                       messages.reduce((total, message) => total + message.readCount, 0) / 
@@ -471,17 +471,17 @@ export default function Communication({ students, courses }: CommunicationProps)
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200">
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
         <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-4">
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
               <input
                 type="text"
                 placeholder="Search messages..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               />
             </div>
           </div>
@@ -489,7 +489,7 @@ export default function Communication({ students, courses }: CommunicationProps)
             <select
               value={filterType}
               onChange={(e) => setFilterType(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="all">All Types</option>
               <option value="announcement">Announcements</option>
@@ -499,7 +499,7 @@ export default function Communication({ students, courses }: CommunicationProps)
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
             >
               <option value="all">All Status</option>
               <option value="draft">Drafts</option>
@@ -519,7 +519,7 @@ export default function Communication({ students, courses }: CommunicationProps)
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.05 }}
-            className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden"
+            className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden"
           >
             <div className="p-6">
               <div className="flex items-start justify-between mb-4">
@@ -530,28 +530,28 @@ export default function Communication({ students, courses }: CommunicationProps)
                       {message.status}
                     </span>
                   </div>
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">{message.title}</h3>
-                  <p className="text-sm text-gray-600 line-clamp-3">{message.content}</p>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{message.title}</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-3">{message.content}</p>
                 </div>
               </div>
 
               <div className="space-y-3 mb-4">
-                <div className="flex items-center text-sm text-gray-600">
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                   <Users className="w-4 h-4 mr-2" />
                   {message.totalRecipients} recipients
                 </div>
-                <div className="flex items-center text-sm text-gray-600">
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                   <Eye className="w-4 h-4 mr-2" />
                   {message.readCount} read
                 </div>
                 {message.courseName && (
-                  <div className="flex items-center text-sm text-gray-600">
+                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                     <BookOpen className="w-4 h-4 mr-2" />
                     {message.courseName}
                   </div>
                 )}
                 {message.scheduledFor && (
-                  <div className="flex items-center text-sm text-gray-600">
+                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
                     <Calendar className="w-4 h-4 mr-2" />
                     {new Date(message.scheduledFor).toLocaleDateString()}
                   </div>
@@ -560,15 +560,15 @@ export default function Communication({ students, courses }: CommunicationProps)
 
               {message.attachments.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-xs font-medium text-gray-700 mb-2">Attachments:</p>
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Attachments:</p>
                   <div className="flex flex-wrap gap-1">
                     {message.attachments.slice(0, 3).map((attachment, idx) => (
-                      <span key={idx} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
+                      <span key={idx} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
                         {attachment.name}
                       </span>
                     ))}
                     {message.attachments.length > 3 && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
                         +{message.attachments.length - 3} more
                       </span>
                     )}
@@ -740,7 +740,7 @@ export default function Communication({ students, courses }: CommunicationProps)
                     <input
                       type="text"
                       placeholder="Search students..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                       onChange={(e) => {
                         const searchTerm = e.target.value.toLowerCase();
                         const filtered = students.filter(student => 
@@ -753,16 +753,16 @@ export default function Communication({ students, courses }: CommunicationProps)
                       }}
                     />
                   </div>
-                  <div className="max-h-40 overflow-y-auto border border-gray-300 rounded-lg p-3">
+                  <div className="max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3">
                     {students.length === 0 ? (
-                      <div className="text-center py-4 text-gray-500">
-                        <Users className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                      <div className="text-center py-4 text-gray-500 dark:text-gray-400">
+                        <Users className="w-8 h-8 mx-auto mb-2 text-gray-400 dark:text-gray-500" />
                         <p>No students available</p>
                         <p className="text-xs">Try refreshing or check the console for errors</p>
                       </div>
                     ) : (
                       students.map(student => (
-                        <label key={student._id} className="flex items-center space-x-3 py-2 px-2 hover:bg-gray-50 rounded cursor-pointer">
+                        <label key={student._id} className="flex items-center space-x-3 py-2 px-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">
                           <input
                             type="checkbox"
                             checked={selectedRecipients.includes(student._id)}
@@ -781,13 +781,13 @@ export default function Communication({ students, courses }: CommunicationProps)
                                 });
                               }
                             }}
-                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
                           />
                           <div className="flex-1">
-                            <span className="text-sm font-medium text-gray-900">
+                            <span className="text-sm font-medium text-gray-900 dark:text-white">
                               {student.firstName} {student.lastName}
                             </span>
-                            <span className="text-xs text-gray-500 block">
+                            <span className="text-xs text-gray-500 dark:text-gray-400 block">
                               {student.email}
                             </span>
                           </div>
@@ -795,7 +795,7 @@ export default function Communication({ students, courses }: CommunicationProps)
                       ))
                     )}
                   </div>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
                     Selected: {selectedRecipients.length} students
                   </p>
                 </div>

@@ -390,19 +390,19 @@ export default function Community({ students, courses }: CommunityProps) {
 
   if (loading) {
     return (
-      <div className="flex h-[calc(100vh-200px)] items-center justify-center bg-gray-50 rounded-lg">
+      <div className="flex h-[calc(100vh-200px)] items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-lg">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading community...</p>
+          <p className="text-gray-600 dark:text-gray-300">Loading community...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-[calc(100vh-200px)] bg-gray-50 rounded-lg overflow-hidden shadow-lg">
+    <div className="flex h-[calc(100vh-200px)] bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden shadow-lg">
       {/* Left Sidebar - Channels */}
-      <div className="w-80 bg-white border-r border-gray-200 flex flex-col">
+      <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
         <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Trading Community</h2>
@@ -418,7 +418,7 @@ export default function Community({ students, courses }: CommunityProps) {
         </div>
         
         <div className="p-4">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
             Channels ({channels.length})
           </h3>
           <div className="space-y-1">
@@ -428,24 +428,24 @@ export default function Community({ students, courses }: CommunityProps) {
                 onClick={() => setActiveChannel(channel._id)}
                 className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
                   activeChannel === channel._id
-                    ? 'bg-blue-100 text-blue-900'
-                    : 'hover:bg-gray-100 text-gray-700'
+                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-300'
+                    : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300'
                 }`}
               >
                 {channel.isPrivate ? <Lock className="w-4 h-4" /> : <Hash className="w-4 h-4" />}
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center space-x-2">
                     <span className="font-medium truncate">#{channel.name}</span>
-                    {channel.isPrivate && <Lock className="w-3 h-3 text-gray-400" />}
+                    {channel.isPrivate && <Lock className="w-3 h-3 text-gray-400 dark:text-gray-500" />}
                   </div>
-                  <p className="text-xs text-gray-500 truncate">{channel.description}</p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{channel.description}</p>
                   {channel.lastMessage && channel.lastMessage.author && (
-                    <p className="text-xs text-gray-400 truncate">
+                    <p className="text-xs text-gray-400 dark:text-gray-500 truncate">
                       {channel.lastMessage.author.firstName}: {channel.lastMessage.content}
                     </p>
                   )}
                 </div>
-                <span className="text-xs text-gray-400">{channel.memberCount}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">{channel.memberCount}</span>
               </button>
             ))}
           </div>
@@ -453,17 +453,17 @@ export default function Community({ students, courses }: CommunityProps) {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-white">
+      <div className="flex-1 flex flex-col bg-white dark:bg-gray-800">
         {/* Channel Header */}
-        <div className="p-4 border-b border-gray-200 bg-white">
-          <h3 className="font-semibold text-gray-900">
+        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
+          <h3 className="font-semibold text-gray-900 dark:text-white">
             {channels.find(c => c._id === activeChannel)?.name ? 
               `#${channels.find(c => c._id === activeChannel)?.name}` : 
               'Select a channel'
             }
           </h3>
           {channels.find(c => c._id === activeChannel)?.description && (
-            <p className="text-sm text-gray-500 mt-1">
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
               {channels.find(c => c._id === activeChannel)?.description}
             </p>
           )}
@@ -473,15 +473,15 @@ export default function Community({ students, courses }: CommunityProps) {
         <div className="flex-1 p-4 overflow-y-auto">
           {!activeChannel ? (
             <div className="text-center py-12">
-              <Hash className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Select a Channel</h3>
-              <p className="text-gray-500">Choose a channel from the sidebar to start chatting</p>
+              <Hash className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">Select a Channel</h3>
+              <p className="text-gray-500 dark:text-gray-400">Choose a channel from the sidebar to start chatting</p>
             </div>
           ) : messages.length === 0 ? (
             <div className="text-center py-12">
-              <Hash className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No messages yet</h3>
-              <p className="text-gray-500">Be the first to start the conversation!</p>
+              <Hash className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No messages yet</h3>
+              <p className="text-gray-500 dark:text-gray-400">Be the first to start the conversation!</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -494,10 +494,10 @@ export default function Community({ students, courses }: CommunityProps) {
                   </div>
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-gray-900 dark:text-white">
                         {message.author.firstName} {message.author.lastName}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-gray-500 dark:text-gray-400">
                         {new Date(message.timestamp).toLocaleString()}
                       </span>
                       {message.author.role === 'admin' && (
@@ -507,7 +507,7 @@ export default function Community({ students, courses }: CommunityProps) {
                         <Shield className="w-4 h-4 text-blue-500" />
                       )}
                     </div>
-                    <p className="text-gray-700 mt-1">{message.content}</p>
+                    <p className="text-gray-700 dark:text-gray-300 mt-1">{message.content}</p>
                   </div>
                   
                   {/* Message Actions Menu */}
@@ -515,16 +515,16 @@ export default function Community({ students, courses }: CommunityProps) {
                     <div className="relative">
                       <button
                         onClick={() => setShowMessageMenu(showMessageMenu === message._id ? null : message._id)}
-                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-100 rounded transition-all duration-200"
+                        className="opacity-0 group-hover:opacity-100 p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-all duration-200"
                       >
-                        <MoreVertical className="w-4 h-4 text-gray-400" />
+                        <MoreVertical className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                       </button>
                       
                       {showMessageMenu === message._id && (
-                        <div className="absolute right-0 top-8 bg-white border border-gray-200 rounded-lg shadow-lg z-10 min-w-[120px]">
+                        <div className="absolute right-0 top-8 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10 min-w-[120px]">
                           <button
                             onClick={() => handleDeleteMessage(message._id)}
-                            className="w-full flex items-center space-x-2 px-3 py-2 text-left text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            className="w-full flex items-center space-x-2 px-3 py-2 text-left text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
                             <span>Delete</span>
@@ -542,7 +542,7 @@ export default function Community({ students, courses }: CommunityProps) {
 
         {/* Message Input */}
         {activeChannel && (
-          <div className="p-4 border-t border-gray-200">
+          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <div className="flex space-x-3">
               <input
                 type="text"
@@ -550,7 +550,7 @@ export default function Community({ students, courses }: CommunityProps) {
                 onChange={(e) => setMessageInput(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
                 placeholder="Type your message..."
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 disabled={sendingMessage}
               />
               <button
@@ -577,13 +577,13 @@ export default function Community({ students, courses }: CommunityProps) {
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-white rounded-lg p-6 w-96 max-w-md"
+              className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96 max-w-md"
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Create New Channel</h3>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Create New Channel</h3>
                 <button
                   onClick={() => setShowChannelCreator(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -591,7 +591,7 @@ export default function Community({ students, courses }: CommunityProps) {
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Channel Name
                   </label>
                   <input

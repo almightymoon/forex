@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
   BookOpen, 
@@ -19,6 +19,9 @@ import {
   FileText,
   CheckSquare
 } from 'lucide-react';
+import { useSettings } from '../../../context/SettingsContext';
+import DarkModeToggle from '../../../components/DarkModeToggle';
+import { getDashboardRoute, getUserRole } from '../../../utils/dashboardUtils';
 
 // Video Player Component
 const VideoPlayer = ({ videoUrl, title, thumbnail }: { videoUrl: string; title: string; thumbnail?: string }) => {
@@ -382,6 +385,7 @@ interface Course {
 
 export default function CourseDetail() {
   const params = useParams();
+  const router = useRouter();
   const courseId = params.id;
   
   const [course, setCourse] = useState<Course | null>(null);
@@ -391,6 +395,7 @@ export default function CourseDetail() {
   const [userProgress, setUserProgress] = useState(0);
   const [completedVideos, setCompletedVideos] = useState<string[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
+  const { settings } = useSettings();
 
 
 
@@ -797,9 +802,9 @@ export default function CourseDetail() {
 
   if (!course) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <p className="text-gray-700 text-xl">Course not found</p>
+          <p className="text-gray-700 dark:text-gray-300 text-xl">Course not found</p>
         </div>
       </div>
     );
@@ -828,19 +833,26 @@ export default function CourseDetail() {
           box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
       `}</style>
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
-      <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 shadow-sm sticky top-0 z-50">
+      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             <button 
-              onClick={() => window.history.back()}
-              className="flex items-center space-x-2 text-gray-600 hover:text-blue-600 transition-colors"
+              onClick={() => {
+                const userRole = getUserRole();
+                const dashboardRoute = getDashboardRoute(userRole || 'student');
+                router.push(dashboardRoute);
+              }}
+              className="flex items-center space-x-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             >
               <ArrowLeft className="w-5 h-5" />
               <span>Back to Dashboard</span>
             </button>
-            <h1 className="text-xl font-semibold text-gray-900">Course Details</h1>
+            <div className="flex items-center space-x-4">
+              <DarkModeToggle size="sm" />
+              <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Course Details</h1>
+            </div>
           </div>
         </div>
       </header>

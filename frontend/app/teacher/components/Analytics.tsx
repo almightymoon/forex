@@ -360,8 +360,8 @@ export default function Analytics() {
   if (!analytics) {
     return (
       <div className="text-center py-8">
-        <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-        <p className="text-gray-500">No analytics data available</p>
+        <BarChart3 className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-600" />
+        <p className="text-gray-500 dark:text-gray-400">No analytics data available</p>
       </div>
     );
   }
@@ -371,20 +371,20 @@ export default function Analytics() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h2>
-          <p className="text-gray-600">Comprehensive insights into your teaching performance and student engagement</p>
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Analytics Dashboard</h2>
+          <p className="text-gray-600 dark:text-gray-300">Comprehensive insights into your teaching performance and student engagement</p>
         </div>
         <div className="flex space-x-3">
           <button
             onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <Filter className="w-4 h-4" />
             <span>Filters</span>
           </button>
           <button
             onClick={fetchAnalytics}
-            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             <RefreshCw className="w-4 h-4" />
             <span>Refresh</span>
@@ -405,15 +405,15 @@ export default function Analytics() {
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
-          className="bg-white p-4 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Date Range</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date Range</label>
               <select
                 value={filters.dateRange}
                 onChange={(e) => setFilters({ ...filters, dateRange: e.target.value as any })}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="7d">Last 7 days</option>
                 <option value="30d">Last 30 days</option>
@@ -423,11 +423,11 @@ export default function Analytics() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Course</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Course</label>
               <select
                 value={filters.courseId}
                 onChange={(e) => setFilters({ ...filters, courseId: e.target.value })}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">All Courses</option>
                 {courses.map(course => (
@@ -436,11 +436,11 @@ export default function Analytics() {
               </select>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Student</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Student</label>
               <select
                 value={filters.studentId}
                 onChange={(e) => setFilters({ ...filters, studentId: e.target.value })}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="">All Students</option>
                 {students.map(student => (
@@ -459,15 +459,15 @@ export default function Analytics() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 rounded-lg">
-              <BookOpen className="w-6 h-6 text-blue-600" />
+            <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+              <BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Courses</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.overview.totalCourses}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Total Courses</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.overview.totalCourses}</p>
             </div>
           </div>
         </motion.div>
@@ -476,15 +476,15 @@ export default function Analytics() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-green-100 rounded-lg">
-              <Users className="w-6 h-6 text-green-600" />
+            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+              <Users className="w-6 h-6 text-green-600 dark:text-green-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Students</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.overview.totalStudents}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Total Students</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.overview.totalStudents}</p>
             </div>
           </div>
         </motion.div>
@@ -493,15 +493,15 @@ export default function Analytics() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 rounded-lg">
-              <TrendingUp className="w-6 h-6 text-purple-600" />
+            <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+              <TrendingUp className="w-6 h-6 text-purple-600 dark:text-purple-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Revenue</p>
-              <p className="text-2xl font-bold text-gray-900">{formatCurrency(analytics.overview.totalRevenue)}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Total Revenue</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{formatCurrency(analytics.overview.totalRevenue)}</p>
             </div>
           </div>
         </motion.div>
@@ -510,15 +510,15 @@ export default function Analytics() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-yellow-100 rounded-lg">
-              <Star className="w-6 h-6 text-yellow-600" />
+            <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+              <Star className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Average Rating</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.overview.averageRating.toFixed(1)}/5</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Average Rating</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.overview.averageRating.toFixed(1)}/5</p>
             </div>
           </div>
         </motion.div>
@@ -530,15 +530,15 @@ export default function Analytics() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.4 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-indigo-100 rounded-lg">
-              <Target className="w-6 h-6 text-indigo-600" />
+            <div className="p-2 bg-indigo-100 dark:bg-indigo-900/30 rounded-lg">
+              <Target className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Total Enrollments</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.overview.totalEnrollments}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Total Enrollments</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.overview.totalEnrollments}</p>
             </div>
           </div>
         </motion.div>
@@ -547,15 +547,15 @@ export default function Analytics() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <Activity className="w-6 h-6 text-orange-600" />
+            <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+              <Activity className="w-6 h-6 text-orange-600 dark:text-orange-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Active Students</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.overview.activeStudents}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Active Students</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.overview.activeStudents}</p>
             </div>
           </div>
         </motion.div>
@@ -564,15 +564,15 @@ export default function Analytics() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-emerald-100 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-emerald-600" />
+            <div className="p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg">
+              <CheckCircle className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Completion Rate</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.overview.completionRate}%</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Completion Rate</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.overview.completionRate}%</p>
             </div>
           </div>
         </motion.div>
@@ -581,68 +581,68 @@ export default function Analytics() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.7 }}
-          className="bg-white p-6 rounded-lg shadow-sm border border-gray-200"
+          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
         >
           <div className="flex items-center space-x-3">
-            <div className="p-2 bg-cyan-100 rounded-lg">
-              <Clock className="w-6 h-6 text-cyan-600" />
+            <div className="p-2 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg">
+              <Clock className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
             </div>
             <div>
-              <p className="text-sm text-gray-600">Avg Progress</p>
-              <p className="text-2xl font-bold text-gray-900">{analytics.overview.averageProgress}%</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300">Avg Progress</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{analytics.overview.averageProgress}%</p>
             </div>
           </div>
         </motion.div>
       </div>
 
       {/* Course Performance */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Course Performance</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Course Performance</h3>
         </div>
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+            <thead className="bg-gray-50 dark:bg-gray-700">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Course
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Enrollments
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Completion Rate
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Rating
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Revenue
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                   Progress
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
               {analytics.coursePerformance.map((course, index) => (
                 <motion.tr
                   key={course.courseId}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.05 }}
-                  className="hover:bg-gray-50"
+                  className="hover:bg-gray-50 dark:hover:bg-gray-700"
                 >
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{course.title}</div>
-                    <div className="text-xs text-gray-500">{course.totalLessons} lessons</div>
+                    <div className="text-sm font-medium text-gray-900 dark:text-white">{course.title}</div>
+                    <div className="text-xs text-gray-500 dark:text-gray-400">{course.totalLessons} lessons</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{course.enrollments}</div>
+                    <div className="text-sm text-gray-900 dark:text-white">{course.enrollments}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                      <div className="w-16 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mr-2">
                         <div
                           className={`h-2 rounded-full ${getProgressBarColor(course.completionRate)}`}
                           style={{ width: `${course.completionRate}%` }}
@@ -658,12 +658,12 @@ export default function Analytics() {
                       {course.averageRating > 0 ? `${course.averageRating.toFixed(1)}/5` : 'N/A'}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
                     {formatCurrency(course.revenue)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
+                      <div className="w-16 bg-gray-200 dark:bg-gray-600 rounded-full h-2 mr-2">
                         <div
                           className={`h-2 rounded-full ${getProgressBarColor(course.progress)}`}
                           style={{ width: `${course.progress}%` }}
@@ -683,9 +683,9 @@ export default function Analytics() {
 
       {/* Top Performers and Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Top Performing Students</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top Performing Students</h3>
           </div>
           <div className="p-6">
             <div className="space-y-4">
@@ -695,23 +695,23 @@ export default function Analytics() {
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="flex items-center justify-between p-3 border border-gray-200 rounded-lg"
+                  className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-600 rounded-lg"
                 >
                   <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-blue-600">
+                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                      <span className="text-sm font-medium text-blue-600 dark:text-blue-400">
                         {student.studentName.charAt(0).toUpperCase()}
                       </span>
                     </div>
                     <div>
-                      <p className="font-medium text-gray-900">{student.studentName}</p>
-                      <p className="text-sm text-gray-500">{student.coursesCompleted} courses completed</p>
+                      <p className="font-medium text-gray-900 dark:text-white">{student.studentName}</p>
+                      <p className="text-sm text-gray-500 dark:text-gray-400">{student.coursesCompleted} courses completed</p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-medium text-gray-900">{student.averageScore}%</p>
-                    <p className="text-xs text-gray-500">avg score</p>
-                    <p className="text-xs text-gray-400">{formatDate(student.lastActive)}</p>
+                    <p className="text-sm font-medium text-gray-900 dark:text-white">{student.averageScore}%</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">avg score</p>
+                    <p className="text-xs text-gray-400 dark:text-gray-500">{formatDate(student.lastActive)}</p>
                   </div>
                 </motion.div>
               ))}
@@ -719,9 +719,9 @@ export default function Analytics() {
           </div>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Activity</h3>
           </div>
           <div className="p-6">
             <div className="space-y-4">
@@ -731,20 +731,20 @@ export default function Analytics() {
                   initial={{ opacity: 0, x: 20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="flex items-start space-x-3 p-3 border border-gray-200 rounded-lg"
+                  className="flex items-start space-x-3 p-3 border border-gray-200 dark:border-gray-600 rounded-lg"
                 >
-                  <div className="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center flex-shrink-0">
-                    {activity.type === 'enrollment' && <Users className="w-4 h-4 text-blue-600" />}
-                    {activity.type === 'completion' && <Award className="w-4 h-4 text-green-600" />}
-                    {activity.type === 'assignment' && <BookOpen className="w-4 h-4 text-purple-600" />}
-                    {activity.type === 'live_session' && <Eye className="w-4 h-4 text-orange-600" />}
+                  <div className="w-8 h-8 bg-gray-100 dark:bg-gray-700 rounded-full flex items-center justify-center flex-shrink-0">
+                    {activity.type === 'enrollment' && <Users className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+                    {activity.type === 'completion' && <Award className="w-4 h-4 text-green-600 dark:text-green-400" />}
+                    {activity.type === 'assignment' && <BookOpen className="w-4 h-4 text-purple-600 dark:text-purple-400" />}
+                    {activity.type === 'live_session' && <Eye className="w-4 h-4 text-orange-600 dark:text-orange-400" />}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-900">{activity.description}</p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-sm text-gray-900 dark:text-white">{activity.description}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                       {activity.studentName} • {activity.courseName}
                     </p>
-                    <p className="text-xs text-gray-400 mt-1">
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
                       {formatDate(activity.timestamp)}
                     </p>
                   </div>
@@ -756,9 +756,9 @@ export default function Analytics() {
       </div>
 
       {/* Student Engagement Chart */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Student Engagement Over Time</h3>
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Student Engagement Over Time</h3>
         </div>
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -770,11 +770,11 @@ export default function Analytics() {
                 transition={{ delay: index * 0.1 }}
                 className="text-center"
               >
-                <div className="text-2xl font-bold text-blue-600 mb-2">{data.activeStudents}</div>
-                <div className="text-sm text-gray-600 mb-1">Active Students</div>
-                <div className="text-xs text-gray-500">{data.month}</div>
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-2">{data.activeStudents}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-300 mb-1">Active Students</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{data.month}</div>
                 <div className="mt-3 space-y-1">
-                  <div className="text-xs text-gray-600">
+                  <div className="text-xs text-gray-600 dark:text-gray-300">
                     New: {data.newEnrollments} | Completed: {data.completedCourses}
                   </div>
                 </div>
@@ -785,10 +785,10 @@ export default function Analytics() {
       </div>
 
       {/* Revenue Trends */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Revenue Trends</h3>
-        </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Revenue Trends</h3>
+          </div>
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {analytics.revenueTrends.map((data, index) => (
@@ -799,11 +799,11 @@ export default function Analytics() {
                 transition={{ delay: index * 0.1 }}
                 className="text-center"
               >
-                <div className="text-2xl font-bold text-green-600 mb-2">{formatCurrency(data.revenue)}</div>
-                <div className="text-sm text-gray-600 mb-1">Revenue</div>
-                <div className="text-xs text-gray-500">{data.month}</div>
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-2">{formatCurrency(data.revenue)}</div>
+                <div className="text-sm text-gray-600 dark:text-gray-300 mb-1">Revenue</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">{data.month}</div>
                 <div className="mt-3">
-                  <div className="text-xs text-gray-600">
+                  <div className="text-xs text-gray-600 dark:text-gray-300">
                     Enrollments: {data.enrollments}
                   </div>
                 </div>
