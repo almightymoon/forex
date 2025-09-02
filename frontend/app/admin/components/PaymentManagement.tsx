@@ -28,7 +28,7 @@ export default function PaymentManagement({
   };
 
   // Filter payments based on search term, status, and method
-  const filteredPayments = payments.filter(payment => {
+  const filteredPayments = (payments || []).filter(payment => {
     const matchesSearch = 
       (payment.user?.firstName?.toLowerCase().includes(paymentSearchTerm.toLowerCase()) || false) ||
       (payment.user?.lastName?.toLowerCase().includes(paymentSearchTerm.toLowerCase()) || false) ||

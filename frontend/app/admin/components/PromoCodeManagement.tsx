@@ -117,7 +117,7 @@ export default function PromoCodeManagement({
               </tr>
             </thead>
             <tbody>
-              {promoCodes.map((promo) => (
+              {(promoCodes || []).map((promo) => (
                 <tr key={promo._id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
                   <td className="py-4 px-4">
                     <span className="font-medium text-gray-900 dark:text-white">{promo.code}</span>

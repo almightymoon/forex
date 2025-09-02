@@ -36,6 +36,18 @@ interface AnalyticsProps {
 }
 
 export default function Analytics({ analytics }: AnalyticsProps) {
+  // Ensure analytics object exists with default values
+  const safeAnalytics = analytics || {
+    monthlyRevenue: [],
+    monthlyUserGrowth: [],
+    paymentMethodStats: []
+  };
+
+  // Helper function to safely map arrays
+  const safeMap = (array: any[], callback: (item: any, index: number) => any) => {
+    if (!Array.isArray(array)) return [];
+    return array.map(callback);
+  };
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -45,11 +57,11 @@ export default function Analytics({ analytics }: AnalyticsProps) {
           <div className="h-64">
             <Line
               data={{
-                labels: analytics.monthlyRevenue.map(item => item.month),
+                labels: safeMap(safeAnalytics.monthlyRevenue, item => item.month),
                 datasets: [
                   {
                     label: 'Monthly Revenue',
-                    data: analytics.monthlyRevenue.map(item => item.revenue),
+                    data: safeMap(safeAnalytics.monthlyRevenue, item => item.revenue),
                     borderColor: 'rgb(59, 130, 246)',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     borderWidth: 3,
@@ -115,11 +127,11 @@ export default function Analytics({ analytics }: AnalyticsProps) {
           <div className="h-64">
             <Bar
               data={{
-                labels: analytics.monthlyUserGrowth.map(item => item.month),
+                labels: safeMap(safeAnalytics.monthlyUserGrowth, item => item.month),
                 datasets: [
                   {
                     label: 'New Users',
-                    data: analytics.monthlyUserGrowth.map(item => item.users),
+                    data: safeMap(safeAnalytics.monthlyUserGrowth, item => item.users),
                     backgroundColor: 'rgba(34, 197, 94, 0.8)',
                     borderColor: 'rgb(34, 197, 94)',
                     borderWidth: 2,
@@ -182,7 +194,7 @@ export default function Analytics({ analytics }: AnalyticsProps) {
             <div className="w-64 h-64">
               <Doughnut
                 data={{
-                  labels: analytics.paymentMethodStats.map(stat => {
+                  labels: safeMap(safeAnalytics.paymentMethodStats, stat => {
                     const methodNames: { [key: string]: string } = {
                       'promo_code': 'Promo Code',
                       'credit_card': 'Credit Card',
@@ -194,7 +206,7 @@ export default function Analytics({ analytics }: AnalyticsProps) {
                   }),
                   datasets: [
                     {
-                      data: analytics.paymentMethodStats.map(stat => stat.count),
+                      data: safeMap(safeAnalytics.paymentMethodStats, stat => stat.count),
                       backgroundColor: [
                         'rgba(99, 102, 241, 0.8)',
                         'rgba(34, 197, 94, 0.8)',
@@ -233,7 +245,8 @@ export default function Analytics({ analytics }: AnalyticsProps) {
                       bodyColor: '#fff',
                       callbacks: {
                         label: function(context) {
-                          const stat = analytics.paymentMethodStats[context.dataIndex];
+                          const stat = safeAnalytics.paymentMethodStats[context.dataIndex];
+                          if (!stat) return 'No data';
                           return `${context.label}: ${stat.count} payments ($${stat.totalAmount})`;
                         }
                       }
@@ -246,7 +259,7 @@ export default function Analytics({ analytics }: AnalyticsProps) {
           
           <div className="space-y-4">
             <h4 className="text-lg font-medium text-gray-900 dark:text-white">Payment Method Details</h4>
-            {analytics.paymentMethodStats.map((stat, index) => {
+            {safeMap(safeAnalytics.paymentMethodStats, (stat, index) => {
               const methodNames: { [key: string]: string } = {
                 'promo_code': 'Promo Code',
                 'credit_card': 'Credit Card',
