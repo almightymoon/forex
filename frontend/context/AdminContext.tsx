@@ -130,63 +130,68 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         ? await promoCodesRes.value.json() 
         : [];
         
-      const settings = settingsRes.status === 'fulfilled' && settingsRes.value.ok 
-        ? await settingsRes.value.json() 
-        : {
-            general: {
-              platformName: 'LMS Platform',
-              description: 'Learning Management System',
-              defaultCurrency: 'USD',
-              timezone: 'UTC',
-              language: 'en',
-              maintenanceMode: false
+      let settings = {};
+      if (settingsRes.status === 'fulfilled' && settingsRes.value.ok) {
+        settings = await settingsRes.value.json();
+        console.log('✅ Settings fetched successfully:', settings);
+      } else {
+        console.warn('⚠️ Settings fetch failed, using defaults');
+        settings = {
+          general: {
+            platformName: 'Forex Navigators',
+            description: 'Premier Trading Education Platform',
+            defaultCurrency: 'USD',
+            timezone: 'UTC',
+            language: 'en',
+            maintenanceMode: false
+          },
+          security: {
+            twoFactorAuth: false,
+            sessionTimeout: 3600,
+            passwordPolicy: {
+              minLength: 8,
+              requireUppercase: true,
+              requireNumbers: true,
+              requireSymbols: false
             },
-            security: {
-              twoFactorAuth: false,
-              sessionTimeout: 3600,
-              passwordPolicy: {
-                minLength: 8,
-                requireUppercase: true,
-                requireNumbers: true,
-                requireSymbols: false
-              },
-              loginAttempts: 5,
-              accountLockDuration: 900
-            },
-            notifications: {
-              emailNotifications: true,
-              smsNotifications: false,
-              pushNotifications: false,
-              newUserRegistration: true,
-              paymentReceived: true,
-              systemAlerts: true,
-              courseCompletions: true
-            },
-            payments: {
-              stripeEnabled: true,
-              paypalEnabled: false,
-              easypaisaEnabled: false,
-              jazzCashEnabled: false,
-              currency: 'USD',
-              taxRate: 0,
-              promoCodesEnabled: true
-            },
-            courses: {
-              autoApproval: false,
-              maxFileSize: 10,
-              allowedFileTypes: ['pdf', 'doc', 'docx', 'ppt', 'pptx'],
-              certificateEnabled: true,
-              completionThreshold: 80
-            },
-            email: {
-              smtpHost: '',
-              smtpPort: 587,
-              smtpUser: '',
-              smtpPassword: '',
-              fromEmail: '',
-              fromName: ''
-            }
-          };
+            loginAttempts: 5,
+            accountLockDuration: 900
+          },
+          notifications: {
+            emailNotifications: true,
+            smsNotifications: false,
+            pushNotifications: false,
+            newUserRegistration: true,
+            paymentReceived: true,
+            systemAlerts: true,
+            courseCompletions: true
+          },
+          payments: {
+            stripeEnabled: true,
+            paypalEnabled: false,
+            easypaisaEnabled: false,
+            jazzCashEnabled: false,
+            currency: 'USD',
+            taxRate: 0,
+            promoCodesEnabled: true
+          },
+          courses: {
+            autoApproval: false,
+            maxFileSize: 10,
+            allowedFileTypes: ['pdf', 'doc', 'docx', 'ppt', 'pptx'],
+            certificateEnabled: true,
+            completionThreshold: 80
+          },
+          email: {
+            smtpHost: '',
+            smtpPort: 587,
+            smtpUser: '',
+            smtpPassword: '',
+            fromEmail: '',
+            fromName: ''
+          }
+        };
+      }
 
       console.log('✅ Admin data fetched successfully');
       return { users, payments, analytics, promoCodes, settings };
@@ -211,8 +216,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         promoCodes: [],
         settings: {
           general: {
-            platformName: 'LMS Platform',
-            description: 'Learning Management System',
+            platformName: 'Forex Navigators',
+            description: 'Premier Trading Education Platform',
             defaultCurrency: 'USD',
             timezone: 'UTC',
             language: 'en',

@@ -29,6 +29,62 @@ export default function Settings({
   settingsSaved,
   onTestEmailConfig
 }: SettingsProps) {
+  // Ensure settings object exists with default values
+  const safeSettings = settings || {
+    general: {
+      platformName: 'LMS Platform',
+      description: 'Learning Management System',
+      defaultCurrency: 'USD',
+      timezone: 'UTC',
+      language: 'en',
+      maintenanceMode: false
+    },
+    security: {
+      twoFactorAuth: false,
+      sessionTimeout: 3600,
+      passwordPolicy: {
+        minLength: 8,
+        requireUppercase: true,
+        requireNumbers: true,
+        requireSymbols: false
+      },
+      loginAttempts: 5,
+      accountLockDuration: 900
+    },
+    notifications: {
+      emailNotifications: true,
+      smsNotifications: false,
+      pushNotifications: false,
+      newUserRegistration: true,
+      paymentReceived: true,
+      systemAlerts: true,
+      courseCompletions: true
+    },
+    payments: {
+      stripeEnabled: true,
+      paypalEnabled: false,
+      easypaisaEnabled: false,
+      jazzCashEnabled: false,
+      currency: 'USD',
+      taxRate: 0,
+      promoCodesEnabled: true
+    },
+    courses: {
+      autoApproval: false,
+      maxFileSize: 10,
+      allowedFileTypes: ['pdf', 'doc', 'docx', 'ppt', 'pptx'],
+      certificateEnabled: true,
+      completionThreshold: 80
+    },
+    email: {
+      smtpHost: '',
+      smtpPort: 587,
+      smtpUser: '',
+      smtpPassword: '',
+      fromEmail: '',
+      fromName: ''
+    }
+  };
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       {/* Settings Header */}
@@ -86,7 +142,7 @@ export default function Settings({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Platform Name</label>
               <input 
                 type="text" 
-                value={settings.general.platformName}
+                value={safeSettings.general.platformName}
                 onChange={(e) => onSettingsChange('general', 'platformName', e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               />
@@ -95,7 +151,7 @@ export default function Settings({
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Platform Description</label>
               <textarea 
-                value={settings.general.description}
+                value={safeSettings.general.description}
                 onChange={(e) => onSettingsChange('general', 'description', e.target.value)}
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -106,7 +162,7 @@ export default function Settings({
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Default Currency</label>
                 <select 
-                  value={settings.general.defaultCurrency}
+                  value={safeSettings.general.defaultCurrency}
                   onChange={(e) => onSettingsChange('general', 'defaultCurrency', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
@@ -120,7 +176,7 @@ export default function Settings({
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Timezone</label>
                 <select 
-                  value={settings.general.timezone}
+                  value={safeSettings.general.timezone}
                   onChange={(e) => onSettingsChange('general', 'timezone', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
@@ -138,10 +194,10 @@ export default function Settings({
                 <p className="text-sm text-gray-500 dark:text-gray-400">Temporarily disable platform access</p>
               </div>
               <button 
-                onClick={() => onSettingsChange('general', 'maintenanceMode', !settings.general.maintenanceMode)}
-                className={`w-12 h-6 rounded-full relative transition-colors ${settings.general.maintenanceMode ? 'bg-red-600' : 'bg-gray-200'}`}
+                onClick={() => onSettingsChange('general', 'maintenanceMode', !safeSettings.general.maintenanceMode)}
+                className={`w-12 h-6 rounded-full relative transition-colors ${safeSettings.general.maintenanceMode ? 'bg-red-600' : 'bg-gray-200'}`}
               >
-                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.general.maintenanceMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${safeSettings.general.maintenanceMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
               </button>
             </div>
           </div>
@@ -163,7 +219,7 @@ export default function Settings({
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Session Timeout (minutes)</label>
               <select 
-                value={settings.security.sessionTimeout}
+                value={safeSettings.security.sessionTimeout}
                 onChange={(e) => onSettingsChange('security', 'sessionTimeout', parseInt(e.target.value))}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
@@ -203,11 +259,11 @@ export default function Settings({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Password Policy</label>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600 dark:text-gray-400">Minimum length: {settings.security.passwordPolicy.minLength}</span>
+                  <span className="text-sm text-gray-600 dark:text-gray-400">Minimum length: {safeSettings.security.passwordPolicy.minLength}</span>
                   <input 
                     type="range" 
                     min="6" max="20" 
-                    value={settings.security.passwordPolicy.minLength}
+                    value={safeSettings.security.passwordPolicy.minLength}
                     onChange={(e) => onNestedSettingsChange('security', 'passwordPolicy', 'minLength', parseInt(e.target.value))}
                     className="w-20"
                   />
