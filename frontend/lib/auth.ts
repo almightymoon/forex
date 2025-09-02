@@ -14,7 +14,7 @@ export async function verifyToken(token: string): Promise<User | null> {
     }
 
     // Verify token with the backend using /api/auth/me endpoint
-    const response = await fetch('http://localhost:4000/api/auth/me', {
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api'}/auth/me`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,

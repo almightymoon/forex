@@ -37,7 +37,11 @@ function isRateLimited(endpoint: string): boolean {
 export const buildApiUrl = (endpoint: string): string => {
   // Remove leading slash if present to avoid double slashes
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-  return `${API_BASE_URL}/${cleanEndpoint}`;
+  // Remove 'api/' prefix from endpoint if API_BASE_URL already includes '/api'
+  const finalEndpoint = API_BASE_URL.includes('/api') && cleanEndpoint.startsWith('api/') 
+    ? cleanEndpoint.slice(4) 
+    : cleanEndpoint;
+  return `${API_BASE_URL}/${finalEndpoint}`;
 };
 
 // Helper function for API requests with common headers and caching

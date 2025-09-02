@@ -3,7 +3,7 @@
 
 export const env = {
   // API Configuration
-  API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === '217.196.51.104' ? 'http://217.196.51.104:9090' : 'http://localhost:9090'),
+  API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === '217.196.51.104' ? 'http://217.196.51.104:9090/api' : 'http://localhost:4000/api'),
   
   // Environment
   NODE_ENV: process.env.NEXT_PUBLIC_NODE_ENV || process.env.NODE_ENV || 'development',
