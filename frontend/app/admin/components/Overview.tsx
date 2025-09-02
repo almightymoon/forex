@@ -28,6 +28,21 @@ export default function Overview({ analytics, onTabChange }: OverviewProps) {
     paymentMethodStats: []
   };
 
+  // Helper function to safely format numbers
+  const formatNumber = (value: any): string => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return '0';
+    }
+    return Number(value).toLocaleString();
+  };
+
+  const formatCurrency = (value: any): string => {
+    if (value === null || value === undefined || isNaN(value)) {
+      return '$0';
+    }
+    return `$${Number(value).toLocaleString()}`;
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 mb-4">
       {/* Stats Grid */}
@@ -36,8 +51,8 @@ export default function Overview({ analytics, onTabChange }: OverviewProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-white text-sm font-medium">Total Users</p>
-              <p className="text-3xl font-bold dark:text-white text-gray-900">{safeAnalytics.totalUsers}</p>
-              <p className="text-green-600 text-sm font-medium ">+{safeAnalytics.monthlyGrowth}% this month</p>
+              <p className="text-3xl font-bold dark:text-white text-gray-900">{formatNumber(safeAnalytics.totalUsers)}</p>
+              <p className="text-green-600 text-sm font-medium ">+{formatNumber(safeAnalytics.monthlyGrowth)}% this month</p>
             </div>
             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
               <Users className="w-8 h-8 text-white" />
@@ -49,7 +64,7 @@ export default function Overview({ analytics, onTabChange }: OverviewProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-white text-sm font-medium">Total Revenue</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white">${safeAnalytics.totalRevenue.toLocaleString()}</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">{formatCurrency(safeAnalytics.totalRevenue)}</p>
               <p className="text-green-600 dark:text-green-400 text-sm font-medium">+12.5% this month</p>
             </div>
             <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
@@ -62,8 +77,8 @@ export default function Overview({ analytics, onTabChange }: OverviewProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-white text-sm font-medium">Total Payments</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white">{safeAnalytics.totalPayments}</p>
-              <p className="text-blue-600 dark:text-blue-400 text-sm font-medium">{safeAnalytics.paymentsThisMonth} this month</p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white">{formatNumber(safeAnalytics.totalPayments)}</p>
+              <p className="text-blue-600 dark:text-blue-400 text-sm font-medium">{formatNumber(safeAnalytics.paymentsThisMonth)} this month</p>
             </div>
             <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
               <CreditCard className="w-8 h-8 text-white" />

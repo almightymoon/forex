@@ -77,7 +77,7 @@ export default function Analytics({ analytics }: AnalyticsProps) {
                     borderWidth: 1,
                     callbacks: {
                       label: function(context) {
-                        return `Revenue: $${context.parsed.y.toLocaleString()}`;
+                        return `Revenue: $${(context.parsed.y || 0).toLocaleString()}`;
                       }
                     }
                   },

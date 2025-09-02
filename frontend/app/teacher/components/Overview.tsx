@@ -38,7 +38,7 @@ export default function Overview({
     {
       icon: TrendingUp,
       title: 'Revenue',
-      value: `$${analytics?.totalRevenue?.toLocaleString() || 0}`,
+      value: `$${(analytics?.totalRevenue || 0).toLocaleString()}`,
       iconBgColor: 'bg-purple-100',
       iconColor: 'text-purple-600'
     },
