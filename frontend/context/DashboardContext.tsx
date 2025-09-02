@@ -204,7 +204,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
 
       if (userResult.data) {
-        const userData = userResult.data;
+        const userData = userResult.data.user || userResult.data; // Handle both response formats
         setData(prev => ({ ...prev, user: userData }));
 
         // Fetch all related data in parallel
