@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { apiRequest } from '../utils/api';
-import { logEnvironmentInfo } from '../lib/env';
 
 interface AdminData {
   user: {
@@ -47,15 +46,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const checkAdminRole = async (token: string) => {
     try {
-      console.log('🔍 Checking admin role...');
       const response = await apiRequest('api/auth/me');
       
       if (response.ok) {
         const userData = await response.json();
-        console.log('🔍 User data received:', userData);
         
         const userRole = userData.user?.role || userData.role;
-        console.log('🔍 User role:', userRole);
         
         if (userRole !== 'admin') {
           throw new Error(`Access denied. Admin privileges required. Current role: ${userRole}`);
@@ -69,23 +65,19 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           profileImage: userData.user?.profileImage || userData.profileImage
         };
         
-        console.log('✅ Admin role verified:', user);
         return user;
       } else {
         const errorText = await response.text();
-        console.error('❌ Auth check failed:', response.status, errorText);
         throw new Error(`Authentication failed: ${response.status} ${errorText}`);
       }
     } catch (error) {
-      console.error('❌ Auth check error:', error);
+      console.error('Auth check error:', error);
       throw error;
     }
   };
 
   const fetchAdminData = async (token: string) => {
     try {
-      console.log('📊 Fetching admin data...');
-      
       const endpoints = [
         'api/admin/users',
         'api/admin/payments', 
@@ -97,8 +89,6 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       const responses = await Promise.allSettled(
         endpoints.map(endpoint => apiRequest(endpoint))
       );
-      
-      console.log('📊 API responses:', responses);
       
       const [usersRes, paymentsRes, analyticsRes, promoCodesRes, settingsRes] = responses;
       
@@ -133,9 +123,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       let settings = {};
       if (settingsRes.status === 'fulfilled' && settingsRes.value.ok) {
         settings = await settingsRes.value.json();
-        console.log('✅ Settings fetched successfully:', settings);
       } else {
-        console.warn('⚠️ Settings fetch failed, using defaults');
         settings = {
           general: {
             platformName: 'Forex Navigators',
@@ -193,10 +181,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         };
       }
 
-      console.log('✅ Admin data fetched successfully');
       return { users, payments, analytics, promoCodes, settings };
     } catch (error) {
-      console.error('❌ Failed to fetch admin data:', error);
+      console.error('Failed to fetch admin data:', error);
       // Return default data instead of throwing
       return {
         users: [],
@@ -275,11 +262,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const initializeAdminData = useCallback(async () => {
     try {
-      console.log('🚀 Initializing admin data...');
-      logEnvironmentInfo(); // Log environment info for debugging
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log('❌ No token found, redirecting to login');
         window.location.href = '/login';
         return;
       }
@@ -287,7 +271,6 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       // Check if we have cached data and it's still valid
       const now = Date.now();
       if (lastFetched && (now - lastFetched) < CACHE_DURATION && data.user) {
-        console.log('✅ Using cached admin data');
         setLoading(false);
         return;
       }
@@ -307,14 +290,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
       setLastFetched(now);
       setLoading(false);
-      console.log('✅ Admin data initialized successfully');
     } catch (error) {
-      console.error('❌ Failed to initialize admin data:', error);
+      console.error('Failed to initialize admin data:', error);
       if (error instanceof Error && error.message.includes('Access denied')) {
-        console.log('❌ Access denied, redirecting to dashboard');
         window.location.href = '/dashboard';
       } else {
-        console.log('❌ Authentication error, redirecting to login');
         window.location.href = '/login';
       }
     }
@@ -322,11 +302,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const refreshData = useCallback(async () => {
     try {
-      console.log('🔄 Refreshing admin data...');
       setRefreshing(true);
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log('❌ No token found during refresh');
         window.location.href = '/login';
         return;
       }
@@ -343,9 +321,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       }));
 
       setLastFetched(Date.now());
-      console.log('✅ Admin data refreshed successfully');
     } catch (error) {
-      console.error('❌ Failed to refresh admin data:', error);
+      console.error('Failed to refresh admin data:', error);
     } finally {
       setRefreshing(false);
     }
@@ -354,13 +331,10 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Only initialize admin data if we're on an admin page
     const pathname = window.location.pathname;
-    console.log('📍 Current pathname:', pathname);
     
     if (pathname.startsWith('/admin')) {
-      console.log('🔧 Initializing admin data for admin page');
       initializeAdminData();
     } else {
-      console.log('⏭️ Not on admin page, skipping initialization');
       // If not on admin page, just set loading to false
       setLoading(false);
     }

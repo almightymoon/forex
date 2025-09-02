@@ -33,23 +33,6 @@ function isRateLimited(endpoint: string): boolean {
   return false;
 }
 
-// Network connectivity check
-const checkNetworkConnectivity = async (): Promise<boolean> => {
-  try {
-    console.log('🌐 Checking network connectivity...');
-    const response = await fetch(API_BASE_URL, { 
-      method: 'HEAD',
-      mode: 'no-cors',
-      cache: 'no-cache'
-    });
-    console.log('✅ Network connectivity check passed');
-    return true;
-  } catch (error) {
-    console.error('❌ Network connectivity check failed:', error);
-    return false;
-  }
-};
-
 // Helper function to build API URLs
 export const buildApiUrl = (endpoint: string): string => {
   try {
@@ -60,10 +43,9 @@ export const buildApiUrl = (endpoint: string): string => {
       ? cleanEndpoint.slice(4) 
       : cleanEndpoint;
     const url = `${API_BASE_URL}/${finalEndpoint}`;
-    console.log('🔗 Built API URL:', url);
     return url;
   } catch (error) {
-    console.error('❌ Error building API URL:', error);
+    console.error('Error building API URL:', error);
     throw error;
   }
 };
@@ -75,22 +57,12 @@ export const apiRequest = async (
   useCache: boolean = true
 ): Promise<Response> => {
   try {
-    console.log('🌐 Making API request:', endpoint);
-    
-    // Check network connectivity first
-    const isConnected = await checkNetworkConnectivity();
-    if (!isConnected) {
-      throw new Error('Network connectivity issue detected');
-    }
-    
     const url = buildApiUrl(endpoint);
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     
-    console.log('🔑 Token available:', !!token);
-    
     // Check rate limiting
     if (isRateLimited(endpoint)) {
-      console.warn(`⚠️ Rate limited for endpoint: ${endpoint}`);
+      console.warn(`Rate limited for endpoint: ${endpoint}`);
       throw new Error('Too many requests, please try again later');
     }
     
@@ -99,7 +71,6 @@ export const apiRequest = async (
       const cacheKey = `${endpoint}:${token || 'no-token'}`;
       const cached = cache.get(cacheKey);
       if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-        console.log(`✅ Returning cached data for: ${endpoint}`);
         return new Response(JSON.stringify(cached.data), {
           status: 200,
           headers: { 'Content-Type': 'application/json' }
@@ -113,23 +84,9 @@ export const apiRequest = async (
       ...options.headers,
     };
 
-    console.log('📤 Request details:', {
-      url,
-      method: options.method || 'GET',
-      headers: defaultHeaders,
-      body: options.body ? 'Present' : 'None'
-    });
-
     const response = await fetch(url, {
       ...options,
       headers: defaultHeaders,
-    });
-
-    console.log('📥 Response received:', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok,
-      headers: Object.fromEntries(response.headers.entries())
     });
 
     // Cache successful GET responses
@@ -141,15 +98,14 @@ export const apiRequest = async (
           data,
           timestamp: Date.now()
         });
-        console.log(`💾 Cached response for: ${endpoint}`);
       } catch (error) {
-        console.warn('⚠️ Failed to cache response:', error);
+        // Ignore caching errors
       }
     }
 
     return response;
   } catch (error) {
-    console.error('❌ API request failed:', {
+    console.error('API request failed:', {
       endpoint,
       error: error.message,
       stack: error.stack
@@ -157,7 +113,7 @@ export const apiRequest = async (
     
     // Handle network errors gracefully
     if (error.name === 'TypeError' && error.message.includes('fetch')) {
-      console.error('🌐 Network error detected');
+      console.error('Network error detected');
       throw new Error(`Network error: Unable to connect to server. Please check your internet connection and try again.`);
     }
     
@@ -174,10 +130,8 @@ export const clearCache = (endpoint?: string) => {
         cache.delete(key);
       }
     }
-    console.log(`🗑️ Cleared cache for: ${endpoint}`);
   } else {
     // Clear all cache
     cache.clear();
-    console.log('🗑️ Cleared all cache');
   }
 };
