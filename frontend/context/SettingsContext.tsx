@@ -23,12 +23,12 @@ const defaultSettings: PublicSettings = {
   description: 'Premier Trading Education Platform',
   defaultCurrency: 'USD',
   maintenanceMode: false,
-  darkMode: false
+  darkMode: false // Default to light mode
 };
 
 const SettingsContext = createContext<SettingsContextType>({
   settings: defaultSettings,
-  loading: true,
+  loading: false,
   refreshSettings: async () => {},
   toggleDarkMode: () => {},
   setDarkMode: () => {}
@@ -48,18 +48,24 @@ interface SettingsProviderProps {
 
 export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) => {
   const [settings, setSettings] = useState<PublicSettings>(defaultSettings);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   const fetchSettings = async () => {
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+      
       const response = await fetch('/api/settings/public', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
         },
-        signal: AbortSignal.timeout(3000) // 3 second timeout
+        signal: controller.signal
       });
+      
+      clearTimeout(timeoutId);
+      
       if (response.ok) {
         const data = await response.json();
         setSettings(data);
@@ -67,13 +73,10 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     } catch (error) {
       console.warn('Failed to fetch settings, using defaults:', error);
       // Keep default settings on error
-    } finally {
-      setLoading(false);
     }
   };
 
   const refreshSettings = async () => {
-    setLoading(true);
     await fetchSettings();
   };
 
@@ -108,15 +111,18 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   useEffect(() => {
     setMounted(true);
     
-    // Check for saved theme preference or default to system preference
+    // Check for saved theme preference, default to light mode
     const savedTheme = localStorage.getItem('theme');
-    const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     
-    let initialDarkMode = false;
-    if (savedTheme) {
-      initialDarkMode = savedTheme === 'dark';
+    let initialDarkMode = false; // Default to light mode
+    if (savedTheme === 'dark') {
+      initialDarkMode = true;
+    } else if (savedTheme === 'light') {
+      initialDarkMode = false;
     } else {
-      initialDarkMode = systemPrefersDark;
+      // No saved preference, default to light mode
+      initialDarkMode = false;
+      localStorage.setItem('theme', 'light');
     }
     
     // Update settings with initial dark mode value
@@ -131,21 +137,16 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   }, []);
 
   useEffect(() => {
-    // Only fetch settings once on mount
+    // Fetch settings in background after mount with a delay
     if (mounted) {
-      fetchSettings();
+      // Delay the fetch to prioritize initial render
+      const timeoutId = setTimeout(() => {
+        fetchSettings();
+      }, 1000); // 1 second delay
       
-      // Add a fallback timeout to prevent infinite loading
-      const timeout = setTimeout(() => {
-        if (loading) {
-          console.warn('Settings fetch timeout, using defaults');
-          setLoading(false);
-        }
-      }, 2000); // 2 second timeout
-      
-      return () => clearTimeout(timeout);
+      return () => clearTimeout(timeoutId);
     }
-  }, [mounted]); // Only depend on mounted state
+  }, [mounted]);
 
   // Prevent hydration mismatch
   if (!mounted) {

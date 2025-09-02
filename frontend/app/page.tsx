@@ -499,8 +499,8 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-gradient-to-br from-gray-100 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 text-gray-900 dark:text-white py-16 relative">
-        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5 dark:from-blue-600/5 dark:to-purple-600/5" />
+      <footer className="bg-gradient-to-br from-gray-100 via-blue-50 to-indigo-50 dark:bg-gray-800 text-gray-900 dark:text-white py-16 relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5 dark:bg-gray-800" />
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             <div>
@@ -526,9 +526,9 @@ export default function LandingPage() {
                 {settings.platformName}
               </span>
             </motion.div>
-              <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                Empowering traders with comprehensive education and real-time insights to achieve financial success.
-              </p>
+                             <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                 Empowering traders with comprehensive education and real-time insights to achieve financial success.
+               </p>
             </div>
             
             {[
@@ -551,30 +551,30 @@ export default function LandingPage() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
               >
-                <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{section.title}</h3>
-                <ul className="space-y-3">
-                  {section.links.map((link, linkIndex) => (
-                    <li key={linkIndex}>
-                      <a href="#" className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
-                        {link}
-                      </a>
-                    </li>
-                  ))}
-                </ul>
+                                 <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{section.title}</h3>
+                 <ul className="space-y-3">
+                   {section.links.map((link, linkIndex) => (
+                     <li key={linkIndex}>
+                       <a href="#" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
+                         {link}
+                       </a>
+                     </li>
+                   ))}
+                 </ul>
               </motion.div>
             ))}
           </div>
           
-          <motion.div 
-            className="border-t border-gray-300 dark:border-gray-800 mt-12 pt-8 text-center text-gray-600 dark:text-gray-400"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, delay: 0.4 }}
-          >
-            <p>&copy; 2024 {settings.platformName}. All rights reserved. | Built with ❤️ for forex traders worldwide</p>
-          </motion.div>
+                                <motion.div 
+             className="border-t border-gray-300 dark:border-gray-700 mt-12 pt-8 text-center text-gray-600 dark:text-gray-300"
+             initial={{ opacity: 0, y: 20 }}
+             whileInView={{ opacity: 1, y: 0 }}
+             transition={{ duration: 0.6, delay: 0.4 }}
+           >
+             <p>&copy; 2024 {settings.platformName}. All rights reserved. | Built with ❤️ for forex traders worldwide</p>
+           </motion.div>
         </div>
       </footer>
-    </div>
+    </div> 
   );
 }

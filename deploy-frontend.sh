@@ -2,26 +2,26 @@
 
 echo "🚀 Deploying optimized frontend..."
 
-# Build the frontend
-echo "📦 Building frontend..."
+# Clean build cache and build the frontend
+echo "🧹 Cleaning build cache..."
 cd frontend
+rm -rf .next
+
+echo "📦 Building frontend..."
 npm run build
 
 if [ $? -eq 0 ]; then
     echo "✅ Build successful!"
     
-    # Copy build files to production directory (adjust path as needed)
-    echo "📁 Copying build files..."
-    sudo cp -r .next /var/www/html/frontend/.next
-    sudo cp -r public /var/www/html/frontend/public
-    sudo cp package.json /var/www/html/frontend/
-    sudo cp next.config.js /var/www/html/frontend/
-    sudo cp -r lib /var/www/html/frontend/
-    sudo cp -r app /var/www/html/frontend/
-    
-    echo "✅ Frontend deployed successfully!"
-    echo "🌐 Your frontend should now be accessible at http://217.196.51.104:9000"
+    echo "📁 Frontend is ready for deployment!"
+    echo ""
+    echo "🌐 Your frontend should be accessible at http://217.196.51.104:9000"
     echo "🔧 API calls will now route to http://217.196.51.104:9090"
+    echo ""
+    echo "📋 Next steps:"
+    echo "1. Copy the built files to your production server"
+    echo "2. Restart your frontend server"
+    echo "3. Test the course creation functionality"
 else
     echo "❌ Build failed!"
     exit 1
