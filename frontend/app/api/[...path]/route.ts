@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || (typeof window !== 'undefined' && window.location.hostname === '217.196.51.104' ? 'http://217.196.51.104:9090/api' : 'http://localhost:4000/api');
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://217.196.51.104:9090';
 
 export async function GET(
   request: NextRequest,
