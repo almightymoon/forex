@@ -85,7 +85,7 @@ export default function TeacherDashboard() {
         
         // Fetch all data in parallel with proper error handling
         const [coursesRes, studentsRes, liveSessionsRes, analyticsRes] = await Promise.all([
-          fetch('http://localhost:4000/api/teacher/courses', {
+          fetch('/api/teacher/courses', {
             headers: { 
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'

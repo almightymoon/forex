@@ -244,7 +244,7 @@ export default function Analytics() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:4000/api/teacher/courses', {
+              const response = await fetch('/api/teacher/courses', {
         headers: {
           'Authorization': `Bearer ${token}`
         }

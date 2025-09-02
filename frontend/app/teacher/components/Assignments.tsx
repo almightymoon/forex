@@ -129,7 +129,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
       // Fetch assignments for all teacher's courses
       const assignmentPromises = courses.map(async (course) => {
         try {
-          const response = await fetch(`http://localhost:4000/api/teacher/courses/${course.id}/assignments?includeSubmissions=true`, {
+          const response = await fetch(`/api/teacher/courses/${course.id}/assignments?includeSubmissions=true`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -176,7 +176,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/courses/${assignmentForm.courseId}/assignments`, {
+              const response = await fetch(`/api/teacher/courses/${assignmentForm.courseId}/assignments`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -209,7 +209,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/courses/${selectedAssignment.courseId}/assignments/${selectedAssignment.id || selectedAssignment._id}`, {
+      const response = await fetch(`/api/teacher/courses/${selectedAssignment.courseId}/assignments/${selectedAssignment.id || selectedAssignment._id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -242,7 +242,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/courses/${selectedAssignment.courseId}/assignments/${selectedAssignment.id || selectedAssignment._id}`, {
+      const response = await fetch(`/api/teacher/courses/${selectedAssignment.courseId}/assignments/${selectedAssignment.id || selectedAssignment._id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -289,7 +289,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
           const courseId = assignment.courseId;
           console.log('Trying to fetch submissions from backend for course:', courseId);
           
-          const response = await fetch(`http://localhost:4000/api/teacher/courses/${courseId}/assignments/${assignment._id}`, {
+          const response = await fetch(`/api/teacher/courses/${courseId}/assignments/${assignment._id}`, {
             headers: {
               'Authorization': `Bearer ${token}`
             }
@@ -355,7 +355,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
       const courseId = selectedAssignment.courseId;
       console.log('Grading submission for course:', courseId, 'assignment:', selectedAssignment._id);
 
-      const response = await fetch(`http://localhost:4000/api/teacher/courses/${courseId}/assignments/${selectedAssignment._id}/grade`, {
+              const response = await fetch(`/api/teacher/courses/${courseId}/assignments/${selectedAssignment._id}/grade`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -409,7 +409,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
       console.log('Submission to delete:', submissionToDelete);
       console.log('Student object:', submissionToDelete.student);
 
-      const response = await fetch(`http://localhost:4000/api/teacher/courses/${courseId}/assignments/${selectedAssignment._id}/submissions/${studentId}`, {
+              const response = await fetch(`/api/teacher/courses/${courseId}/assignments/${selectedAssignment._id}/submissions/${studentId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

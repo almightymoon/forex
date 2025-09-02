@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, Mail, Lock, TrendingUp, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { buildApiUrl } from '@/utils/api';
@@ -304,7 +304,6 @@ export default function LoginPage() {
             <p className="text-xs text-gray-500 dark:text-gray-400">
               New users pay a one-time $30 registration fee
             </p>
-
           </div>
         </motion.div>
 
@@ -336,17 +335,15 @@ export default function LoginPage() {
             </p>
 
             <form onSubmit={handle2FASubmit} className="space-y-4">
-              <div>
-                <input
-                  type="text"
-                  value={twoFactorCode}
-                  onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="000000"
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-lg font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  maxLength={6}
-                  required
-                />
-              </div>
+              <input
+                type="text"
+                value={twoFactorCode}
+                onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="000000"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-lg font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                maxLength={6}
+                required
+              />
 
               {error && (
                 <motion.div

@@ -115,7 +115,7 @@ export default function Courses({
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/courses/${courseId}`, {
+      const response = await fetch(`/api/teacher/courses/${courseId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
