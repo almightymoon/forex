@@ -33,15 +33,39 @@ function isRateLimited(endpoint: string): boolean {
   return false;
 }
 
+// Network connectivity check
+const checkNetworkConnectivity = async (): Promise<boolean> => {
+  try {
+    console.log('🌐 Checking network connectivity...');
+    const response = await fetch(API_BASE_URL, { 
+      method: 'HEAD',
+      mode: 'no-cors',
+      cache: 'no-cache'
+    });
+    console.log('✅ Network connectivity check passed');
+    return true;
+  } catch (error) {
+    console.error('❌ Network connectivity check failed:', error);
+    return false;
+  }
+};
+
 // Helper function to build API URLs
 export const buildApiUrl = (endpoint: string): string => {
-  // Remove leading slash if present to avoid double slashes
-  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-  // Remove 'api/' prefix from endpoint if API_BASE_URL already includes '/api'
-  const finalEndpoint = API_BASE_URL.includes('/api') && cleanEndpoint.startsWith('api/') 
-    ? cleanEndpoint.slice(4) 
-    : cleanEndpoint;
-  return `${API_BASE_URL}/${finalEndpoint}`;
+  try {
+    // Remove leading slash if present to avoid double slashes
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+    // Remove 'api/' prefix from endpoint if API_BASE_URL already includes '/api'
+    const finalEndpoint = API_BASE_URL.includes('/api') && cleanEndpoint.startsWith('api/') 
+      ? cleanEndpoint.slice(4) 
+      : cleanEndpoint;
+    const url = `${API_BASE_URL}/${finalEndpoint}`;
+    console.log('🔗 Built API URL:', url);
+    return url;
+  } catch (error) {
+    console.error('❌ Error building API URL:', error);
+    throw error;
+  }
 };
 
 // Helper function for API requests with common headers and caching
@@ -50,54 +74,95 @@ export const apiRequest = async (
   options: RequestInit = {},
   useCache: boolean = true
 ): Promise<Response> => {
-  const url = buildApiUrl(endpoint);
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
-  
-  // Check rate limiting
-  if (isRateLimited(endpoint)) {
-    console.warn(`Rate limited for endpoint: ${endpoint}`);
-    throw new Error('Too many requests, please try again later');
-  }
-  
-  // Check cache for GET requests
-  if (useCache && options.method === 'GET' || !options.method) {
-    const cacheKey = `${endpoint}:${token || 'no-token'}`;
-    const cached = cache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-      console.log(`Returning cached data for: ${endpoint}`);
-      return new Response(JSON.stringify(cached.data), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
-      });
+  try {
+    console.log('🌐 Making API request:', endpoint);
+    
+    // Check network connectivity first
+    const isConnected = await checkNetworkConnectivity();
+    if (!isConnected) {
+      throw new Error('Network connectivity issue detected');
     }
-  }
-  
-  const defaultHeaders: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...(token && { 'Authorization': `Bearer ${token}` }),
-    ...options.headers,
-  };
-
-  const response = await fetch(url, {
-    ...options,
-    headers: defaultHeaders,
-  });
-
-  // Cache successful GET responses
-  if (useCache && response.ok && (options.method === 'GET' || !options.method)) {
-    try {
-      const data = await response.clone().json();
+    
+    const url = buildApiUrl(endpoint);
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    
+    console.log('🔑 Token available:', !!token);
+    
+    // Check rate limiting
+    if (isRateLimited(endpoint)) {
+      console.warn(`⚠️ Rate limited for endpoint: ${endpoint}`);
+      throw new Error('Too many requests, please try again later');
+    }
+    
+    // Check cache for GET requests
+    if (useCache && options.method === 'GET' || !options.method) {
       const cacheKey = `${endpoint}:${token || 'no-token'}`;
-      cache.set(cacheKey, {
-        data,
-        timestamp: Date.now()
-      });
-    } catch (error) {
-      // Ignore caching errors
+      const cached = cache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+        console.log(`✅ Returning cached data for: ${endpoint}`);
+        return new Response(JSON.stringify(cached.data), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
     }
-  }
+    
+    const defaultHeaders: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...options.headers,
+    };
 
-  return response;
+    console.log('📤 Request details:', {
+      url,
+      method: options.method || 'GET',
+      headers: defaultHeaders,
+      body: options.body ? 'Present' : 'None'
+    });
+
+    const response = await fetch(url, {
+      ...options,
+      headers: defaultHeaders,
+    });
+
+    console.log('📥 Response received:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
+    // Cache successful GET responses
+    if (useCache && response.ok && (options.method === 'GET' || !options.method)) {
+      try {
+        const data = await response.clone().json();
+        const cacheKey = `${endpoint}:${token || 'no-token'}`;
+        cache.set(cacheKey, {
+          data,
+          timestamp: Date.now()
+        });
+        console.log(`💾 Cached response for: ${endpoint}`);
+      } catch (error) {
+        console.warn('⚠️ Failed to cache response:', error);
+      }
+    }
+
+    return response;
+  } catch (error) {
+    console.error('❌ API request failed:', {
+      endpoint,
+      error: error.message,
+      stack: error.stack
+    });
+    
+    // Handle network errors gracefully
+    if (error.name === 'TypeError' && error.message.includes('fetch')) {
+      console.error('🌐 Network error detected');
+      throw new Error(`Network error: Unable to connect to server. Please check your internet connection and try again.`);
+    }
+    
+    throw error;
+  }
 };
 
 // Helper function to clear cache for specific endpoint
@@ -109,8 +174,10 @@ export const clearCache = (endpoint?: string) => {
         cache.delete(key);
       }
     }
+    console.log(`🗑️ Cleared cache for: ${endpoint}`);
   } else {
     // Clear all cache
     cache.clear();
+    console.log('🗑️ Cleared all cache');
   }
 };

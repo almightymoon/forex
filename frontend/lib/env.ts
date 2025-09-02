@@ -39,3 +39,20 @@ export const isDebugEnabled = () => {
   const enableDebug = process.env.NEXT_PUBLIC_ENABLE_DEBUG === 'true';
   return nodeEnv === 'development' || enableDebug;
 };
+
+// Debug function to log environment info
+export const logEnvironmentInfo = () => {
+  if (typeof window !== 'undefined') {
+    console.log('🌍 Environment Info:', {
+      API_BASE_URL: env.API_BASE_URL,
+      NODE_ENV: env.NODE_ENV,
+      ENABLE_DEBUG: env.ENABLE_DEBUG,
+      ENABLE_ERROR_SUPPRESSION: env.ENABLE_ERROR_SUPPRESSION,
+      isDevelopment: isDevelopment(),
+      isProduction: isProduction(),
+      isDebugEnabled: isDebugEnabled(),
+      userAgent: navigator.userAgent,
+      location: window.location.href
+    });
+  }
+};

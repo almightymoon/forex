@@ -8,11 +8,13 @@ import {
   Mail, X, AlertTriangle, CheckCircle, Clock, Star, 
   Calendar, MessageSquare, Search, CreditCard, Globe, 
   Lock, Bell, Smartphone, Server, Database, Key, Zap,
-  Save, RotateCcw, Palette, Monitor, Languages, MapPin
+  Save, RotateCcw, Palette, Monitor, Languages, MapPin,
+  RefreshCw, AlertCircle
 } from 'lucide-react';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../components/Toast';
 import { useAdmin } from '../../../context/AdminContext';
+import { buildApiUrl } from '../../../utils/api';
 import Overview from './Overview';
 import UserManagement from './UserManagement';
 import PaymentManagement from './PaymentManagement';
@@ -32,21 +34,91 @@ export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const { settings: globalSettings, refreshSettings } = useSettings();
   const { showToast } = useToast();
   const { data, loading, refreshing, refreshData } = useAdmin();
   
   const { user, users, payments, analytics, promoCodes, settings } = data;
 
+  // Error boundary for the component
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error('🔴 Admin Dashboard Error:', event.error);
+      setError(event.error?.message || 'An unexpected error occurred');
+    };
+
+    window.addEventListener('error', handleError);
+    return () => window.removeEventListener('error', handleError);
+  }, []);
+
+  // Handle unhandled promise rejections
+  useEffect(() => {
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error('🔴 Admin Dashboard Promise Rejection:', event.reason);
+      setError(event.reason?.message || 'A promise was rejected');
+    };
+
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+    return () => window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+  }, []);
+
+  // Error display component
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-8 max-w-md mx-4 shadow-lg border border-gray-200 dark:border-gray-700">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              Something went wrong
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-6">
+              {error}
+            </p>
+            <div className="space-y-3">
+              <button
+                onClick={() => {
+                  setError(null);
+                  window.location.reload();
+                }}
+                className="w-full bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                Reload Page
+              </button>
+              <button
+                onClick={() => window.location.href = '/dashboard'}
+                className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                Go to Dashboard
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <CoolLoader 
+        message="Loading Admin Dashboard..."
+        size="md"
+        variant="admin"
+      />
+    );
+  }
+
   // No need for route guard or data fetching - handled by AdminContext
-
-
 
   // User management functions
   const handleUserCreate = async (userData: UserForm) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:4000/api/admin/users', {
+      const response = await fetch(buildApiUrl('api/admin/users'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -77,7 +149,7 @@ export default function AdminDashboard() {
         delete updateData.password;
       }
 
-      const response = await fetch(`http://localhost:4000/api/admin/users/${userId}`, {
+      const response = await fetch(buildApiUrl(`api/admin/users/${userId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -102,7 +174,7 @@ export default function AdminDashboard() {
   const handleUserDelete = async (userId: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/admin/users/${userId}`, {
+      const response = await fetch(buildApiUrl(`api/admin/users/${userId}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -125,7 +197,7 @@ export default function AdminDashboard() {
   const handleUserToggleStatus = async (user: User) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/admin/users/${user._id}`, {
+      const response = await fetch(buildApiUrl(`api/admin/users/${user._id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -151,7 +223,7 @@ export default function AdminDashboard() {
   const handlePaymentStatusUpdate = async (paymentId: string, newStatus: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/admin/payments/${paymentId}`, {
+      const response = await fetch(buildApiUrl(`api/admin/payments/${paymentId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -176,7 +248,7 @@ export default function AdminDashboard() {
   const handleExportPayments = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:4000/api/admin/payments/export', {
+      const response = await fetch(buildApiUrl('api/admin/payments/export'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -207,7 +279,7 @@ export default function AdminDashboard() {
   const handlePromoCodeCreate = async (promoData: PromoForm) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:4000/api/admin/promocodes', {
+      const response = await fetch(buildApiUrl('api/admin/promocodes'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -235,7 +307,7 @@ export default function AdminDashboard() {
   const handlePromoCodeUpdate = async (promoId: string, promoData: PromoForm) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/admin/promocodes/${promoId}`, {
+      const response = await fetch(buildApiUrl(`api/admin/promocodes/${promoId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -263,7 +335,7 @@ export default function AdminDashboard() {
   const handlePromoCodeDelete = async (promoId: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`http://localhost:4000/api/admin/promocodes/${promoId}`, {
+      const response = await fetch(buildApiUrl(`api/admin/promocodes/${promoId}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -297,7 +369,7 @@ export default function AdminDashboard() {
     if (category === 'email') {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:4000/api/admin/settings', {
+        const response = await fetch(buildApiUrl('api/admin/settings'), {
           method: 'PUT',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -339,7 +411,7 @@ export default function AdminDashboard() {
     try {
       const token = localStorage.getItem('token');
       
-      const response = await fetch('http://localhost:4000/api/admin/settings', {
+      const response = await fetch(buildApiUrl('api/admin/settings'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -375,7 +447,7 @@ export default function AdminDashboard() {
   const handleTestEmailConfig = async () => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:4000/api/notifications/test-config', {
+      const response = await fetch(buildApiUrl('api/notifications/test-config'), {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -398,18 +470,6 @@ export default function AdminDashboard() {
       showToast(`Network error: ${error.message}`, 'error');
     }
   };
-
-
-
-  if (loading) {
-    return (
-      <CoolLoader 
-        message="Loading Admin Dashboard..."
-        size="md"
-        variant="admin"
-      />
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">

@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { apiRequest } from '../utils/api';
+import { logEnvironmentInfo } from '../lib/env';
 
 interface AdminData {
   user: {
@@ -46,61 +47,234 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const checkAdminRole = async (token: string) => {
     try {
+      console.log('🔍 Checking admin role...');
       const response = await apiRequest('api/auth/me');
       
       if (response.ok) {
         const userData = await response.json();
+        console.log('🔍 User data received:', userData);
+        
         const userRole = userData.user?.role || userData.role;
+        console.log('🔍 User role:', userRole);
         
         if (userRole !== 'admin') {
           throw new Error(`Access denied. Admin privileges required. Current role: ${userRole}`);
         }
         
-        return {
+        const user = {
           firstName: userData.user?.firstName || userData.firstName || 'Admin',
           lastName: userData.user?.lastName || userData.lastName || 'User',
           email: userData.user?.email || userData.email || '',
           role: userRole,
           profileImage: userData.user?.profileImage || userData.profileImage
         };
+        
+        console.log('✅ Admin role verified:', user);
+        return user;
       } else {
-        throw new Error('Authentication failed');
+        const errorText = await response.text();
+        console.error('❌ Auth check failed:', response.status, errorText);
+        throw new Error(`Authentication failed: ${response.status} ${errorText}`);
       }
     } catch (error) {
-      console.error('Auth check failed:', error);
+      console.error('❌ Auth check error:', error);
       throw error;
     }
   };
 
   const fetchAdminData = async (token: string) => {
     try {
-      const [usersRes, paymentsRes, analyticsRes, promoCodesRes, settingsRes] = await Promise.all([
-        apiRequest('api/admin/users'),
-        apiRequest('api/admin/payments'),
-        apiRequest('api/admin/analytics'),
-        apiRequest('api/admin/promocodes'),
-        apiRequest('api/admin/settings')
-      ]);
+      console.log('📊 Fetching admin data...');
+      
+      const endpoints = [
+        'api/admin/users',
+        'api/admin/payments', 
+        'api/admin/analytics',
+        'api/admin/promocodes',
+        'api/admin/settings'
+      ];
+      
+      const responses = await Promise.allSettled(
+        endpoints.map(endpoint => apiRequest(endpoint))
+      );
+      
+      console.log('📊 API responses:', responses);
+      
+      const [usersRes, paymentsRes, analyticsRes, promoCodesRes, settingsRes] = responses;
+      
+      // Handle each response with proper error handling
+      const users = usersRes.status === 'fulfilled' && usersRes.value.ok 
+        ? await usersRes.value.json() 
+        : [];
+        
+      const payments = paymentsRes.status === 'fulfilled' && paymentsRes.value.ok 
+        ? await paymentsRes.value.json() 
+        : [];
+        
+      const analytics = analyticsRes.status === 'fulfilled' && analyticsRes.value.ok 
+        ? await analyticsRes.value.json() 
+        : {
+            totalUsers: 0,
+            totalRevenue: 0,
+            monthlyGrowth: 0,
+            totalPayments: 0,
+            paymentsThisMonth: 0,
+            activeUsers: 0,
+            activePromoCodes: 0,
+            monthlyRevenue: [],
+            monthlyUserGrowth: [],
+            paymentMethodStats: []
+          };
+          
+      const promoCodes = promoCodesRes.status === 'fulfilled' && promoCodesRes.value.ok 
+        ? await promoCodesRes.value.json() 
+        : [];
+        
+      const settings = settingsRes.status === 'fulfilled' && settingsRes.value.ok 
+        ? await settingsRes.value.json() 
+        : {
+            general: {
+              platformName: 'LMS Platform',
+              description: 'Learning Management System',
+              defaultCurrency: 'USD',
+              timezone: 'UTC',
+              language: 'en',
+              maintenanceMode: false
+            },
+            security: {
+              twoFactorAuth: false,
+              sessionTimeout: 3600,
+              passwordPolicy: {
+                minLength: 8,
+                requireUppercase: true,
+                requireNumbers: true,
+                requireSymbols: false
+              },
+              loginAttempts: 5,
+              accountLockDuration: 900
+            },
+            notifications: {
+              emailNotifications: true,
+              smsNotifications: false,
+              pushNotifications: false,
+              newUserRegistration: true,
+              paymentReceived: true,
+              systemAlerts: true,
+              courseCompletions: true
+            },
+            payments: {
+              stripeEnabled: true,
+              paypalEnabled: false,
+              easypaisaEnabled: false,
+              jazzCashEnabled: false,
+              currency: 'USD',
+              taxRate: 0,
+              promoCodesEnabled: true
+            },
+            courses: {
+              autoApproval: false,
+              maxFileSize: 10,
+              allowedFileTypes: ['pdf', 'doc', 'docx', 'ppt', 'pptx'],
+              certificateEnabled: true,
+              completionThreshold: 80
+            },
+            email: {
+              smtpHost: '',
+              smtpPort: 587,
+              smtpUser: '',
+              smtpPassword: '',
+              fromEmail: '',
+              fromName: ''
+            }
+          };
 
-      const [users, payments, analytics, promoCodes, settings] = await Promise.all([
-        usersRes.ok ? usersRes.json() : [],
-        paymentsRes.ok ? paymentsRes.json() : [],
-        analyticsRes.ok ? analyticsRes.json() : {},
-        promoCodesRes.ok ? promoCodesRes.json() : [],
-        settingsRes.ok ? settingsRes.json() : {}
-      ]);
-
+      console.log('✅ Admin data fetched successfully');
       return { users, payments, analytics, promoCodes, settings };
     } catch (error) {
-      console.error('Failed to fetch admin data:', error);
-      throw error;
+      console.error('❌ Failed to fetch admin data:', error);
+      // Return default data instead of throwing
+      return {
+        users: [],
+        payments: [],
+        analytics: {
+          totalUsers: 0,
+          totalRevenue: 0,
+          monthlyGrowth: 0,
+          totalPayments: 0,
+          paymentsThisMonth: 0,
+          activeUsers: 0,
+          activePromoCodes: 0,
+          monthlyRevenue: [],
+          monthlyUserGrowth: [],
+          paymentMethodStats: []
+        },
+        promoCodes: [],
+        settings: {
+          general: {
+            platformName: 'LMS Platform',
+            description: 'Learning Management System',
+            defaultCurrency: 'USD',
+            timezone: 'UTC',
+            language: 'en',
+            maintenanceMode: false
+          },
+          security: {
+            twoFactorAuth: false,
+            sessionTimeout: 3600,
+            passwordPolicy: {
+              minLength: 8,
+              requireUppercase: true,
+              requireNumbers: true,
+              requireSymbols: false
+            },
+            loginAttempts: 5,
+            accountLockDuration: 900
+          },
+          notifications: {
+            emailNotifications: true,
+            smsNotifications: false,
+            pushNotifications: false,
+            newUserRegistration: true,
+            paymentReceived: true,
+            systemAlerts: true,
+            courseCompletions: true
+          },
+          payments: {
+            stripeEnabled: true,
+            paypalEnabled: false,
+            easypaisaEnabled: false,
+            jazzCashEnabled: false,
+            currency: 'USD',
+            taxRate: 0,
+            promoCodesEnabled: true
+          },
+          courses: {
+            autoApproval: false,
+            maxFileSize: 10,
+            allowedFileTypes: ['pdf', 'doc', 'docx', 'ppt', 'pptx'],
+            certificateEnabled: true,
+            completionThreshold: 80
+          },
+          email: {
+            smtpHost: '',
+            smtpPort: 587,
+            smtpUser: '',
+            smtpPassword: '',
+            fromEmail: '',
+            fromName: ''
+          }
+        }
+      };
     }
   };
 
   const initializeAdminData = useCallback(async () => {
     try {
+      console.log('🚀 Initializing admin data...');
+      logEnvironmentInfo(); // Log environment info for debugging
       const token = localStorage.getItem('token');
       if (!token) {
+        console.log('❌ No token found, redirecting to login');
         window.location.href = '/login';
         return;
       }
@@ -108,6 +282,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       // Check if we have cached data and it's still valid
       const now = Date.now();
       if (lastFetched && (now - lastFetched) < CACHE_DURATION && data.user) {
+        console.log('✅ Using cached admin data');
         setLoading(false);
         return;
       }
@@ -127,11 +302,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
       setLastFetched(now);
       setLoading(false);
+      console.log('✅ Admin data initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize admin data:', error);
+      console.error('❌ Failed to initialize admin data:', error);
       if (error instanceof Error && error.message.includes('Access denied')) {
+        console.log('❌ Access denied, redirecting to dashboard');
         window.location.href = '/dashboard';
       } else {
+        console.log('❌ Authentication error, redirecting to login');
         window.location.href = '/login';
       }
     }
@@ -139,9 +317,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const refreshData = useCallback(async () => {
     try {
+      console.log('🔄 Refreshing admin data...');
       setRefreshing(true);
       const token = localStorage.getItem('token');
       if (!token) {
+        console.log('❌ No token found during refresh');
         window.location.href = '/login';
         return;
       }
@@ -158,8 +338,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       }));
 
       setLastFetched(Date.now());
+      console.log('✅ Admin data refreshed successfully');
     } catch (error) {
-      console.error('Failed to refresh admin data:', error);
+      console.error('❌ Failed to refresh admin data:', error);
     } finally {
       setRefreshing(false);
     }
@@ -168,9 +349,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     // Only initialize admin data if we're on an admin page
     const pathname = window.location.pathname;
+    console.log('📍 Current pathname:', pathname);
+    
     if (pathname.startsWith('/admin')) {
+      console.log('🔧 Initializing admin data for admin page');
       initializeAdminData();
     } else {
+      console.log('⏭️ Not on admin page, skipping initialization');
       // If not on admin page, just set loading to false
       setLoading(false);
     }

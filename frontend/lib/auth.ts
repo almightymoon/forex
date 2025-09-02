@@ -1,5 +1,6 @@
 // Simple token verification utility
 // TODO: Replace with proper JWT verification when backend is ready
+import { buildApiUrl } from '../utils/api';
 
 interface User {
   id: string;
@@ -14,7 +15,7 @@ export async function verifyToken(token: string): Promise<User | null> {
     }
 
     // Verify token with the backend using /api/auth/me endpoint
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000/api'}/auth/me`, {
+    const response = await fetch(buildApiUrl('api/auth/me'), {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
