@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { buildApiUrl } from '../../../utils/api';
-import { showToast } from '../../../utils/toast';
+import { buildApiUrl } from '../../utils/api';
+import { showToast } from '../../utils/toast';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
