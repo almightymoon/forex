@@ -485,7 +485,7 @@ export default function AdminDashboard() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">
                   Admin Panel
                 </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{(globalSettings?.platformName || 'LMS Platform')} Management</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{(globalSettings.platformName || 'LMS Platform')} Management</p>
               </div>
             </div>
             
