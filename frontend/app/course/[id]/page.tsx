@@ -865,48 +865,48 @@ export default function CourseDetail() {
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg"
             >
               <div className="flex items-center space-x-4 mb-4">
                 <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
                   <BookOpen className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">{course.title}</h1>
-                  <p className="text-gray-600">by {course.teacher?.firstName || 'Unknown'} {course.teacher?.lastName || 'Teacher'}</p>
+                  <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{course.title}</h1>
+                  <p className="text-gray-600 dark:text-gray-300">by {course.teacher?.firstName || 'Unknown'} {course.teacher?.lastName || 'Teacher'}</p>
                 </div>
               </div>
               
-              <p className="text-gray-700 text-lg leading-relaxed mb-6">{course.description}</p>
+              <p className="text-gray-700 dark:text-gray-300 text-lg leading-relaxed mb-6">{course.description}</p>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="text-center">
-                  <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-                    <Play className="w-6 h-6 text-blue-600" />
+                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mx-auto mb-2">
+                    <Play className="w-6 h-6 text-blue-600 dark:text-blue-400" />
                   </div>
-                  <p className="text-sm text-gray-600">Videos</p>
-                  <p className="text-lg font-semibold text-gray-900">{typeof course.totalVideos === 'number' ? course.totalVideos : 0}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Videos</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{typeof course.totalVideos === 'number' ? course.totalVideos : 0}</p>
                 </div>
                 <div className="text-center">
-                  <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-                    <Clock className="w-6 h-6 text-green-600" />
+                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mx-auto mb-2">
+                    <Clock className="w-6 h-6 text-green-600 dark:text-green-400" />
                   </div>
-                  <p className="text-sm text-gray-600">Duration</p>
-                  <p className="text-lg font-semibold text-gray-900">{typeof course.totalDuration === 'number' ? Math.round(course.totalDuration / 60) : 0} min</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Duration</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{typeof course.totalDuration === 'number' ? Math.round(course.totalDuration / 60) : 0} min</p>
                 </div>
                 <div className="text-center">
-                  <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-                    <Star className="w-6 h-6 text-yellow-600" />
+                  <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center mx-auto mb-2">
+                    <Star className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
                   </div>
-                  <p className="text-sm text-gray-600">Rating</p>
-                  <p className="text-lg font-semibold text-gray-900">{typeof course.rating === 'number' ? course.rating : 0}/5</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Rating</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{typeof course.rating === 'number' ? course.rating : 0}/5</p>
                 </div>
                 <div className="text-center">
-                  <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center mx-auto mb-2">
-                    <User className="w-6 h-6 text-purple-600" />
+                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mx-auto mb-2">
+                    <User className="w-6 h-6 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <p className="text-sm text-gray-600">Students</p>
-                  <p className="text-lg font-semibold text-gray-900">{typeof course.totalStudents === 'number' ? course.totalStudents : 0}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">Students</p>
+                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{typeof course.totalStudents === 'number' ? course.totalStudents : 0}</p>
                 </div>
               </div>
             </motion.div>
@@ -916,7 +916,7 @@ export default function CourseDetail() {
               <motion.div 
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg"
+                className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg"
               >
                 {renderContent(selectedContent)}
               </motion.div>
@@ -927,9 +927,9 @@ export default function CourseDetail() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.2 }}
-              className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg"
             >
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Course Content</h2>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Course Content</h2>
               <div className="space-y-3">
                 {/* Course Content */}
                 {(course.content || course.videos || []).map((item, index) => (
@@ -938,23 +938,23 @@ export default function CourseDetail() {
                     onClick={() => handleContentSelect(item)}
                     className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
                       selectedContent?._id === item._id
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                        : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                     }`}
                   >
                     <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                      <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
                         {isEnrolled || item.isPreview ? (
                           getContentIcon(item.type)
                         ) : (
-                          <Lock className="w-5 h-5 text-gray-400" />
+                          <Lock className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                         )}
                       </div>
                       <div className="flex-1">
                         <div className="flex items-center space-x-2">
-                          <h3 className="font-medium text-gray-900">{item.title}</h3>
+                          <h3 className="font-medium text-gray-900 dark:text-white">{item.title}</h3>
                           {item.isPreview && (
-                            <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                            <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs">
                               Preview
                             </span>
                           )}
@@ -964,11 +964,11 @@ export default function CourseDetail() {
                             {item.type.toUpperCase()}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-600">{item.description}</p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">{item.description}</p>
                       </div>
                       <div className="text-right">
                         {item.type === 'video' && item.duration && (
-                          <p className="text-sm text-gray-500">{formatDuration(item.duration)}</p>
+                          <p className="text-sm text-gray-500 dark:text-gray-400">{formatDuration(item.duration)}</p>
                         )}
                         {isEnrolled && completedVideos.includes(item._id) && (
                           <CheckCircle className="w-5 h-5 text-green-500 mt-1" />
@@ -981,8 +981,8 @@ export default function CourseDetail() {
                 {/* Course Assignments */}
                 {assignments.length > 0 && (
                   <>
-                    <div className="pt-4 border-t border-gray-200">
-                      <h4 className="text-lg font-semibold text-gray-900 mb-3">Course Assignments</h4>
+                    <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Course Assignments</h4>
                     </div>
                     {assignments.map((assignment, index) => (
                       <div
@@ -1000,25 +1000,25 @@ export default function CourseDetail() {
                         })}
                         className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
                           selectedContent?._id === assignment._id
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50'
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                         }`}
                       >
                         <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center">
-                            <FileText className="w-5 h-5 text-blue-600" />
+                          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
+                            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center space-x-2">
-                              <h3 className="font-medium text-gray-900">{assignment.title}</h3>
-                              <span className="px-2 py-1 bg-blue-100 text-blue-700 rounded-full text-xs">
+                              <h3 className="font-medium text-gray-900 dark:text-white">{assignment.title}</h3>
+                              <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs">
                                 ASSIGNMENT
                               </span>
                             </div>
-                            <p className="text-sm text-gray-600">{assignment.description}</p>
+                            <p className="text-sm text-gray-600 dark:text-gray-300">{assignment.description}</p>
                           </div>
                           <div className="text-right">
-                            <p className="text-sm text-gray-500">{assignment.maxPoints || 'N/A'} pts</p>
+                            <p className="text-sm text-gray-500 dark:text-gray-400">{assignment.maxPoints || 'N/A'} pts</p>
                           </div>
                         </div>
                       </div>
@@ -1036,23 +1036,23 @@ export default function CourseDetail() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.3 }}
-              className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg"
             >
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                   {course.currency} {course.price}
                 </h3>
-                <p className="text-gray-600">One-time payment</p>
+                <p className="text-gray-600 dark:text-gray-300">One-time payment</p>
               </div>
 
               {isEnrolled ? (
                 <div className="space-y-4">
                   <div className="text-center">
-                    <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <CheckCircle className="w-8 h-8 text-green-600" />
+                    <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
                     </div>
-                    <p className="text-green-600 font-semibold">Enrolled!</p>
-                    <p className="text-gray-600 text-sm">Your progress: {userProgress}%</p>
+                    <p className="text-green-600 dark:text-green-400 font-semibold">Enrolled!</p>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm">Your progress: {userProgress}%</p>
                   </div>
                   <button className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl">
                     Continue Learning
@@ -1067,23 +1067,23 @@ export default function CourseDetail() {
                 </button>
               )}
 
-              <div className="mt-6 pt-6 border-t border-gray-200">
-                <h4 className="font-semibold text-gray-900 mb-3">This course includes:</h4>
-                <ul className="space-y-2 text-sm text-gray-600">
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
+                <h4 className="font-semibold text-gray-900 dark:text-white mb-3">This course includes:</h4>
+                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                   <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <CheckCircle className="w-4 h-4 text-green-500 dark:text-green-400" />
                     <span>{typeof course.totalVideos === 'number' ? course.totalVideos : 0} video lessons</span>
                   </li>
                   <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <CheckCircle className="w-4 h-4 text-green-500 dark:text-green-400" />
                     <span>Lifetime access</span>
                   </li>
                   <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <CheckCircle className="w-4 h-4 text-green-500 dark:text-green-400" />
                     <span>Certificate of completion</span>
                   </li>
                   <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500" />
+                    <CheckCircle className="w-4 h-4 text-green-500 dark:text-green-400" />
                     <span>Mobile and TV access</span>
                   </li>
                 </ul>
@@ -1095,25 +1095,25 @@ export default function CourseDetail() {
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.4 }}
-              className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg"
             >
-              <h3 className="font-semibold text-gray-900 mb-4">Course Information</h3>
+              <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Course Information</h3>
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Category:</span>
-                  <span className="text-gray-900 font-medium capitalize">{course.category}</span>
+                  <span className="text-gray-600 dark:text-gray-300">Category:</span>
+                  <span className="text-gray-900 dark:text-white font-medium capitalize">{course.category}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Level:</span>
-                  <span className="text-gray-900 font-medium capitalize">{course.level}</span>
+                  <span className="text-gray-600 dark:text-gray-300">Level:</span>
+                  <span className="text-gray-900 dark:text-white font-medium capitalize">{course.level}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Language:</span>
-                  <span className="text-gray-900 font-medium">English</span>
+                  <span className="text-gray-600 dark:text-gray-300">Language:</span>
+                  <span className="text-gray-900 dark:text-white font-medium">English</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Rating:</span>
-                  <span className="text-gray-900 font-medium">{typeof course.rating === 'number' ? course.rating : 0}/5 ({typeof course.totalRatings === 'number' ? course.totalRatings : 0} ratings)</span>
+                  <span className="text-gray-600 dark:text-gray-300">Rating:</span>
+                  <span className="text-gray-900 dark:text-white font-medium">{typeof course.rating === 'number' ? course.rating : 0}/5 ({typeof course.totalRatings === 'number' ? course.totalRatings : 0} ratings)</span>
                 </div>
               </div>
             </motion.div>
@@ -1124,13 +1124,13 @@ export default function CourseDetail() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.5 }}
-                className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg"
+                className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg"
               >
-                <h3 className="font-semibold text-gray-900 mb-4">Requirements</h3>
-                <ul className="space-y-2 text-sm text-gray-600">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Requirements</h3>
+                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                   {course.requirements.map((req, index) => (
                     <li key={index} className="flex items-start space-x-2">
-                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+                      <div className="w-1.5 h-1.5 bg-blue-500 dark:bg-blue-400 rounded-full mt-2 flex-shrink-0"></div>
                       <span>{req}</span>
                     </li>
                   ))}
@@ -1144,13 +1144,13 @@ export default function CourseDetail() {
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.6 }}
-                className="bg-white rounded-2xl p-6 border border-gray-200 shadow-lg"
+                className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg"
               >
-                <h3 className="font-semibold text-gray-900 mb-4">What you'll learn</h3>
-                <ul className="space-y-2 text-sm text-gray-600">
+                <h3 className="font-semibold text-gray-900 dark:text-white mb-4">What you'll learn</h3>
+                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
                   {course.learningOutcomes.map((outcome, index) => (
                     <li key={index} className="flex items-start space-x-2">
-                      <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                      <CheckCircle className="w-4 h-4 text-green-500 dark:text-green-400 mt-0.5 flex-shrink-0" />
                       <span>{outcome}</span>
                     </li>
                   ))}
