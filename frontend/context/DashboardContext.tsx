@@ -11,6 +11,8 @@ interface User {
   email: string;
   role: 'student' | 'instructor' | 'admin';
   profileImage?: string;
+  isVerified?: boolean;
+  isActive?: boolean;
   subscription: {
     plan: string;
     isActive: boolean;

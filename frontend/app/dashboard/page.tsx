@@ -7,6 +7,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useToast } from '../../components/Toast';
 import { useMaintenanceMode } from '../../hooks/useMaintenanceMode';
+import { useSessionTimeout } from '../../hooks/useSessionTimeout';
 import { useDashboard } from '../../context/DashboardContext';
 import DarkModeToggle from '../../components/DarkModeToggle';
 import CoolLoader from '../../components/CoolLoader';
@@ -76,6 +77,14 @@ export default function Dashboard() {
     updateCourseProgress,
     addEnrolledCourse
   } = useDashboard();
+
+  // Use session timeout hook
+  useSessionTimeout({
+    timeoutMinutes: 15, // Default 15 minutes, can be made dynamic later
+    onTimeout: () => {
+      window.location.href = '/login';
+    }
+  });
 
   // Set mounted state to prevent hydration issues
   useEffect(() => {
@@ -567,7 +576,7 @@ export default function Dashboard() {
               </div>
               
               {/* Admin Panel Link - Only for Admin Users */}
-              {user?.role === 'admin' && (
+              {user?.role === 'admin' && !loading && user?.isVerified && (
                 <div className="border-l border-gray-200 dark:border-gray-700 pl-4">
                   <button 
                     onClick={() => window.location.href = '/admin'}

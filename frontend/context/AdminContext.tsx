@@ -28,7 +28,7 @@ interface AdminContextType {
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+const CACHE_DURATION = 2 * 60 * 1000; // Reduced to 2 minutes for better role checking
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AdminData>({
@@ -51,21 +51,25 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       if (response.ok) {
         const userData = await response.json();
         
-        const userRole = userData.user?.role || userData.role;
+        // Ensure we get the correct user data structure
+        const user = userData.user || userData;
+        const userRole = user?.role;
         
-        if (userRole !== 'admin') {
-          throw new Error(`Access denied. Admin privileges required. Current role: ${userRole}`);
+        console.log('AdminContext - User role check:', userRole);
+        
+        if (!userRole || userRole !== 'admin') {
+          throw new Error(`Access denied. Admin privileges required. Current role: ${userRole || 'unknown'}`);
         }
         
-        const user = {
-          firstName: userData.user?.firstName || userData.firstName || 'Admin',
-          lastName: userData.user?.lastName || userData.lastName || 'User',
-          email: userData.user?.email || userData.email || '',
+        const adminUser = {
+          firstName: user?.firstName || 'Admin',
+          lastName: user?.lastName || 'User',
+          email: user?.email || '',
           role: userRole,
-          profileImage: userData.user?.profileImage || userData.profileImage
+          profileImage: user?.profileImage
         };
         
-        return user;
+        return adminUser;
       } else {
         const errorText = await response.text();
         throw new Error(`Authentication failed: ${response.status} ${errorText}`);
@@ -268,15 +272,22 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Always check admin role first, regardless of cache
+      const user = await checkAdminRole(token);
+      
       // Check if we have cached data and it's still valid
       const now = Date.now();
-      if (lastFetched && (now - lastFetched) < CACHE_DURATION && data.user) {
+      if (lastFetched && (now - lastFetched) < CACHE_DURATION && data.users.length > 0) {
+        // Update user data but keep cached admin data
+        setData(prev => ({
+          ...prev,
+          user
+        }));
         setLoading(false);
         return;
       }
 
       // Fetch fresh data
-      const user = await checkAdminRole(token);
       const { users, payments, analytics, promoCodes, settings } = await fetchAdminData(token);
 
       setData({
@@ -293,6 +304,16 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Failed to initialize admin data:', error);
       if (error instanceof Error && error.message.includes('Access denied')) {
+        // Clear any cached admin data
+        setData({
+          user: null,
+          users: [],
+          payments: [],
+          analytics: {},
+          promoCodes: [],
+          settings: {}
+        });
+        setLastFetched(null);
         window.location.href = '/dashboard';
       } else {
         window.location.href = '/login';
@@ -309,10 +330,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // Always verify admin role on refresh
+      const user = await checkAdminRole(token);
+      
       const { users, payments, analytics, promoCodes, settings } = await fetchAdminData(token);
       
       setData(prev => ({
         ...prev,
+        user,
         users,
         payments,
         analytics,
@@ -323,6 +348,19 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       setLastFetched(Date.now());
     } catch (error) {
       console.error('Failed to refresh admin data:', error);
+      if (error instanceof Error && error.message.includes('Access denied')) {
+        // Clear admin data and redirect
+        setData({
+          user: null,
+          users: [],
+          payments: [],
+          analytics: {},
+          promoCodes: [],
+          settings: {}
+        });
+        setLastFetched(null);
+        window.location.href = '/dashboard';
+      }
     } finally {
       setRefreshing(false);
     }
@@ -335,7 +373,16 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     if (pathname.startsWith('/admin')) {
       initializeAdminData();
     } else {
-      // If not on admin page, just set loading to false
+      // If not on admin page, clear admin data to prevent caching issues
+      setData({
+        user: null,
+        users: [],
+        payments: [],
+        analytics: {},
+        promoCodes: [],
+        settings: {}
+      });
+      setLastFetched(null);
       setLoading(false);
     }
   }, [initializeAdminData]);

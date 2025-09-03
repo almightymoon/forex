@@ -9,6 +9,7 @@ const { authenticateToken } = require('../middleware/auth');
 const { passwordPolicyMiddleware } = require('../middleware/passwordPolicy');
 const { loginSecurityMiddleware } = require('../middleware/loginSecurity');
 const { generateTokenWithTimeout } = require('../middleware/sessionTimeout');
+const { refreshToken } = require('../middleware/sessionTimeout');
 const TwoFactorAuthService = require('../services/twoFactorAuth');
 const notificationService = require('../services/notificationService');
 const cloudinary = require('../config/cloudinary');
@@ -350,9 +351,8 @@ router.post('/login', [
     user.lastLogin = new Date();
     await user.save();
 
-    // Generate token with session timeout and role - temporarily simplified
-    // const token = await generateTokenWithTimeout(user._id, user.role);
-    const token = jwt.sign({ userId: user._id, role: user.role }, process.env.JWT_SECRET, { expiresIn: '7d' });
+    // Generate token with session timeout and role
+    const token = await generateTokenWithTimeout(user._id, user.role);
 
     res.json({
       message: 'Login successful',
@@ -607,6 +607,42 @@ router.post('/reset-password', [
     res.status(500).json({
       error: 'Password reset failed',
       message: 'An error occurred while resetting your password'
+    });
+  }
+});
+
+// @route   POST /api/auth/refresh
+// @desc    Refresh JWT token
+// @access  Private
+router.post('/refresh', authenticateToken, async (req, res) => {
+  try {
+    const currentToken = req.headers['authorization']?.replace('Bearer ', '');
+    
+    if (!currentToken) {
+      return res.status(401).json({
+        error: 'No token provided',
+        message: 'Please provide a valid token'
+      });
+    }
+
+    const result = await refreshToken(currentToken);
+    
+    if (result.success) {
+      res.json({
+        message: 'Token refreshed successfully',
+        token: result.token
+      });
+    } else {
+      res.status(401).json({
+        error: 'Token refresh failed',
+        message: result.error || 'Failed to refresh token'
+      });
+    }
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    res.status(500).json({
+      error: 'Token refresh failed',
+      message: 'An error occurred while refreshing the token'
     });
   }
 });

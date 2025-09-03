@@ -14,6 +14,7 @@ import {
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../components/Toast';
 import { useAdmin } from '../../../context/AdminContext';
+import { useSessionTimeout } from '../../../hooks/useSessionTimeout';
 import { buildApiUrl } from '../../../utils/api';
 import Overview from './Overview';
 import UserManagement from './UserManagement';
@@ -40,6 +41,14 @@ export default function AdminDashboard() {
   const { data, loading, refreshing, refreshData } = useAdmin();
   
   const { user, users, payments, analytics, promoCodes, settings } = data;
+
+  // Use session timeout hook
+  useSessionTimeout({
+    timeoutMinutes: settings?.security?.sessionTimeout || 15,
+    onTimeout: () => {
+      window.location.href = '/login';
+    }
+  });
 
   // Error boundary for the component
   useEffect(() => {

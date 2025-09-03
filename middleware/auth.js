@@ -303,6 +303,22 @@ const requireSubscription = async (req, res, next) => {
   }
 };
 
+// Add role validation middleware to prevent incorrect role assignments
+const validateUserRole = (req, res, next) => {
+  // Only validate on user creation/update
+  if (req.method === 'POST' || req.method === 'PUT') {
+    const { role } = req.body;
+    
+    if (role && !['student', 'teacher', 'admin'].includes(role)) {
+      return res.status(400).json({
+        error: 'Invalid role',
+        message: 'Role must be one of: student, teacher, admin'
+      });
+    }
+  }
+  
+  next();
+};
 
 
 module.exports = {
@@ -313,5 +329,6 @@ module.exports = {
   requireOwnership,
   requireEnrollment,
   requireSignalSubscription,
-  requireSubscription
+  requireSubscription,
+  validateUserRole
 };

@@ -100,8 +100,8 @@ app.use('/api/community', communityRoutes);
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/certificate-templates', require('./routes/certificateTemplates'));
 
-// Apply session timeout check to all protected routes - temporarily disabled for debugging
-// app.use(checkSessionTimeout);
+// Apply session timeout check to all protected routes
+app.use(checkSessionTimeout);
 
 // Apply maintenance mode middleware to all other routes
 app.use(maintenanceMiddleware);
