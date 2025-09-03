@@ -211,15 +211,15 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
   const getPriorityColor = (priority: string) => {
     switch (priority) {
       case 'urgent':
-        return 'border-l-red-500 bg-red-50';
+        return 'border-l-red-500 bg-red-50 dark:bg-red-900/20';
       case 'high':
-        return 'border-l-orange-500 bg-orange-50';
+        return 'border-l-orange-500 bg-orange-50 dark:bg-orange-900/20';
       case 'medium':
-        return 'border-l-blue-500 bg-blue-50';
+        return 'border-l-blue-500 bg-blue-50 dark:bg-blue-900/20';
       case 'low':
-        return 'border-l-gray-500 bg-gray-50';
+        return 'border-l-gray-500 bg-gray-50 dark:bg-gray-700';
       default:
-        return 'border-l-gray-500 bg-gray-50';
+        return 'border-l-gray-500 bg-gray-50 dark:bg-gray-700';
     }
   };
 

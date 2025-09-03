@@ -434,7 +434,7 @@ export default function TwoFactorManagement({ className }: TwoFactorManagementPr
             <div className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Require 2FA for Admins</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Require 2FA for Admins</label>
                   <div className="flex items-center space-x-3">
                     <input
                       type="checkbox"
@@ -445,7 +445,7 @@ export default function TwoFactorManagement({ className }: TwoFactorManagementPr
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Require 2FA for Instructors</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Require 2FA for Instructors</label>
                   <div className="flex items-center space-x-3">
                     <input
                       type="checkbox"
@@ -459,30 +459,30 @@ export default function TwoFactorManagement({ className }: TwoFactorManagementPr
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Backup Code Count</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Backup Code Count</label>
                   <input
                     type="number"
                     defaultValue={8}
                     min={4}
                     max={20}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
-                  <p className="text-sm text-gray-500 mt-1">Number of backup codes to generate</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Number of backup codes to generate</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Session Timeout</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Session Timeout</label>
                   <input
                     type="number"
                     defaultValue={30}
                     min={5}
                     max={120}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   />
-                  <p className="text-sm text-gray-500 mt-1">Minutes before 2FA re-verification required</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Minutes before 2FA re-verification required</p>
                 </div>
               </div>
 
-              <div className="pt-6 border-t border-gray-200">
+              <div className="pt-6 border-t border-gray-200 dark:border-gray-700">
                 <button className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
                   Save Settings
                 </button>

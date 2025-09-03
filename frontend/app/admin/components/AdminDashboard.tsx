@@ -30,25 +30,35 @@ import {
 import UserProfileDropdown from '../../components/UserProfileDropdown';
 import DarkModeToggle from '../../../components/DarkModeToggle';
 import CoolLoader from '../../../components/CoolLoader';
+import NotificationDropdown from '../../dashboard/components/NotificationDropdown';
 
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState('overview');
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showNotifications, setShowNotifications] = useState(false);
   const { settings: globalSettings, refreshSettings } = useSettings();
   const { showToast } = useToast();
   const { data, loading, refreshing, refreshData } = useAdmin();
   
   const { user, users, payments, analytics, promoCodes, settings } = data;
 
-  // Use session timeout hook
+  // Use session timeout hook with safe settings access
   useSessionTimeout({
     timeoutMinutes: settings?.security?.sessionTimeout || 15,
     onTimeout: () => {
       window.location.href = '/login';
     }
   });
+
+  // Route guard - check if user is admin
+  useEffect(() => {
+    if (!loading && data.user && data.user.role !== 'admin') {
+      showToast('Access denied. Admin privileges required.', 'error');
+      window.location.href = '/dashboard';
+    }
+  }, [loading, data.user, showToast]);
 
   // Error boundary for the component
   useEffect(() => {
@@ -115,6 +125,17 @@ export default function AdminDashboard() {
     return (
       <CoolLoader 
         message="Loading Admin Dashboard..."
+        size="md"
+        variant="admin"
+      />
+    );
+  }
+
+  // Check if settings are loaded
+  if (!settings || !settings.general) {
+    return (
+      <CoolLoader 
+        message="Loading Settings..."
         size="md"
         variant="admin"
       />
@@ -386,7 +407,7 @@ export default function AdminDashboard() {
           },
           body: JSON.stringify({
             email: {
-              ...settings.email,
+              ...(settings?.email || {}),
               [field]: value
             }
           })
@@ -406,9 +427,9 @@ export default function AdminDashboard() {
     const updatedSettings = {
       ...settings,
       [category]: {
-        ...settings[category as keyof typeof settings],
+        ...(settings?.[category as keyof typeof settings] || {}),
         [nestedField]: {
-          ...settings[category as keyof typeof settings][nestedField as any],
+          ...(settings?.[category as keyof typeof settings]?.[nestedField as any] || {}),
           [field]: value
         }
       }
@@ -426,7 +447,7 @@ export default function AdminDashboard() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(settings)
+        body: JSON.stringify(settings || {})
       });
 
       if (response.ok) {
@@ -494,12 +515,35 @@ export default function AdminDashboard() {
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">
                   Admin Panel
                 </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{(globalSettings.platformName || 'LMS Platform')} Management</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  {(globalSettings?.platformName || settings?.general?.platformName || 'LMS Platform')} Management
+                </p>
               </div>
             </div>
             
             <div className="flex items-center space-x-4">
               <DarkModeToggle size="sm" />
+              <div className="relative">
+                <button 
+                  onClick={() => setShowNotifications(!showNotifications)}
+                  className="p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 relative"
+                >
+                  <Bell className="w-5 h-5" />
+                  {/* Notification badge */}
+                  {Number(data.notificationCount || 0) > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                      {Number(data.notificationCount || 0) > 99 ? '99+' : Number(data.notificationCount || 0)}
+                    </span>
+                  )}
+                </button>
+                
+                {/* Notification Dropdown - positioned relative to bell button */}
+                <NotificationDropdown
+                  isOpen={showNotifications}
+                  onClose={() => setShowNotifications(false)}
+                  onRefresh={refreshData}
+                />
+              </div>
               <button className="p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200">
                 <SettingsIcon className="w-5 h-5" />
               </button>
@@ -592,7 +636,7 @@ export default function AdminDashboard() {
             settingsSaved={settingsSaved}
             onTestEmailConfig={handleTestEmailConfig}
           />
-        )}
+                )}
       </div>
     </div>
   );

@@ -59,11 +59,17 @@ export default function LoginPage() {
           localStorage.setItem('user', JSON.stringify(data.user));
           
           // Route based on user role
+          console.log('Login - User role:', data.user.role);
+          console.log('Login - User data:', data.user);
+          
           if (data.user.role === 'teacher') {
+            console.log('Login - Redirecting to teacher dashboard');
             router.push('/teacher');
           } else if (data.user.role === 'admin') {
+            console.log('Login - Redirecting to admin dashboard');
             router.push('/admin');
           } else {
+            console.log('Login - Redirecting to student dashboard');
             router.push('/dashboard');
           }
         }
@@ -102,11 +108,17 @@ export default function LoginPage() {
         localStorage.setItem('user', JSON.stringify(data.user));
         
         // Route based on user role
+        console.log('2FA Login - User role:', data.user.role);
+        console.log('2FA Login - User data:', data.user);
+        
         if (data.user.role === 'teacher') {
+          console.log('2FA Login - Redirecting to teacher dashboard');
           router.push('/teacher');
         } else if (data.user.role === 'admin') {
+          console.log('2FA Login - Redirecting to admin dashboard');
           router.push('/admin');
         } else {
+          console.log('2FA Login - Redirecting to student dashboard');
           router.push('/dashboard');
         }
       } else {

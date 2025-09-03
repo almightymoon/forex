@@ -16,6 +16,7 @@ interface AdminData {
   analytics: any;
   promoCodes: any[];
   settings: any;
+  notificationCount: number;
 }
 
 interface AdminContextType {
@@ -30,6 +31,63 @@ const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
 const CACHE_DURATION = 2 * 60 * 1000; // Reduced to 2 minutes for better role checking
 
+// Default settings to use when API fails or data is not available
+const getDefaultSettings = () => ({
+  general: {
+    platformName: 'Forex Navigators',
+    description: 'Premier Trading Education Platform',
+    defaultCurrency: 'USD',
+    timezone: 'UTC',
+    language: 'en',
+    maintenanceMode: false
+  },
+  security: {
+    twoFactorAuth: false,
+    sessionTimeout: 3600,
+    passwordPolicy: {
+      minLength: 8,
+      requireUppercase: true,
+      requireNumbers: true,
+      requireSymbols: false
+    },
+    loginAttempts: 5,
+    accountLockDuration: 900
+  },
+  notifications: {
+    emailNotifications: true,
+    smsNotifications: false,
+    pushNotifications: false,
+    newUserRegistration: true,
+    paymentReceived: true,
+    systemAlerts: true,
+    courseCompletions: true
+  },
+  payments: {
+    stripeEnabled: true,
+    paypalEnabled: false,
+    easypaisaEnabled: false,
+    jazzCashEnabled: false,
+    currency: 'USD',
+    taxRate: 0,
+    promoCodesEnabled: true
+  },
+  courses: {
+    autoApproval: false,
+    maxFileSize: 10,
+    allowedFileTypes: ['pdf', 'doc', 'docx', 'ppt', 'pptx'],
+    certificateEnabled: true,
+    completionThreshold: 80
+  },
+  email: {
+    smtpHost: '',
+    smtpPort: 587,
+    smtpUser: '',
+    smtpPassword: '',
+    fromEmail: '',
+    fromName: ''
+  }
+});
+
 export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [data, setData] = useState<AdminData>({
     user: null,
@@ -37,7 +95,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     payments: [],
     analytics: {},
     promoCodes: [],
-    settings: {}
+    settings: getDefaultSettings(),
+    notificationCount: 0
   });
 
   const [loading, setLoading] = useState(true);
@@ -56,6 +115,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         const userRole = user?.role;
         
         console.log('AdminContext - User role check:', userRole);
+        console.log('AdminContext - Full user data:', user);
         
         if (!userRole || userRole !== 'admin') {
           throw new Error(`Access denied. Admin privileges required. Current role: ${userRole || 'unknown'}`);
@@ -69,6 +129,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           profileImage: user?.profileImage
         };
         
+        console.log('AdminContext - Admin access granted for:', adminUser.email);
         return adminUser;
       } else {
         const errorText = await response.text();
@@ -87,14 +148,15 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         'api/admin/payments', 
         'api/admin/analytics',
         'api/admin/promocodes',
-        'api/admin/settings'
+        'api/admin/settings',
+        'api/notifications/user?unreadOnly=true&limit=1'
       ];
       
       const responses = await Promise.allSettled(
         endpoints.map(endpoint => apiRequest(endpoint))
       );
       
-      const [usersRes, paymentsRes, analyticsRes, promoCodesRes, settingsRes] = responses;
+      const [usersRes, paymentsRes, analyticsRes, promoCodesRes, settingsRes, notificationRes] = responses;
       
       // Handle each response with proper error handling
       const users = usersRes.status === 'fulfilled' && usersRes.value.ok 
@@ -127,65 +189,22 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       let settings = {};
       if (settingsRes.status === 'fulfilled' && settingsRes.value.ok) {
         settings = await settingsRes.value.json();
-      } else {
-        settings = {
-          general: {
-            platformName: 'Forex Navigators',
-            description: 'Premier Trading Education Platform',
-            defaultCurrency: 'USD',
-            timezone: 'UTC',
-            language: 'en',
-            maintenanceMode: false
-          },
-          security: {
-            twoFactorAuth: false,
-            sessionTimeout: 3600,
-            passwordPolicy: {
-              minLength: 8,
-              requireUppercase: true,
-              requireNumbers: true,
-              requireSymbols: false
-            },
-            loginAttempts: 5,
-            accountLockDuration: 900
-          },
-          notifications: {
-            emailNotifications: true,
-            smsNotifications: false,
-            pushNotifications: false,
-            newUserRegistration: true,
-            paymentReceived: true,
-            systemAlerts: true,
-            courseCompletions: true
-          },
-          payments: {
-            stripeEnabled: true,
-            paypalEnabled: false,
-            easypaisaEnabled: false,
-            jazzCashEnabled: false,
-            currency: 'USD',
-            taxRate: 0,
-            promoCodesEnabled: true
-          },
-          courses: {
-            autoApproval: false,
-            maxFileSize: 10,
-            allowedFileTypes: ['pdf', 'doc', 'docx', 'ppt', 'pptx'],
-            certificateEnabled: true,
-            completionThreshold: 80
-          },
-          email: {
-            smtpHost: '',
-            smtpPort: 587,
-            smtpUser: '',
-            smtpPassword: '',
-            fromEmail: '',
-            fromName: ''
-          }
-        };
-      }
+              } else {
+          settings = getDefaultSettings();
+        }
 
-      return { users, payments, analytics, promoCodes, settings };
+        // Handle notification response
+        let notificationCount = 0;
+        if (notificationRes.status === 'fulfilled' && notificationRes.value.ok) {
+          try {
+            const notificationData = await notificationRes.value.json();
+            notificationCount = notificationData.unreadCount || 0;
+          } catch (error) {
+            console.error('Error parsing notifications:', error);
+          }
+        }
+
+        return { users, payments, analytics, promoCodes, settings, notificationCount };
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
       // Return default data instead of throwing
@@ -205,80 +224,32 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           paymentMethodStats: []
         },
         promoCodes: [],
-        settings: {
-          general: {
-            platformName: 'Forex Navigators',
-            description: 'Premier Trading Education Platform',
-            defaultCurrency: 'USD',
-            timezone: 'UTC',
-            language: 'en',
-            maintenanceMode: false
-          },
-          security: {
-            twoFactorAuth: false,
-            sessionTimeout: 3600,
-            passwordPolicy: {
-              minLength: 8,
-              requireUppercase: true,
-              requireNumbers: true,
-              requireSymbols: false
-            },
-            loginAttempts: 5,
-            accountLockDuration: 900
-          },
-          notifications: {
-            emailNotifications: true,
-            smsNotifications: false,
-            pushNotifications: false,
-            newUserRegistration: true,
-            paymentReceived: true,
-            systemAlerts: true,
-            courseCompletions: true
-          },
-          payments: {
-            stripeEnabled: true,
-            paypalEnabled: false,
-            easypaisaEnabled: false,
-            jazzCashEnabled: false,
-            currency: 'USD',
-            taxRate: 0,
-            promoCodesEnabled: true
-          },
-          courses: {
-            autoApproval: false,
-            maxFileSize: 10,
-            allowedFileTypes: ['pdf', 'doc', 'docx', 'ppt', 'pptx'],
-            certificateEnabled: true,
-            completionThreshold: 80
-          },
-          email: {
-            smtpHost: '',
-            smtpPort: 587,
-            smtpUser: '',
-            smtpPassword: '',
-            fromEmail: '',
-            fromName: ''
-          }
-        }
+        settings: getDefaultSettings(),
+        notificationCount: 0
       };
     }
   };
 
   const initializeAdminData = useCallback(async () => {
     try {
+      console.log('AdminContext - Initializing admin data...');
       const token = localStorage.getItem('token');
       if (!token) {
+        console.log('AdminContext - No token found, redirecting to login');
         window.location.href = '/login';
         return;
       }
 
       // Always check admin role first, regardless of cache
+      console.log('AdminContext - Checking admin role...');
       const user = await checkAdminRole(token);
+      console.log('AdminContext - Admin role check passed for:', user.email);
       
       // Check if we have cached data and it's still valid
       const now = Date.now();
       if (lastFetched && (now - lastFetched) < CACHE_DURATION && data.users.length > 0) {
         // Update user data but keep cached admin data
+        console.log('AdminContext - Using cached data');
         setData(prev => ({
           ...prev,
           user
@@ -288,7 +259,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       }
 
       // Fetch fresh data
-      const { users, payments, analytics, promoCodes, settings } = await fetchAdminData(token);
+      console.log('AdminContext - Fetching fresh admin data...');
+      const { users, payments, analytics, promoCodes, settings, notificationCount } = await fetchAdminData(token);
 
       setData({
         user,
@@ -296,11 +268,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         payments,
         analytics,
         promoCodes,
-        settings
+        settings,
+        notificationCount
       });
 
       setLastFetched(now);
       setLoading(false);
+      console.log('AdminContext - Admin data initialized successfully');
     } catch (error) {
       console.error('Failed to initialize admin data:', error);
       if (error instanceof Error && error.message.includes('Access denied')) {
@@ -311,10 +285,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           payments: [],
           analytics: {},
           promoCodes: [],
-          settings: {}
+          settings: getDefaultSettings(),
+          notificationCount: 0
         });
         setLastFetched(null);
-        window.location.href = '/dashboard';
+        // Don't redirect if we're already on admin page - let the component handle it
+        console.log('Access denied - user is not admin');
       } else {
         window.location.href = '/login';
       }
@@ -333,7 +309,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       // Always verify admin role on refresh
       const user = await checkAdminRole(token);
       
-      const { users, payments, analytics, promoCodes, settings } = await fetchAdminData(token);
+      const { users, payments, analytics, promoCodes, settings, notificationCount } = await fetchAdminData(token);
       
       setData(prev => ({
         ...prev,
@@ -342,7 +318,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         payments,
         analytics,
         promoCodes,
-        settings
+        settings,
+        notificationCount
       }));
 
       setLastFetched(Date.now());
@@ -356,10 +333,12 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           payments: [],
           analytics: {},
           promoCodes: [],
-          settings: {}
+          settings: getDefaultSettings(),
+          notificationCount: 0
         });
         setLastFetched(null);
-        window.location.href = '/dashboard';
+        // Don't redirect if we're already on admin page - let the component handle it
+        console.log('Access denied - user is not admin');
       }
     } finally {
       setRefreshing(false);
@@ -380,7 +359,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         payments: [],
         analytics: {},
         promoCodes: [],
-        settings: {}
+        settings: getDefaultSettings(),
+        notificationCount: 0
       });
       setLastFetched(null);
       setLoading(false);
