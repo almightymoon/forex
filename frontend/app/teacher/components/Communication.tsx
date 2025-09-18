@@ -151,23 +151,15 @@ export default function Communication({ students, courses }: CommunicationProps)
         return;
       }
 
-      // Transform recipients from IDs to the expected structure
-      const transformedRecipients = newMessage.recipients.map(studentId => {
-        const student = students.find(s => s.id === studentId);
-        return {
-          studentId: studentId,
-          studentName: student ? `${student.firstName} ${student.lastName}` : 'Unknown Student',
-          email: student ? student.email : 'unknown@email.com',
-          read: false
-        };
-      });
-
-      // Prepare message data with correct structure
+      // Prepare message data - just send the student IDs
       const messageData = {
-        ...newMessage,
-        recipients: transformedRecipients,
-        courseId: newMessage.courseId || undefined, // Only send if not empty
-        scheduledFor: newMessage.scheduledFor || undefined // Only send if not empty
+        title: newMessage.title,
+        content: newMessage.content,
+        type: newMessage.type,
+        recipients: newMessage.recipients, // Just the student IDs
+        courseId: newMessage.courseId || undefined,
+        scheduledFor: newMessage.scheduledFor || undefined,
+        attachments: newMessage.attachments
       };
 
   
@@ -347,11 +339,11 @@ export default function Communication({ students, courses }: CommunicationProps)
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'draft': return 'bg-gray-100 text-gray-800';
-      case 'scheduled': return 'bg-blue-100 text-blue-800';
-      case 'sent': return 'bg-green-100 text-green-800';
-      case 'failed': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'draft': return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
+      case 'scheduled': return 'bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300';
+      case 'sent': return 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300';
+      case 'failed': return 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300';
+      default: return 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
     }
   };
 
@@ -367,7 +359,7 @@ export default function Communication({ students, courses }: CommunicationProps)
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
       </div>
     );
   }
@@ -382,7 +374,7 @@ export default function Communication({ students, courses }: CommunicationProps)
         </div>
         <button
           onClick={() => setShowCreateModal(true)}
-          className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center space-x-2 bg-blue-600 dark:bg-blue-700 text-white px-4 py-2 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
         >
           <Plus className="w-4 h-4" />
           <span>New Message</span>
@@ -584,13 +576,13 @@ export default function Communication({ students, courses }: CommunicationProps)
                         setEditingMessage(message);
                         setShowEditModal(true);
                       }}
-                      className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                      className="flex-1 bg-blue-600 dark:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleSendNow(message._id)}
-                      className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors"
+                      className="px-3 py-2 bg-green-600 dark:bg-green-700 text-white rounded-lg text-sm hover:bg-green-700 dark:hover:bg-green-600 transition-colors"
                       title="Send Now"
                     >
                       <Send className="w-4 h-4" />
@@ -601,7 +593,7 @@ export default function Communication({ students, courses }: CommunicationProps)
                 {message.status === 'scheduled' && (
                   <button
                     onClick={() => handleSendNow(message._id)}
-                    className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors"
+                    className="flex-1 bg-green-600 dark:bg-green-700 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 dark:hover:bg-green-600 transition-colors"
                   >
                     Send Now
                   </button>
@@ -612,7 +604,7 @@ export default function Communication({ students, courses }: CommunicationProps)
                     setSelectedMessage(message);
                     setShowPreviewModal(true);
                   }}
-                  className="px-3 py-2 text-blue-600 hover:text-blue-900 transition-colors"
+                  className="px-3 py-2 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 transition-colors"
                   title="Preview"
                 >
                   <Eye className="w-4 h-4" />
@@ -620,7 +612,7 @@ export default function Communication({ students, courses }: CommunicationProps)
 
                 <button
                   onClick={() => handleDeleteMessage(message._id)}
-                  className="px-3 py-2 text-red-600 hover:text-red-900 transition-colors"
+                  className="px-3 py-2 text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 transition-colors"
                   title="Delete"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -633,19 +625,19 @@ export default function Communication({ students, courses }: CommunicationProps)
 
       {/* Create Message Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Create New Message</h3>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black dark:bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Create New Message</h3>
+            <div className="space-y-4 ">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 ">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Message Type *
                   </label>
                   <select
                     value={newMessage.type}
                     onChange={(e) => setNewMessage({ ...newMessage, type: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="announcement">Announcement</option>
                     <option value="message">Message</option>
@@ -654,7 +646,7 @@ export default function Communication({ students, courses }: CommunicationProps)
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Course (Optional)
                   </label>
                   <select
@@ -665,7 +657,7 @@ export default function Communication({ students, courses }: CommunicationProps)
                         selectRecipientsByCourse(e.target.value);
                       }
                     }}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="">All Students</option>
                     {courses.map(course => (
@@ -676,47 +668,47 @@ export default function Communication({ students, courses }: CommunicationProps)
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Title *
                 </label>
                 <input
                   type="text"
                   value={newMessage.title}
                   onChange={(e) => setNewMessage({ ...newMessage, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Enter message title"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Content *
                 </label>
                 <textarea
                   value={newMessage.content}
                   onChange={(e) => setNewMessage({ ...newMessage, content: e.target.value })}
                   rows={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Enter message content"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Recipients *
                 </label>
                 <div className="space-y-3">
                   <div className="flex space-x-2 mb-3">
                     <button
                       onClick={selectAllStudents}
-                      className="px-3 py-2 bg-gray-600 text-white rounded-lg text-sm hover:bg-gray-700 transition-colors"
+                      className="px-3 py-2 bg-gray-600 dark:bg-gray-700 text-white rounded-lg text-sm hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
                     >
                       Select All Students
                     </button>
                     {newMessage.courseId && (
                       <button
                         onClick={() => selectRecipientsByCourse(newMessage.courseId!)}
-                        className="px-3 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                        className="px-3 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg text-sm hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
                       >
                         Select Course Students
                       </button>
@@ -729,7 +721,7 @@ export default function Communication({ students, courses }: CommunicationProps)
                           recipients: []
                         });
                       }}
-                      className="px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                      className="px-3 py-2 bg-red-600 dark:bg-red-700 text-white rounded-lg text-sm hover:bg-red-700 dark:hover:bg-red-600 transition-colors"
                     >
                       Clear Selection
                     </button>
@@ -753,7 +745,7 @@ export default function Communication({ students, courses }: CommunicationProps)
                       }}
                     />
                   </div>
-                  <div className="max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3">
+                  <div className="max-h-40 overflow-y-auto border border-gray-300 dark:border-gray-600 rounded-lg p-3 bg-white dark:bg-gray-700">
                     {students.length === 0 ? (
                       <div className="text-center py-4 text-gray-500 dark:text-gray-400">
                         <Users className="w-8 h-8 mx-auto mb-2 text-gray-400 dark:text-gray-500" />
@@ -762,7 +754,7 @@ export default function Communication({ students, courses }: CommunicationProps)
                       </div>
                     ) : (
                       students.map(student => (
-                        <label key={student._id} className="flex items-center space-x-3 py-2 px-2 hover:bg-gray-50 dark:hover:bg-gray-700 rounded cursor-pointer">
+                        <label key={student._id} className="flex items-center space-x-3 py-2 px-2 hover:bg-gray-50 dark:hover:bg-gray-600 rounded cursor-pointer">
                           <input
                             type="checkbox"
                             checked={selectedRecipients.includes(student._id)}
@@ -781,7 +773,7 @@ export default function Communication({ students, courses }: CommunicationProps)
                                 });
                               }
                             }}
-                            className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
+                            className="rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500 bg-white dark:bg-gray-800"
                           />
                           <div className="flex-1">
                             <span className="text-sm font-medium text-gray-900 dark:text-white">
@@ -802,19 +794,19 @@ export default function Communication({ students, courses }: CommunicationProps)
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Schedule (Optional)
                 </label>
                 <input
                   type="datetime-local"
                   value={newMessage.scheduledFor}
                   onChange={(e) => setNewMessage({ ...newMessage, scheduledFor: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Attachments
                 </label>
                 <div className="space-y-3">
@@ -824,19 +816,19 @@ export default function Communication({ students, courses }: CommunicationProps)
                       value={newAttachment.name}
                       onChange={(e) => setNewAttachment({ ...newAttachment, name: e.target.value })}
                       placeholder="Attachment name"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     />
                     <input
                       type="text"
                       value={newAttachment.url}
                       onChange={(e) => setNewAttachment({ ...newAttachment, url: e.target.value })}
                       placeholder="URL"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     />
                     <select
                       value={newAttachment.type}
                       onChange={(e) => setNewAttachment({ ...newAttachment, type: e.target.value as any })}
-                      className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     >
                       <option value="file">File</option>
                       <option value="image">Image</option>
@@ -845,7 +837,7 @@ export default function Communication({ students, courses }: CommunicationProps)
                     </select>
                     <button
                       onClick={addAttachment}
-                      className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                      className="px-4 py-2 bg-gray-600 dark:bg-gray-700 text-white rounded-lg hover:bg-gray-700 dark:hover:bg-gray-600 transition-colors"
                     >
                       Add
                     </button>
@@ -854,12 +846,12 @@ export default function Communication({ students, courses }: CommunicationProps)
                     {newMessage.attachments.map((attachment, index) => (
                       <span
                         key={index}
-                        className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
+                        className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"
                       >
                         {attachment.name}
                         <button
                           onClick={() => removeAttachment(index)}
-                          className="ml-2 text-blue-600 hover:text-blue-800"
+                          className="ml-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-200"
                         >
                           <XCircle className="w-3 h-3" />
                         </button>
@@ -873,13 +865,13 @@ export default function Communication({ students, courses }: CommunicationProps)
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateMessage}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex-1 px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
               >
                 {newMessage.scheduledFor ? 'Schedule Message' : 'Send Message'}
               </button>
@@ -890,31 +882,31 @@ export default function Communication({ students, courses }: CommunicationProps)
 
       {/* Edit Message Modal */}
       {showEditModal && editingMessage && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Edit Message</h3>
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black dark:bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Edit Message</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Title *
                 </label>
                 <input
                   type="text"
                   value={editingMessage.title}
                   onChange={(e) => setEditingMessage({ ...editingMessage, title: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Content *
                 </label>
                 <textarea
                   value={editingMessage.content}
                   onChange={(e) => setEditingMessage({ ...editingMessage, content: e.target.value })}
                   rows={6}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 />
               </div>
             </div>
@@ -922,13 +914,13 @@ export default function Communication({ students, courses }: CommunicationProps)
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowEditModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpdateMessage}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex-1 px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
               >
                 Update Message
               </button>
@@ -939,13 +931,13 @@ export default function Communication({ students, courses }: CommunicationProps)
 
       {/* Preview Modal */}
       {showPreviewModal && selectedMessage && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black bg-opacity-50 dark:bg-black dark:bg-opacity-70 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Message Preview</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Message Preview</h3>
               <button
                 onClick={() => setShowPreviewModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <XCircle className="w-6 h-6" />
               </button>
@@ -953,27 +945,27 @@ export default function Communication({ students, courses }: CommunicationProps)
 
             <div className="space-y-4">
               <div>
-                <h4 className="font-medium text-gray-900">{selectedMessage.title}</h4>
-                <p className="text-sm text-gray-500 mt-1">
+                <h4 className="font-medium text-gray-900 dark:text-white">{selectedMessage.title}</h4>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
                   Type: {selectedMessage.type} | Status: {selectedMessage.status}
                 </p>
               </div>
 
               <div>
-                <p className="text-gray-700 whitespace-pre-wrap">{selectedMessage.content}</p>
+                <p className="text-gray-700 dark:text-gray-300 whitespace-pre-wrap">{selectedMessage.content}</p>
               </div>
 
               {selectedMessage.attachments.length > 0 && (
                 <div>
-                  <h5 className="font-medium text-gray-900 mb-2">Attachments:</h5>
+                  <h5 className="font-medium text-gray-900 dark:text-white mb-2">Attachments:</h5>
                   <div className="space-y-2">
                     {selectedMessage.attachments.map((attachment, index) => (
-                      <div key={index} className="flex items-center space-x-2 p-2 bg-gray-50 rounded">
-                        {attachment.type === 'image' && <Image className="w-4 h-4 text-blue-600" />}
-                        {attachment.type === 'video' && <Video className="w-4 h-4 text-purple-600" />}
-                        {attachment.type === 'link' && <Link className="w-4 h-4 text-green-600" />}
-                        {attachment.type === 'file' && <FileText className="w-4 h-4 text-gray-600" />}
-                        <span className="text-sm text-gray-700">{attachment.name}</span>
+                      <div key={index} className="flex items-center space-x-2 p-2 bg-gray-50 dark:bg-gray-700 rounded">
+                        {attachment.type === 'image' && <Image className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+                        {attachment.type === 'video' && <Video className="w-4 h-4 text-purple-600 dark:text-purple-400" />}
+                        {attachment.type === 'link' && <Link className="w-4 h-4 text-green-600 dark:text-green-400" />}
+                        {attachment.type === 'file' && <FileText className="w-4 h-4 text-gray-600 dark:text-gray-400" />}
+                        <span className="text-sm text-gray-700 dark:text-gray-300">{attachment.name}</span>
                       </div>
                     ))}
                   </div>
@@ -981,16 +973,16 @@ export default function Communication({ students, courses }: CommunicationProps)
               )}
 
               <div>
-                <h5 className="font-medium text-gray-900 mb-2">Recipients:</h5>
-                <p className="text-sm text-gray-600">
+                <h5 className="font-medium text-gray-900 dark:text-white mb-2">Recipients:</h5>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
                   {selectedMessage.totalRecipients} students
                   {selectedMessage.courseName && ` • Course: ${selectedMessage.courseName}`}
                 </p>
               </div>
 
               <div>
-                <h5 className="font-medium text-gray-900 mb-2">Stats:</h5>
-                <p className="text-sm text-gray-600">
+                <h5 className="font-medium text-gray-900 dark:text-white mb-2">Stats:</h5>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
                   Read: {selectedMessage.readCount}/{selectedMessage.totalRecipients} 
                   ({Math.round((selectedMessage.readCount / selectedMessage.totalRecipients) * 100)}%)
                 </p>

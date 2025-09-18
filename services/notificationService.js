@@ -1,6 +1,7 @@
 const nodemailer = require('nodemailer');
 const Settings = require('../models/Settings');
 const User = require('../models/User');
+const NotificationTracking = require('../models/NotificationTracking');
 
 class NotificationService {
   constructor() {
@@ -15,6 +16,13 @@ class NotificationService {
     try {
       const settings = await Settings.getSettings();
       const emailConfig = settings.email;
+
+      // Check if we're in mock mode
+      if (emailConfig.isMockMode) {
+        console.log('Mock email mode enabled - emails will be logged to console');
+        this.emailTransporter = null; // No real transporter needed
+        return;
+      }
 
       if (emailConfig.smtpHost && emailConfig.smtpPort && emailConfig.smtpUser && emailConfig.smtpPassword) {
         this.emailTransporter = nodemailer.createTransport({
@@ -63,17 +71,54 @@ class NotificationService {
    * @param {string} options.subject - Email subject
    * @param {string} options.html - HTML content
    * @param {string} options.text - Plain text content
+   * @param {string} options.userId - User ID for tracking
+   * @param {string} options.type - Notification type for tracking
+   * @param {string} options.bulkNotificationId - Bulk notification ID if applicable
    * @returns {Promise<boolean>} - Success status
    */
-  async sendEmail({ to, subject, html, text }) {
+  async sendEmail({ to, subject, html, text, userId, type, bulkNotificationId }) {
+    let trackingRecord = null;
+    
     try {
+      // Create tracking record
+      if (userId) {
+        trackingRecord = new NotificationTracking({
+          userId,
+          type: type || 'system',
+          channel: 'email',
+          status: 'pending',
+          title: subject,
+          message: text || this.stripHtml(html),
+          bulkNotificationId
+        });
+        await trackingRecord.save();
+      }
+
       // Always get fresh settings from database
       const settings = await Settings.getSettings();
       const emailConfig = settings.email;
 
+      // Check if we're in mock mode
+      if (emailConfig.isMockMode) {
+        console.log('\n📧 MOCK EMAIL SENT:');
+        console.log('To:', to);
+        console.log('Subject:', subject);
+        console.log('From:', `${emailConfig.fromName} <${emailConfig.fromEmail}>`);
+        console.log('Content:', text || this.stripHtml(html));
+        console.log('---\n');
+        
+        if (trackingRecord) {
+          await trackingRecord.markAsDelivered();
+        }
+        return true;
+      }
+
       // Check if we have valid configuration
       if (!emailConfig.smtpHost || !emailConfig.smtpUser || !emailConfig.smtpPassword) {
         console.log('Email configuration incomplete, skipping email notification');
+        if (trackingRecord) {
+          await trackingRecord.markAsFailed('Email configuration incomplete');
+        }
         return false;
       }
 
@@ -101,9 +146,24 @@ class NotificationService {
 
       const info = await transporter.sendMail(mailOptions);
       console.log('Email sent successfully:', info.messageId);
+      
+      // Update tracking record
+      if (trackingRecord) {
+        trackingRecord.status = 'sent';
+        trackingRecord.sentAt = new Date();
+        trackingRecord.metadata = { messageId: info.messageId };
+        await trackingRecord.save();
+      }
+      
       return true;
     } catch (error) {
       console.error('Failed to send email:', error.message);
+      
+      // Update tracking record with error
+      if (trackingRecord) {
+        await trackingRecord.markAsFailed(error.message);
+      }
+      
       return false;
     }
   }
@@ -151,9 +211,10 @@ class NotificationService {
    * @param {string} userId - User ID
    * @param {string} type - Notification type
    * @param {Object} data - Notification data
+   * @param {string} bulkNotificationId - Optional bulk notification ID for tracking
    * @returns {Promise<Object>} - Results for each channel
    */
-  async sendNotificationToUser(userId, type, data) {
+  async sendNotificationToUser(userId, type, data, bulkNotificationId = null) {
     try {
       const user = await User.findById(userId);
       if (!user) {
@@ -183,7 +244,10 @@ class NotificationService {
           to: user.email,
           subject: content.subject,
           html: content.html,
-          text: content.text
+          text: content.text,
+          userId: user._id.toString(),
+          type: type,
+          bulkNotificationId: bulkNotificationId
         });
       }
 
@@ -217,14 +281,15 @@ class NotificationService {
    * @param {Array<string>} userIds - Array of user IDs
    * @param {string} type - Notification type
    * @param {Object} data - Notification data
+   * @param {string} bulkNotificationId - Optional bulk notification ID for tracking
    * @returns {Promise<Array>} - Array of results
    */
-  async sendBulkNotification(userIds, type, data) {
+  async sendBulkNotification(userIds, type, data, bulkNotificationId = null) {
     const results = [];
     
     for (const userId of userIds) {
       try {
-        const result = await this.sendNotificationToUser(userId, type, data);
+        const result = await this.sendNotificationToUser(userId, type, data, bulkNotificationId);
         results.push({ userId, success: true, result });
       } catch (error) {
         results.push({ userId, success: false, error: error.message });
@@ -789,6 +854,191 @@ class NotificationService {
       return { 
         success: false, 
         error: `Connection test failed: ${error.message}` 
+      };
+    }
+  }
+
+  /**
+   * Schedule a notification for future delivery
+   * @param {string} userId - User ID
+   * @param {string} type - Notification type
+   * @param {Object} data - Notification data
+   * @param {Date} scheduledFor - When to send the notification
+   * @param {string} bulkNotificationId - Optional bulk notification ID for tracking
+   * @returns {Promise<Object>} - Tracking record
+   */
+  async scheduleNotification(userId, type, data, scheduledFor, bulkNotificationId = null) {
+    try {
+      const user = await User.findById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      const settings = await Settings.getSettings();
+      
+      // Check if notification type is enabled in global settings
+      const isTypeEnabled = this.isNotificationTypeEnabled(settings, type);
+      if (!isTypeEnabled) {
+        throw new Error(`Notification type ${type} is disabled globally`);
+      }
+
+      // Generate notification content
+      const content = this.generateNotificationContent(type, data, user);
+
+      // Create tracking record with scheduled status
+      const trackingRecord = new NotificationTracking({
+        userId,
+        type: type || 'system',
+        channel: 'email', // For now, we'll focus on email scheduling
+        status: 'scheduled',
+        title: content.subject,
+        message: content.text || this.stripHtml(content.html),
+        scheduledFor: new Date(scheduledFor),
+        bulkNotificationId,
+        metadata: {
+          html: content.html,
+          text: content.text,
+          subject: content.subject
+        }
+      });
+
+      await trackingRecord.save();
+      return trackingRecord;
+    } catch (error) {
+      console.error('Failed to schedule notification:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Process scheduled notifications (should be called by a cron job)
+   * @returns {Promise<Object>} - Processing results
+   */
+  async processScheduledNotifications() {
+    try {
+      const now = new Date();
+      const scheduledNotifications = await NotificationTracking.find({
+        status: 'scheduled',
+        scheduledFor: { $lte: now }
+      }).populate('userId');
+
+      const results = {
+        processed: 0,
+        successful: 0,
+        failed: 0
+      };
+
+      for (const trackingRecord of scheduledNotifications) {
+        try {
+          results.processed++;
+          
+          // Update status to pending
+          trackingRecord.status = 'pending';
+          await trackingRecord.save();
+
+          // Send the notification
+          const user = trackingRecord.userId;
+          if (!user) {
+            await trackingRecord.markAsFailed('User not found');
+            results.failed++;
+            continue;
+          }
+
+          const success = await this.sendEmail({
+            to: user.email,
+            subject: trackingRecord.title,
+            html: trackingRecord.metadata.html,
+            text: trackingRecord.metadata.text,
+            userId: user._id.toString(),
+            type: trackingRecord.type,
+            bulkNotificationId: trackingRecord.bulkNotificationId
+          });
+
+          if (success) {
+            trackingRecord.status = 'sent';
+            trackingRecord.sentAt = new Date();
+            await trackingRecord.save();
+            results.successful++;
+          } else {
+            await trackingRecord.markAsFailed('Email sending failed');
+            results.failed++;
+          }
+        } catch (error) {
+          console.error(`Failed to process scheduled notification ${trackingRecord._id}:`, error);
+          await trackingRecord.markAsFailed(error.message);
+          results.failed++;
+        }
+      }
+
+      return results;
+    } catch (error) {
+      console.error('Failed to process scheduled notifications:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Get notification statistics for admin dashboard
+   * @returns {Promise<Object>} - Notification statistics
+   */
+  async getNotificationStatistics() {
+    try {
+      const stats = await NotificationTracking.getNotificationStats();
+      const statsByChannel = await NotificationTracking.getStatsByChannel();
+      const recentActivity = await NotificationTracking.getRecentActivity(7);
+      const failedNotifications = await NotificationTracking.getFailedNotifications(10);
+      const scheduledNotifications = await NotificationTracking.getScheduledNotifications();
+
+      // Format stats into a more usable format
+      const formattedStats = {
+        totalSent: 0,
+        delivered: 0,
+        scheduled: 0,
+        failed: 0,
+        pending: 0
+      };
+
+      stats.forEach(stat => {
+        switch (stat._id) {
+          case 'sent':
+            formattedStats.totalSent = stat.count;
+            break;
+          case 'delivered':
+            formattedStats.delivered = stat.count;
+            break;
+          case 'scheduled':
+            formattedStats.scheduled = stat.count;
+            break;
+          case 'failed':
+            formattedStats.failed = stat.count;
+            break;
+          case 'pending':
+            formattedStats.pending = stat.count;
+            break;
+        }
+      });
+
+      return {
+        summary: formattedStats,
+        byChannel: statsByChannel,
+        recentActivity: recentActivity,
+        failedNotifications: failedNotifications,
+        scheduledNotifications: scheduledNotifications
+      };
+    } catch (error) {
+      console.error('Failed to get notification statistics:', error.message);
+      return {
+        summary: {
+          totalSent: 0,
+          delivered: 0,
+          scheduled: 0,
+          failed: 0,
+          pending: 0
+        },
+        byChannel: [],
+        recentActivity: [],
+        failedNotifications: [],
+        scheduledNotifications: []
       };
     }
   }

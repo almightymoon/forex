@@ -17,6 +17,7 @@ interface SettingsProps {
   settingsLoading: boolean;
   settingsSaved: boolean;
   onTestEmailConfig: () => Promise<void>;
+  testingEmailConfig: boolean;
 }
 
 export default function Settings({ 
@@ -27,7 +28,8 @@ export default function Settings({
   onResetSettings,
   settingsLoading,
   settingsSaved,
-  onTestEmailConfig
+  onTestEmailConfig,
+  testingEmailConfig
 }: SettingsProps) {
   // Ensure settings object exists with default values
   const safeSettings = settings || {
@@ -41,7 +43,7 @@ export default function Settings({
     },
     security: {
       twoFactorAuth: false,
-      sessionTimeout: 3600,
+      sessionTimeout: 60,
       passwordPolicy: {
         minLength: 8,
         requireUppercase: true,
@@ -49,7 +51,7 @@ export default function Settings({
         requireSymbols: false
       },
       loginAttempts: 5,
-      accountLockDuration: 900
+      accountLockDuration: 30
     },
     notifications: {
       emailNotifications: true,
@@ -236,7 +238,7 @@ export default function Settings({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Login Attempts</label>
                 <input 
                   type="number" 
-                  value={settings.security.loginAttempts}
+                  value={safeSettings.security.loginAttempts}
                   onChange={(e) => onSettingsChange('security', 'loginAttempts', parseInt(e.target.value))}
                   min="3" max="10"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -247,7 +249,7 @@ export default function Settings({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Lock Duration (min)</label>
                 <input 
                   type="number" 
-                  value={settings.security.accountLockDuration}
+                  value={safeSettings.security.accountLockDuration}
                   onChange={(e) => onSettingsChange('security', 'accountLockDuration', parseInt(e.target.value))}
                   min="5" max="1440"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -273,7 +275,7 @@ export default function Settings({
                   <label className="flex items-center space-x-2">
                     <input 
                       type="checkbox" 
-                      checked={settings.security.passwordPolicy.requireUppercase}
+                      checked={safeSettings.security.passwordPolicy.requireUppercase}
                       onChange={(e) => onNestedSettingsChange('security', 'passwordPolicy', 'requireUppercase', e.target.checked)}
                       className="rounded border-gray-300 dark:border-gray-600"
                     />
@@ -283,7 +285,7 @@ export default function Settings({
                   <label className="flex items-center space-x-2">
                     <input 
                       type="checkbox" 
-                      checked={settings.security.passwordPolicy.requireNumbers}
+                      checked={safeSettings.security.passwordPolicy.requireNumbers}
                       onChange={(e) => onNestedSettingsChange('security', 'passwordPolicy', 'requireNumbers', e.target.checked)}
                       className="rounded border-gray-300 dark:border-gray-600"
                     />
@@ -293,7 +295,7 @@ export default function Settings({
                   <label className="flex items-center space-x-2 col-span-2">
                     <input 
                       type="checkbox" 
-                      checked={settings.security.passwordPolicy.requireSymbols}
+                      checked={safeSettings.security.passwordPolicy.requireSymbols}
                       onChange={(e) => onNestedSettingsChange('security', 'passwordPolicy', 'requireSymbols', e.target.checked)}
                       className="rounded border-gray-300 dark:border-gray-600"
                     />
@@ -338,10 +340,10 @@ export default function Settings({
                   </div>
                 </div>
                 <button
-                  onClick={() => onSettingsChange('notifications', setting.key, !settings.notifications[setting.key as keyof typeof settings.notifications])}
-                  className={`w-12 h-6 rounded-full relative transition-colors ${settings.notifications[setting.key as keyof typeof settings.notifications] ? 'bg-blue-600' : 'bg-gray-200'}`}
+                  onClick={() => onSettingsChange('notifications', setting.key, !safeSettings.notifications[setting.key as keyof typeof safeSettings.notifications])}
+                  className={`w-12 h-6 rounded-full relative transition-colors ${safeSettings.notifications[setting.key as keyof typeof safeSettings.notifications] ? 'bg-blue-600' : 'bg-gray-200'}`}
                 >
-                  <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.notifications[setting.key as keyof typeof settings.notifications] ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                  <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${safeSettings.notifications[setting.key as keyof typeof safeSettings.notifications] ? 'translate-x-6' : 'translate-x-0'}`}></div>
                 </button>
               </div>
             ))}
@@ -365,7 +367,7 @@ export default function Settings({
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Default Currency</label>
                 <select 
-                  value={settings.payments.currency}
+                  value={safeSettings.payments.currency}
                   onChange={(e) => onSettingsChange('payments', 'currency', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
@@ -380,7 +382,7 @@ export default function Settings({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tax Rate (%)</label>
                 <input 
                   type="number" 
-                  value={settings.payments.taxRate}
+                  value={safeSettings.payments.taxRate}
                   onChange={(e) => onSettingsChange('payments', 'taxRate', parseFloat(e.target.value))}
                   min="0" max="50" step="0.1"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -402,10 +404,10 @@ export default function Settings({
                     <p className="text-sm text-gray-500 dark:text-gray-400">{gateway.desc}</p>
                   </div>
                   <button
-                    onClick={() => onSettingsChange('payments', gateway.key, !settings.payments[gateway.key as keyof typeof settings.payments])}
-                    className={`w-12 h-6 rounded-full relative transition-colors ${settings.payments[gateway.key as keyof typeof settings.payments] ? 'bg-green-600' : 'bg-gray-200'}`}
+                    onClick={() => onSettingsChange('payments', gateway.key, !safeSettings.payments[gateway.key as keyof typeof safeSettings.payments])}
+                    className={`w-12 h-6 rounded-full relative transition-colors ${safeSettings.payments[gateway.key as keyof typeof safeSettings.payments] ? 'bg-green-600' : 'bg-gray-200'}`}
                   >
-                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.payments[gateway.key as keyof typeof settings.payments] ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                    <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${safeSettings.payments[gateway.key as keyof typeof safeSettings.payments] ? 'translate-x-6' : 'translate-x-0'}`}></div>
                   </button>
                 </div>
               ))}
@@ -434,10 +436,10 @@ export default function Settings({
                 <p className="text-sm text-gray-500 dark:text-gray-400">Automatically approve new courses</p>
               </div>
               <button
-                onClick={() => onSettingsChange('courses', 'autoApproval', !settings.courses.autoApproval)}
-                className={`w-12 h-6 rounded-full relative transition-colors ${settings.courses.autoApproval ? 'bg-blue-600' : 'bg-gray-200'}`}
+                onClick={() => onSettingsChange('courses', 'autoApproval', !safeSettings.courses.autoApproval)}
+                className={`w-12 h-6 rounded-full relative transition-colors ${safeSettings.courses.autoApproval ? 'bg-blue-600' : 'bg-gray-200'}`}
               >
-                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.courses.autoApproval ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${safeSettings.courses.autoApproval ? 'translate-x-6' : 'translate-x-0'}`}></div>
               </button>
             </div>
             
@@ -445,7 +447,7 @@ export default function Settings({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max File Size (MB)</label>
               <input 
                 type="number" 
-                value={settings.courses.maxFileSize}
+                value={safeSettings.courses.maxFileSize}
                 onChange={(e) => onSettingsChange('courses', 'maxFileSize', parseInt(e.target.value))}
                 min="1" max="1000"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -456,7 +458,7 @@ export default function Settings({
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Completion Threshold (%)</label>
               <input 
                 type="number" 
-                value={settings.courses.completionThreshold}
+                value={safeSettings.courses.completionThreshold}
                 onChange={(e) => onSettingsChange('courses', 'completionThreshold', parseInt(e.target.value))}
                 min="50" max="100"
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
@@ -469,10 +471,10 @@ export default function Settings({
                 <p className="text-sm text-gray-500 dark:text-gray-400">Enable course completion certificates</p>
               </div>
               <button
-                onClick={() => onSettingsChange('courses', 'certificateEnabled', !settings.courses.certificateEnabled)}
-                className={`w-12 h-6 rounded-full relative transition-colors ${settings.courses.certificateEnabled ? 'bg-blue-600' : 'bg-gray-200'}`}
+                onClick={() => onSettingsChange('courses', 'certificateEnabled', !safeSettings.courses.certificateEnabled)}
+                className={`w-12 h-6 rounded-full relative transition-colors ${safeSettings.courses.certificateEnabled ? 'bg-blue-600' : 'bg-gray-200'}`}
               >
-                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${settings.courses.certificateEnabled ? 'translate-x-6' : 'translate-x-0'}`}></div>
+                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${safeSettings.courses.certificateEnabled ? 'translate-x-6' : 'translate-x-0'}`}></div>
               </button>
             </div>
           </div>
@@ -496,7 +498,7 @@ export default function Settings({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SMTP Host</label>
                 <input 
                   type="text" 
-                  value={settings.email.smtpHost}
+                  value={safeSettings.email.smtpHost}
                   onChange={(e) => onSettingsChange('email', 'smtpHost', e.target.value)}
                   placeholder="smtp.gmail.com"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
@@ -507,7 +509,7 @@ export default function Settings({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SMTP Port</label>
                 <input 
                   type="number" 
-                  value={settings.email.smtpPort}
+                  value={safeSettings.email.smtpPort}
                   onChange={(e) => onSettingsChange('email', 'smtpPort', parseInt(e.target.value))}
                   placeholder="587"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
@@ -520,7 +522,7 @@ export default function Settings({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SMTP Username</label>
                 <input 
                   type="text" 
-                  value={settings.email.smtpUser}
+                  value={safeSettings.email.smtpUser}
                   onChange={(e) => onSettingsChange('email', 'smtpUser', e.target.value)}
                   placeholder="your-email@gmail.com"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
@@ -531,7 +533,7 @@ export default function Settings({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">SMTP Password</label>
                 <input 
                   type="password" 
-                  value={settings.email.smtpPassword}
+                  value={safeSettings.email.smtpPassword}
                   onChange={(e) => onSettingsChange('email', 'smtpPassword', e.target.value)}
                   placeholder="App password"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
@@ -544,7 +546,7 @@ export default function Settings({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">From Email</label>
                 <input 
                   type="email" 
-                  value={settings.email.fromEmail}
+                  value={safeSettings.email.fromEmail}
                   onChange={(e) => onSettingsChange('email', 'fromEmail', e.target.value)}
                   placeholder="noreply@example.com"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
@@ -555,7 +557,7 @@ export default function Settings({
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">From Name</label>
                 <input 
                   type="text" 
-                  value={settings.email.fromName}
+                  value={safeSettings.email.fromName}
                   onChange={(e) => onSettingsChange('email', 'fromName', e.target.value)}
                   placeholder="Platform Name"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
@@ -566,9 +568,20 @@ export default function Settings({
             <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
               <button
                 onClick={onTestEmailConfig}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+                disabled={testingEmailConfig}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
               >
-                Test Email Configuration
+                {testingEmailConfig ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Testing...</span>
+                  </>
+                ) : (
+                  <>
+                    <Server className="w-4 h-4" />
+                    <span>Test Email Configuration</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

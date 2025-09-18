@@ -1,84 +1,81 @@
-// Test script to simulate admin login and check what happens
-async function testAdminLoginFlow() {
+#!/usr/bin/env node
+
+/**
+ * Admin Login Debug Script
+ * Helps debug why admin users are redirected to student dashboard
+ */
+
+const axios = require('axios');
+
+const FRONTEND_URL = 'http://localhost:3000';
+const BACKEND_URL = 'http://localhost:5000';
+
+async function debugAdminLogin() {
+  console.log('🔍 Debugging Admin Login Issue...\n');
+
+  // Test 1: Check what the backend returns for admin login
+  console.log('Test 1: Testing admin login with backend');
   try {
-    console.log('=== TESTING ADMIN LOGIN FLOW ===');
+    const loginData = {
+      email: 'admin@example.com', // Change this to your actual admin email
+      password: 'admin123' // Change this to your actual admin password
+    };
+
+    console.log('Attempting login with:', loginData.email);
+    const response = await axios.post(`${BACKEND_URL}/api/auth/login`, loginData);
     
-    // Step 1: Login as admin
-    console.log('\n1. Logging in as admin...');
-    const loginResponse = await fetch('http://localhost:4000/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        email: 'admin@forexnavi.com',
-        password: 'admin123'
-      })
-    });
-
-    const loginData = await loginResponse.json();
-    console.log('Login response status:', loginResponse.status);
-    console.log('Login response:', loginData);
-
-    if (!loginResponse.ok) {
-      console.log('❌ Login failed');
-      return;
-    }
-
-    const token = loginData.token;
-    const user = loginData.user;
-    console.log('✅ Login successful');
-    console.log('User role:', user.role);
-    console.log('Token:', token ? 'Present' : 'Missing');
-
-    // Step 2: Test /api/auth/me endpoint
-    console.log('\n2. Testing /api/auth/me endpoint...');
-    const meResponse = await fetch('http://localhost:4000/api/auth/me', {
-      headers: {
-        'Authorization': `Bearer ${token}`
+    if (response.data.success) {
+      console.log('✅ Backend login successful');
+      console.log('   User data:', JSON.stringify(response.data.user, null, 2));
+      console.log('   User role:', response.data.user.role);
+      console.log('   User email:', response.data.user.email);
+      console.log('   Token present:', response.data.token ? 'Yes' : 'No');
+      
+      if (response.data.user.role === 'admin') {
+        console.log('✅ Backend confirms user has admin role');
+      } else {
+        console.log('❌ Backend says user role is:', response.data.user.role);
+        console.log('   This is the problem! The user is not actually an admin in the database.');
       }
-    });
-
-    const meData = await meResponse.json();
-    console.log('Me response status:', meResponse.status);
-    console.log('Me response:', meData);
-
-    if (!meResponse.ok) {
-      console.log('❌ /api/auth/me failed');
-      return;
-    }
-
-    console.log('✅ /api/auth/me successful');
-    console.log('User role from /me:', meData.user.role);
-
-    // Step 3: Test admin endpoint
-    console.log('\n3. Testing admin endpoint...');
-    const adminResponse = await fetch('http://localhost:4000/api/admin/users', {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-
-    console.log('Admin response status:', adminResponse.status);
-    
-    if (adminResponse.ok) {
-      console.log('✅ Admin endpoint accessible');
     } else {
-      const adminError = await adminResponse.json();
-      console.log('❌ Admin endpoint failed:', adminError);
+      console.log('❌ Backend login failed:', response.data.message);
     }
-
-    console.log('\n=== TEST COMPLETE ===');
-    console.log('Expected behavior:');
-    console.log('- Login should return admin role');
-    console.log('- /api/auth/me should return admin role');
-    console.log('- Admin endpoints should be accessible');
-    console.log('- Frontend should redirect to /admin');
-
   } catch (error) {
-    console.error('Test error:', error);
+    if (error.response) {
+      console.log('❌ Login request failed:', error.response.data.message || error.response.statusText);
+      console.log('   Status:', error.response.status);
+    } else {
+      console.log('❌ Network error:', error.message);
+    }
   }
+
+  console.log('\n' + '='.repeat(50) + '\n');
+
+  // Test 2: Check if there are any admin users in the database
+  console.log('Test 2: Checking for admin users in database');
+  try {
+    // This would require a backend endpoint to list users
+    console.log('ℹ️  To check admin users, you need to:');
+    console.log('   1. Check your database directly');
+    console.log('   2. Or create a backend endpoint to list users');
+    console.log('   3. Or check the user registration process');
+  } catch (error) {
+    console.log('❌ Error checking users:', error.message);
+  }
+
+  console.log('\n' + '='.repeat(50) + '\n');
+  console.log('🏁 Admin login debug completed!');
+  console.log('\nNext steps:');
+  console.log('1. Check the browser console when you login');
+  console.log('2. Check localStorage for the user data');
+  console.log('3. Verify the user role in the database');
+  console.log('4. Make sure you\'re using the correct admin credentials');
+  console.log('\nTo check localStorage:');
+  console.log('1. Open browser dev tools');
+  console.log('2. Go to Application tab');
+  console.log('3. Check localStorage for "user" and "token"');
+  console.log('4. Look at the user object and check the role field');
 }
 
-// Run the test
-testAdminLoginFlow();
+// Run the debug
+debugAdminLogin().catch(console.error);

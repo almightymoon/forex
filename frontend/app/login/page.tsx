@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, Mail, Lock, ArrowLeft } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, ArrowLeft, AlertCircle } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { buildApiUrl } from '@/utils/api';
 import { useSettings } from '../../context/SettingsContext';
 import DarkModeToggle from '../../components/DarkModeToggle';
@@ -21,7 +21,36 @@ export default function LoginPage() {
   const [tempToken, setTempToken] = useState('');
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { settings } = useSettings();
+
+  // Handle URL parameters for redirects and error messages
+  useEffect(() => {
+    const redirectParam = searchParams.get('redirect');
+    const errorParam = searchParams.get('error');
+    
+    if (errorParam) {
+      switch (errorParam) {
+        case 'not_authenticated':
+          setError('Please log in to access this page.');
+          break;
+        case 'session_expired':
+          setError('Your session has expired. Please log in again.');
+          break;
+        case 'insufficient_permissions':
+          setError('You do not have permission to access this page.');
+          break;
+        case 'invalid_user_data':
+          setError('Invalid user data. Please log in again.');
+          break;
+        case 'auth_check_failed':
+          setError('Authentication check failed. Please try again.');
+          break;
+        default:
+          setError('Please log in to continue.');
+      }
+    }
+  }, [searchParams]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -58,19 +87,56 @@ export default function LoginPage() {
           localStorage.setItem('token', data.token);
           localStorage.setItem('user', JSON.stringify(data.user));
           
-          // Route based on user role
+          // Check for redirect parameter first
+          const redirectParam = searchParams.get('redirect');
+          if (redirectParam) {
+            // Verify user has access to the redirect URL
+            if (redirectParam.startsWith('/teacher') && (data.user.role === 'teacher' || data.user.role === 'admin')) {
+              router.push(redirectParam);
+              return;
+            } else if (redirectParam.startsWith('/admin') && data.user.role === 'admin') {
+              router.push(redirectParam);
+              return;
+            } else if (redirectParam.startsWith('/dashboard') && data.user.role === 'student') {
+              router.push(redirectParam);
+              return;
+            }
+          }
+          
+          // Route based on user role if no valid redirect
           console.log('Login - User role:', data.user.role);
           console.log('Login - User data:', data.user);
           
           if (data.user.role === 'teacher') {
             console.log('Login - Redirecting to teacher dashboard');
+            console.log('Router object:', router);
+            try {
             router.push('/teacher');
+              console.log('Router.push called for /teacher');
+            } catch (error) {
+              console.error('Router.push failed, using window.location:', error);
+              window.location.href = '/teacher';
+            }
           } else if (data.user.role === 'admin') {
             console.log('Login - Redirecting to admin dashboard');
+            console.log('Router object:', router);
+            try {
             router.push('/admin');
+              console.log('Router.push called for /admin');
+            } catch (error) {
+              console.error('Router.push failed, using window.location:', error);
+              window.location.href = '/admin';
+            }
           } else {
             console.log('Login - Redirecting to student dashboard');
+            console.log('Router object:', router);
+            try {
             router.push('/dashboard');
+              console.log('Router.push called for /dashboard');
+            } catch (error) {
+              console.error('Router.push failed, using window.location:', error);
+              window.location.href = '/dashboard';
+            }
           }
         }
       } else {
@@ -107,19 +173,56 @@ export default function LoginPage() {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
         
-        // Route based on user role
+        // Check for redirect parameter first
+        const redirectParam = searchParams.get('redirect');
+        if (redirectParam) {
+          // Verify user has access to the redirect URL
+          if (redirectParam.startsWith('/teacher') && (data.user.role === 'teacher' || data.user.role === 'admin')) {
+            router.push(redirectParam);
+            return;
+          } else if (redirectParam.startsWith('/admin') && data.user.role === 'admin') {
+            router.push(redirectParam);
+            return;
+          } else if (redirectParam.startsWith('/dashboard') && data.user.role === 'student') {
+            router.push(redirectParam);
+            return;
+          }
+        }
+        
+        // Route based on user role if no valid redirect
         console.log('2FA Login - User role:', data.user.role);
         console.log('2FA Login - User data:', data.user);
         
         if (data.user.role === 'teacher') {
           console.log('2FA Login - Redirecting to teacher dashboard');
+          console.log('2FA Router object:', router);
+          try {
           router.push('/teacher');
+            console.log('2FA Router.push called for /teacher');
+          } catch (error) {
+            console.error('2FA Router.push failed, using window.location:', error);
+            window.location.href = '/teacher';
+          }
         } else if (data.user.role === 'admin') {
           console.log('2FA Login - Redirecting to admin dashboard');
+          console.log('2FA Router object:', router);
+          try {
           router.push('/admin');
+            console.log('2FA Router.push called for /admin');
+          } catch (error) {
+            console.error('2FA Router.push failed, using window.location:', error);
+            window.location.href = '/admin';
+          }
         } else {
           console.log('2FA Login - Redirecting to student dashboard');
+          console.log('2FA Router object:', router);
+          try {
           router.push('/dashboard');
+            console.log('2FA Router.push called for /dashboard');
+          } catch (error) {
+            console.error('2FA Router.push failed, using window.location:', error);
+            window.location.href = '/dashboard';
+          }
         }
       } else {
         setError(data.message || '2FA verification failed. Please try again.');

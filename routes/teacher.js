@@ -5,7 +5,7 @@ const Course = require('../models/Course');
 const User = require('../models/User');
 const LiveSession = require('../models/LiveSession');
 const Assignment = require('../models/Assignment');
-const Message = require('../models/Message');
+const TeacherMessage = require('../models/TeacherMessage');
 
 // Test JWT token (before auth middleware)
 router.get('/test-jwt', async (req, res) => {
@@ -1024,7 +1024,9 @@ router.get('/messages', async (req, res) => {
   try {
     const teacherId = req.user._id;
     
-    const messages = await Message.find({ sender: teacherId })
+    const messages = await TeacherMessage.find({ sender: teacherId })
+      .populate('sender', 'firstName lastName email')
+      .populate('courseId', 'title')
       .sort({ createdAt: -1 });
     
     res.json({ success: true, messages: messages });
@@ -1038,14 +1040,61 @@ router.get('/messages', async (req, res) => {
 router.post('/messages', async (req, res) => {
   try {
     const teacherId = req.user._id;
-    const messageData = {
-      ...req.body,
-      sender: teacherId,
-      status: 'draft',
-      createdAt: new Date()
-      };
+    const { title, content, type, recipients, courseId, scheduledFor, attachments } = req.body;
     
-    const message = new Message(messageData);
+    // Get teacher info
+    const teacher = await User.findById(teacherId).select('firstName lastName email');
+    if (!teacher) {
+      return res.status(404).json({ success: false, error: 'Teacher not found' });
+    }
+    
+    // Get recipient details
+    const recipientDetails = [];
+    if (recipients && recipients.length > 0) {
+      // Handle both array of IDs and array of objects
+      const studentIds = recipients.map(recipient => 
+        typeof recipient === 'string' ? recipient : recipient.studentId || recipient.id
+      );
+      
+      const students = await User.find({ 
+        _id: { $in: studentIds },
+        role: 'student'
+      }).select('firstName lastName email');
+      
+      recipientDetails.push(...students.map(student => ({
+        studentId: student._id,
+        studentName: `${student.firstName} ${student.lastName}`,
+        email: student.email,
+        read: false
+      })));
+    }
+    
+    // Get course info if provided
+    let courseName = null;
+    if (courseId) {
+      const course = await Course.findById(courseId).select('title');
+      if (course) {
+        courseName = course.title;
+      }
+    }
+    
+    const messageData = {
+      title,
+      content,
+      type: type || 'message',
+      sender: teacherId,
+      senderName: `${teacher.firstName} ${teacher.lastName}`,
+      recipients: recipientDetails,
+      courseId: courseId || null,
+      courseName,
+      scheduledFor: scheduledFor ? new Date(scheduledFor) : null,
+      attachments: attachments || [],
+      status: scheduledFor ? 'scheduled' : 'draft',
+      totalRecipients: recipientDetails.length,
+      readCount: 0
+    };
+    
+    const message = new TeacherMessage(messageData);
     await message.save();
     
     res.status(201).json({ success: true, data: message });
@@ -1061,12 +1110,12 @@ router.put('/messages/:id', async (req, res) => {
     const { id } = req.params;
     const teacherId = req.user._id;
     
-    const message = await Message.findOne({ _id: id, sender: teacherId });
+    const message = await TeacherMessage.findOne({ _id: id, sender: teacherId });
     if (!message) {
       return res.status(404).json({ success: false, error: 'Message not found' });
     }
     
-    const updatedMessage = await Message.findByIdAndUpdate(
+    const updatedMessage = await TeacherMessage.findByIdAndUpdate(
       id,
       { ...req.body, updatedAt: new Date() },
       { new: true, runValidators: true }
@@ -1085,12 +1134,12 @@ router.delete('/messages/:id', async (req, res) => {
     const { id } = req.params;
     const teacherId = req.user._id;
     
-    const message = await Message.findOne({ _id: id, sender: teacherId });
+    const message = await TeacherMessage.findOne({ _id: id, sender: teacherId });
     if (!message) {
       return res.status(404).json({ success: false, error: 'Message not found' });
     }
     
-    await Message.findByIdAndDelete(id);
+    await TeacherMessage.findByIdAndDelete(id);
     
     res.json({ success: true, message: 'Message deleted successfully' });
   } catch (error) {
@@ -1105,7 +1154,7 @@ router.post('/messages/:id/send', async (req, res) => {
     const { id } = req.params;
     const teacherId = req.user._id;
     
-    const message = await Message.findOne({ _id: id, sender: teacherId });
+    const message = await TeacherMessage.findOne({ _id: id, sender: teacherId });
     if (!message) {
       return res.status(404).json({ success: false, error: 'Message not found' });
     }
@@ -1122,9 +1171,9 @@ router.post('/messages/:id/send', async (req, res) => {
         try {
           // Create notification for each student
           const notification = new Notification({
-            userId: recipient.studentId || recipient, // Handle both object and string formats
+            userId: recipient.studentId,
             type: 'message',
-            title: `Message from ${message.senderName || 'Teacher'}`,
+            title: `Message from ${message.senderName}`,
             message: message.content,
             priority: 'medium',
             data: {
@@ -1134,10 +1183,10 @@ router.post('/messages/:id/send', async (req, res) => {
             }
           });
           
-      await notification.save();
-    } catch (notifError) {
-      console.error(`Failed to create notification for student ${recipient.studentId || recipient}:`, notifError);
-    }
+          await notification.save();
+        } catch (notifError) {
+          console.error(`Failed to create notification for student ${recipient.studentId}:`, notifError);
+        }
       }
     }
     

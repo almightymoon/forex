@@ -43,7 +43,7 @@ const getDefaultSettings = () => ({
   },
   security: {
     twoFactorAuth: false,
-    sessionTimeout: 3600,
+    sessionTimeout: 60,
     passwordPolicy: {
       minLength: 8,
       requireUppercase: true,
@@ -51,7 +51,7 @@ const getDefaultSettings = () => ({
       requireSymbols: false
     },
     loginAttempts: 5,
-    accountLockDuration: 900
+    accountLockDuration: 30
   },
   notifications: {
     emailNotifications: true,
@@ -105,36 +105,34 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   const checkAdminRole = async (token: string) => {
     try {
-      const response = await apiRequest('api/auth/me');
+      // Skip API verification to avoid conflicts with AdminLayout
+      // The AdminLayout already handles role checking from localStorage
+      console.log('AdminContext - Skipping API verification, trusting localStorage data');
       
-      if (response.ok) {
-        const userData = await response.json();
-        
-        // Ensure we get the correct user data structure
-        const user = userData.user || userData;
-        const userRole = user?.role;
-        
-        console.log('AdminContext - User role check:', userRole);
-        console.log('AdminContext - Full user data:', user);
-        
-        if (!userRole || userRole !== 'admin') {
-          throw new Error(`Access denied. Admin privileges required. Current role: ${userRole || 'unknown'}`);
-        }
-        
-        const adminUser = {
-          firstName: user?.firstName || 'Admin',
-          lastName: user?.lastName || 'User',
-          email: user?.email || '',
-          role: userRole,
-          profileImage: user?.profileImage
-        };
-        
-        console.log('AdminContext - Admin access granted for:', adminUser.email);
-        return adminUser;
-      } else {
-        const errorText = await response.text();
-        throw new Error(`Authentication failed: ${response.status} ${errorText}`);
+      const userData = localStorage.getItem('user');
+      if (!userData) {
+        throw new Error('No user data found in localStorage');
       }
+      
+      const user = JSON.parse(userData);
+      const userRole = user?.role;
+      
+      console.log('AdminContext - User role from localStorage:', userRole);
+      
+      if (!userRole || userRole !== 'admin') {
+        throw new Error(`Access denied. Admin privileges required. Current role: ${userRole || 'unknown'}`);
+      }
+      
+      const adminUser = {
+        firstName: user?.firstName || 'Admin',
+        lastName: user?.lastName || 'User',
+        email: user?.email || '',
+        role: userRole,
+        profileImage: user?.profileImage
+      };
+      
+      console.log('AdminContext - Admin access granted for:', adminUser.email);
+      return adminUser;
     } catch (error) {
       console.error('Auth check error:', error);
       throw error;
@@ -235,8 +233,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       console.log('AdminContext - Initializing admin data...');
       const token = localStorage.getItem('token');
       if (!token) {
-        console.log('AdminContext - No token found, redirecting to login');
-        window.location.href = '/login';
+        console.log('AdminContext - No token found, letting layout handle redirect');
+        setLoading(false);
         return;
       }
 

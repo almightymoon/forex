@@ -5,7 +5,6 @@ import dynamic from 'next/dynamic';
 import Header from './components/Header';
 import Navigation from './components/Navigation';
 import Overview from './components/Overview';
-import Courses from './components/Courses';
 import Students from './components/Students';
 import Assignments from './components/Assignments';
 import Analytics from './components/Analytics';
@@ -52,6 +51,25 @@ export default function TeacherDashboard() {
   // Set client state to prevent hydration issues
   useEffect(() => {
     setIsClient(true);
+    
+      // Handle URL parameters for tab and certificate pre-selection
+      const urlParams = new URLSearchParams(window.location.search);
+      const tab = urlParams.get('tab');
+      const certificate = urlParams.get('certificate');
+      
+      if (tab) {
+        // Redirect certificate-assignments to certificates tab
+        if (tab === 'certificate-assignments') {
+          setActiveTab('certificates');
+        } else {
+          setActiveTab(tab);
+        }
+      }
+      
+      // Store certificate ID for pre-selection in assignment component
+      if (certificate) {
+        localStorage.setItem('preselectedCertificate', certificate);
+      }
   }, []);
 
   // Dynamic data fetching
@@ -66,9 +84,7 @@ export default function TeacherDashboard() {
         const token = localStorage.getItem('token');
         
         if (!token) {
-          // Show a more user-friendly message before redirecting
-          showToast('Please login first to access the teacher dashboard', 'warning');
-          window.location.href = '/login';
+          console.error('No token found - this should not happen due to layout protection');
           return;
         }
 
@@ -215,19 +231,6 @@ export default function TeacherDashboard() {
           />
         )}
 
-        {activeTab === 'courses' && (
-          <Courses
-            courses={courses}
-            filteredCourses={filteredCourses}
-            isLoading={isLoading}
-            searchTerm={searchTerm}
-            selectedFilter={selectedFilter}
-            onSearchChange={setSearchTerm}
-            onFilterChange={setSelectedFilter}
-            onRefresh={refreshData}
-            getStatusColor={getStatusColor}
-          />
-        )}
 
         {activeTab === 'students' && (
           <Students 
@@ -272,13 +275,12 @@ export default function TeacherDashboard() {
           />
         )}
 
-        {activeTab === 'certificates' && (
-          <CertificateManagement />
-        )}
+      {activeTab === 'certificates' && (
+        <CertificateManagement />
+      )}
 
         {/* Other tabs placeholder */}
         {activeTab !== 'overview' && 
-         activeTab !== 'courses' && 
          activeTab !== 'students' && 
          activeTab !== 'analytics' && 
          activeTab !== 'live-sessions' && 

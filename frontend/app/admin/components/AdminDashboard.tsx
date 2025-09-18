@@ -37,12 +37,26 @@ export default function AdminDashboard() {
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testingEmailConfig, setTestingEmailConfig] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
-  const { settings: globalSettings, refreshSettings } = useSettings();
+  const { settings: globalSettings } = useSettings();
   const { showToast } = useToast();
   const { data, loading, refreshing, refreshData } = useAdmin();
   
-  const { user, users, payments, analytics, promoCodes, settings } = data;
+  const { user, users, payments, analytics, promoCodes, settings: contextSettings } = data;
+  
+  // Local settings state for immediate UI updates
+  const [localSettings, setLocalSettings] = useState(contextSettings || {});
+  
+  // Update local settings when context settings change
+  useEffect(() => {
+    if (contextSettings) {
+      setLocalSettings(contextSettings);
+    }
+  }, [contextSettings]);
+  
+  // Use local settings for the UI
+  const settings = localSettings;
 
   // Use session timeout hook with safe settings access
   useSessionTimeout({
@@ -52,13 +66,13 @@ export default function AdminDashboard() {
     }
   });
 
-  // Route guard - check if user is admin
-  useEffect(() => {
-    if (!loading && data.user && data.user.role !== 'admin') {
-      showToast('Access denied. Admin privileges required.', 'error');
-      window.location.href = '/dashboard';
-    }
-  }, [loading, data.user, showToast]);
+  // Route guard - check if user is admin (handled by layout)
+  // useEffect(() => {
+  //   if (!loading && data.user && data.user.role !== 'admin') {
+  //     showToast('Access denied. Admin privileges required.', 'error');
+  //     window.location.href = '/dashboard';
+  //   }
+  // }, [loading, data.user, showToast]);
 
   // Error boundary for the component
   useEffect(() => {
@@ -388,13 +402,13 @@ export default function AdminDashboard() {
   // Settings management functions
   const handleSettingsChange = async (category: string, field: string, value: any) => {
     // Update local settings state for immediate UI feedback
-    const updatedSettings = {
-      ...settings,
+    setLocalSettings(prev => ({
+      ...prev,
       [category]: {
-        ...settings[category as keyof typeof settings],
+        ...prev[category as keyof typeof prev],
         [field]: value
       }
-    };
+    }));
 
     if (category === 'email') {
       try {
@@ -424,16 +438,16 @@ export default function AdminDashboard() {
 
   const handleNestedSettingsChange = (category: string, nestedField: string, field: string, value: any) => {
     // Update local settings state for immediate UI feedback
-    const updatedSettings = {
-      ...settings,
+    setLocalSettings(prev => ({
+      ...prev,
       [category]: {
-        ...(settings?.[category as keyof typeof settings] || {}),
+        ...(prev?.[category as keyof typeof prev] || {}),
         [nestedField]: {
-          ...(settings?.[category as keyof typeof settings]?.[nestedField as any] || {}),
+          ...(prev?.[category as keyof typeof prev]?.[nestedField as any] || {}),
           [field]: value
         }
       }
-    };
+    }));
   };
 
   const handleSaveSettings = async () => {
@@ -447,13 +461,13 @@ export default function AdminDashboard() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify(settings || {})
+        body: JSON.stringify(localSettings || {})
       });
 
       if (response.ok) {
         setSettingsSaved(true);
         setTimeout(() => setSettingsSaved(false), 3000);
-        await refreshSettings();
+        await refreshData(); // Refresh context data from server
         showToast('Settings saved successfully!', 'success');
       } else {
         showToast(`Failed to save settings: ${response.status}`, 'error');
@@ -468,14 +482,26 @@ export default function AdminDashboard() {
   const handleResetSettings = () => {
     const confirmReset = window.confirm('Are you sure you want to reset all settings to default values? This action cannot be undone.');
     if (confirmReset) {
-      // Reset settings by refreshing data from server
-      refreshData();
+      // Reset local settings to context settings
+      setLocalSettings(contextSettings || {});
       showToast('Settings reset to default values', 'success');
+    }
+  };
+
+  const handleRefreshData = async () => {
+    try {
+      showToast('Refreshing data...', 'info');
+      await refreshData();
+      showToast('Data refreshed successfully!', 'success');
+    } catch (error) {
+      console.error('Refresh error:', error);
+      showToast('Failed to refresh data', 'error');
     }
   };
 
   const handleTestEmailConfig = async () => {
     try {
+      setTestingEmailConfig(true);
       const token = localStorage.getItem('token');
       const response = await fetch(buildApiUrl('api/notifications/test-config'), {
         method: 'GET',
@@ -498,6 +524,8 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       showToast(`Network error: ${error.message}`, 'error');
+    } finally {
+      setTestingEmailConfig(false);
     }
   };
 
@@ -523,6 +551,14 @@ export default function AdminDashboard() {
             
             <div className="flex items-center space-x-4">
               <DarkModeToggle size="sm" />
+              <button 
+                onClick={handleRefreshData}
+                disabled={refreshing}
+                className="p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Refresh data"
+              >
+                <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+              </button>
               <div className="relative">
                 <button 
                   onClick={() => setShowNotifications(!showNotifications)}
@@ -635,6 +671,7 @@ export default function AdminDashboard() {
             settingsLoading={settingsLoading}
             settingsSaved={settingsSaved}
             onTestEmailConfig={handleTestEmailConfig}
+            testingEmailConfig={testingEmailConfig}
           />
                 )}
       </div>

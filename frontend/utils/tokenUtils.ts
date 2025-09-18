@@ -51,3 +51,78 @@ export const checkTokenExpiry = (token: string): { isExpired: boolean; expiresIn
     return { isExpired: true, expiresIn: 0 };
   }
 };
+
+/**
+ * Make an API call with automatic token refresh on 401 errors
+ * @param url - API endpoint URL
+ * @param options - Fetch options
+ * @returns Promise<Response>
+ */
+export const fetchWithTokenRefresh = async (url: string, options: RequestInit = {}): Promise<Response> => {
+  const token = localStorage.getItem('token');
+  
+  if (!token) {
+    // No token, redirect to login
+    window.location.href = '/login';
+    throw new Error('No authentication token found');
+  }
+
+  // Check if token is expired
+  const { isExpired } = checkTokenExpiry(token);
+  
+  if (isExpired) {
+    console.log('Token is expired, attempting refresh...');
+    const refreshResult = await refreshToken();
+    
+    if (!refreshResult.success) {
+      console.error('Token refresh failed:', refreshResult.error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+      throw new Error('Token refresh failed');
+    }
+  }
+
+  // Make the request with current token
+  const currentToken = localStorage.getItem('token');
+  const headers = {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${currentToken}`,
+    ...options.headers
+  };
+
+  const response = await fetch(url, {
+    ...options,
+    headers
+  });
+
+  // If we get a 401, try to refresh the token once
+  if (response.status === 401) {
+    console.log('Received 401, attempting token refresh...');
+    const refreshResult = await refreshToken();
+    
+    if (refreshResult.success) {
+      // Retry the request with the new token
+      const newToken = localStorage.getItem('token');
+      const retryHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${newToken}`,
+        ...options.headers
+      };
+
+      return fetch(url, {
+        ...options,
+        headers: retryHeaders
+      });
+    } else {
+      // Refresh failed, redirect to login
+      console.error('Token refresh failed on 401:', refreshResult.error);
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      window.location.href = '/login';
+      throw new Error('Authentication failed');
+    }
+  }
+
+  return response;
+};

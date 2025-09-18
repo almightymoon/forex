@@ -196,6 +196,10 @@ const settingsSchema = new mongoose.Schema({
     fromName: {
       type: String,
       default: 'Forex Navigators'
+    },
+    isMockMode: {
+      type: Boolean,
+      default: false
     }
   }
 }, {

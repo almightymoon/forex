@@ -16,6 +16,7 @@ import MaintenancePage from '../../components/MaintenancePage';
 import StudentAssignments from './components/StudentAssignments';
 import NotificationDropdown from './components/NotificationDropdown';
 import Community from './components/Community';
+import StudentCertificateAssignments from './components/StudentCertificateAssignments';
 import UserProfileDropdown from '../components/UserProfileDropdown';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import { 
@@ -42,7 +43,8 @@ import {
   Eye,
   Download,
   User,
-  Shield
+  Shield,
+  Send
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -624,7 +626,8 @@ export default function Dashboard() {
               { id: 'signals', label: t('tradingSignals'), icon: Target },
               { id: 'assignments', label: t('assignments'), icon: FileText },
               { id: 'community', label: 'Community', icon: Users },
-              { id: 'certificates', label: 'Certificates', icon: Award }
+              { id: 'certificates', label: 'Certificates', icon: Award },
+              { id: 'certificate-assignments', label: 'Certificate Assignments', icon: Send }
             ].map((tab) => {
               const Icon = tab.icon;
               return (
@@ -1686,6 +1689,16 @@ export default function Dashboard() {
                 </div>
               )}
             </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'certificate-assignments' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="space-y-6"
+          >
+            <StudentCertificateAssignments />
           </motion.div>
         )}
       </div>

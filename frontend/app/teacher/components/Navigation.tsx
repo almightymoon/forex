@@ -18,7 +18,6 @@ interface NavigationProps {
 
 const tabs = [
   { id: 'overview', name: 'Overview', icon: BarChart3 },
-  { id: 'courses', name: 'Courses', icon: BookOpen },
   { id: 'students', name: 'Students', icon: Users },
   { id: 'assignments', name: 'Assignments', icon: FileText },
   { id: 'live-sessions', name: 'Live Sessions', icon: Video },

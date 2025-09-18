@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import { buildApiUrl } from '@/utils/api';
 import { useSettings } from '../../context/SettingsContext';
 import DarkModeToggle from '../../components/DarkModeToggle';
+import PaymentModal from '../../components/PaymentModal';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -41,11 +42,25 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState('');
   const [isPromoValid, setIsPromoValid] = useState(false);
   const [promoDiscount, setPromoDiscount] = useState(0);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentData, setPaymentData] = useState<any>(null);
   const router = useRouter();
   const { settings } = useSettings();
 
   const signupFee = 30;
   const finalFee = signupFee - promoDiscount;
+  
+  // Get currency symbol based on payment method
+  const getCurrencySymbol = () => {
+    if (formData.paymentMethod === 'credit_card') return '$';
+    return '₨';
+  };
+  
+  // Get currency code based on payment method
+  const getCurrencyCode = () => {
+    if (formData.paymentMethod === 'credit_card') return 'USD';
+    return 'PKR';
+  };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({
@@ -108,7 +123,8 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      const response = await fetch(buildApiUrl('api/auth/register'), {
+      // First, register the user
+      const registerResponse = await fetch(buildApiUrl('api/auth/register'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,22 +136,32 @@ export default function RegisterPage() {
         }),
       });
 
-      const data = await response.json();
+      const registerData = await registerResponse.json();
 
-      if (response.ok) {
-        if (data.requiresPayment) {
-          // Redirect to payment page or handle payment flow
-          setSuccess('Registration successful! Redirecting to payment...');
-          setTimeout(() => {
-            // Handle payment redirect based on payment method
-            if (formData.paymentMethod === 'credit_card') {
-              // Redirect to Stripe checkout
-              window.location.href = data.paymentUrl;
-            } else {
-              // Handle local payment methods
-              router.push('/payment/local');
-            }
-          }, 2000);
+      if (registerResponse.ok) {
+        if (finalFee > 0) {
+          // User needs to pay, show payment modal
+          setSuccess('Registration successful! Please complete payment to continue.');
+          
+          // Store token for payment processing
+          localStorage.setItem('token', registerData.token);
+          localStorage.setItem('user', JSON.stringify(registerData.user));
+          
+          // Prepare payment data for modal
+          setPaymentData({
+            amount: finalFee,
+            currency: formData.paymentMethod === 'credit_card' ? 'USD' : 'PKR',
+            paymentMethod: formData.paymentMethod === 'credit_card' ? 'stripe' : formData.paymentMethod,
+            description: 'Registration Fee',
+            type: 'signup',
+            promoCode: promoCode || undefined,
+            customerEmail: formData.email,
+            customerPhone: formData.phone,
+            customerName: `${formData.firstName} ${formData.lastName}`
+          });
+          
+          // Show payment modal
+          setShowPaymentModal(true);
         } else {
           // Free registration with promo code
           setSuccess('Registration successful! Redirecting to login...');
@@ -144,13 +170,25 @@ export default function RegisterPage() {
           }, 2000);
         }
       } else {
-        setError(data.message || 'Registration failed. Please try again.');
+        setError(registerData.message || 'Registration failed. Please try again.');
       }
     } catch (err) {
       setError('Network error. Please check your connection.');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handlePaymentSuccess = (result: any) => {
+    setSuccess('Payment successful! Redirecting to dashboard...');
+    setTimeout(() => {
+      router.push('/dashboard');
+    }, 2000);
+  };
+
+  const handlePaymentError = (error: string) => {
+    setError(error);
+    setShowPaymentModal(false);
   };
 
   return (
@@ -454,7 +492,10 @@ export default function RegisterPage() {
                     className="mr-3 text-blue-600"
                   />
                   <CreditCard className="w-5 h-5 text-gray-600 dark:text-gray-400 mr-2" />
-                  <span className="text-sm text-gray-900 dark:text-white">Credit Card (International)</span>
+                  <div>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">Credit/Debit Card</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Visa, Mastercard, American Express</p>
+                  </div>
                 </label>
                 <label className="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 transition-colors bg-white dark:bg-gray-700">
                   <input
@@ -465,7 +506,13 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     className="mr-3 text-blue-600"
                   />
-                  <span className="text-sm text-gray-900 dark:text-white">Easypaisa (Pakistan)</span>
+                  <div className="w-5 h-5 bg-green-600 rounded mr-2 flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">EP</span>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">EasyPaisa</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Mobile wallet payment</p>
+                  </div>
                 </label>
                 <label className="flex items-center p-3 border border-gray-300 dark:border-gray-600 rounded-xl cursor-pointer hover:border-blue-500 dark:hover:border-blue-400 transition-colors bg-white dark:bg-gray-700">
                   <input
@@ -476,7 +523,13 @@ export default function RegisterPage() {
                     onChange={handleChange}
                     className="mr-3 text-blue-600"
                   />
-                  <span className="text-sm text-gray-900 dark:text-white">Jazz Cash (Pakistan)</span>
+                  <div className="w-5 h-5 bg-red-600 rounded mr-2 flex items-center justify-center">
+                    <span className="text-white text-xs font-bold">JC</span>
+                  </div>
+                  <div>
+                    <span className="text-sm font-medium text-gray-900 dark:text-white">JazzCash</span>
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Mobile wallet payment</p>
+                  </div>
                 </label>
               </div>
             </div>
@@ -485,18 +538,18 @@ export default function RegisterPage() {
             <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600 dark:text-gray-300">Registration Fee:</span>
-                <span className="font-medium text-gray-900 dark:text-white">${signupFee}</span>
+                <span className="font-medium text-gray-900 dark:text-white">{getCurrencySymbol()}{signupFee}</span>
               </div>
               {promoDiscount > 0 && (
                 <div className="flex justify-between items-center text-sm text-green-600 dark:text-green-400">
                   <span>Promo Discount:</span>
-                  <span>-${promoDiscount}</span>
+                  <span>-{getCurrencySymbol()}{promoDiscount}</span>
                 </div>
               )}
               <div className="border-t border-gray-200 dark:border-gray-600 mt-2 pt-2">
                 <div className="flex justify-between items-center font-semibold">
-                  <span className="text-gray-900 dark:text-white">Total:</span>
-                  <span className="text-lg text-gray-900 dark:text-white">${finalFee}</span>
+                  <span className="text-gray-900 dark:text-white">Total ({getCurrencyCode()}):</span>
+                  <span className="text-lg text-gray-900 dark:text-white">{getCurrencySymbol()}{finalFee}</span>
                 </div>
               </div>
             </div>
@@ -515,7 +568,7 @@ export default function RegisterPage() {
                   Creating Account...
                 </div>
               ) : (
-                `Create Account - $${finalFee}`
+                `Create Account - ${getCurrencySymbol()}${finalFee}`
               )}
             </motion.button>
           </form>
@@ -556,6 +609,17 @@ export default function RegisterPage() {
           </p>
         </motion.div>
       </div>
+      
+      {/* Payment Modal */}
+      {showPaymentModal && paymentData && (
+        <PaymentModal
+          isOpen={showPaymentModal}
+          onClose={() => setShowPaymentModal(false)}
+          paymentData={paymentData}
+          onPaymentSuccess={handlePaymentSuccess}
+          onPaymentError={handlePaymentError}
+        />
+      )}
     </div>
   );
 }

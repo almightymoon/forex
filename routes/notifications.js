@@ -490,6 +490,11 @@ router.get('/stats', [
   requireAdmin
 ], async (req, res) => {
   try {
+    const NotificationService = require('../services/notificationService');
+    
+    // Get notification statistics from the service
+    const notificationStats = await NotificationService.getNotificationStatistics();
+    
     // Get basic user statistics
     const totalUsers = await User.countDocuments();
     const usersByRole = await User.aggregate([
@@ -515,6 +520,15 @@ router.get('/stats', [
     res.json({
       message: 'Notification statistics',
       stats: {
+        // Real notification tracking data
+        notifications: notificationStats.summary,
+        notificationDetails: {
+          byChannel: notificationStats.byChannel,
+          recentActivity: notificationStats.recentActivity,
+          failedNotifications: notificationStats.failedNotifications,
+          scheduledNotifications: notificationStats.scheduledNotifications
+        },
+        // User statistics
         users: {
           total: totalUsers,
           byRole: roleStats,
@@ -543,6 +557,139 @@ router.get('/stats', [
     console.error('Get notification stats error:', error);
     res.status(500).json({
       error: 'Failed to get notification statistics',
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/notifications/schedule
+// @desc    Schedule a notification for future delivery
+// @access  Private (Admin only)
+router.post('/schedule', [
+  authenticateToken,
+  requireAdmin,
+  body('userIds').isArray().withMessage('User IDs array is required'),
+  body('type').notEmpty().withMessage('Notification type is required'),
+  body('data').isObject().withMessage('Notification data object is required'),
+  body('scheduledFor').isISO8601().withMessage('Valid scheduled date is required')
+], async (req, res) => {
+  try {
+    // Check validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const { userIds, type, data, scheduledFor } = req.body;
+
+    // Validate that all user IDs exist
+    const users = await User.find({ _id: { $in: userIds } });
+    if (users.length !== userIds.length) {
+      return res.status(400).json({
+        error: 'Some user IDs are invalid',
+        message: 'One or more user IDs do not exist'
+      });
+    }
+
+    // Validate scheduled date is in the future
+    const scheduledDate = new Date(scheduledFor);
+    if (scheduledDate <= new Date()) {
+      return res.status(400).json({
+        error: 'Invalid scheduled date',
+        message: 'Scheduled date must be in the future'
+      });
+    }
+
+    // Generate bulk notification ID for tracking
+    const bulkNotificationId = `bulk_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+    // Schedule notifications for all users
+    const results = [];
+    for (const userId of userIds) {
+      try {
+        const trackingRecord = await notificationService.scheduleNotification(
+          userId, 
+          type, 
+          data, 
+          scheduledFor, 
+          bulkNotificationId
+        );
+        results.push({ userId, success: true, trackingId: trackingRecord._id });
+      } catch (error) {
+        results.push({ userId, success: false, error: error.message });
+      }
+    }
+
+    // Count successes and failures
+    const successCount = results.filter(r => r.success).length;
+    const failureCount = results.filter(r => !r.success).length;
+
+    res.json({
+      message: 'Notifications scheduled successfully',
+      scheduledFor: scheduledFor,
+      total: results.length,
+      successful: successCount,
+      failed: failureCount,
+      bulkNotificationId: bulkNotificationId,
+      results: results
+    });
+
+  } catch (error) {
+    console.error('Schedule notification error:', error);
+    res.status(500).json({
+      error: 'Failed to schedule notifications',
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/notifications/process-scheduled
+// @desc    Process scheduled notifications (cron job endpoint)
+// @access  Private (Admin only)
+router.post('/process-scheduled', [
+  authenticateToken,
+  requireAdmin
+], async (req, res) => {
+  try {
+    const results = await notificationService.processScheduledNotifications();
+    
+    res.json({
+      message: 'Scheduled notifications processed',
+      results: results
+    });
+
+  } catch (error) {
+    console.error('Process scheduled notifications error:', error);
+    res.status(500).json({
+      error: 'Failed to process scheduled notifications',
+      message: error.message
+    });
+  }
+});
+
+// @route   GET /api/notifications/scheduled
+// @desc    Get scheduled notifications
+// @access  Private (Admin only)
+router.get('/scheduled', [
+  authenticateToken,
+  requireAdmin
+], async (req, res) => {
+  try {
+    const NotificationTracking = require('../models/NotificationTracking');
+    const scheduledNotifications = await NotificationTracking.getScheduledNotifications();
+    
+    res.json({
+      message: 'Scheduled notifications retrieved',
+      notifications: scheduledNotifications
+    });
+
+  } catch (error) {
+    console.error('Get scheduled notifications error:', error);
+    res.status(500).json({
+      error: 'Failed to get scheduled notifications',
       message: error.message
     });
   }
@@ -857,6 +1004,101 @@ router.post('/create', [
     res.status(500).json({
       success: false,
       error: 'Failed to create notification',
+      message: error.message
+    });
+  }
+});
+
+// @route   POST /api/notifications/send-emails
+// @desc    Send notifications to email addresses only (no user accounts required)
+// @access  Private (Admin only)
+router.post('/send-emails', [
+  authenticateToken,
+  requireAdmin,
+  body('emails').isArray().withMessage('Emails array is required'),
+  body('subject').notEmpty().withMessage('Subject is required'),
+  body('message').notEmpty().withMessage('Message is required'),
+  body('type').optional().isIn(['info', 'success', 'warning', 'error']).withMessage('Valid type required')
+], async (req, res) => {
+  try {
+    // Check validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const { emails, subject, message, type = 'info' } = req.body;
+
+    // Validate email addresses
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const validEmails = emails.filter(email => emailRegex.test(email));
+    
+    if (validEmails.length === 0) {
+      return res.status(400).json({
+        error: 'No valid email addresses provided',
+        message: 'Please provide at least one valid email address'
+      });
+    }
+
+    // Send emails to all recipients
+    const results = [];
+    for (const email of validEmails) {
+      try {
+        const success = await notificationService.sendEmail({
+          to: email,
+          subject: subject,
+          html: `
+            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+              <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 20px; text-align: center;">
+                <h1 style="color: white; margin: 0;">Forex Navigators</h1>
+              </div>
+              <div style="padding: 30px; background: #f8f9fa;">
+                <h2 style="color: #333; margin-bottom: 20px;">${subject}</h2>
+                <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+                  ${message.replace(/\n/g, '<br>')}
+                </div>
+                <div style="margin-top: 20px; padding: 15px; background: #e9ecef; border-radius: 5px; font-size: 12px; color: #6c757d;">
+                  This email was sent from Forex Navigators platform. If you did not expect this email, please ignore it.
+                </div>
+              </div>
+            </div>
+          `,
+          text: `${subject}\n\n${message}\n\n---\nThis email was sent from Forex Navigators platform.`
+        });
+        
+        results.push({
+          email,
+          success,
+          error: success ? null : 'Failed to send email'
+        });
+      } catch (error) {
+        results.push({
+          email,
+          success: false,
+          error: error.message
+        });
+      }
+    }
+    
+    const successfulCount = results.filter(r => r.success).length;
+    const failedCount = results.filter(r => !r.success).length;
+    
+    res.json({
+      success: true,
+      message: `Emails sent: ${successfulCount} successful, ${failedCount} failed`,
+      total: validEmails.length,
+      successful: successfulCount,
+      failed: failedCount,
+      results: results
+    });
+
+  } catch (error) {
+    console.error('Send emails error:', error);
+    res.status(500).json({
+      error: 'Failed to send emails',
       message: error.message
     });
   }

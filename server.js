@@ -61,6 +61,9 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
+// Serve static files from uploads directory
+app.use('/uploads', express.static('uploads'));
+
 // Multer configuration for handling file uploads
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -99,6 +102,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/community', communityRoutes);
 app.use('/api/certificates', certificateRoutes);
 app.use('/api/certificate-templates', require('./routes/certificateTemplates'));
+app.use('/api/teacher/certificates', require('./routes/teacherCertificates'));
+app.use('/api/certificate-assignments', require('./routes/certificateAssignments'));
 
 // Apply session timeout check to all protected routes
 app.use(checkSessionTimeout);
