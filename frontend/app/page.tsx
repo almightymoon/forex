@@ -247,7 +247,7 @@ export default function LandingPage() {
                   alt="Logo" 
                   className="w-6 h-6 mr-2 object-contain dark:invert"
                 />
-                Join 10,000+ Successful Traders
+                Join 500+ Successful Traders
               </span>
             </motion.div>
 
