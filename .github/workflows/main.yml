@@ -1,5 +1,6 @@
+name: Deploy
 env:
-  DEBUG: true  # Optional environment variable for debugging
+  DEBUG: true
 
 on:
   push:
@@ -7,22 +8,20 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Run the job on the ubuntu-latest runner
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+    - name: Checkout code
+      uses: actions/checkout@v2
 
-
-      - name: Deploy using ssh
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.IP }}
-          username: ${{ secrets.USERNAME }}
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-            #!/bin/bash
+    - name: Deploy using ssh
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.IP }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
             
             cd /var/www/forex/
             git pull 
