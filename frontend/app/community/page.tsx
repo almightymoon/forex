@@ -406,7 +406,7 @@ export default function CommunityPage() {
     setUnreadCount(0);
   };
 
-  const formatNotificationTime = (timestamp: string) => {
+  const formatNotificationTime = (timestamp: string | number) => {
     if (!timestamp) return 'Just now';
     
     // Handle different timestamp formats

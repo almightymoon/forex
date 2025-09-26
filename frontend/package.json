@@ -9,12 +9,11 @@
     "build": "next build",
     "start": "next start",
     "start:3001": "next start -p 3001",
-    "start:3002": "next start -p 3002",
-    "lint": "next lint",
-    "type-check": "tsc --noEmit"
+    "start:3002": "next start -p 3002"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.3.2",
+    "@radix-ui/react-tabs": "^1.1.13",
     "@tailwindcss/forms": "^0.5.7",
     "@tailwindcss/typography": "^0.5.10",
     "@types/jsonwebtoken": "^9.0.10",
@@ -26,7 +25,7 @@
     "axios": "^1.6.2",
     "chart.js": "^4.5.0",
     "class-variance-authority": "^0.7.0",
-    "clsx": "^2.0.0",
+    "clsx": "^2.1.1",
     "date-fns": "^2.30.0",
     "framer-motion": "^10.16.5",
     "jsonwebtoken": "^9.0.2",
@@ -53,19 +52,11 @@
     "remark-gfm": "^4.0.0",
     "socket.io-client": "^4.7.4",
     "swr": "^2.2.4",
+    "tailwind-merge": "^3.3.1",
     "tailwindcss": "^3.3.5",
     "typescript": "^5.3.2",
     "zod": "^3.22.4",
     "zustand": "^4.4.6"
-  },
-  "devDependencies": {
-    "@types/quill": "^2.0.14",
-    "@typescript-eslint/eslint-plugin": "^6.10.0",
-    "@typescript-eslint/parser": "^6.10.0",
-    "eslint": "^8.53.0",
-    "eslint-config-next": "14.0.3",
-    "prettier": "^3.1.0",
-    "prettier-plugin-tailwindcss": "^0.5.7"
   },
   "engines": {
     "node": ">=18.0.0"

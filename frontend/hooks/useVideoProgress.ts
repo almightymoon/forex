@@ -27,6 +27,7 @@ type UseVideoProgressReturn = {
   error: string | null;
   updateProgress: (watched: number, duration: number, playbackRate?: number) => ProgressPayload;
   saveProgress: () => Promise<boolean>;
+  markAsCompleted: () => void;
 };
 
 type UseVideoProgressOptions = {
@@ -157,6 +158,14 @@ export function useVideoProgress(options: UseVideoProgressOptions): UseVideoProg
     return doSave(pendingSaveRef.current);
   }, [doSave]);
 
+  const markAsCompleted = useCallback(() => {
+    if (isUnmountedRef.current) return;
+    
+    setIsCompleted(true);
+    setWatchedSeconds(durationSeconds);
+    setWatchPercentage(100);
+  }, [durationSeconds]);
+
   // start/stop autosave timer
   useEffect(() => {
     if (!autoSave) return;
@@ -197,5 +206,6 @@ export function useVideoProgress(options: UseVideoProgressOptions): UseVideoProg
     error,
     updateProgress,
     saveProgress,
+    markAsCompleted,
   };
 }

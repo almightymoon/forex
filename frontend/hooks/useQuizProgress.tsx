@@ -34,6 +34,10 @@ interface UseQuizProgressReturn {
   isCompleted: boolean;
   bestScore: number;
   submitQuiz: (answers: QuizAnswer[], timeSpent: number) => Promise<QuizAttempt>;
+  updateCurrentAttempt: (questionId: string, answer: string) => void;
+  getCurrentAnswer: (questionId: string) => string | undefined;
+  getAttemptCount: () => number;
+  canRetake: () => boolean;
   loading: boolean;
   error: string | null;
 }
