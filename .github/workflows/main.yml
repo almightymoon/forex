@@ -31,23 +31,36 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
+          debug: true
           script: |
             #!/bin/bash
-            node -v 
-            npm  -v 
+            set -e
+            echo "Starting deployment..."
+            echo "Current user: $(whoami)"
+            echo "Current directory: $(pwd)"
+            echo "Node version: $(node -v)"
+            echo "NPM version: $(npm -v)"
             
             # Change directory to project directory
-             cd /var/www/forex/
-            git pull 
-            npm install -f
+            cd /var/www/forex/
+            echo "Changed to project directory: $(pwd)"
+            
+            # Pull latest changes
+            git pull origin main
+            
+            # Install dependencies
+            npm ci --production
+            
+            # Build frontend
             cd frontend/
-            npm i -f
-            npm run build 
+            npm ci --production
+            npm run build
+            
+            # Restart services
             pm2 restart frontend
             pm2 restart backend
-            systemctl restart apache2  
             
-            # End of script
+            echo "Deployment completed successfully!"
 
 
 
