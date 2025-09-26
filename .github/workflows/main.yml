@@ -1,0 +1,37 @@
+env:
+  DEBUG: true  # Optional environment variable for debugging
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # Run the job on the ubuntu-latest runner
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+
+      - name: Deploy using ssh
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.IP }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            #!/bin/bash
+            
+            cd /var/www/forex/
+            git pull 
+            npm install -f
+            cd frontend/
+            npm i -f
+            npm run build 
+            pm2 restart frontend
+            pm2 restart backend
+            systemctl restart apache2  
+
+            
