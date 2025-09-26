@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.BACKEND_URL || 'http://localhost:4000';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
 
 export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('authorization');
+    
+    console.log('Frontend API route - Token:', token ? `${token.substring(0, 20)}...` : 'No token');
+    console.log('Frontend API route - Backend URL:', `${BACKEND_URL}/api/certificates/teacher/courses`);
     
     if (!token) {
       return NextResponse.json({ error: 'No authorization token' }, { status: 401 });
@@ -18,7 +21,9 @@ export async function GET(request: NextRequest) {
       },
     });
 
+    console.log('Frontend API route - Backend response status:', response.status);
     const data = await response.json();
+    console.log('Frontend API route - Backend response data:', data);
     
     if (!response.ok) {
       return NextResponse.json(data, { status: response.status });

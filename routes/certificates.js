@@ -9,6 +9,47 @@ const CourseProgress = require('../models/CourseProgress');
 const certificateService = require('../services/certificateService');
 const { authenticateToken, requireRole } = require('../middleware/auth');
 
+// Get all certificates for a teacher's courses (teacher only) - MOVED UP TO AVOID ROUTE CONFLICT
+router.get('/teacher/courses', authenticateToken, requireRole(['teacher']), async (req, res) => {
+  try {
+    const teacherId = req.user.userId || req.user._id;
+    
+    // Get teacher's courses
+    const courses = await Course.find({ teacher: teacherId }).select('_id title');
+    const courseIds = courses.map(course => course._id);
+    
+    // Get certificates for these courses
+    const certificates = await Certificate.find({ course: { $in: courseIds } })
+      .populate('student', 'firstName lastName email')
+      .populate('course', 'title')
+      .sort({ completionDate: -1 });
+    
+    res.json({
+      success: true,
+      certificates: certificates.map(cert => ({
+        id: cert._id,
+        certificateId: cert.certificateId,
+        certificateUrl: cert.certificateUrl,
+        completionDate: cert.completionDate,
+        completionPercentage: cert.completionPercentage,
+        studentName: cert.studentName,
+        courseTitle: cert.courseTitle,
+        instructorName: cert.instructorName,
+        validUntil: cert.validUntil,
+        student: cert.student,
+        course: cert.course
+      }))
+    });
+    
+  } catch (error) {
+    console.error('Get teacher certificates error:', error);
+    res.status(500).json({ 
+      error: 'Failed to get certificates',
+      details: error.message 
+    });
+  }
+});
+
 // Get all automated certificates for teacher's courses
 router.get('/teacher/:teacherId', authenticateToken, async (req, res) => {
   try {
@@ -191,7 +232,7 @@ router.get('/template/:courseId', authenticateToken, async (req, res) => {
 });
 
 // Generate certificate for course completion
-router.post('/generate/:courseId', authenticateToken, requireRole('student'), async (req, res) => {
+router.post('/generate/:courseId', authenticateToken, requireRole(['student']), async (req, res) => {
   try {
     const { courseId } = req.params;
     const userId = req.user.userId || req.user._id;
@@ -301,49 +342,9 @@ router.post('/generate/:courseId', authenticateToken, requireRole('student'), as
   }
 });
 
-// Get all certificates for a teacher's courses (teacher only)
-router.get('/teacher/courses', authenticateToken, requireRole('teacher'), async (req, res) => {
-  try {
-    const teacherId = req.user.userId || req.user._id;
-    
-    // Get teacher's courses
-    const courses = await Course.find({ teacher: teacherId }).select('_id title');
-    const courseIds = courses.map(course => course._id);
-    
-    // Get certificates for these courses
-    const certificates = await Certificate.find({ course: { $in: courseIds } })
-      .populate('student', 'firstName lastName email')
-      .populate('course', 'title')
-      .sort({ completionDate: -1 });
-    
-    res.json({
-      success: true,
-      certificates: certificates.map(cert => ({
-        id: cert._id,
-        certificateId: cert.certificateId,
-        certificateUrl: cert.certificateUrl,
-        completionDate: cert.completionDate,
-        completionPercentage: cert.completionPercentage,
-        studentName: cert.studentName,
-        courseTitle: cert.courseTitle,
-        instructorName: cert.instructorName,
-        validUntil: cert.validUntil,
-        student: cert.student,
-        course: cert.course
-      }))
-    });
-    
-  } catch (error) {
-    console.error('Get teacher certificates error:', error);
-    res.status(500).json({ 
-      error: 'Failed to get certificates',
-      details: error.message 
-    });
-  }
-});
 
 // Update certificate (teacher only)
-router.put('/:certificateId', authenticateToken, requireRole('teacher'), async (req, res) => {
+router.put('/:certificateId', authenticateToken, requireRole(['teacher']), async (req, res) => {
   try {
     const { certificateId } = req.params;
     const teacherId = req.user.userId || req.user._id;
@@ -386,7 +387,7 @@ router.put('/:certificateId', authenticateToken, requireRole('teacher'), async (
 });
 
 // Delete certificate (teacher only)
-router.delete('/:certificateId', authenticateToken, requireRole('teacher'), async (req, res) => {
+router.delete('/:certificateId', authenticateToken, requireRole(['teacher']), async (req, res) => {
   try {
     const { certificateId } = req.params;
     const teacherId = req.user.userId || req.user._id;
@@ -434,7 +435,7 @@ router.delete('/:certificateId', authenticateToken, requireRole('teacher'), asyn
 });
 
 // Regenerate certificate (teacher only)
-router.post('/regenerate/:certificateId', authenticateToken, requireRole('teacher'), async (req, res) => {
+router.post('/regenerate/:certificateId', authenticateToken, requireRole(['teacher']), async (req, res) => {
   try {
     const { certificateId } = req.params;
     const teacherId = req.user.userId || req.user._id;
@@ -497,7 +498,7 @@ router.post('/regenerate/:certificateId', authenticateToken, requireRole('teache
 });
 
 // Get student's certificates
-router.get('/my-certificates', authenticateToken, requireRole('student'), async (req, res) => {
+router.get('/my-certificates', authenticateToken, requireRole(['student']), async (req, res) => {
   try {
     const userId = req.user.userId || req.user._id;
     

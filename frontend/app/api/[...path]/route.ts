@@ -50,6 +50,11 @@ async function handleRequest(
       return NextResponse.json({ error: 'Route not found' }, { status: 404 });
     }
     
+    // Skip certificate routes - they have dedicated handlers
+    if (path.startsWith('certificates/')) {
+      return NextResponse.json({ error: 'Route not found' }, { status: 404 });
+    }
+    
     const url = new URL(request.url);
     const backendUrl = `${BACKEND_URL}/api/${path}${url.search}`;
     

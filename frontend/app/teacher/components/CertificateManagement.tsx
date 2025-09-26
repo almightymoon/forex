@@ -427,16 +427,8 @@ const CertificateManagement: React.FC = () => {
     try {
       setIsLoadingAutomated(true);
       const token = localStorage.getItem('token');
-      const userData = localStorage.getItem('user');
-      const user = userData ? JSON.parse(userData) : null;
-      const userId = user?._id;
       
-      if (!userId) {
-        toast.error('User not found');
-        return;
-      }
-      
-      const response = await fetch(`/api/certificates/teacher/${userId}`, {
+      const response = await fetch('/api/certificates/teacher', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
