@@ -1,36 +1,50 @@
-name: Deploy
-env:
-  DEBUG: true
+name: Deploy to Production
 
 on:
   push:
     branches: [main]
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
-    - name: Deploy using ssh
-      uses: appleboy/ssh-action@master
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: |
+          package-lock.json
+          frontend/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        npm ci
+        cd frontend && npm ci
+
+    - name: Build application
+      run: |
+        npm run build
+
+    - name: Deploy using SSH
+      uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.IP }}
         username: ${{ secrets.USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: 22
         script: |
-            
-            cd /var/www/forex/
-            git pull 
-            npm install -f
-            cd frontend/
-            npm i -f
-            npm run build 
-            pm2 restart frontend
-            pm2 restart backend
-            systemctl restart apache2  
-
-            
+          set -e
+          cd /var/www/forex/
+          git pull origin main
+          npm ci --production
+          cd frontend/
+          npm ci --production
+          npm run build
+          pm2 restart frontend
+          pm2 restart backend
+          echo "Deployment completed successfully"
