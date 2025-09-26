@@ -253,10 +253,10 @@ router.get('/dashboard', async (req, res) => {
 // Get teacher's courses
 router.get('/courses', async (req, res) => {
   try {
-    const teacherId = req.user._id;
     const { status, search, page = 1, limit = 10 } = req.query;
     
-    let query = { teacher: teacherId };
+    // Show all courses to all teachers (removed teacher filter)
+    let query = {};
     
     // Apply status filter
     if (status && status !== 'all') {
@@ -274,6 +274,7 @@ router.get('/courses', async (req, res) => {
     const skip = (page - 1) * limit;
     
     const courses = await Course.find(query)
+      .populate('teacher', 'firstName lastName email')
       .populate('enrolledStudents.student', 'firstName lastName email')
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -296,6 +297,8 @@ router.get('/courses', async (req, res) => {
       thumbnail: course.thumbnail,
       price: course.price || 0,
       teacher: course.teacher,
+      teacherName: course.teacher ? `${course.teacher.firstName} ${course.teacher.lastName}` : 'Unknown Teacher',
+      teacherEmail: course.teacher?.email || '',
       enrolledStudentsList: course.enrolledStudents || []
     }));
     

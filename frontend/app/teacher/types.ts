@@ -11,6 +11,14 @@ export interface Course {
   createdAt: string;
   thumbnail?: string;
   assignments?: Assignment[];
+  teacher?: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  teacherName?: string;
+  teacherEmail?: string;
 }
 
 export interface Student {

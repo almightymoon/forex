@@ -155,6 +155,8 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [thumbnailUploadProgress, setThumbnailUploadProgress] = useState(0);
+  const [isThumbnailUploading, setIsThumbnailUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
@@ -285,20 +287,64 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
     const file = event.target.files?.[0];
     if (file) {
       try {
+        setIsThumbnailUploading(true);
+        setThumbnailUploadProgress(0);
+        
         const formData = new FormData();
         formData.append('file', file);
         
-        const response = await fetch('/api/upload', {
-          method: 'POST',
-          body: formData
+        // Use XMLHttpRequest for progress tracking
+        const xhr = new XMLHttpRequest();
+        
+        // Track upload progress
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const percentComplete = (e.loaded / e.total) * 100;
+            setThumbnailUploadProgress(Math.round(percentComplete));
+          }
         });
         
-        if (response.ok) {
-          const result = await response.json();
-          setCourseData({ ...courseData, thumbnail: result.url });
-        }
+        // Handle successful upload
+        xhr.addEventListener('load', () => {
+          if (xhr.status === 200) {
+            const result = JSON.parse(xhr.responseText);
+            setCourseData({ ...courseData, thumbnail: result.url });
+            showToast('Thumbnail uploaded successfully!', 'success');
+          } else {
+            let errorMessage = 'Failed to upload thumbnail';
+            try {
+              const errorResult = JSON.parse(xhr.responseText);
+              if (errorResult.error) {
+                errorMessage = errorResult.error;
+                if (errorResult.details) {
+                  errorMessage += ` (${errorResult.details})`;
+                }
+              }
+            } catch (e) {
+              // Use default error message if parsing fails
+            }
+            showToast(errorMessage, 'error');
+          }
+          setIsThumbnailUploading(false);
+          setThumbnailUploadProgress(0);
+        });
+        
+        // Handle upload errors
+        xhr.addEventListener('error', () => {
+          showToast('Network error uploading thumbnail', 'error');
+          setIsThumbnailUploading(false);
+          setThumbnailUploadProgress(0);
+        });
+        
+        // Start the upload
+        xhr.open('POST', '/api/upload');
+        xhr.send(formData);
+        
       } catch (error) {
         console.error('Error uploading thumbnail:', error);
+        showToast('Error uploading thumbnail', 'error');
+        setIsThumbnailUploading(false);
+        setThumbnailUploadProgress(0);
       }
     }
   };
@@ -695,6 +741,8 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
               removeCategory={removeCategory}
               thumbnailInputRef={thumbnailInputRef}
               handleThumbnailUpload={handleThumbnailUpload}
+              isThumbnailUploading={isThumbnailUploading}
+              thumbnailUploadProgress={thumbnailUploadProgress}
             />
           </div>
         )}
@@ -767,7 +815,9 @@ function BasicInfoTab({
   addCategory,
   removeCategory,
   thumbnailInputRef,
-  handleThumbnailUpload
+  handleThumbnailUpload,
+  isThumbnailUploading,
+  thumbnailUploadProgress
 }: any) {
   const [requirements, setRequirements] = useState('');
   const [outcomes, setOutcomes] = useState('');
@@ -914,11 +964,28 @@ function BasicInfoTab({
             />
             <button
               onClick={() => thumbnailInputRef.current?.click()}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              disabled={isThumbnailUploading}
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Upload Thumbnail
+              {isThumbnailUploading ? 'Uploading...' : 'Upload Thumbnail'}
             </button>
           </div>
+          
+          {/* Progress Bar */}
+          {isThumbnailUploading && (
+            <div className="mt-4">
+              <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-1">
+                <span>Uploading thumbnail...</span>
+                <span>{thumbnailUploadProgress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                  style={{ width: `${thumbnailUploadProgress}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

@@ -25,7 +25,10 @@ export async function POST(request: NextRequest) {
         apiKey: !!apiKey, 
         apiSecret: !!apiSecret 
       });
-      return NextResponse.json({ error: 'Cloudinary configuration missing' }, { status: 500 });
+      return NextResponse.json({ 
+        error: 'Cloudinary configuration missing. Please set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET environment variables.',
+        details: 'Add these to your .env file or environment configuration'
+      }, { status: 500 });
     }
 
     console.log('Using Cloudinary config:', { cloudName, apiKey: '***' + apiKey.slice(-4) });

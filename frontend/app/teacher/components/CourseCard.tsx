@@ -57,6 +57,10 @@ export default function CourseCard({ course, getStatusColor, onEdit, onDelete, o
         
         <div className="space-y-3 mb-4">
           <div className="flex justify-between text-sm">
+            <span className="text-gray-500 dark:text-gray-400">Teacher</span>
+            <span className="font-medium text-gray-900 dark:text-white">{course.teacherName || 'Unknown'}</span>
+          </div>
+          <div className="flex justify-between text-sm">
             <span className="text-gray-500 dark:text-gray-400">{safeT('students')}</span>
             <span className="font-medium text-gray-900 dark:text-white">{typeof course.enrolledStudents === 'number' ? course.enrolledStudents : (Array.isArray(course.enrolledStudents) ? (course.enrolledStudents as any[]).length : 0)}</span>
           </div>
