@@ -1,50 +1,57 @@
-name: Deploy to Production
+env:
+  DEBUG: true  # Optional environment variable for debugging
 
 on:
   push:
     branches: [main]
 
 jobs:
-  deploy:
-    runs-on: ubuntu-latest
+  build:
+    runs-on: ubuntu-latest  # Run the job on the ubuntu-latest runner
 
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: |
-          package-lock.json
-          frontend/package-lock.json
+      - name: Use nvm with Node.js 20
+        uses: actions/setup-node@v3
+        with:
+          use-nvm: true  # Use nvm to manage Node.js versions
+          node-version: 20  # Specify the desired Node.js version
 
-    - name: Install dependencies
-      run: |
-        npm ci
-        cd frontend && npm ci
+      - name: Install nvm (if needed)
+        run: |
+          curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+          source ~/.bashrc  # Source the .bashrc file after installation
 
-    - name: Build application
-      run: |
-        npm run build
+      - name: Deploy using ssh
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.IP }}
+          username: ${{ secrets.USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            #!/bin/bash
+            node -v 
+            npm  -v 
+            
+            # Change directory to project directory
+             cd /var/www/forex/
+            git pull 
+            npm install -f
+            cd frontend/
+            npm i -f
+            npm run build 
+            pm2 restart frontend
+            pm2 restart backend
+            systemctl restart apache2  
 
-    - name: Deploy using SSH
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.IP }}
-        username: ${{ secrets.USERNAME }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        port: 22
-        script: |
-          set -e
-          cd /var/www/forex/
-          git pull origin main
-          npm ci --production
-          cd frontend/
-          npm ci --production
-          npm run build
-          pm2 restart frontend
-          pm2 restart backend
-          echo "Deployment completed successfully"
+
+            # End of script
+
+
+
+            
+     
+            
