@@ -54,13 +54,25 @@ export default function ProfilePage() {
 
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
-  const { settings } = useSettings();
+  const { settings, loading: settingsLoading } = useSettings();
   const { t } = useLanguage();
   const { data: dashboardData } = useDashboard();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Prevent hydration mismatch by showing loading state
+  if (settingsLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (mounted) {
@@ -257,9 +269,9 @@ export default function ProfilePage() {
               <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-2xl animate-pulse">
                 {/* Logo image or placeholder */}
                 <img 
-                  src="/all-07.png" 
+                  src="/all-07.svg" 
                   alt="Logo" 
-                  className="w-20 h-20 object-contain animate-pulse"
+                  className="w-20 h-20 object-contain dark:invert animate-pulse"
                 />
               </div>
               
@@ -322,9 +334,9 @@ export default function ProfilePage() {
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center space-x-4">
               <img 
-                src="/all-07.png" 
+                src="/all-07.svg" 
                 alt={`${settings.platformName} Logo`} 
-                className="w-14 h-14 object-contain"
+                className="w-14 h-14 object-contain dark:invert"
               />
               <div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">

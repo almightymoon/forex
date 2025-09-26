@@ -6,6 +6,31 @@ interface TokenRefreshResponse {
   error?: string;
 }
 
+/**
+ * Handle session expiration by clearing tokens and redirecting to login
+ * @param message - Optional message to show to user
+ */
+export const handleSessionExpiration = (message?: string) => {
+  console.log('Handling session expiration:', message);
+  
+  // Clear all authentication data
+  localStorage.removeItem('token');
+  localStorage.removeItem('user');
+  
+  // Clear token cookie
+  document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
+  
+  // Show notification if available
+  if (typeof window !== 'undefined' && (window as any).showToast) {
+    (window as any).showToast(message || 'Your session has expired. Please log in again.', 'error');
+  }
+  
+  // Redirect to login page
+  if (typeof window !== 'undefined') {
+    window.location.href = '/login';
+  }
+};
+
 export const refreshToken = async (): Promise<TokenRefreshResponse> => {
   try {
     const currentToken = localStorage.getItem('token');
@@ -76,9 +101,7 @@ export const fetchWithTokenRefresh = async (url: string, options: RequestInit = 
     
     if (!refreshResult.success) {
       console.error('Token refresh failed:', refreshResult.error);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      handleSessionExpiration('Your session has expired. Please log in again.');
       throw new Error('Token refresh failed');
     }
   }
@@ -99,6 +122,19 @@ export const fetchWithTokenRefresh = async (url: string, options: RequestInit = 
   // If we get a 401, try to refresh the token once
   if (response.status === 401) {
     console.log('Received 401, attempting token refresh...');
+    
+    // Check if response contains session expiration info
+    try {
+      const errorData = await response.clone().json();
+      if (errorData.sessionExpired && errorData.redirectTo) {
+        console.log('Session expired, redirecting to:', errorData.redirectTo);
+        handleSessionExpiration(errorData.message || 'Session expired');
+        throw new Error('Session expired');
+      }
+    } catch (jsonError) {
+      // If we can't parse JSON, continue with token refresh
+    }
+    
     const refreshResult = await refreshToken();
     
     if (refreshResult.success) {
@@ -117,9 +153,7 @@ export const fetchWithTokenRefresh = async (url: string, options: RequestInit = 
     } else {
       // Refresh failed, redirect to login
       console.error('Token refresh failed on 401:', refreshResult.error);
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      window.location.href = '/login';
+      handleSessionExpiration('Authentication failed');
       throw new Error('Authentication failed');
     }
   }

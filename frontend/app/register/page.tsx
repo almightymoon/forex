@@ -45,10 +45,22 @@ export default function RegisterPage() {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
   const router = useRouter();
-  const { settings } = useSettings();
+  const { settings, loading: settingsLoading } = useSettings();
 
   const signupFee = 30;
   const finalFee = signupFee - promoDiscount;
+
+  // Prevent hydration mismatch by showing loading state
+  if (settingsLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
   
   // Get currency symbol based on payment method
   const getCurrencySymbol = () => {
@@ -146,6 +158,9 @@ export default function RegisterPage() {
           // Store token for payment processing
           localStorage.setItem('token', registerData.token);
           localStorage.setItem('user', JSON.stringify(registerData.user));
+          
+          // Set token in httpOnly cookie for middleware access
+          document.cookie = `token=${registerData.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
           
           // Prepare payment data for modal
           setPaymentData({
@@ -248,16 +263,13 @@ export default function RegisterPage() {
         >
           {/* Logo and Title */}
           <div className="text-center mb-8">
-            <motion.div 
-              className="inline-flex items-center justify-center mb-4"
-              // whileHover={{ scale: 1.1, rotate: 5 }}
-            >
+            <div className="inline-flex items-center justify-center mb-4">
               <img 
-                src="/all-07.png" 
+                src="/all-07.svg" 
                 alt="Forex Navigators Logo" 
-                className="w-36 h-36 object-contain"
+                className="w-40 h-40 object-contain dark:invert"
               />
-            </motion.div>
+            </div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               Join Forex Navigators
             </h1>

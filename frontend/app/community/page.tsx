@@ -117,6 +117,8 @@ export default function CommunityPage() {
     timestamp: string;
   }>>([]);
   const [isDirectMessageMode, setIsDirectMessageMode] = useState(false);
+  const [showReactionPicker, setShowReactionPicker] = useState<string | null>(null);
+  const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageInputRef = useRef<HTMLInputElement>(null);
@@ -182,7 +184,11 @@ export default function CommunityPage() {
         isOnline: true
       },
       channelId: 'general',
-      timestamp: '2025-08-26T10:00:00Z'
+      timestamp: new Date().toISOString(),
+      reactions: [
+        { emoji: '👍', count: 2, users: ['user1', 'user2'] },
+        { emoji: '❤️', count: 1, users: ['user3'] }
+      ]
     },
     {
       _id: '2',
@@ -196,7 +202,10 @@ export default function CommunityPage() {
         isOnline: true
       },
       channelId: 'general',
-      timestamp: '2025-08-26T10:05:00Z'
+      timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+      reactions: [
+        { emoji: '😂', count: 1, users: ['user4'] }
+      ]
     },
     {
       _id: '3',
@@ -210,7 +219,7 @@ export default function CommunityPage() {
         isOnline: true
       },
       channelId: 'general',
-      timestamp: '2025-08-26T10:08:00Z'
+      timestamp: new Date(Date.now() - 8 * 60 * 1000).toISOString()
     },
     {
       _id: '4',
@@ -224,7 +233,7 @@ export default function CommunityPage() {
         isOnline: true
       },
       channelId: 'general',
-      timestamp: '2025-08-26T10:10:00Z'
+      timestamp: new Date(Date.now() - 10 * 60 * 1000).toISOString()
     }
   ];
 
@@ -285,6 +294,20 @@ export default function CommunityPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages, directMessages]);
+
+  // Close reaction picker when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (showReactionPicker && !(event.target as Element).closest('.reaction-picker')) {
+        setShowReactionPicker(null);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showReactionPicker]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -384,7 +407,40 @@ export default function CommunityPage() {
   };
 
   const formatNotificationTime = (timestamp: string) => {
-    const date = new Date(timestamp);
+    if (!timestamp) return 'Just now';
+    
+    // Handle different timestamp formats
+    let date: Date;
+    
+    if (typeof timestamp === 'string') {
+      date = new Date(timestamp);
+      
+      if (isNaN(date.getTime())) {
+        const numTimestamp = parseInt(timestamp);
+        if (!isNaN(numTimestamp)) {
+          if (numTimestamp.toString().length === 10) {
+            date = new Date(numTimestamp * 1000);
+          } else {
+            date = new Date(numTimestamp);
+          }
+        } else {
+          return 'Just now';
+        }
+      }
+    } else if (typeof timestamp === 'number') {
+      if (timestamp.toString().length === 10) {
+        date = new Date(timestamp * 1000);
+      } else {
+        date = new Date(timestamp);
+      }
+    } else {
+      return 'Just now';
+    }
+    
+    if (isNaN(date.getTime())) {
+      return 'Just now';
+    }
+    
     const now = new Date();
     const diffInMinutes = (now.getTime() - date.getTime()) / (1000 * 60);
     
@@ -401,14 +457,51 @@ export default function CommunityPage() {
     }
   };
 
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    const now = new Date();
-    const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+  const formatTimestamp = (timestamp: any) => {
+    // Always return a safe fallback first
+    if (!timestamp) return 'Just now';
     
-    if (diffInHours < 1) return 'Just now';
-    if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`;
-    return date.toLocaleDateString();
+    try {
+      // Force convert to string and clean it
+      const cleanTimestamp = String(timestamp).trim();
+      if (!cleanTimestamp) return 'Just now';
+      
+      // Try to create a date object
+      let date = new Date(cleanTimestamp);
+      
+      // If invalid, try alternative parsing
+      if (isNaN(date.getTime())) {
+        // Try parsing as Unix timestamp
+        const numTimestamp = parseInt(cleanTimestamp);
+        if (!isNaN(numTimestamp) && numTimestamp > 0) {
+          // 10-digit = seconds, 13-digit = milliseconds
+          if (numTimestamp.toString().length === 10) {
+            date = new Date(numTimestamp * 1000);
+          } else {
+            date = new Date(numTimestamp);
+          }
+        } else {
+          // Try parsing as date string with different formats
+          date = new Date(cleanTimestamp.replace(/-/g, '/'));
+        }
+      }
+      
+      // Final validation
+      if (isNaN(date.getTime())) {
+        console.log('Invalid timestamp:', timestamp, 'type:', typeof timestamp);
+        return 'Just now';
+      }
+      
+      const now = new Date();
+      const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
+      
+      if (diffInHours < 1) return 'Just now';
+      if (diffInHours < 24) return `${Math.floor(diffInHours)}h ago`;
+      return date.toLocaleDateString();
+    } catch (error) {
+      console.error('Error formatting timestamp:', error, timestamp);
+      return 'Just now';
+    }
   };
 
   const getChannelIcon = (channel: Channel) => {
@@ -432,6 +525,61 @@ export default function CommunityPage() {
       default: return null;
     }
   };
+
+  // Reaction system functions
+  const addReaction = (messageId: string, emoji: string) => {
+    setMessages(prev => prev.map(message => {
+      if (message._id === messageId) {
+        const existingReaction = message.reactions?.find(r => r.emoji === emoji);
+        if (existingReaction) {
+          // If user already reacted, remove their reaction
+          const updatedUsers = existingReaction.users.filter(user => user !== 'current-user');
+          if (updatedUsers.length === 0) {
+            // Remove reaction if no users left
+            return {
+              ...message,
+              reactions: message.reactions?.filter(r => r.emoji !== emoji)
+            };
+          } else {
+            // Update count
+            return {
+              ...message,
+              reactions: message.reactions?.map(r => 
+                r.emoji === emoji 
+                  ? { ...r, count: updatedUsers.length, users: updatedUsers }
+                  : r
+              )
+            };
+          }
+        } else {
+          // Add new reaction
+          const newReaction = {
+            emoji,
+            count: 1,
+            users: ['current-user']
+          };
+          return {
+            ...message,
+            reactions: [...(message.reactions || []), newReaction]
+          };
+        }
+      }
+      return message;
+    }));
+    setShowReactionPicker(null);
+  };
+
+  const getReactionCount = (message: Message, emoji: string) => {
+    const reaction = message.reactions?.find(r => r.emoji === emoji);
+    return reaction?.count || 0;
+  };
+
+  const hasUserReacted = (message: Message, emoji: string) => {
+    const reaction = message.reactions?.find(r => r.emoji === emoji);
+    return reaction?.users.includes('current-user') || false;
+  };
+
+  const commonEmojis = ['👍', '👎', '❤️', '😂', '😮', '😢', '😡', '🎉'];
 
   const switchToChannel = (channelId: string) => {
     setSelectedChannel(channelId);
@@ -661,7 +809,9 @@ export default function CommunityPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: index * 0.1 }}
-                  className="flex items-start space-x-3 group hover:bg-gray-600 p-2 rounded-lg transition-colors"
+                  className="flex items-start space-x-3 group hover:bg-gray-600 p-2 rounded-lg transition-colors relative"
+                  onMouseEnter={() => setHoveredMessage(message._id)}
+                  onMouseLeave={() => setHoveredMessage(null)}
                 >
                   <div className="relative">
                     <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
@@ -693,6 +843,53 @@ export default function CommunityPage() {
                             <span className="hover:underline cursor-pointer">{attachment.name}</span>
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {/* Reactions */}
+                    {message.reactions && message.reactions.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {message.reactions.map((reaction, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => addReaction(message._id, reaction.emoji)}
+                            className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs transition-colors ${
+                              hasUserReacted(message, reaction.emoji)
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                            }`}
+                          >
+                            <span>{reaction.emoji}</span>
+                            <span>{reaction.count}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Add Reaction Button */}
+                    <div className="mt-2 flex items-center space-x-2">
+                      <button
+                        onClick={() => setShowReactionPicker(showReactionPicker === message._id ? null : message._id)}
+                        className="text-gray-400 hover:text-white transition-colors text-sm"
+                      >
+                        Add Reaction
+                      </button>
+                    </div>
+
+                    {/* Reaction Picker */}
+                    {showReactionPicker === message._id && (
+                      <div className="reaction-picker absolute bottom-0 left-0 bg-gray-800 border border-gray-600 rounded-lg p-2 shadow-lg z-10">
+                        <div className="flex space-x-1">
+                          {commonEmojis.map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => addReaction(message._id, emoji)}
+                              className="w-8 h-8 flex items-center justify-center hover:bg-gray-700 rounded transition-colors"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

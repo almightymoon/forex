@@ -554,7 +554,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
         console.log('Removing student from course:', studentId, bulkRemoveCourseData.courseId);
         try {
           const response = await fetch(`http://localhost:4000/api/teacher/remove-student`, {
-            method: 'POST',
+            method: 'DELETE',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${token}`
@@ -1036,6 +1036,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                       )}
                       <button
                         onClick={() => {
+                          setSelectedStudent(student);
                           setRemovalData({ studentId: student.id || student._id || '', courseId: '' });
                           setShowRemoveModal(true);
                         }}
@@ -1165,11 +1166,15 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Choose a course...</option>
-                  {courses.map(course => (
-                    <option key={course.id || course._id} value={course.id || course._id}>
-                      {course.title}
-                    </option>
-                  ))}
+                  {selectedStudent?.enrolledCourses?.map(enrollment => {
+                    // Find the course details from the courses array
+                    const course = courses.find(c => (c.id || c._id) === enrollment.courseId);
+                    return (
+                      <option key={enrollment.courseId} value={enrollment.courseId}>
+                        {course?.title || enrollment.courseTitle}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>
@@ -1688,7 +1693,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Course
+                  Course (Only showing courses students are enrolled in)
                 </label>
                 <select
                   value={bulkRemoveCourseData.courseId}
@@ -1696,11 +1701,35 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                 >
                   <option value="">Choose a course...</option>
-                  {courses.map(course => (
-                    <option key={course.id || course._id} value={course.id || course._id}>
-                      {course.title}
-                    </option>
-                  ))}
+                  {(() => {
+                    // Get all unique courses that the selected students are enrolled in
+                    const selectedStudentData = students.filter(student => 
+                      selectedStudents.includes(student.id || student._id)
+                    );
+                    
+                    const enrolledCoursesSet = new Set();
+                    const enrolledCourses = [];
+                    
+                    selectedStudentData.forEach(student => {
+                      if (student.enrolledCourses) {
+                        student.enrolledCourses.forEach(enrollment => {
+                          if (!enrolledCoursesSet.has(enrollment.courseId)) {
+                            enrolledCoursesSet.add(enrollment.courseId);
+                            enrolledCourses.push({
+                              courseId: enrollment.courseId,
+                              courseTitle: enrollment.courseTitle
+                            });
+                          }
+                        });
+                      }
+                    });
+                    
+                    return enrolledCourses.map(course => (
+                      <option key={course.courseId} value={course.courseId}>
+                        {course.courseTitle}
+                      </option>
+                    ));
+                  })()}
                 </select>
               </div>
               <div className="text-sm text-gray-600">

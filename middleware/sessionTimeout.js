@@ -32,7 +32,9 @@ const checkSessionTimeout = async (req, res, next) => {
       return res.status(401).json({
         error: 'Session expired',
         message: 'Your session has expired due to inactivity. Please log in again.',
-        sessionExpired: true
+        sessionExpired: true,
+        redirectTo: '/login',
+        code: 'SESSION_EXPIRED'
       });
     }
     

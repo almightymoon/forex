@@ -232,6 +232,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     try {
       console.log('AdminContext - Initializing admin data...');
       const token = localStorage.getItem('token');
+      console.log('AdminContext - Token found:', !!token);
       if (!token) {
         console.log('AdminContext - No token found, letting layout handle redirect');
         setLoading(false);
@@ -348,9 +349,11 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     const pathname = window.location.pathname;
     
     if (pathname.startsWith('/admin')) {
+      console.log('AdminContext - Admin page detected, initializing data...');
       initializeAdminData();
     } else {
       // If not on admin page, clear admin data to prevent caching issues
+      console.log('AdminContext - Not on admin page, clearing data...');
       setData({
         user: null,
         users: [],
@@ -364,6 +367,15 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       setLoading(false);
     }
   }, [initializeAdminData]);
+
+  // Additional effect to ensure data is loaded when admin page is accessed
+  useEffect(() => {
+    const pathname = window.location.pathname;
+    if (pathname.startsWith('/admin') && !loading && data.users.length === 0 && !lastFetched) {
+      console.log('AdminContext - Admin page loaded but no data, forcing initialization...');
+      initializeAdminData();
+    }
+  }, [loading, data.users.length, lastFetched, initializeAdminData]);
 
   // Auto-refresh when tab becomes visible (if data is older than cache duration)
   useEffect(() => {

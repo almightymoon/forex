@@ -19,7 +19,7 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
     console.log('Auth middleware - Decoded token:', decoded);
     
     const user = await User.findById(decoded.userId).select('-password');
@@ -51,7 +51,10 @@ const authenticateToken = async (req, res, next) => {
       console.log('Auth middleware - Invalid token format');
       return res.status(401).json({ 
         error: 'Invalid token',
-        message: 'Token is not valid'
+        message: 'Token is not valid',
+        sessionExpired: true,
+        redirectTo: '/login',
+        code: 'INVALID_TOKEN'
       });
     }
     
@@ -59,7 +62,10 @@ const authenticateToken = async (req, res, next) => {
       console.log('Auth middleware - Token expired');
       return res.status(401).json({ 
         error: 'Token expired',
-        message: 'Token has expired, please login again'
+        message: 'Token has expired, please login again',
+        sessionExpired: true,
+        redirectTo: '/login',
+        code: 'TOKEN_EXPIRED'
       });
     }
 

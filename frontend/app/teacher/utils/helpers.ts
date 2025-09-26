@@ -24,13 +24,31 @@ export const calculateAnalytics = (coursesData: Course[], studentsData: Student[
   const safeCoursesData = Array.isArray(coursesData) ? coursesData : [];
   const safeStudentsData = Array.isArray(studentsData) ? studentsData : [];
   
+  // Calculate total students enrolled in teacher's courses
   const totalStudents = safeStudentsData.length;
-  const totalCourses = safeCoursesData.length;
-  const totalRevenue = safeCoursesData.reduce((sum, course) => sum + (course.enrolledStudents * 50), 0);
-  const averageRating = safeCoursesData.length > 0 ? safeCoursesData.reduce((sum, course) => sum + course.rating, 0) / safeCoursesData.length : 0;
   
-  const totalCompletedLessons = safeCoursesData.reduce((sum, course) => sum + course.completedLessons, 0);
-  const totalTotalLessons = safeCoursesData.reduce((sum, course) => sum + course.totalLessons, 0);
+  // Calculate total courses
+  const totalCourses = safeCoursesData.length;
+  
+  // Calculate total enrollments across all courses
+  const totalEnrollments = safeStudentsData.reduce((sum, student) => {
+    return sum + (student.totalCourses || 0);
+  }, 0);
+  
+  // Calculate average progress across all students
+  const totalProgress = safeStudentsData.reduce((sum, student) => {
+    return sum + (student.progress || 0);
+  }, 0);
+  const averageProgress = totalStudents > 0 ? totalProgress / totalStudents : 0;
+  
+  // Calculate revenue (mock calculation - replace with actual pricing)
+  const totalRevenue = totalEnrollments * 50; // Assuming $50 per enrollment
+  
+  // Calculate average rating (mock calculation - replace with actual ratings)
+  const averageRating = 4.5; // Mock rating
+  
+  const totalCompletedLessons = safeCoursesData.reduce((sum, course) => sum + (course.completedLessons || 0), 0);
+  const totalTotalLessons = safeCoursesData.reduce((sum, course) => sum + (course.totalLessons || 0), 0);
   const courseCompletionRate = totalTotalLessons > 0 ? Math.round((totalCompletedLessons / totalTotalLessons) * 100) : 0;
   
   const studentSatisfaction = Math.round(averageRating * 20);

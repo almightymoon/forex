@@ -22,7 +22,19 @@ export default function LoginPage() {
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { settings } = useSettings();
+  const { settings, loading: settingsLoading } = useSettings();
+
+  // Prevent hydration mismatch by showing loading state
+  if (settingsLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Handle URL parameters for redirects and error messages
   useEffect(() => {
@@ -75,6 +87,7 @@ export default function LoginPage() {
       });
 
       const data = await response.json();
+      console.log('Login response:', { status: response.status, data });
 
       if (response.ok) {
         if (data.requiresTwoFactor) {
@@ -84,8 +97,13 @@ export default function LoginPage() {
           setError('');
         } else {
           // Regular login success
+          console.log('Setting token in localStorage and cookie');
           localStorage.setItem('token', data.token);
           localStorage.setItem('user', JSON.stringify(data.user));
+          
+          // Set token in httpOnly cookie for middleware access
+          document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+          console.log('Token set successfully');
           
           // Check for redirect parameter first
           const redirectParam = searchParams.get('redirect');
@@ -107,42 +125,51 @@ export default function LoginPage() {
           console.log('Login - User role:', data.user.role);
           console.log('Login - User data:', data.user);
           
+          // Determine redirect URL based on role
+          let redirectUrl = '/dashboard'; // default
           if (data.user.role === 'teacher') {
-            console.log('Login - Redirecting to teacher dashboard');
-            console.log('Router object:', router);
-            try {
-            router.push('/teacher');
-              console.log('Router.push called for /teacher');
-            } catch (error) {
-              console.error('Router.push failed, using window.location:', error);
-              window.location.href = '/teacher';
-            }
+            redirectUrl = '/teacher';
           } else if (data.user.role === 'admin') {
-            console.log('Login - Redirecting to admin dashboard');
-            console.log('Router object:', router);
-            try {
-            router.push('/admin');
-              console.log('Router.push called for /admin');
-            } catch (error) {
-              console.error('Router.push failed, using window.location:', error);
-              window.location.href = '/admin';
-            }
-          } else {
-            console.log('Login - Redirecting to student dashboard');
-            console.log('Router object:', router);
-            try {
-            router.push('/dashboard');
-              console.log('Router.push called for /dashboard');
-            } catch (error) {
-              console.error('Router.push failed, using window.location:', error);
-              window.location.href = '/dashboard';
-            }
+            redirectUrl = '/admin';
           }
+          
+          console.log(`Login - Redirecting to: ${redirectUrl}`);
+          console.log('Current location before redirect:', window.location.pathname);
+          
+          // Add a small delay to ensure token is properly set
+          setTimeout(() => {
+            console.log('Starting redirect after token setup delay...');
+            console.log('Token in localStorage:', localStorage.getItem('token') ? 'EXISTS' : 'MISSING');
+            console.log('Redirect URL:', redirectUrl);
+            
+            // Try multiple redirect methods
+            try {
+              // Method 1: Next.js router with force refresh
+              console.log('Attempting router.push...');
+              router.push(redirectUrl);
+              console.log('Router.push completed');
+              
+              // Method 2: Force redirect with window.location.href immediately
+              console.log('Using window.location.href as primary method');
+              window.location.href = redirectUrl;
+              
+            } catch (error) {
+              console.error('All redirect methods failed:', error);
+              // Last resort: direct window.location
+              window.location.href = redirectUrl;
+            }
+          }, 100); // Small delay to ensure token is set
         }
       } else {
         setError(data.message || 'Login failed. Please try again.');
       }
     } catch (err) {
+      console.error('Login error:', err);
+      console.error('Error details:', {
+        message: err.message,
+        stack: err.stack,
+        name: err.name
+      });
       setError('Network error. Please check your connection.');
     } finally {
       setIsLoading(false);
@@ -172,6 +199,9 @@ export default function LoginPage() {
       if (response.ok) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
+        
+        // Set token in httpOnly cookie for middleware access
+        document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
         
         // Check for redirect parameter first
         const redirectParam = searchParams.get('redirect');
@@ -291,16 +321,13 @@ export default function LoginPage() {
         >
           {/* Logo and Title */}
           <div className="text-center mb-8">
-            <motion.div 
-              className="inline-flex items-center justify-center mb-4"
-              whileHover={{ scale: 1.1, rotate: 5 }}
-            >
+            <div className="inline-flex items-center justify-center mb-4">
               <img 
-                src="/all-07.png" 
+                src="/all-07.svg" 
                 alt="Forex Navigators Logo" 
-                className="w-24 h-24 object-contain"
+                className="w-32 h-32 object-contain dark:invert"
               />
-            </motion.div>
+            </div>
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               Welcome Back
             </h1>

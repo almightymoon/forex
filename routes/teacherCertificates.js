@@ -183,6 +183,57 @@ router.delete('/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// @route   PUT /api/teacher/certificates/:id
+// @desc    Update teacher certificate
+// @access  Private (Teacher only)
+router.put('/:id', authenticateToken, async (req, res) => {
+  try {
+    const { name, description, issuer, issueDate, expiryDate } = req.body;
+
+    if (!name || !issuer || !issueDate) {
+      return res.status(400).json({
+        success: false,
+        message: 'Name, issuer, and issue date are required'
+      });
+    }
+
+    const certificate = await TeacherCertificate.findOneAndUpdate(
+      { 
+        _id: req.params.id,
+        teacherId: req.user.id 
+      },
+      {
+        name,
+        description: description || '',
+        issuer,
+        issueDate: new Date(issueDate),
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+        updatedAt: new Date()
+      },
+      { new: true }
+    );
+
+    if (!certificate) {
+      return res.status(404).json({
+        success: false,
+        message: 'Certificate not found'
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Certificate updated successfully',
+      certificate
+    });
+  } catch (error) {
+    console.error('Error updating certificate:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update certificate'
+    });
+  }
+});
+
 // @route   PUT /api/teacher/certificates/:id/status
 // @desc    Update certificate status (Admin only)
 // @access  Private (Admin only)

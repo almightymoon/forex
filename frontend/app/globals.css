@@ -2,6 +2,69 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Fix text direction issues - ensure LTR by default */
+input[type="text"],
+input[type="email"],
+input[type="password"],
+input[type="search"],
+input[type="url"],
+textarea,
+[contenteditable="true"],
+[contenteditable],
+.content-editable {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: normal !important;
+  writing-mode: horizontal-tb !important;
+}
+
+/* Force LTR for all text content in the editor */
+.rich-text-editor,
+.rich-text-editor *,
+.rich-text-editor div,
+.rich-text-editor p,
+.rich-text-editor span {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: normal !important;
+  writing-mode: horizontal-tb !important;
+}
+
+/* Override any RTL styles that might be applied */
+[dir="rtl"],
+[dir="rtl"] * {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: normal !important;
+}
+
+/* Force LTR for all contenteditable elements */
+[contenteditable="true"] *,
+[contenteditable] * {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: normal !important;
+}
+
+/* Aggressive LTR enforcement for rich text editor */
+.rich-text-editor [contenteditable="true"],
+.rich-text-editor [contenteditable],
+.rich-text-editor .content-editable {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: normal !important;
+  writing-mode: horizontal-tb !important;
+}
+
+.rich-text-editor [contenteditable="true"] *,
+.rich-text-editor [contenteditable] *,
+.rich-text-editor .content-editable * {
+  direction: ltr !important;
+  text-align: left !important;
+  unicode-bidi: normal !important;
+  writing-mode: horizontal-tb !important;
+}
+
 /* Dark mode scrollbar */
 .dark ::-webkit-scrollbar-track {
   background: #374151;

@@ -34,6 +34,99 @@ router.get('/test-jwt', async (req, res) => {
   }
 });
 
+// Debug endpoint to check data without auth
+router.get('/debug-data', async (req, res) => {
+  try {
+    // Get all students
+    const allStudents = await User.find({ role: 'student' }).limit(5);
+    
+    // Get all courses
+    const allCourses = await Course.find({}).limit(5);
+    
+    // Get all teachers
+    const allTeachers = await User.find({ role: 'teacher' }).limit(5);
+    
+    res.json({
+      students: allStudents.map(s => ({
+        id: s._id,
+        name: `${s.firstName} ${s.lastName}`,
+        email: s.email,
+        enrolledCourses: s.enrolledCourses?.map(e => ({
+          courseId: e.courseId,
+          progress: e.progress
+        })) || []
+      })),
+      courses: allCourses.map(c => ({
+        id: c._id,
+        title: c.title,
+        teacher: c.teacher,
+        enrolledStudentsCount: c.enrolledStudents?.length || 0,
+        enrolledStudents: c.enrolledStudents?.map(e => ({
+          studentId: e.student,
+          enrolledAt: e.enrolledAt
+        })) || []
+      })),
+      teachers: allTeachers.map(t => ({
+        id: t._id,
+        name: `${t.firstName} ${t.lastName}`,
+        email: t.email
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Debug endpoint to check teacher's student count specifically
+router.get('/debug-student-count', authenticateToken, requireTeacher, async (req, res) => {
+  try {
+    const teacherId = req.user._id;
+    
+    // Get teacher's courses
+    const courses = await Course.find({ teacher: teacherId });
+    
+    // Get all unique student IDs from courses
+    const uniqueStudentIds = new Set();
+    const courseDetails = [];
+    
+    courses.forEach(course => {
+      const enrolledStudents = course.enrolledStudents || [];
+      const studentIds = enrolledStudents.map(e => e.student?.toString()).filter(Boolean);
+      
+      courseDetails.push({
+        courseId: course._id,
+        title: course.title,
+        enrolledStudentsCount: enrolledStudents.length,
+        studentIds: studentIds
+      });
+      
+      studentIds.forEach(id => uniqueStudentIds.add(id));
+    });
+    
+    // Get actual students
+    const actualStudents = await User.find({
+      _id: { $in: Array.from(uniqueStudentIds) },
+      role: 'student'
+    });
+    
+    res.json({
+      teacherId,
+      coursesCount: courses.length,
+      courseDetails,
+      uniqueStudentIds: Array.from(uniqueStudentIds),
+      actualStudentsCount: actualStudents.length,
+      actualStudents: actualStudents.map(s => ({
+        id: s._id,
+        name: `${s.firstName} ${s.lastName}`,
+        email: s.email,
+        role: s.role
+      }))
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
 router.use(requireTeacher);
@@ -46,46 +139,64 @@ router.get('/dashboard', async (req, res) => {
     // Get teacher's courses
     const courses = await Course.find({ teacher: teacherId });
     
-    // Get total students across all courses - fix the counting logic
+    // Get total students across all courses - show all students in database
     let totalStudents = 0;
-    const uniqueStudentIds = new Set();
     
-    // Count unique students from course enrollments
-    courses.forEach(course => {
-      if (course.enrolledStudents && Array.isArray(course.enrolledStudents)) {
-        course.enrolledStudents.forEach(enrollment => {
-          if (enrollment.student) {
-            uniqueStudentIds.add(enrollment.student.toString());
-          }
-        });
-      }
-    });
+    // Get course IDs for this teacher
+    const courseIds = courses.map(course => course._id.toString());
     
-    // Filter out teachers and admins, only count actual students
-    const studentIds = Array.from(uniqueStudentIds);
-    const actualStudents = await User.find({
-      _id: { $in: studentIds },
+    // Find ALL students in the database (not just those enrolled in teacher's courses)
+    const allStudents = await User.find({
       role: 'student'
+    }).select('_id firstName lastName email enrolledCourses');
+    
+    // Count all students
+    totalStudents = allStudents.length;
+    
+    // Also get students enrolled in teacher's courses for recent enrollments
+    const enrolledStudents = await User.find({
+      role: 'student',
+      'enrolledCourses.courseId': { $in: courseIds }
+    }).select('_id firstName lastName email enrolledCourses');
+    
+    // Debug logging to help identify the issue
+    console.log('Dashboard Debug:', {
+      teacherId,
+      coursesCount: courses.length,
+      courseIds: courseIds,
+      totalStudentsCount: totalStudents,
+      allStudents: allStudents.map(s => ({ 
+        id: s._id, 
+        name: `${s.firstName} ${s.lastName}`, 
+        role: s.role,
+        enrolledCoursesCount: s.enrolledCourses?.length || 0
+      })),
+      enrolledStudentsCount: enrolledStudents.length,
+      enrolledStudents: enrolledStudents.map(s => ({ 
+        id: s._id, 
+        name: `${s.firstName} ${s.lastName}`, 
+        role: s.role,
+        enrolledCoursesCount: s.enrolledCourses?.length || 0
+      }))
     });
     
-    totalStudents = actualStudents.length;
-    
-    // Get recent enrollments - get actual student data
+    // Get recent enrollments - show all students with their enrollments
     const recentEnrollments = [];
-    for (const course of courses) {
-      if (course.enrolledStudents && Array.isArray(course.enrolledStudents)) {
-        for (const enrollment of course.enrolledStudents) {
-          if (enrollment.student) {
-            const student = await User.findById(enrollment.student).select('firstName lastName email role');
-            if (student && student.role === 'student') { // Only include actual students
-              recentEnrollments.push({
-                id: student._id,
-                name: `${student.firstName} ${student.lastName}`,
-                email: student.email,
-                enrolledAt: enrollment.enrolledAt,
-                courseTitle: course.title
-              });
-            }
+    
+    // Use the already fetched allStudents data to show all students
+    for (const student of allStudents) {
+      if (student.enrolledCourses && Array.isArray(student.enrolledCourses)) {
+        for (const enrollment of student.enrolledCourses) {
+          // Find the course for this enrollment
+          const course = await Course.findById(enrollment.courseId).select('title');
+          if (course) {
+            recentEnrollments.push({
+              id: student._id,
+              name: `${student.firstName} ${student.lastName}`,
+              email: student.email,
+              enrolledAt: enrollment.enrolledAt,
+              courseTitle: course.title
+            });
           }
         }
       }
@@ -94,6 +205,13 @@ router.get('/dashboard', async (req, res) => {
     // Sort by enrollment date and limit to 5
     recentEnrollments.sort((a, b) => new Date(b.enrolledAt) - new Date(a.enrolledAt));
     const limitedEnrollments = recentEnrollments.slice(0, 5);
+    
+    // Debug logging for recent enrollments
+    console.log('Recent Enrollments Debug:', {
+      totalRecentEnrollments: recentEnrollments.length,
+      limitedEnrollments: limitedEnrollments.length,
+      enrollments: limitedEnrollments.map(e => ({ name: e.name, email: e.email, course: e.courseTitle }))
+    });
     
     // Get upcoming live sessions
     const upcomingSessions = await LiveSession.find({
@@ -319,15 +437,20 @@ router.get('/students', async (req, res) => {
     const teacherId = req.user._id;
     const { page = 1, limit = 20, search, showAll = 'false' } = req.query;
     
+    
     // Get teacher's courses
     const teacherCourses = await Course.find({ teacher: teacherId }).select('_id title');
     const courseIds = teacherCourses.map(c => c._id);
     
+    // Get all students (not just those enrolled in teacher's courses)
     let students = [];
     let total = 0;
     
-    // Get all students with role 'student'
-    let query = { role: 'student' };
+    // Build query to find all students (not just those enrolled in teacher's courses)
+    let query = { 
+      role: 'student'
+    };
+    
     
     // Apply search filter if provided
     if (search) {
@@ -340,6 +463,7 @@ router.get('/students', async (req, res) => {
     
     // Get total count
     total = await User.countDocuments(query);
+    
     const skip = (page - 1) * limit;
     
     // Get students with pagination
@@ -348,36 +472,61 @@ router.get('/students', async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit));
     
+    
+    
+    // Get all unique course IDs from all students for batch fetching
+    const allUniqueCourseIds = new Set();
+    students.forEach(student => {
+      if (student.enrolledCourses) {
+        student.enrolledCourses.forEach(enrollment => {
+          allUniqueCourseIds.add(enrollment.courseId.toString());
+        });
+      }
+    });
+    
+    // Fetch all course titles in one query
+    const allCourses = await Course.find({ _id: { $in: Array.from(allUniqueCourseIds) } }).select('_id title');
+    const courseMap = new Map();
+    allCourses.forEach(course => {
+      courseMap.set(course._id.toString(), course.title);
+    });
+    
     // Process student data with enrollment information
     const processedStudents = students.map(student => {
-      // Get all enrollments for this student (from their enrolledCourses field)
-      const studentEnrollments = student.enrolledCourses || [];
+      // Get ALL enrollments for this student (not just teacher's courses)
+      const allStudentEnrollments = student.enrolledCourses || [];
       
+      // Get enrollments for this student that are in the teacher's courses (for metrics)
+      const teacherCourseEnrollments = allStudentEnrollments.filter(enrollment => {
+        const enrollmentCourseId = enrollment.courseId.toString();
+        return courseIds.some(courseId => courseId.toString() === enrollmentCourseId);
+      });
       
-      
-      // Calculate progress and counts from student's own enrollment data
+      // Calculate progress and counts from student's enrollment data in teacher's courses
       let totalProgress = 0;
       let enrollmentCount = 0;
       
-      studentEnrollments.forEach(enrollment => {
+      teacherCourseEnrollments.forEach(enrollment => {
         totalProgress += enrollment.progress || 0;
         enrollmentCount++;
       });
       
       const averageProgress = enrollmentCount > 0 ? totalProgress / enrollmentCount : 0;
       
-      // Get course titles for enrolled courses (if we have access to them)
-      const enrolledCoursesWithTitles = studentEnrollments.map(enrollment => ({
-        courseId: enrollment.courseId,
-        courseTitle: `Course ${enrollment.courseId.toString().slice(-6)}`, // Convert ObjectId to string first
-        enrolledAt: enrollment.enrolledAt,
-        progress: enrollment.progress || 0,
-        completedLessons: enrollment.completedLessons || 0,
-        totalLessons: enrollment.totalLessons || 0,
-        lastAccessed: enrollment.lastAccessed || enrollment.enrolledAt
-      }));
-      
-      
+      // Get course titles for ALL enrolled courses using the pre-fetched course map
+      const enrolledCoursesWithTitles = allStudentEnrollments.map(enrollment => {
+        const courseIdStr = enrollment.courseId.toString();
+        const courseTitle = courseMap.get(courseIdStr);
+        return {
+          courseId: enrollment.courseId,
+          courseTitle: courseTitle || `Course ${courseIdStr.slice(-6)}`,
+          enrolledAt: enrollment.enrolledAt,
+          progress: enrollment.progress || 0,
+          completedLessons: enrollment.completedLessons || 0,
+          totalLessons: enrollment.totalLessons || 0,
+          lastAccessed: enrollment.lastAccessed || enrollment.enrolledAt
+        };
+      });
       
       return {
         id: student._id,
@@ -388,11 +537,11 @@ router.get('/students', async (req, res) => {
         avatar: student.profileImage,
         profileImage: student.profileImage,
         role: student.role,
-        enrolledDate: studentEnrollments[0]?.enrolledAt || student.createdAt,
+        enrolledDate: allStudentEnrollments[0]?.enrolledAt || student.createdAt,
         progress: Math.round(averageProgress),
-        lastActive: studentEnrollments[0]?.lastAccessed || student.updatedAt || student.createdAt,
-        completedCourses: studentEnrollments.filter(e => e.progress === 100).length,
-        totalCourses: enrollmentCount, // This should now show the correct count
+        lastActive: allStudentEnrollments[0]?.lastAccessed || student.updatedAt || student.createdAt,
+        completedCourses: allStudentEnrollments.filter(e => e.progress === 100).length,
+        totalCourses: allStudentEnrollments.length, // Show ALL courses, not just teacher's courses
         enrolledCourses: enrolledCoursesWithTitles,
         averageProgress: Math.round(averageProgress),
         totalAssignments: 0, // TODO: Calculate from assignments
@@ -822,6 +971,15 @@ router.post('/enroll-student', async (req, res) => {
       }
     });
     
+    // Update student's totalCourses count
+    const updatedStudent = await User.findById(studentId);
+    if (updatedStudent) {
+      const totalCourses = updatedStudent.enrolledCourses ? updatedStudent.enrolledCourses.length : 0;
+      await User.findByIdAndUpdate(studentId, {
+        $set: { totalCourses: totalCourses }
+      });
+    }
+    
     // Create notification for the student about course enrollment
     try {
       const Notification = require('../models/Notification');
@@ -872,6 +1030,15 @@ router.delete('/remove-student', async (req, res) => {
     await Course.findByIdAndUpdate(courseId, {
       $pull: { enrolledStudents: { student: studentId } }
     });
+    
+    // Update student's totalCourses count
+    const student = await User.findById(studentId);
+    if (student) {
+      const totalCourses = student.enrolledCourses ? student.enrolledCourses.length : 0;
+      await User.findByIdAndUpdate(studentId, {
+        $set: { totalCourses: totalCourses }
+      });
+    }
     
     res.json({ success: true, message: 'Student removed successfully' });
   } catch (error) {

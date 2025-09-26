@@ -51,25 +51,43 @@ router.get('/enrolled', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Find courses where the user is enrolled
+    // Find courses where the user is enrolled (only published courses)
     const enrolledCourses = await Course.find({
-      'enrolledStudents.student': user._id
+      'enrolledStudents.student': user._id,
+      $or: [
+        { isPublished: true },
+        { status: 'published' }
+      ]
     }).populate('teacher', 'firstName lastName');
     
-    // Format the response with user-specific progress
+    // Get all progress records for the student
+    const CourseProgress = require('../models/CourseProgress');
+    const progressRecords = await CourseProgress.find({ student: user._id });
+    
+    // Format the response with user-specific progress from the new progress tracking system
     const formattedCourses = enrolledCourses.map(course => {
       const enrollment = course.enrolledStudents.find(
         e => e.student.toString() === user._id.toString()
       );
+      
+      // Find progress record for this course
+      const progressRecord = progressRecords.find(
+        p => p.course.toString() === course._id.toString()
+      );
+      
+      // Use new progress system if available, otherwise fall back to old system
+      const progress = progressRecord ? progressRecord.overallProgress.percentage : (enrollment ? enrollment.progress : 0);
+      const completedContent = progressRecord ? progressRecord.overallProgress.completedContent : (enrollment ? enrollment.completedVideos.length : 0);
+      const totalContent = progressRecord ? progressRecord.overallProgress.totalContent : (course.content ? course.content.length : (course.videos ? course.videos.length : 0));
       
       return {
         _id: course._id,
         title: course.title,
         description: course.description,
         teacher: course.teacher,
-        progress: enrollment ? enrollment.progress : 0,
-        totalLessons: course.content ? course.content.length : (course.videos ? course.videos.length : 0),
-        completedLessons: enrollment ? enrollment.completedVideos.length : 0,
+        progress: Math.round(progress),
+        totalLessons: totalContent,
+        completedLessons: completedContent,
         category: course.category,
         level: course.level,
         rating: course.rating,
@@ -88,11 +106,17 @@ router.get('/enrolled', authenticateToken, async (req, res) => {
 });
 
 // @route   GET /api/courses/:id
-// @desc    Get course by ID
+// @desc    Get course by ID (only published courses)
 // @access  Public
 router.get('/:id', async (req, res) => {
   try {
-    const course = await Course.findById(req.params.id)
+    const course = await Course.findOne({
+      _id: req.params.id,
+      $or: [
+        { isPublished: true },
+        { status: 'published' }
+      ]
+    })
       .populate('teacher', 'firstName lastName profileImage email')
       .populate('enrolledStudents.student', 'firstName lastName profileImage');
     
@@ -100,7 +124,31 @@ router.get('/:id', async (req, res) => {
       return res.status(404).json({ error: 'Course not found' });
     }
     
-    res.json(course);
+    // Calculate video count from content and videos arrays
+    const videoContent = (course.content || []).filter(item => item.type === 'video');
+    const totalVideos = videoContent.length + (course.videos?.length || 0);
+    
+    // Ensure content and videos arrays exist and are properly structured
+    const courseData = {
+      ...course.toObject(),
+      content: course.content || [],
+      videos: course.videos || [],
+      totalDuration: course.totalDuration || 0,
+      totalContent: (course.content?.length || 0) + (course.videos?.length || 0),
+      totalVideos: totalVideos
+    };
+    
+    // Log course data for debugging
+    console.log('Course data being returned:', {
+      id: courseData._id,
+      title: courseData.title,
+      contentLength: courseData.content?.length || 0,
+      videosLength: courseData.videos?.length || 0,
+      totalVideos: courseData.totalVideos,
+      totalDuration: courseData.totalDuration
+    });
+    
+    res.json(courseData);
   } catch (error) {
     console.error('Get course error:', error);
     res.status(500).json({ error: 'Failed to fetch course' });
@@ -228,6 +276,27 @@ router.post('/:id/enroll', authenticateToken, async (req, res) => {
 
     course.enrollStudent(req.user._id);
     await course.save();
+
+    // Also update the user's enrolled courses
+    const user = await User.findById(req.user._id);
+    if (user) {
+      // Check if user is already enrolled in this course
+      const isUserEnrolled = user.enrolledCourses.some(
+        enrollment => enrollment.courseId.toString() === course._id.toString()
+      );
+      
+      if (!isUserEnrolled) {
+        user.enrolledCourses.push({
+          courseId: course._id,
+          enrolledAt: new Date(),
+          progress: 0,
+          completedLessons: 0,
+          totalLessons: course.content ? course.content.length : (course.videos ? course.videos.length : 0),
+          lastAccessed: new Date()
+        });
+        await user.save();
+      }
+    }
 
     res.json({
       message: 'Enrolled successfully',

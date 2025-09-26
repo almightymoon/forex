@@ -177,9 +177,9 @@ export default function LandingPage() {
               transition={{ duration: 0.5 }}
             >
                               <img 
-                  src="/all-07.png" 
+                  src="/all-07.svg" 
                   alt={`${settings.platformName} Logo`} 
-                  className="w-20 h-20 object-contain"
+                  className="w-20 h-20 object-contain dark:invert"
                   onError={(e) => {
                     e.currentTarget.style.display = 'none';
                   }}
@@ -196,8 +196,8 @@ export default function LandingPage() {
               transition={{ duration: 0.5, delay: 0.2 }}
             >
               <a href="#features" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">Features</a>
-              <Link href="/about" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">About</Link>
-              <a href="#contact" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">Contact</a>
+              <a href="#about" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">About</a>
+              <a href="/contact" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">Contact</a>
             </motion.div>
             
             <motion.div 
@@ -243,9 +243,9 @@ export default function LandingPage() {
             >
               <span className="inline-flex items-center px-4 py-2 rounded-full text-sm font-medium bg-blue-100 text-blue-800 border border-blue-200">
                 <img 
-                  src="/all-07.png" 
+                  src="/all-07.svg" 
                   alt="Logo" 
-                  className="w-6 h-6 mr-2 object-contain"
+                  className="w-6 h-6 mr-2 object-contain dark:invert"
                 />
                 Join 10,000+ Successful Traders
               </span>
@@ -395,6 +395,125 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* About Us Section */}
+      <section id="about" className="py-20 bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8 }}
+            >
+              <div className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 text-blue-600 dark:text-blue-400 text-sm font-medium mb-8">
+                <Award className="w-4 h-4 mr-2" />
+                About Our Expert
+              </div>
+              <h2 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">
+                Muhammad Adnan Khan
+              </h2>
+              <div className="bg-gradient-to-r from-blue-500/10 to-purple-500/10 border border-blue-500/20 p-6 rounded-2xl mb-8">
+                <h3 className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-3">
+                  CEO & Founder
+                </h3>
+                <p className="text-lg text-slate-700 dark:text-slate-300 font-medium">
+                  9+ Years of Professional Trading Experience
+                </p>
+              </div>
+              <p className="text-lg text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
+                I've been trading forex for over 9 years, learning from both wins and losses. Through countless market cycles, I've refined approaches that actually work in real trading conditions. Now I want to help other traders avoid the mistakes I made and build the skills needed for consistent results.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                <div className="flex items-center space-x-3 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700">
+                  <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-lg">
+                    <Award className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                  </div>
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">Certified Expert</span>
+                </div>
+                <div className="flex items-center space-x-3 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700">
+                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <Globe className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">Global Experience</span>
+                </div>
+              </div>
+              
+              {/* Learn More Button */}
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <Link 
+                  href="/about"
+                  className="inline-flex items-center bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+                >
+                  Learn More About Our Expert
+                  <ArrowRight className="ml-2 w-5 h-5" />
+                </Link>
+              </motion.div>
+            </motion.div>
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8 }}
+              className="relative"
+            >
+              {/* Expert Photo */}
+              <div className="mb-8 text-center">
+                <motion.div
+                  className="relative inline-block"
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="relative w-48 h-48 mx-auto">
+                    <img 
+                      src="/owner.jpeg" 
+                      alt="Muhammad Adnan Khan - CEO & Founder" 
+                      className="w-full h-full object-cover rounded-full border-4 border-white dark:border-gray-700 shadow-2xl"
+                    />
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20"></div>
+                    <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center shadow-lg">
+                      <Award className="w-8 h-8 text-white" />
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+
+              <div className="relative bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-slate-900 dark:via-blue-900 dark:to-purple-900 rounded-3xl p-8 text-slate-900 dark:text-white overflow-hidden border border-slate-200 dark:border-slate-700">
+                <div className="absolute inset-0 opacity-40">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5"></div>
+                </div>
+                <div className="relative z-10">
+                  <h3 className="text-3xl font-bold mb-8 text-center text-slate-900 dark:text-white">Track Record</h3>
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-white/80 dark:bg-white/10 rounded-xl backdrop-blur-sm border border-slate-200/50 dark:border-white/10">
+                      <div className="flex items-center space-x-3">
+                        <TrendingUp className="w-6 h-6 text-blue-600 dark:text-blue-300" />
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Years Experience</span>
+                      </div>
+                      <span className="text-2xl font-bold text-blue-600 dark:text-blue-300">9+</span>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-white/80 dark:bg-white/10 rounded-xl backdrop-blur-sm border border-slate-200/50 dark:border-white/10">
+                      <div className="flex items-center space-x-3">
+                        <Users className="w-6 h-6 text-purple-600 dark:text-purple-300" />
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Students Mentored</span>
+                      </div>
+                      <span className="text-2xl font-bold text-purple-600 dark:text-purple-300">100+</span>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-white/80 dark:bg-white/10 rounded-xl backdrop-blur-sm border border-slate-200/50 dark:border-white/10">
+                      <div className="flex items-center space-x-3">
+                        <Target className="w-6 h-6 text-green-600 dark:text-green-300" />
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Success Rate</span>
+                      </div>
+                      <span className="text-2xl font-bold text-green-600 dark:text-green-300">85%</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 relative overflow-hidden">
         <div className="absolute inset-0 bg-black/10" />
@@ -511,9 +630,9 @@ export default function LandingPage() {
             >
               <div className="relative">
                 <img 
-                  src="/all-07.png" 
+                  src="/all-07.svg" 
                   alt={`${settings.platformName} Logo`} 
-                  className="w-8 h-8 object-contain"
+                  className="w-8 h-8 object-contain dark:invert"
                 />
                 <motion.div
                   className="absolute inset-0 bg-blue-400 rounded-full opacity-20"
@@ -533,7 +652,7 @@ export default function LandingPage() {
             {[
               {
                 title: 'Platform',
-                links: ['Courses', 'Live Sessions', 'Trading Signals', 'Community']
+                links: ['Live Sessions', 'Trading Signals', 'Community']
               },
               {
                 title: 'Support',

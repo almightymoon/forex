@@ -11,7 +11,7 @@ interface DarkModeToggleProps {
 }
 
 export default function DarkModeToggle({ className = '', size = 'md' }: DarkModeToggleProps) {
-  const { settings, toggleDarkMode } = useSettings();
+  const { settings, toggleDarkMode, loading } = useSettings();
   const isDarkMode = settings.darkMode;
 
   const sizeClasses = {
@@ -19,6 +19,15 @@ export default function DarkModeToggle({ className = '', size = 'md' }: DarkMode
     md: 'w-10 h-10',
     lg: 'w-12 h-12'
   };
+
+  // Prevent hydration mismatch by showing loading state
+  if (loading) {
+    return (
+      <div className={`${sizeClasses[size]} rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center ${className}`}>
+        <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   const iconSizes = {
     sm: 'w-4 h-4',

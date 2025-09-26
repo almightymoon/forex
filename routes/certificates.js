@@ -1,560 +1,605 @@
 const express = require('express');
 const router = express.Router();
-const jwt = require('jsonwebtoken');
+const path = require('path');
+const fs = require('fs');
 const Certificate = require('../models/Certificate');
-const CertificateTemplate = require('../models/CertificateTemplate');
 const Course = require('../models/Course');
 const User = require('../models/User');
-const { authenticateToken } = require('../middleware/auth');
+const CourseProgress = require('../models/CourseProgress');
+const certificateService = require('../services/certificateService');
+const { authenticateToken, requireRole } = require('../middleware/auth');
 
-// Get all certificates for a teacher
-router.get('/teacher', authenticateToken, async (req, res) => {
+// Get all automated certificates for teacher's courses
+router.get('/teacher/:teacherId', authenticateToken, async (req, res) => {
   try {
-    const certificates = await Certificate.find({ 
-      'instructor._id': req.user._id 
-    }).populate('courseId', 'title').sort({ issuedAt: -1 });
+    const { teacherId } = req.params;
     
-    res.json({ 
-      success: true, 
+    // Verify the teacher is accessing their own certificates or is admin
+    if (req.user.role !== 'admin' && req.user._id.toString() !== teacherId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Get all courses taught by this teacher
+    const courses = await Course.find({ teacher: teacherId }).select('_id title');
+    
+    // Get all certificates for these courses
+    const certificates = await Certificate.find({
+      course: { $in: courses.map(c => c._id) }
+    })
+    .populate('student', 'firstName lastName email')
+    .populate('course', 'title')
+    .sort({ completionDate: -1 });
+
+    res.json({
+      success: true,
       certificates: certificates.map(cert => ({
-        ...cert.toObject(),
-        courseTitle: cert.courseId?.title || 'Unknown Course'
+        _id: cert._id,
+        certificateId: cert.certificateId,
+        studentName: cert.studentName,
+        courseTitle: cert.courseTitle,
+        instructorName: cert.instructorName,
+        completionDate: cert.completionDate,
+        completionPercentage: cert.completionPercentage,
+        certificateUrl: cert.certificateUrl,
+        validUntil: cert.validUntil,
+        student: {
+          _id: cert.student._id,
+          firstName: cert.student.firstName,
+          lastName: cert.student.lastName,
+          email: cert.student.email
+        },
+        course: {
+          _id: cert.course._id,
+          title: cert.course.title
+        }
       }))
     });
   } catch (error) {
     console.error('Error fetching teacher certificates:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch certificates' });
+    res.status(500).json({ error: 'Failed to fetch certificates' });
   }
 });
 
-// Get all certificates for a student
-router.get('/student', authenticateToken, async (req, res) => {
+// Serve certificate files
+router.get('/file/:filename', (req, res) => {
   try {
-    const certificates = await Certificate.find({ 
-      studentId: req.user._id 
-    }).populate('courseId', 'title').sort({ issuedAt: -1 });
+    const { filename } = req.params;
+    const filePath = path.join(__dirname, '../certificates', filename);
     
-    res.json({ 
-      success: true, 
-      certificates: certificates.map(cert => ({
-        ...cert.toObject(),
-        courseTitle: cert.courseId?.title || 'Unknown Course'
-      }))
+    // Check if file exists
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Certificate file not found' });
+    }
+    
+    // Set appropriate headers for PDF
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+    
+    // Stream the file
+    const fileStream = fs.createReadStream(filePath);
+    fileStream.pipe(res);
+    
+    fileStream.on('error', (error) => {
+      console.error('Error streaming certificate file:', error);
+      res.status(500).json({ error: 'Error serving certificate file' });
     });
   } catch (error) {
-    console.error('Error fetching student certificates:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch certificates' });
+    console.error('Error serving certificate file:', error);
+    res.status(500).json({ error: 'Error serving certificate file' });
   }
 });
 
-// Create a new certificate
-router.post('/create', authenticateToken, async (req, res) => {
+// Delete automated certificate
+router.delete('/:certificateId', authenticateToken, async (req, res) => {
   try {
-    const { courseId, studentId, studentName, grade, templateId, customFields } = req.body;
+    const { certificateId } = req.params;
+    const userId = req.user._id;
     
-    // Verify teacher owns the course
-    const course = await Course.findById(courseId);
-    if (!course || course.teacher.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'You can only issue certificates for your own courses' 
-      });
+    // Find the certificate
+    const certificate = await Certificate.findOne({ certificateId })
+      .populate('course', 'teacher');
+    
+    if (!certificate) {
+      return res.status(404).json({ error: 'Certificate not found' });
     }
     
-    // Try to find existing student by name if no studentId provided
-    let finalStudentId = studentId;
-    if (!finalStudentId && studentName) {
-      const existingStudent = await User.findOne({
-        firstName: { $regex: new RegExp(studentName.split(' ')[0], 'i') },
-        lastName: { $regex: new RegExp(studentName.split(' ').slice(1).join(' '), 'i') },
-        role: 'student'
-      });
-      
-      if (existingStudent) {
-        finalStudentId = existingStudent._id;
-        console.log('Found existing student:', existingStudent.email);
-      } else {
-        // Generate placeholder ID for new student
-        finalStudentId = `MANUAL-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-        console.log('No existing student found, using placeholder ID');
+    // Check if user is the teacher of the course or admin
+    if (req.user.role !== 'admin' && certificate.course.teacher.toString() !== userId.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Delete the PDF file
+    const fileName = `certificate_${certificateId}.pdf`;
+    const filePath = path.join(__dirname, '../certificates', fileName);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+    }
+    
+    // Delete from database
+    await Certificate.findByIdAndDelete(certificate._id);
+    
+    res.json({
+      success: true,
+      message: 'Certificate deleted successfully'
+    });
+  } catch (error) {
+    console.error('Error deleting certificate:', error);
+    res.status(500).json({ error: 'Failed to delete certificate' });
+  }
+});
+
+// Update certificate template/design
+router.put('/template/:courseId', authenticateToken, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const { templateData } = req.body;
+    const userId = req.user.userId || req.user._id;
+
+    // Check if course exists and teacher owns it
+    const course = await Course.findOne({ _id: courseId, teacher: userId });
+    if (!course) {
+      return res.status(404).json({ error: 'Course not found or access denied' });
+    }
+
+    // Update course with certificate template data
+    course.certificateTemplate = templateData;
+    await course.save();
+
+    res.json({
+      success: true,
+      message: 'Certificate template updated successfully',
+      template: course.certificateTemplate
+    });
+  } catch (error) {
+    console.error('Error updating certificate template:', error);
+    res.status(500).json({ error: 'Failed to update certificate template' });
+  }
+});
+
+// Get certificate template for a course
+router.get('/template/:courseId', authenticateToken, async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.userId || req.user._id;
+
+    // Check if course exists and teacher owns it
+    const course = await Course.findOne({ _id: courseId, teacher: userId });
+    if (!course) {
+      return res.status(404).json({ error: 'Course not found or access denied' });
+    }
+
+    res.json({
+      success: true,
+      template: course.certificateTemplate || {
+        // Default template
+        title: 'CERTIFICATE',
+        subtitle: 'OF COMPLETION BATCH #2',
+        introText: 'THIS IS TO CERTIFY THAT',
+        achievementText: 'has completed the course with distinction, exhibiting outstanding mastery of the Navigator strategy and a remarkable commitment to trading excellence.',
+        logoText: 'FOREX NAVIGATORS',
+        tagline: 'LEARN • GROW • RICH',
+        signatureText: 'Adnan Khan',
+        backgroundColor: '#A855F7',
+        textColor: '#000000',
+        accentColor: '#8B5CF6'
       }
+    });
+  } catch (error) {
+    console.error('Error fetching certificate template:', error);
+    res.status(500).json({ error: 'Failed to fetch certificate template' });
+  }
+});
+
+// Generate certificate for course completion
+router.post('/generate/:courseId', authenticateToken, requireRole('student'), async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    const userId = req.user.userId || req.user._id;
+
+    // Check if course exists
+    const course = await Course.findById(courseId).populate('teacher', 'firstName lastName');
+    if (!course) {
+      return res.status(404).json({ error: 'Course not found' });
     }
-    
-    // Ensure we have a studentId
-    if (!finalStudentId) {
-      finalStudentId = `MANUAL-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-      console.log('No studentId provided, using placeholder ID');
+
+    // Check if student is enrolled
+    const enrollment = course.enrolledStudents.find(
+      enrollment => enrollment.student.toString() === userId.toString()
+    );
+    if (!enrollment) {
+      return res.status(403).json({ error: 'You are not enrolled in this course' });
     }
-    
-    // Generate certificate number
-    const certificateNumber = `CERT-${Date.now()}-${Math.random().toString(36).substr(2, 9).toUpperCase()}`;
-    
-    // Create certificate
+
+    // Check if certificate already exists
+    const existingCertificate = await Certificate.findOne({
+      student: userId,
+      course: courseId
+    });
+    if (existingCertificate) {
+      return res.json({
+      success: true, 
+        message: 'Certificate already exists',
+        certificate: existingCertificate
+      });
+    }
+
+    // Get student progress
+    const progress = await CourseProgress.findOne({
+      student: userId,
+      course: courseId
+    });
+    if (!progress) {
+      return res.status(404).json({ error: 'Progress not found' });
+    }
+
+    // Check if course is completed (90% or more)
+    if (progress.overallProgress.percentage < 90) {
+      return res.status(400).json({ 
+        error: 'Course not completed',
+        message: `You need to complete at least 90% of the course. Current progress: ${progress.overallProgress.percentage}%`
+      });
+    }
+
+    // Get student details
+    const student = await User.findById(userId);
+    if (!student) {
+      return res.status(404).json({ error: 'Student not found' });
+    }
+
+    // Generate certificate
+    const certificateId = certificateService.generateCertificateId();
+    const certificateData = {
+      studentName: `${student.firstName} ${student.lastName}`,
+      courseTitle: course.title,
+      instructorName: `${course.teacher.firstName} ${course.teacher.lastName}`,
+      completionDate: new Date(),
+      completionPercentage: progress.overallProgress.percentage,
+      certificateId,
+      issuedBy: 'Trading Education Platform'
+    };
+
+    const { filePath, fileName, certificateUrl } = await certificateService.generateCertificate(certificateData);
+
+    // Save certificate to database
     const certificate = new Certificate({
-      courseId,
-      studentId: finalStudentId,
-      studentName,
-      grade,
-      templateId,
-      customFields,
-      certificateNumber,
-      instructor: {
-        _id: req.user._id,
-        firstName: req.user.firstName,
-        lastName: req.user.lastName
-      },
-      issuedAt: new Date(),
-      status: 'issued'
+      student: userId,
+      course: courseId,
+      certificateId,
+      completionDate: certificateData.completionDate,
+      completionPercentage: certificateData.completionPercentage,
+      studentName: certificateData.studentName,
+      courseTitle: certificateData.courseTitle,
+      instructorName: certificateData.instructorName,
+      certificateUrl,
+      issuedBy: certificateData.issuedBy
     });
-    
+
     await certificate.save();
     
     res.json({ 
       success: true, 
+      message: 'Certificate generated successfully',
       certificate: {
-        ...certificate.toObject(),
-        courseTitle: course.title
+        id: certificate._id,
+        certificateId: certificate.certificateId,
+        certificateUrl: certificate.certificateUrl,
+        completionDate: certificate.completionDate,
+        completionPercentage: certificate.completionPercentage,
+        studentName: certificate.studentName,
+        courseTitle: certificate.courseTitle,
+        instructorName: certificate.instructorName,
+        validUntil: certificate.validUntil
       }
     });
+    
   } catch (error) {
-    console.error('Error creating certificate:', error);
-    res.status(500).json({ success: false, message: 'Failed to create certificate' });
+    console.error('Certificate generation error:', error);
+    res.status(500).json({ 
+      error: 'Failed to generate certificate',
+      details: error.message 
+    });
   }
 });
 
-// Get certificate templates
-router.get('/templates', authenticateToken, async (req, res) => {
+// Get all certificates for a teacher's courses (teacher only)
+router.get('/teacher/courses', authenticateToken, requireRole('teacher'), async (req, res) => {
   try {
-    const templates = await CertificateTemplate.find({ 
-      courseId: { $in: await Course.find({ teacher: req.user._id }).distinct('_id') }
-    }).populate('courseId', 'title');
+    const teacherId = req.user.userId || req.user._id;
     
-    res.json({ 
-      success: true, 
-      templates: templates.map(template => ({
-        ...template.toObject(),
-        courseTitle: template.courseId?.title || 'Unknown Course'
+    // Get teacher's courses
+    const courses = await Course.find({ teacher: teacherId }).select('_id title');
+    const courseIds = courses.map(course => course._id);
+    
+    // Get certificates for these courses
+    const certificates = await Certificate.find({ course: { $in: courseIds } })
+      .populate('student', 'firstName lastName email')
+      .populate('course', 'title')
+      .sort({ completionDate: -1 });
+    
+    res.json({
+      success: true,
+      certificates: certificates.map(cert => ({
+        id: cert._id,
+        certificateId: cert.certificateId,
+        certificateUrl: cert.certificateUrl,
+        completionDate: cert.completionDate,
+        completionPercentage: cert.completionPercentage,
+        studentName: cert.studentName,
+        courseTitle: cert.courseTitle,
+        instructorName: cert.instructorName,
+        validUntil: cert.validUntil,
+        student: cert.student,
+        course: cert.course
       }))
     });
+    
   } catch (error) {
-    console.error('Error fetching templates:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch templates' });
-  }
-});
-
-// Create a new certificate template
-router.post('/templates', authenticateToken, async (req, res) => {
-  try {
-    console.log('Creating template with data:', req.body);
-    console.log('User ID:', req.user._id);
-    
-    const { 
-      name, 
-      courseId, 
-      backgroundColor, 
-      textColor, 
-      borderColor, 
-      borderStyle, 
-      borderWidth,
-      fontFamily,
-      fontSize,
-      layout,
-      customFields 
-    } = req.body;
-    
-    // Verify teacher owns the course
-    const course = await Course.findById(courseId);
-    if (!course || course.teacher.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'You can only create templates for your own courses' 
-      });
-    }
-    
-    // Create template
-    const template = new CertificateTemplate({
-      name,
-      courseId,
-      backgroundColor,
-      textColor,
-      borderColor,
-      borderStyle,
-      borderWidth,
-      fontFamily,
-      fontSize,
-      layout,
-      customFields,
-      createdBy: req.user._id
-    });
-    
-    await template.save();
-    
-    res.json({ 
-      success: true, 
-      template: {
-        ...template.toObject(),
-        courseTitle: course.title
-      }
-    });
-  } catch (error) {
-    console.error('Error creating template:', error);
-    console.error('Error details:', {
-      name: error.name,
-      message: error.message,
-      stack: error.stack
-    });
+    console.error('Get teacher certificates error:', error);
     res.status(500).json({ 
-      success: false, 
-      message: 'Failed to create template',
-      error: error.message 
+      error: 'Failed to get certificates',
+      details: error.message 
     });
   }
 });
 
-// Update a certificate template
-router.put('/templates/:id', authenticateToken, async (req, res) => {
+// Update certificate (teacher only)
+router.put('/:certificateId', authenticateToken, requireRole('teacher'), async (req, res) => {
   try {
-    const template = await CertificateTemplate.findById(req.params.id);
-    if (!template) {
-      return res.status(404).json({ success: false, message: 'Template not found' });
-    }
+    const { certificateId } = req.params;
+    const teacherId = req.user.userId || req.user._id;
+    const { studentName, courseTitle, instructorName, completionPercentage } = req.body;
     
-    // Verify teacher owns the course
-    const course = await Course.findById(template.courseId);
-    if (!course || course.teacher.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'You can only edit templates for your own courses' 
-      });
-    }
+    // Find certificate and verify teacher owns the course
+    const certificate = await Certificate.findById(certificateId)
+      .populate('course', 'teacher');
     
-    // Update template
-    Object.assign(template, req.body);
-    await template.save();
-    
-    res.json({ 
-      success: true, 
-      template: {
-        ...template.toObject(),
-        courseTitle: course.title
-      }
-    });
-  } catch (error) {
-    console.error('Error updating template:', error);
-    res.status(500).json({ success: false, message: 'Failed to update template' });
-  }
-});
-
-// Delete a certificate template
-router.delete('/templates/:id', authenticateToken, async (req, res) => {
-  try {
-    const template = await CertificateTemplate.findById(req.params.id);
-    if (!template) {
-      return res.status(404).json({ success: false, message: 'Template not found' });
-    }
-    
-    // Verify teacher owns the course
-    const course = await Course.findById(template.courseId);
-    if (!course || course.teacher.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'You can only delete templates for your own courses' 
-      });
-    }
-    
-    await template.deleteOne();
-    
-    res.json({ success: true, message: 'Template deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting template:', error);
-    res.status(500).json({ success: false, message: 'Failed to delete template' });
-  }
-});
-
-// Download a certificate
-router.get('/:id/download', authenticateToken, async (req, res) => {
-  try {
-    const certificate = await Certificate.findById(req.params.id);
     if (!certificate) {
-      return res.status(404).json({ success: false, message: 'Certificate not found' });
+      return res.status(404).json({ error: 'Certificate not found' });
     }
     
-    console.log('Certificate download access check:', {
-      certificateId: req.params.id,
-      studentId: certificate.studentId,
-      instructorId: certificate.instructor._id,
-      userId: req.user._id,
-      studentMatch: certificate.studentId === req.user._id.toString(),
-      instructorMatch: certificate.instructor._id.toString() === req.user._id.toString()
-    });
-    
-    // Verify user has access to this certificate
-    if (certificate.studentId !== req.user._id.toString() && 
-        certificate.instructor._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied' 
-      });
+    // Check if teacher owns the course
+    if (certificate.course.teacher.toString() !== teacherId.toString()) {
+      return res.status(403).json({ error: 'You can only edit certificates for your own courses' });
     }
     
-    // Generate PDF using jsPDF with template
-    const { jsPDF } = require('jspdf');
+    // Update certificate fields
+    if (studentName) certificate.studentName = studentName;
+    if (courseTitle) certificate.courseTitle = courseTitle;
+    if (instructorName) certificate.instructorName = instructorName;
+    if (completionPercentage) certificate.completionPercentage = completionPercentage;
     
-    // Get template dimensions or use defaults
-    const template = await CertificateTemplate.findById(certificate.templateId);
-    const width = template?.dimensions?.width || 800;
-    const height = template?.dimensions?.height || 600;
-    
-    // Create PDF with template dimensions
-    const doc = new jsPDF({
-      orientation: width > height ? 'landscape' : 'portrait',
-      unit: 'px',
-      format: [width, height]
-    });
-    
-    // Add background image if template has one
-    if (template?.backgroundImage) {
-      try {
-        const img = new Image();
-        img.src = `public${template.backgroundImage}`;
-        doc.addImage(img, 'JPEG', 0, 0, width, height);
-      } catch (error) {
-        console.log('Could not load background image, using fallback');
-      }
-    }
-    
-    // Render template elements
-    if (template?.elements && template.elements.length > 0) {
-      template.elements.forEach(element => {
-        if (element.type === 'text') {
-          let textContent = element.text;
-          
-          // Replace dynamic content
-          switch (element.dynamicContent) {
-            case 'studentName':
-              textContent = certificate.studentName || 'Student Name';
-              break;
-            case 'courseTitle':
-              textContent = certificate.course?.title || 'Course Title';
-              break;
-            case 'instructorName':
-              textContent = `${certificate.instructor?.firstName || ''} ${certificate.instructor?.lastName || ''}`.trim() || 'Instructor Name';
-              break;
-            case 'completionDate':
-              textContent = new Date(certificate.issuedAt).toLocaleDateString();
-              break;
-            case 'grade':
-              textContent = certificate.grade !== undefined ? `${certificate.grade}%` : '';
-              break;
-            case 'certificateNumber':
-              textContent = certificate.certificateNumber;
-              break;
-          }
-          
-          if (textContent) {
-            doc.setFontSize(element.fontSize || 16);
-            doc.setTextColor(element.textColor || '#000000');
-            doc.setFont(element.fontFamily || 'Arial');
-            
-            // Apply font weight
-            if (element.fontWeight === 'bold') {
-              doc.setFont(element.fontFamily || 'Arial', 'bold');
-            } else if (element.fontWeight === 'italic') {
-              doc.setFont(element.fontFamily || 'Arial', 'italic');
-            }
-            
-            // Position text based on alignment
-            let x = element.x;
-            if (element.textAlign === 'center') {
-              x = element.x + (element.width / 2);
-            } else if (element.textAlign === 'right') {
-              x = element.x + element.width;
-            }
-            
-            doc.text(textContent, x, element.y);
-          }
-        }
-      });
-    } else {
-      // Fallback to basic certificate layout
-      doc.setFontSize(24);
-      doc.setTextColor(0, 0, 0);
-      doc.text('Certificate of Completion', width/2, 40, { align: 'center' });
-      
-      doc.setFontSize(12);
-      doc.text(`Certificate #: ${certificate.certificateNumber}`, 20, 60);
-      
-      doc.setFontSize(18);
-      doc.text(`This is to certify that`, width/2, 80, { align: 'center' });
-      doc.setFontSize(20);
-      doc.text(certificate.studentName || 'Student Name', width/2, 100, { align: 'center' });
-      
-      doc.setFontSize(16);
-      doc.text(`has successfully completed the course`, width/2, 120, { align: 'center' });
-      doc.setFontSize(18);
-      doc.text(certificate.course?.title || 'Course Title', width/2, 140, { align: 'center' });
-      
-      if (certificate.grade !== undefined) {
-        doc.setFontSize(16);
-        doc.text(`with a grade of: ${certificate.grade}%`, width/2, 160, { align: 'center' });
-      }
-      
-      doc.setFontSize(14);
-      doc.text(`Completed on: ${new Date(certificate.issuedAt).toLocaleDateString()}`, width/2, 180, { align: 'center' });
-      
-      doc.setFontSize(12);
-      doc.text(`Instructor: ${certificate.instructor?.firstName || ''} ${certificate.instructor?.lastName || ''}`.trim() || 'Instructor Name', width/2, 200, { align: 'center' });
-    }
-    
-    // Set response headers
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `attachment; filename=certificate-${certificate.certificateNumber}.pdf`);
-    
-    // Send the PDF
-    res.send(doc.output('arraybuffer'));
-    
-  } catch (error) {
-    console.error('Error downloading certificate:', error);
-    res.status(500).json({ success: false, message: 'Failed to download certificate' });
-  }
-});
-
-// View a certificate
-router.get('/:id/view', authenticateToken, async (req, res) => {
-  try {
-    const certificate = await Certificate.findById(req.params.id);
-    if (!certificate) {
-      return res.status(404).json({ success: false, message: 'Certificate not found' });
-    }
-    
-    console.log('Certificate access check:', {
-      certificateId: req.params.id,
-      studentId: certificate.studentId,
-      instructorId: certificate.instructor._id,
-      userId: req.user._id,
-      studentMatch: certificate.studentId === req.user._id.toString(),
-      instructorMatch: certificate.instructor._id.toString() === req.user._id.toString()
-    });
-    
-    // Verify user has access to this certificate
-    if (certificate.studentId !== req.user._id.toString() && 
-        certificate.instructor._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied' 
-      });
-    }
-    
-    // Generate PDF using jsPDF
-    const { jsPDF } = require('jspdf');
-    const doc = new jsPDF();
-    
-    // Set certificate styling
-    doc.setFontSize(24);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Certificate of Completion', 105, 40, { align: 'center' });
-    
-    // Add certificate number
-    doc.setFontSize(12);
-    doc.text(`Certificate #: ${certificate.certificateNumber}`, 20, 60);
-    
-    // Add student name
-    doc.setFontSize(18);
-    doc.text(`This is to certify that`, 105, 80, { align: 'center' });
-    doc.setFontSize(20);
-    doc.text(certificate.studentName || 'Student Name', 105, 100, { align: 'center' });
-    
-    // Add course completion text
-    doc.setFontSize(16);
-    doc.text(`has successfully completed the course`, 105, 120, { align: 'center' });
-    doc.setFontSize(18);
-    doc.text(certificate.course?.title || 'Course Title', 105, 140, { align: 'center' });
-    
-    // Add grade if available
-    if (certificate.grade !== undefined) {
-      doc.setFontSize(16);
-      doc.text(`with a grade of: ${certificate.grade}%`, 105, 160, { align: 'center' });
-    }
-    
-    // Add completion date
-    doc.setFontSize(14);
-    doc.text(`Completed on: ${new Date(certificate.issuedAt).toLocaleDateString()}`, 105, 180, { align: 'center' });
-    
-    // Add instructor signature
-    doc.setFontSize(12);
-    doc.text(`Instructor: ${certificate.instructor?.name || 'Instructor Name'}`, 105, 200, { align: 'center' });
-    
-    // Set response headers
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', `inline; filename=certificate-${certificate.certificateNumber}.pdf`);
-    
-    // Send the PDF
-    res.send(doc.output('arraybuffer'));
-    
-  } catch (error) {
-    console.error('Error viewing certificate:', error);
-    res.status(500).json({ success: false, message: 'Failed to view certificate' });
-  }
-});
-
-// Revoke a certificate
-router.put('/:id/revoke', authenticateToken, async (req, res) => {
-  try {
-    const certificate = await Certificate.findById(req.params.id);
-    if (!certificate) {
-      return res.status(404).json({ success: false, message: 'Certificate not found' });
-    }
-    
-    // Verify teacher owns the course
-    const course = await Course.findById(certificate.courseId);
-    if (!course || course.teacher.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'You can only revoke certificates for your own courses' 
-      });
-    }
-    
-    // Update certificate status to revoked
-    certificate.status = 'revoked';
     await certificate.save();
     
-    res.json({ success: true, message: 'Certificate revoked successfully' });
+    res.json({
+      success: true,
+      message: 'Certificate updated successfully',
+      certificate
+    });
+    
   } catch (error) {
-    console.error('Error revoking certificate:', error);
-    res.status(500).json({ success: false, message: 'Failed to revoke certificate' });
+    console.error('Update certificate error:', error);
+    res.status(500).json({ 
+      error: 'Failed to update certificate',
+      details: error.message 
+    });
   }
 });
 
-// Get a specific certificate
-router.get('/:id', authenticateToken, async (req, res) => {
+// Delete certificate (teacher only)
+router.delete('/:certificateId', authenticateToken, requireRole('teacher'), async (req, res) => {
   try {
-    const certificate = await Certificate.findById(req.params.id)
-      .populate('courseId', 'title')
-      .populate('templateId');
+    const { certificateId } = req.params;
+    const teacherId = req.user.userId || req.user._id;
+    
+    // Find certificate and verify teacher owns the course
+    const certificate = await Certificate.findById(certificateId)
+      .populate('course', 'teacher');
     
     if (!certificate) {
-      return res.status(404).json({ success: false, message: 'Certificate not found' });
+      return res.status(404).json({ error: 'Certificate not found' });
     }
     
-    // Verify user has access to this certificate
-    if (certificate.studentId !== req.user._id.toString() && 
-        certificate.instructor._id.toString() !== req.user._id.toString()) {
-      return res.status(403).json({ 
-        success: false, 
-        message: 'Access denied' 
+    // Check if teacher owns the course
+    if (certificate.course.teacher.toString() !== teacherId.toString()) {
+      return res.status(403).json({ error: 'You can only delete certificates for your own courses' });
+    }
+    
+    // Delete the PDF file
+    try {
+      const fileName = certificate.certificateUrl.split('/').pop();
+      const filePath = path.join(__dirname, '../certificates', fileName);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (fileError) {
+      console.error('Error deleting certificate file:', fileError);
+      // Continue with database deletion even if file deletion fails
+    }
+    
+    // Delete from database
+    await Certificate.findByIdAndDelete(certificateId);
+    
+    res.json({
+      success: true,
+      message: 'Certificate deleted successfully'
+    });
+    
+  } catch (error) {
+    console.error('Delete certificate error:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete certificate',
+      details: error.message 
+    });
+  }
+});
+
+// Regenerate certificate (teacher only)
+router.post('/regenerate/:certificateId', authenticateToken, requireRole('teacher'), async (req, res) => {
+  try {
+    const { certificateId } = req.params;
+    const teacherId = req.user.userId || req.user._id;
+    
+    // Find certificate and verify teacher owns the course
+    const certificate = await Certificate.findById(certificateId)
+      .populate('course', 'teacher')
+      .populate('student', 'firstName lastName');
+    
+    if (!certificate) {
+      return res.status(404).json({ error: 'Certificate not found' });
+    }
+    
+    // Check if teacher owns the course
+    if (certificate.course.teacher.toString() !== teacherId.toString()) {
+      return res.status(403).json({ error: 'You can only regenerate certificates for your own courses' });
+    }
+    
+    // Delete old PDF file
+    try {
+      const fileName = certificate.certificateUrl.split('/').pop();
+      const filePath = path.join(__dirname, '../certificates', fileName);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    } catch (fileError) {
+      console.error('Error deleting old certificate file:', fileError);
+    }
+    
+    // Generate new certificate
+    const certificateData = {
+      studentName: certificate.studentName,
+      courseTitle: certificate.courseTitle,
+      instructorName: certificate.instructorName,
+      completionDate: certificate.completionDate,
+      completionPercentage: certificate.completionPercentage,
+      certificateId: certificate.certificateId,
+      issuedBy: 'FOREX NAVIGATORS'
+    };
+    
+    const { filePath, fileName, certificateUrl } = await certificateService.generateCertificate(certificateData);
+    
+    // Update certificate with new file info
+    certificate.certificateUrl = certificateUrl;
+    await certificate.save();
+    
+    res.json({
+      success: true,
+      message: 'Certificate regenerated successfully',
+      certificate
+    });
+    
+  } catch (error) {
+    console.error('Regenerate certificate error:', error);
+    res.status(500).json({ 
+      error: 'Failed to regenerate certificate',
+      details: error.message 
+    });
+  }
+});
+
+// Get student's certificates
+router.get('/my-certificates', authenticateToken, requireRole('student'), async (req, res) => {
+  try {
+    const userId = req.user.userId || req.user._id;
+    
+    const certificates = await Certificate.find({ student: userId })
+      .populate('course', 'title description thumbnail')
+      .sort({ completionDate: -1 });
+    
+    res.json({
+      success: true,
+      certificates: certificates.map(cert => ({
+        id: cert._id,
+        certificateId: cert.certificateId,
+        certificateUrl: cert.certificateUrl,
+        completionDate: cert.completionDate,
+        completionPercentage: cert.completionPercentage,
+        studentName: cert.studentName,
+        courseTitle: cert.courseTitle,
+        instructorName: cert.instructorName,
+        validUntil: cert.validUntil,
+        course: cert.course
+      }))
+    });
+    
+  } catch (error) {
+    console.error('Get certificates error:', error);
+    res.status(500).json({ 
+      error: 'Failed to get certificates',
+      details: error.message 
+    });
+  }
+});
+
+// Verify certificate
+router.get('/verify/:certificateId', async (req, res) => {
+  try {
+    const { certificateId } = req.params;
+
+    const certificate = await Certificate.findOne({ certificateId })
+      .populate('student', 'firstName lastName email')
+      .populate('course', 'title description');
+
+    if (!certificate) {
+      return res.status(404).json({ 
+        error: 'Certificate not found',
+        valid: false 
       });
     }
+
+    // Check if certificate is still valid
+    const isValid = new Date() <= certificate.validUntil;
     
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
+      valid: isValid,
       certificate: {
-        ...certificate.toObject(),
-        courseTitle: certificate.courseId?.title || 'Unknown Course'
+        certificateId: certificate.certificateId,
+        studentName: certificate.studentName,
+        courseTitle: certificate.courseTitle,
+        instructorName: certificate.instructorName,
+        completionDate: certificate.completionDate,
+        completionPercentage: certificate.completionPercentage,
+        validUntil: certificate.validUntil,
+        issuedBy: certificate.issuedBy,
+        student: certificate.student,
+        course: certificate.course
       }
     });
+    
   } catch (error) {
-    console.error('Error fetching certificate:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch certificate' });
+    console.error('Certificate verification error:', error);
+    res.status(500).json({ 
+      error: 'Failed to verify certificate',
+      details: error.message 
+    });
+  }
+});
+
+// Download certificate file
+router.get('/download/:certificateId', async (req, res) => {
+  try {
+    const { certificateId } = req.params;
+
+    const certificate = await Certificate.findOne({ certificateId });
+    if (!certificate) {
+      return res.status(404).json({ error: 'Certificate not found' });
+    }
+
+    const fileName = `certificate_${certificateId}.pdf`;
+    const filePath = path.join(__dirname, '../certificates', fileName);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'Certificate file not found' });
+    }
+
+    res.download(filePath, `${certificate.courseTitle}_Certificate.pdf`);
+    
+  } catch (error) {
+    console.error('Certificate download error:', error);
+    res.status(500).json({ 
+      error: 'Failed to download certificate',
+      details: error.message 
+    });
   }
 });
 

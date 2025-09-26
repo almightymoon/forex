@@ -208,16 +208,8 @@ const StudentCertificateAssignments: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-            Certificate Assignments
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400">
-            View and complete your assigned certificates
-          </p>
-        </div>
+      {/* Stats Summary */}
+      <div className="flex justify-end items-center mb-4">
         <div className="text-sm text-gray-500 dark:text-gray-400">
           {assignments.length} assignment{assignments.length !== 1 ? 's' : ''}
         </div>

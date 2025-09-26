@@ -134,3 +134,4 @@ The backend already has proper authentication middleware in place:
 
 This frontend implementation complements the existing backend security.
 
+

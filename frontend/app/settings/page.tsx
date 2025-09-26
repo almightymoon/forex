@@ -37,12 +37,24 @@ export default function SettingsPage() {
     backupCodesCount: 0
   });
   const router = useRouter();
-  const { settings: platformSettings, toggleDarkMode } = useSettings();
+  const { settings: platformSettings, toggleDarkMode, loading: settingsLoading } = useSettings();
   const { language, setLanguage, t } = useLanguage();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Prevent hydration mismatch by showing loading state
+  if (settingsLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (mounted) {
@@ -159,7 +171,7 @@ export default function SettingsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center space-x-4">
-              <img src="/all-07.png" alt={`${platformSettings.platformName} Logo`} className="w-14 h-14 object-contain" />
+              <img src="/all-07.svg" alt={`${platformSettings.platformName} Logo`} className="w-14 h-14 object-contain dark:invert" />
               <div>
                 <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                   {platformSettings.platformName}

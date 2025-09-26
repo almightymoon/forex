@@ -273,7 +273,7 @@ courseSchema.pre('save', function(next) {
 });
 
 // Method to enroll a student
-courseSchema.methods.enrollStudent = function(studentId) {
+courseSchema.methods.enrollStudent = async function(studentId) {
   const existingEnrollment = this.enrolledStudents.find(
     enrollment => enrollment.student.toString() === studentId.toString()
   );
@@ -287,12 +287,20 @@ courseSchema.methods.enrollStudent = function(studentId) {
       lastAccessed: new Date()
     });
     this.totalStudents = this.enrolledStudents.length;
+    
+    // Initialize progress tracking
+    try {
+      await this.initializeProgressTracking(studentId);
+    } catch (error) {
+      console.error('Failed to initialize progress tracking:', error);
+      // Don't throw error here to avoid breaking enrollment
+    }
   }
   
   return this;
 };
 
-// Method to update student progress
+// Method to update student progress (legacy method - now uses CourseProgress model)
 courseSchema.methods.updateStudentProgress = function(studentId, contentId, progress) {
   const enrollment = this.enrolledStudents.find(
     enrollment => enrollment.student.toString() === studentId.toString()
@@ -310,6 +318,20 @@ courseSchema.methods.updateStudentProgress = function(studentId, contentId, prog
   }
   
   return this;
+};
+
+// Method to initialize progress tracking for new enrollment
+courseSchema.methods.initializeProgressTracking = async function(studentId) {
+  const CourseProgress = require('./CourseProgress');
+  
+  try {
+    // Initialize progress tracking for the student
+    const progress = await CourseProgress.initializeProgress(studentId, this._id, this.content);
+    return progress;
+  } catch (error) {
+    console.error('Error initializing progress tracking:', error);
+    throw error;
+  }
 };
 
 // Method to calculate course rating

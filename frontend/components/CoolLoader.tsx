@@ -72,7 +72,6 @@ export default function CoolLoader({
               className={`w-full h-full bg-gradient-to-br ${colors.primary} rounded-full flex items-center justify-center shadow-2xl`}
               animate={{
                 scale: [1, 1.05, 1],
-                rotate: [0, 5, -5, 0],
               }}
               transition={{
                 duration: 2,
@@ -81,18 +80,10 @@ export default function CoolLoader({
               }}
             >
               {/* Logo image or placeholder */}
-              <motion.img 
-                src="/all-07.png" 
+              <img 
+                src="/all-07.svg" 
                 alt="Logo" 
-                className={`${size === 'sm' ? 'w-10 h-10' : size === 'md' ? 'w-20 h-20' : 'w-32 h-32'} object-contain`}
-                animate={{
-                  rotate: [0, 360],
-                }}
-                transition={{
-                  duration: 3,
-                  repeat: Infinity,
-                  ease: "linear"
-                }}
+                className={`${size === 'sm' ? 'w-10 h-10' : size === 'md' ? 'w-20 h-20' : 'w-32 h-32'} object-contain dark:invert`}
               />
             </motion.div>
             

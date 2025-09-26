@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import jwt from 'jsonwebtoken';
 
 // Define protected routes and their required roles
 const protectedRoutes = {
@@ -39,9 +38,39 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // For now, let client-side handle authentication
-  // This prevents middleware from interfering with login flow
-  // The layout components will handle the actual authentication and role checking
+  // Check if this is a protected route
+  const protectedRoute = Object.keys(protectedRoutes).find(route => 
+    pathname === route || pathname.startsWith(route + '/')
+  );
+
+  if (protectedRoute) {
+    const requiredRoles = protectedRoutes[protectedRoute];
+    
+    // Get token from cookies or Authorization header
+    const token = request.cookies.get('token')?.value || 
+                  request.headers.get('authorization')?.replace('Bearer ', '');
+
+    console.log('Middleware - Protected route:', protectedRoute);
+    console.log('Middleware - Required roles:', requiredRoles);
+    console.log('Middleware - Token found:', !!token);
+
+    if (!token) {
+      // Redirect to login with error message
+      const loginUrl = new URL('/login', request.url);
+      loginUrl.searchParams.set('redirect', pathname);
+      loginUrl.searchParams.set('error', 'not_authenticated');
+      return NextResponse.redirect(loginUrl);
+    }
+
+    // For now, skip JWT verification in middleware due to Edge runtime limitations
+    // The backend will handle JWT verification for API calls
+    // The admin layout will handle client-side authentication checks
+    console.log('Middleware - Skipping JWT verification (Edge runtime limitation)');
+    console.log('Middleware - Allowing access to:', protectedRoute);
+    return NextResponse.next();
+  }
+
+  // Not a protected route, allow access
   return NextResponse.next();
 }
 

@@ -6,6 +6,7 @@ import Header from './components/Header';
 import Navigation from './components/Navigation';
 import Overview from './components/Overview';
 import Students from './components/Students';
+import Courses from './components/Courses';
 import Assignments from './components/Assignments';
 import Analytics from './components/Analytics';
 import Communication from './components/Communication';
@@ -241,6 +242,20 @@ export default function TeacherDashboard() {
           />
         )}
 
+        {activeTab === 'courses' && (
+          <Courses 
+            courses={courses}
+            filteredCourses={filteredCourses}
+            isLoading={isLoading}
+            searchTerm={searchTerm}
+            selectedFilter={selectedFilter}
+            onSearchChange={setSearchTerm}
+            onFilterChange={setSelectedFilter}
+            onRefresh={refreshData}
+            getStatusColor={getStatusColor}
+          />
+        )}
+
         {activeTab === 'assignments' && (
           <Assignments 
             courses={courses}
@@ -282,6 +297,8 @@ export default function TeacherDashboard() {
         {/* Other tabs placeholder */}
         {activeTab !== 'overview' && 
          activeTab !== 'students' && 
+         activeTab !== 'courses' && 
+         activeTab !== 'assignments' && 
          activeTab !== 'analytics' && 
          activeTab !== 'live-sessions' && 
          activeTab !== 'signals' && 

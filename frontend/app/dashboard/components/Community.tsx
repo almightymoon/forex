@@ -9,7 +9,9 @@ import {
   Shield,
   Trash2,
   MoreVertical,
-  Pencil
+  Edit,
+  Check,
+  X
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 import { useLanguage } from '../../../context/LanguageContext';
@@ -47,7 +49,9 @@ interface Message {
     lastName: string;
     role: string;
   };
-  timestamp: string;
+  timestamp?: string;
+  createdAt?: string;
+  updatedAt?: string;
   channelId: string;
   isEdited?: boolean;
   isPinned?: boolean;
@@ -76,8 +80,12 @@ export default function Community() {
   const [showMessageMenu, setShowMessageMenu] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
+  const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [lastMessageId, setLastMessageId] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Get current user info from token
   const getCurrentUser = () => {
@@ -94,6 +102,60 @@ export default function Community() {
     } catch (error) {
       console.error('Error decoding token:', error);
       return null;
+    }
+  };
+
+  // Sort messages by timestamp (oldest → newest)
+  const sortMessages = (msgs: Message[]) => {
+    return [...msgs].sort(
+      (a, b) =>
+        new Date(a.createdAt || a.timestamp || '').getTime() -
+        new Date(b.createdAt || b.timestamp || '').getTime()
+    );
+  };
+
+  // Smart scroll management
+  const checkIfUserScrolledUp = () => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 100;
+    setIsUserScrolledUp(!isAtBottom);
+  };
+
+  // Format relative time
+  const formatRelativeTime = (timestamp: string) => {
+    if (!timestamp) {
+      return 'Just now';
+    }
+    
+    const now = new Date();
+    const messageTime = new Date(timestamp);
+    
+    // Check if the date is valid
+    if (isNaN(messageTime.getTime())) {
+      return 'Just now';
+    }
+    
+    const diffInSeconds = Math.floor((now.getTime() - messageTime.getTime()) / 1000);
+    
+    if (diffInSeconds < 60) {
+      return 'Just now';
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes}m`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours}h`;
+    } else if (diffInSeconds < 2592000) {
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days}d`;
+    } else if (diffInSeconds < 31536000) {
+      const months = Math.floor(diffInSeconds / 2592000);
+      return `${months}mo`;
+    } else {
+      const years = Math.floor(diffInSeconds / 31536000);
+      return `${years}y`;
     }
   };
 
@@ -121,12 +183,14 @@ export default function Community() {
   };
 
   // Save edited message
-  const saveEditMessage = async (messageId: string) => {
+  const handleSaveEdit = async () => {
+    if (!editingMessage || !editContent.trim()) return;
+
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(`/api/community/messages/${messageId}`, {
+      const response = await fetch(`/api/community/messages/${editingMessage}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -140,10 +204,10 @@ export default function Community() {
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          showToast('Message updated successfully', 'success');
+          showToast('Message edited successfully', 'success');
           // Update message in local state
           setMessages(prev => prev.map(msg => 
-            msg._id === messageId 
+            msg._id === editingMessage 
               ? { ...msg, content: editContent.trim(), isEdited: true }
               : msg
           ));
@@ -152,16 +216,16 @@ export default function Community() {
         }
       } else {
         const errorData = await response.json();
-        showToast(errorData.message || 'Failed to update message', 'error');
+        showToast(errorData.message || 'Failed to edit message', 'error');
       }
     } catch (error) {
-      console.error('Error updating message:', error);
-      showToast('Failed to update message', 'error');
+      console.error('Error editing message:', error);
+      showToast('Failed to edit message', 'error');
     }
   };
 
   // Cancel editing
-  const cancelEdit = () => {
+  const handleCancelEdit = () => {
     setEditingMessage(null);
     setEditContent('');
   };
@@ -196,7 +260,9 @@ export default function Community() {
   };
 
   // Fetch messages for a channel
-  const fetchMessages = async (channelId: string) => {
+  const fetchMessages = async (channelId: string, isInitialLoad = false) => {
+    if (!channelId) return;
+
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
@@ -209,14 +275,56 @@ export default function Community() {
         }
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) {
-          setMessages(data.messages || []);
+      if (!response.ok) throw new Error("Failed to fetch messages");
+
+      const data = await response.json();
+      if (!data.success) throw new Error("Failed to fetch messages");
+
+      const serverMessages: Message[] = data.messages || [];
+
+      if (isInitialLoad) {
+        // For initial load, set messages directly
+        setMessages(sortMessages(serverMessages));
+        if (serverMessages.length > 0) {
+          setLastMessageId(serverMessages[serverMessages.length - 1]._id);
+        }
+      } else {
+        // For auto-refresh, merge server messages with optimistic messages
+        setMessages(prevMessages => {
+          if (!serverMessages.length) return prevMessages;
+
+          // separate optimistic vs confirmed
+          const optimistic = prevMessages.filter(m => m._id.startsWith("temp-"));
+          const confirmed = prevMessages.filter(m => !m._id.startsWith("temp-"));
+
+          // find new server messages not already in confirmed
+          const newServerMessages = serverMessages.filter(
+            m => !confirmed.some(pm => pm._id === m._id)
+          );
+
+          // replace optimistic if server version exists
+          const stillOptimistic = optimistic.filter(
+            om =>
+              !serverMessages.some(
+                sm =>
+                  sm.content === om.content &&
+                  sm.channelId === om.channelId &&
+                  sm.author?._id === om.author?._id
+              )
+          );
+
+          // merge and sort
+          return sortMessages([...confirmed, ...newServerMessages, ...stillOptimistic]);
+        });
+
+        // update last message id
+        const lastServerMessage = serverMessages[serverMessages.length - 1];
+        if (lastServerMessage?._id) {
+          setLastMessageId(lastServerMessage._id);
         }
       }
     } catch (error) {
-      console.error('Error fetching messages:', error);
+      console.error("Error fetching messages:", error);
       showToast('Failed to fetch messages', 'error');
     }
   };
@@ -226,6 +334,31 @@ export default function Community() {
     if (!messageInput.trim() || !activeChannel || sendingMessage) return;
 
     setSendingMessage(true);
+    setIsSendingMessage(true);
+
+    const optimisticMessage: Message = {
+      _id: `temp-${Date.now()}`,
+      content: messageInput.trim(),
+      author: {
+        _id: currentUser?.id || 'temp',
+        firstName: 'You',
+        lastName: '',
+        role: currentUser?.role || 'user',
+      },
+      createdAt: new Date(Date.now() + 1000).toISOString(), // ensures it sorts to bottom
+      timestamp: new Date().toISOString(),
+      channelId: activeChannel,
+      isEdited: false,
+      isPinned: false,
+    };
+
+    // add optimistic immediately and sort
+    setMessages(prev => sortMessages([...prev, optimisticMessage]));
+    setMessageInput('');
+
+    // ensure scroll to bottom
+    setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
+
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
@@ -244,20 +377,31 @@ export default function Community() {
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
-          setMessageInput('');
-          // Add the new message to the list
-          setMessages(prev => [data.message, ...prev]);
+          // Replace optimistic message with real message and sort
+          setMessages(prev =>
+            sortMessages([
+              ...prev.filter(msg => msg._id !== optimisticMessage._id),
+              data.message,
+            ])
+          );
+          setLastMessageId(data.message._id);
           // Refresh channels to update last message
           await fetchChannels();
         }
       } else {
+        // Remove optimistic message on error
+        setMessages(prev => prev.filter(msg => msg._id !== optimisticMessage._id));
         showToast('Failed to send message', 'error');
       }
     } catch (error) {
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(msg => msg._id !== optimisticMessage._id));
       console.error('Error sending message:', error);
       showToast('Failed to send message', 'error');
     } finally {
       setSendingMessage(false);
+      // Wait longer before allowing auto-refresh to prevent conflicts
+      setTimeout(() => setIsSendingMessage(false), 10000); // 10 seconds
     }
   };
 
@@ -298,20 +442,30 @@ export default function Community() {
   // Load messages when channel changes
   useEffect(() => {
     if (activeChannel) {
-      fetchMessages(activeChannel);
+      fetchMessages(activeChannel, true);
     }
   }, [activeChannel]);
 
-  // Auto-refresh messages every 3 seconds for real-time updates
+  // Auto-refresh messages every 5 seconds for real-time updates
   useEffect(() => {
     if (!activeChannel) return;
 
     const interval = setInterval(() => {
-      fetchMessages(activeChannel);
-    }, 3000); // Poll every 3 seconds
+      // Only refresh if we're not sending a message
+      if (!isSendingMessage) {
+        fetchMessages(activeChannel, false);
+      }
+    }, 5000); // Poll every 5 seconds
 
     return () => clearInterval(interval);
-  }, [activeChannel]);
+  }, [activeChannel, isSendingMessage]);
+
+  // Auto-scroll to bottom when new messages arrive (only if user is at bottom)
+  useEffect(() => {
+    if (!isUserScrolledUp) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    }
+  }, [messages, isUserScrolledUp]);
 
   // Load initial data
   useEffect(() => {
@@ -339,9 +493,15 @@ export default function Community() {
     };
   }, [channels, messages]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive (only if user is at bottom)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const messagesContainer = messagesEndRef.current?.parentElement;
+    if (messagesContainer) {
+      const isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop === messagesContainer.clientHeight;
+      if (isAtBottom) {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
   }, [messages]);
 
   // Close message menu when clicking outside
@@ -434,7 +594,11 @@ export default function Community() {
         </div>
         
         {/* Messages Area */}
-        <div className="flex-1 p-4 overflow-y-auto">
+        <div 
+          ref={messagesContainerRef}
+          className="flex-1 p-4 overflow-y-auto"
+          onScroll={checkIfUserScrolledUp}
+        >
           {!activeChannel ? (
             <div className="text-center py-12">
               <Hash className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
@@ -448,8 +612,16 @@ export default function Community() {
               <p className="text-gray-500 dark:text-gray-400">Be the first to start the conversation!</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {messages.map((message) => (
+            <div className="flex flex-col space-y-4">
+              {messages.map((message) => {
+                // Debug: log message timestamps
+                console.log(
+                  message._id,
+                  message.content,
+                  message.createdAt || message.timestamp
+                );
+                
+                return (
                 <div key={message._id} className="flex space-x-3 group relative p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200 border border-gray-100 dark:border-gray-600">
                   <div className="flex-shrink-0">
                     <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
@@ -462,7 +634,7 @@ export default function Community() {
                         {message.author?.firstName || 'Unknown'} {message.author?.lastName || 'User'}
                       </span>
                       <span className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(message.timestamp).toLocaleString()}
+                        {formatRelativeTime(message.timestamp || message.createdAt)}
                       </span>
                       {message.author?.role === 'admin' && (
                         <Crown className="w-4 h-4 text-yellow-500" />
@@ -471,27 +643,46 @@ export default function Community() {
                         <Shield className="w-4 h-4 text-blue-500" />
                       )}
                     </div>
+                    {/* Message Content */}
                     {editingMessage === message._id ? (
                       <div className="mt-2 space-y-2">
                         <textarea
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSaveEdit();
+                            } else if (e.key === 'Escape') {
+                              e.preventDefault();
+                              handleCancelEdit();
+                            }
+                          }}
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white resize-none"
                           rows={2}
+                          autoFocus
+                          placeholder="Edit your message..."
                         />
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => saveEditMessage(message._id)}
-                            className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
-                          >
-                            Save
-                          </button>
-                          <button
-                            onClick={cancelEdit}
-                            className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600 transition-colors"
-                          >
-                            Cancel
-                          </button>
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs text-gray-500 dark:text-gray-400">
+                            Press Enter to save, Escape to cancel
+                          </div>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={handleSaveEdit}
+                              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors flex items-center space-x-1"
+                            >
+                              <Check className="w-4 h-4" />
+                              <span>Save</span>
+                            </button>
+                            <button
+                              onClick={handleCancelEdit}
+                              className="px-3 py-1 bg-gray-500 text-white text-sm rounded hover:bg-gray-600 transition-colors flex items-center space-x-1"
+                            >
+                              <X className="w-4 h-4" />
+                              <span>Cancel</span>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ) : (
@@ -521,7 +712,7 @@ export default function Community() {
                               onClick={() => startEditMessage(message)}
                               className="w-full flex items-center space-x-2 px-3 py-2 text-left text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             >
-                              <Pencil className="w-4 h-4" />
+                              <Edit className="w-4 h-4" />
                               <span>Edit</span>
                             </button>
                           )}
@@ -539,7 +730,8 @@ export default function Community() {
                     </div>
                   )}
                 </div>
-              ))}
+                );
+              })}
               <div ref={messagesEndRef} />
             </div>
           )}

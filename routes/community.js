@@ -356,4 +356,58 @@ router.post('/messages/:id/pin', authenticateToken, async (req, res) => {
   }
 });
 
+// Add/Remove reaction to message
+router.post('/messages/:id/reaction', authenticateToken, async (req, res) => {
+  try {
+    const { emoji } = req.body;
+    console.log('Reaction request:', { messageId: req.params.id, emoji, userId: req.user.id });
+    
+    if (!emoji) {
+      return res.status(400).json({ success: false, message: 'Emoji is required' });
+    }
+
+    const message = await Message.findById(req.params.id);
+    if (!message) {
+      console.log('Message not found:', req.params.id);
+      return res.status(404).json({ success: false, message: 'Message not found' });
+    }
+
+    console.log('Found message:', message._id, 'Current reactions:', message.reactions);
+
+    // Check if user is member (for private channels)
+    const channel = await Channel.findById(message.channelId);
+    if (channel.isPrivate) {
+      const isMember = channel.members.some(m => m.userId.toString() === req.user.id);
+      if (!isMember) {
+        return res.status(403).json({ success: false, message: 'Access denied' });
+      }
+    }
+
+    // Check if user already reacted with this emoji
+    const existingReaction = message.reactions.find(r => r.emoji === emoji);
+    const userAlreadyReacted = existingReaction && existingReaction.users.includes(req.user.id);
+
+    console.log('Existing reaction:', existingReaction, 'User already reacted:', userAlreadyReacted);
+
+    if (userAlreadyReacted) {
+      // Remove reaction
+      console.log('Removing reaction');
+      await message.removeReaction(emoji, req.user.id);
+    } else {
+      // Add reaction
+      console.log('Adding reaction');
+      await message.addReaction(emoji, req.user.id);
+    }
+
+    // Populate author info
+    await message.populate('author', 'firstName lastName role');
+    
+    console.log('Final message with reactions:', message.reactions);
+    res.json({ success: true, message });
+  } catch (error) {
+    console.error('Error handling reaction:', error);
+    res.status(500).json({ success: false, message: 'Failed to handle reaction' });
+  }
+});
+
 module.exports = router;

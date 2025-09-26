@@ -28,11 +28,15 @@ export default function AdminLayout({
         // Check if we're on the client side
         if (typeof window === 'undefined') return;
 
+        console.log('AdminLayout - Checking authentication...');
         const token = localStorage.getItem('token');
         const userData = localStorage.getItem('user');
+        
+        console.log('AdminLayout - Token found:', !!token);
+        console.log('AdminLayout - User data found:', !!userData);
 
         if (!token || !userData) {
-          console.log('No token or user data found, redirecting to login');
+          console.log('AdminLayout - No token or user data found, redirecting to login');
           router.push('/login?redirect=/admin&error=not_authenticated');
           return;
         }
@@ -45,13 +49,17 @@ export default function AdminLayout({
           console.error('Error parsing user data:', error);
           localStorage.removeItem('token');
           localStorage.removeItem('user');
+          
+          // Clear token cookie
+          document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
           router.push('/login?redirect=/admin&error=invalid_user_data');
           return;
         }
 
         // Check if user has admin role
+        console.log('AdminLayout - User role:', parsedUser.role);
         if (parsedUser.role !== 'admin') {
-          console.log('User does not have admin role:', parsedUser.role);
+          console.log('AdminLayout - User does not have admin role:', parsedUser.role);
           // Redirect to default 404 page
           router.push('/404');
           return;
@@ -59,7 +67,7 @@ export default function AdminLayout({
 
         // Skip API verification in layout to avoid redirect loops
         // The middleware already handles token validation
-        console.log('Admin layout: User authenticated, allowing access');
+        console.log('AdminLayout - User authenticated, allowing access');
 
         setUser(parsedUser);
         setIsAuthenticated(true);

@@ -48,14 +48,159 @@ interface Assignment {
   feedback?: string;
 }
 
+interface EditCertificateFormProps {
+  certificate: TeacherCertificate;
+  onUpdate: (data: Partial<TeacherCertificate>) => void;
+  isLoading: boolean;
+  onCancel: () => void;
+}
+
+const EditCertificateForm: React.FC<EditCertificateFormProps> = ({
+  certificate,
+  onUpdate,
+  isLoading,
+  onCancel
+}) => {
+  const [formData, setFormData] = useState({
+    name: certificate.name,
+    description: certificate.description || '',
+    issuer: certificate.issuer,
+    issueDate: certificate.issueDate.split('T')[0], // Format for date input
+    expiryDate: certificate.expiryDate ? certificate.expiryDate.split('T')[0] : ''
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onUpdate(formData);
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    setFormData(prev => ({
+      ...prev,
+      [e.target.name]: e.target.value
+    }));
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      {/* Certificate Name */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Certificate Name *
+        </label>
+        <input
+          type="text"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          required
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        />
+      </div>
+
+      {/* Issuer */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Issuer *
+        </label>
+        <input
+          type="text"
+          name="issuer"
+          value={formData.issuer}
+          onChange={handleChange}
+          required
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        />
+      </div>
+
+      {/* Issue Date */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Issue Date *
+        </label>
+        <input
+          type="date"
+          name="issueDate"
+          value={formData.issueDate}
+          onChange={handleChange}
+          required
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        />
+      </div>
+
+      {/* Expiry Date */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Expiry Date (Optional)
+        </label>
+        <input
+          type="date"
+          name="expiryDate"
+          value={formData.expiryDate}
+          onChange={handleChange}
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        />
+      </div>
+
+      {/* Description */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+          Description (Optional)
+        </label>
+        <textarea
+          name="description"
+          value={formData.description}
+          onChange={handleChange}
+          rows={3}
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+        />
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-3 pt-4">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          disabled={isLoading}
+          className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+        >
+          {isLoading ? (
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          ) : (
+            'Update Certificate'
+          )}
+        </button>
+      </div>
+    </form>
+  );
+};
+
 const CertificateManagement: React.FC = () => {
-  const [activeSection, setActiveSection] = useState<'certificates' | 'assignments'>('certificates');
+  const [activeSection, setActiveSection] = useState<'certificates' | 'automated' | 'design' | 'assignments'>('certificates');
   
   // Certificate management state
   const [certificates, setCertificates] = useState<TeacherCertificate[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState<string | null>(null);
+  const [editingCertificate, setEditingCertificate] = useState<TeacherCertificate | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
   
+  // Automated certificates state
+  const [automatedCertificates, setAutomatedCertificates] = useState<any[]>([]);
+  const [isLoadingAutomated, setIsLoadingAutomated] = useState(false);
+
+  // Certificate design state
+  const [selectedCourseForDesign, setSelectedCourseForDesign] = useState<string>('');
+  const [certificateTemplate, setCertificateTemplate] = useState<any>(null);
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+
   // Assignment management state
   const [students, setStudents] = useState<Student[]>([]);
   const [courses, setCourses] = useState<Course[]>([]);
@@ -89,6 +234,18 @@ const CertificateManagement: React.FC = () => {
       localStorage.removeItem('preselectedCertificate'); // Clear after use
     }
   }, []);
+
+  useEffect(() => {
+    if (activeSection === 'automated') {
+      fetchAutomatedCertificates();
+    }
+  }, [activeSection]);
+
+  useEffect(() => {
+    if (selectedCourseForDesign) {
+      fetchCertificateTemplate(selectedCourseForDesign);
+    }
+  }, [selectedCourseForDesign]);
 
   const fetchData = async () => {
     try {
@@ -226,6 +383,146 @@ const CertificateManagement: React.FC = () => {
       toast.error('Failed to delete certificate');
     } finally {
       setIsDeleting(null);
+    }
+  };
+
+  const handleEdit = (certificate: TeacherCertificate) => {
+    setEditingCertificate(certificate);
+    setShowEditModal(true);
+  };
+
+  const handleUpdate = async (updatedData: Partial<TeacherCertificate>) => {
+    if (!editingCertificate) return;
+
+    try {
+      setIsEditing(editingCertificate._id);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/teacher/certificates/${editingCertificate._id}`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updatedData)
+      });
+
+      if (response.ok) {
+        toast.success('Certificate updated successfully');
+        setShowEditModal(false);
+        setEditingCertificate(null);
+        fetchData(); // Refresh the list
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.message || 'Failed to update certificate');
+      }
+    } catch (error) {
+      console.error('Update error:', error);
+      toast.error('Failed to update certificate');
+    } finally {
+      setIsEditing(null);
+    }
+  };
+
+  const fetchAutomatedCertificates = async () => {
+    try {
+      setIsLoadingAutomated(true);
+      const token = localStorage.getItem('token');
+      const userData = localStorage.getItem('user');
+      const user = userData ? JSON.parse(userData) : null;
+      const userId = user?._id;
+      
+      if (!userId) {
+        toast.error('User not found');
+        return;
+      }
+      
+      const response = await fetch(`/api/certificates/teacher/${userId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAutomatedCertificates(data.certificates || []);
+      } else {
+        toast.error('Failed to fetch automated certificates');
+      }
+    } catch (error) {
+      console.error('Error fetching automated certificates:', error);
+      toast.error('Failed to fetch automated certificates');
+    } finally {
+      setIsLoadingAutomated(false);
+    }
+  };
+
+  const fetchCertificateTemplate = async (courseId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/certificates/template/${courseId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCertificateTemplate(data.template);
+      } else {
+        toast.error('Failed to fetch certificate template');
+      }
+    } catch (error) {
+      console.error('Error fetching certificate template:', error);
+      toast.error('Failed to fetch certificate template');
+    }
+  };
+
+  const saveCertificateTemplate = async () => {
+    if (!selectedCourseForDesign || !certificateTemplate) return;
+
+    try {
+      setIsSavingTemplate(true);
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/certificates/template/${selectedCourseForDesign}`, {
+        method: 'PUT',
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ templateData: certificateTemplate })
+      });
+
+      if (response.ok) {
+        toast.success('Certificate template saved successfully');
+      } else {
+        toast.error('Failed to save certificate template');
+      }
+    } catch (error) {
+      console.error('Error saving certificate template:', error);
+      toast.error('Failed to save certificate template');
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
+
+  const handleDeleteAutomatedCertificate = async (certificateId: string) => {
+    if (!confirm('Are you sure you want to delete this certificate? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/certificates/${certificateId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (response.ok) {
+        toast.success('Certificate deleted successfully');
+        fetchAutomatedCertificates(); // Refresh the list
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || 'Failed to delete certificate');
+      }
+    } catch (error) {
+      console.error('Error deleting certificate:', error);
+      toast.error('Failed to delete certificate');
     }
   };
 
@@ -414,6 +711,28 @@ const CertificateManagement: React.FC = () => {
               My Certificates
             </button>
             <button
+              onClick={() => setActiveSection('automated')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeSection === 'automated'
+                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <CheckCircle className="w-4 h-4 inline mr-2" />
+              Automated Certificates
+            </button>
+            <button
+              onClick={() => setActiveSection('design')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeSection === 'design'
+                  ? 'bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm'
+                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              <Edit className="w-4 h-4 inline mr-2" />
+              Design Certificates
+            </button>
+            <button
               onClick={() => setActiveSection('assignments')}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
                 activeSection === 'assignments'
@@ -534,6 +853,13 @@ const CertificateManagement: React.FC = () => {
                       <Eye className="w-4 h-4" />
                     </button>
                     <button
+                      onClick={() => handleEdit(certificate)}
+                      className="px-3 py-2 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-800 transition-colors"
+                      title="Edit Certificate"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
                       onClick={() => handleDelete(certificate._id)}
                       disabled={isDeleting === certificate._id}
                       className="px-3 py-2 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-800 transition-colors disabled:opacity-50"
@@ -562,6 +888,342 @@ const CertificateManagement: React.FC = () => {
           </div>
         )}
       </div>
+      )}
+
+      {/* Automated Certificates Section */}
+      {activeSection === 'automated' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              Automated Certificates ({automatedCertificates.length})
+            </h3>
+            <button
+              onClick={fetchAutomatedCertificates}
+              className="px-3 py-1 text-sm bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
+            >
+              Refresh
+            </button>
+          </div>
+
+          {isLoadingAutomated ? (
+            <div className="text-center py-12">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <p className="text-gray-600 dark:text-gray-300">Loading automated certificates...</p>
+            </div>
+          ) : automatedCertificates.length === 0 ? (
+            <div className="text-center py-12">
+              <CheckCircle className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Automated Certificates</h3>
+              <p className="text-gray-600 dark:text-gray-300">Certificates will appear here when students complete your courses.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {automatedCertificates.map((certificate) => (
+                <div key={certificate._id} className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-shadow">
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                        {certificate.courseTitle}
+                      </h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-300 mb-2">
+                        Certificate #{certificate.certificateId}
+                      </p>
+                      <div className="space-y-1">
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                          <span className="font-medium">Student:</span> {certificate.studentName}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                          <span className="font-medium">Completion:</span> {certificate.completionPercentage}%
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                          <span className="font-medium">Issued:</span> {new Date(certificate.completionDate).toLocaleDateString()}
+                        </p>
+                        <p className="text-sm text-gray-600 dark:text-gray-300">
+                          <span className="font-medium">Valid Until:</span> {new Date(certificate.validUntil).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => window.open(`http://localhost:4000/api/certificates/file/certificate_${certificate.certificateId}.pdf`, '_blank')}
+                      className="flex-1 px-3 py-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Eye className="w-4 h-4" />
+                      View
+                    </button>
+                    <button
+                      onClick={() => {
+                        const link = document.createElement('a');
+                        link.href = `http://localhost:4000/api/certificates/file/certificate_${certificate.certificateId}.pdf`;
+                        link.download = `${certificate.courseTitle}_Certificate.pdf`;
+                        link.click();
+                      }}
+                      className="flex-1 px-3 py-2 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded-lg hover:bg-green-200 dark:hover:bg-green-800 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Download className="w-4 h-4" />
+                      Download
+                    </button>
+                    <button
+                      onClick={() => handleDeleteAutomatedCertificate(certificate.certificateId)}
+                      className="px-3 py-2 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-800 transition-colors flex items-center justify-center gap-2"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Certificate Design Section */}
+      {activeSection === 'design' && (
+        <div className="space-y-6">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+              Certificate Design Template
+            </h3>
+            
+            {/* Course Selection */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select Course to Design Certificate For
+              </label>
+              <select
+                value={selectedCourseForDesign}
+                onChange={(e) => setSelectedCourseForDesign(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+              >
+                <option value="">Select a course...</option>
+                {courses.map((course) => (
+                  <option key={course._id} value={course._id}>
+                    {course.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {selectedCourseForDesign && certificateTemplate && (
+              <div className="space-y-6">
+                {/* Certificate Preview */}
+                <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-6 bg-gray-50 dark:bg-gray-700">
+                  <h4 className="text-md font-semibold text-gray-900 dark:text-white mb-4">Certificate Preview</h4>
+                  <div className="relative max-w-2xl mx-auto">
+                    {/* Background gradient */}
+                    <div 
+                      className="absolute inset-0 rounded-lg"
+                      style={{ 
+                        background: `linear-gradient(135deg, ${certificateTemplate.backgroundColor || '#A855F7'}, #EC4899)` 
+                      }}
+                    ></div>
+                    
+                    {/* Certificate container with gold border */}
+                    <div className="relative bg-white rounded-lg border-4 border-yellow-400 shadow-2xl mx-8 my-8 p-8">
+                      {/* Certificate content */}
+                      <div className="relative z-10 text-center">
+                        {/* Title */}
+                        <h1 
+                          className="text-4xl font-bold mb-2"
+                          style={{ color: certificateTemplate.textColor || '#000000' }}
+                        >
+                          {certificateTemplate.title || 'CERTIFICATE'}
+                        </h1>
+                        <h2 
+                          className="text-xl font-bold mb-8"
+                          style={{ color: certificateTemplate.textColor || '#000000' }}
+                        >
+                          {certificateTemplate.subtitle || 'OF COMPLETION BATCH #2'}
+                        </h2>
+                        
+                        {/* Introductory text */}
+                        <p 
+                          className="text-lg mb-6"
+                          style={{ color: certificateTemplate.textColor || '#000000' }}
+                        >
+                          {certificateTemplate.introText || 'THIS IS TO CERTIFY THAT'}
+                        </p>
+                        
+                        {/* Student name placeholder */}
+                        <h3 
+                          className="text-3xl font-bold mb-8"
+                          style={{ color: certificateTemplate.accentColor || '#8B5CF6' }}
+                        >
+                          [Student Name]
+                        </h3>
+                        
+                        {/* Achievement text */}
+                        <p 
+                          className="text-base mb-8 leading-relaxed max-w-2xl mx-auto"
+                          style={{ color: certificateTemplate.textColor || '#000000' }}
+                        >
+                          {certificateTemplate.achievementText || 'has completed the course with distinction, exhibiting outstanding mastery of the Navigator strategy and a remarkable commitment to trading excellence.'}
+                        </p>
+                        
+                        {/* Logo text */}
+                        <div className="mb-4">
+                          <span 
+                            className="text-lg font-bold"
+                            style={{ color: certificateTemplate.accentColor || '#8B5CF6' }}
+                          >
+                            {certificateTemplate.logoText || 'FOREX NAVIGATORS'}
+                          </span>
+                        </div>
+                        <p 
+                          className="text-sm font-semibold tracking-wider"
+                          style={{ color: certificateTemplate.accentColor || '#8B5CF6' }}
+                        >
+                          {certificateTemplate.tagline || 'LEARN • GROW • RICH'}
+                        </p>
+                      </div>
+                      
+                      {/* Signature area */}
+                      <div className="absolute bottom-8 left-8 right-8 flex justify-between items-end">
+                        <div>
+                          <div className="w-32 h-0.5 bg-black mb-2"></div>
+                          <p 
+                            className="text-sm font-bold"
+                            style={{ color: certificateTemplate.textColor || '#000000' }}
+                          >
+                            {certificateTemplate.signatureText || 'Adnan Khan'}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p 
+                            className="text-sm"
+                            style={{ color: certificateTemplate.textColor || '#000000' }}
+                          >
+                            Date
+                          </p>
+                          <div className="w-24 h-0.5 bg-black mb-2"></div>
+                          <p 
+                            className="text-sm font-bold"
+                            style={{ color: certificateTemplate.textColor || '#000000' }}
+                          >
+                            [Completion Date]
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Design Controls */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h4 className="text-md font-semibold text-gray-900 dark:text-white">Text Content</h4>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Certificate Title
+                      </label>
+                      <input
+                        type="text"
+                        value={certificateTemplate.title || ''}
+                        onChange={(e) => setCertificateTemplate({...certificateTemplate, title: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Subtitle
+                      </label>
+                      <input
+                        type="text"
+                        value={certificateTemplate.subtitle || ''}
+                        onChange={(e) => setCertificateTemplate({...certificateTemplate, subtitle: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Achievement Text
+                      </label>
+                      <textarea
+                        value={certificateTemplate.achievementText || ''}
+                        onChange={(e) => setCertificateTemplate({...certificateTemplate, achievementText: e.target.value})}
+                        rows={3}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Signature Text
+                      </label>
+                      <input
+                        type="text"
+                        value={certificateTemplate.signatureText || ''}
+                        onChange={(e) => setCertificateTemplate({...certificateTemplate, signatureText: e.target.value})}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="text-md font-semibold text-gray-900 dark:text-white">Colors</h4>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Background Color
+                      </label>
+                      <input
+                        type="color"
+                        value={certificateTemplate.backgroundColor || '#A855F7'}
+                        onChange={(e) => setCertificateTemplate({...certificateTemplate, backgroundColor: e.target.value})}
+                        className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Text Color
+                      </label>
+                      <input
+                        type="color"
+                        value={certificateTemplate.textColor || '#000000'}
+                        onChange={(e) => setCertificateTemplate({...certificateTemplate, textColor: e.target.value})}
+                        className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Accent Color
+                      </label>
+                      <input
+                        type="color"
+                        value={certificateTemplate.accentColor || '#8B5CF6'}
+                        onChange={(e) => setCertificateTemplate({...certificateTemplate, accentColor: e.target.value})}
+                        className="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Save Button */}
+                <div className="flex justify-end">
+                  <button
+                    onClick={saveCertificateTemplate}
+                    disabled={isSavingTemplate}
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {isSavingTemplate ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    ) : (
+                      <CheckCircle className="w-4 h-4" />
+                    )}
+                    Save Certificate Template
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       )}
 
       {/* Assignments Section */}
@@ -899,6 +1561,38 @@ const CertificateManagement: React.FC = () => {
                   </>
                 )}
             </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Certificate Modal */}
+      {showEditModal && editingCertificate && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Edit Certificate</h2>
+                <button
+                  onClick={() => {
+                    setShowEditModal(false);
+                    setEditingCertificate(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+
+              <EditCertificateForm
+                certificate={editingCertificate}
+                onUpdate={handleUpdate}
+                isLoading={isEditing === editingCertificate._id}
+                onCancel={() => {
+                  setShowEditModal(false);
+                  setEditingCertificate(null);
+                }}
+              />
             </div>
           </div>
         </div>

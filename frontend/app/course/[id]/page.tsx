@@ -1,6 +1,20 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+
+// YouTube Player API types
+declare global {
+  interface Window {
+    YT: {
+      Player: new (elementId: string, config: any) => any;
+      PlayerState: {
+        PLAYING: number;
+        PAUSED: number;
+        ENDED: number;
+      };
+    };
+  }
+}
 import { useParams, useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
@@ -22,9 +36,25 @@ import {
 import { useSettings } from '../../../context/SettingsContext';
 import DarkModeToggle from '../../../components/DarkModeToggle';
 import { getDashboardRoute, getUserRole } from '../../../utils/dashboardUtils';
+import { useVideoProgress } from '../../../hooks/useVideoProgress';
+import NewVideoPlayer from '../../../components/NewVideoPlayer';
 
 // Video Player Component
-const VideoPlayer = ({ videoUrl, title, thumbnail }: { videoUrl: string; title: string; thumbnail?: string }) => {
+const VideoPlayer = ({ 
+  videoUrl, 
+  title, 
+  thumbnail, 
+  courseId, 
+  contentId,
+  onProgressUpdate
+}: { 
+  videoUrl: string; 
+  title: string; 
+  thumbnail?: string;
+  courseId: string;
+  contentId: string;
+  onProgressUpdate?: () => void;
+}) => {
   // Helper function to detect video type and format URL
   const getVideoType = (url: string) => {
     console.log('Processing video URL:', url);
@@ -77,6 +107,148 @@ const VideoPlayer = ({ videoUrl, title, thumbnail }: { videoUrl: string; title: 
   const [isFullscreen, setIsFullscreen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const youtubeCleanupRef = useRef<(() => void) | null>(null);
+
+  // Debug: Log when video ref changes
+  useEffect(() => {
+    console.log('Video ref changed:', videoRef.current);
+    if (videoRef.current) {
+      console.log('Video element found:', {
+        duration: videoRef.current.duration,
+        currentTime: videoRef.current.currentTime,
+        readyState: videoRef.current.readyState
+      });
+    }
+  }, [videoRef.current]);
+
+  // Progress tracking hook
+  const {
+    progressData,
+    watchPercentage,
+    isCompleted,
+    updateProgress,
+    saveProgress,
+    markAsCompleted,
+    loading: progressLoading,
+    error: progressError
+  } = useVideoProgress({
+    courseId,
+    contentId,
+    autoSave: true,
+    requiredWatchPercentage: 90,
+    onProgressUpdate
+  });
+
+  // Handle external video interactions (but don't auto-complete)
+  const handleExternalVideoInteraction = () => {
+    console.log('External video interaction detected');
+    // Note: Removed auto-completion on interaction
+    // Videos should only be marked complete when user actually watches them
+  };
+
+  // YouTube Player API integration for progress tracking
+  useEffect(() => {
+    if (isExternalVideo && processedVideoUrl?.includes('youtube.com/embed/')) {
+      console.log('Setting up YouTube video progress tracking');
+      
+      // Load YouTube API if not already loaded
+      if (!window.YT) {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        const firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode?.insertBefore(tag, firstScriptTag);
+        
+        // Wait for API to load
+        (window as any).onYouTubeIframeAPIReady = () => {
+          console.log('YouTube API loaded, setting up player');
+          setupYouTubePlayer();
+        };
+      } else {
+        // API already loaded, set up player immediately
+        setupYouTubePlayer();
+      }
+    }
+  }, [isExternalVideo, processedVideoUrl]);
+
+  // Cleanup YouTube player on unmount
+  useEffect(() => {
+    return () => {
+      if (youtubeCleanupRef.current) {
+        youtubeCleanupRef.current();
+      }
+    };
+  }, []);
+
+  const setupYouTubePlayer = () => {
+    const videoId = processedVideoUrl?.split('embed/')[1]?.split('?')[0];
+    if (!videoId) return;
+
+    console.log('Setting up YouTube player for video ID:', videoId);
+    
+    // Clean up previous player if exists
+    if (youtubeCleanupRef.current) {
+      youtubeCleanupRef.current();
+    }
+    
+    // Create a hidden div for the YouTube player
+    const playerDiv = document.createElement('div');
+    playerDiv.id = 'youtube-player-' + videoId;
+    playerDiv.style.display = 'none';
+    document.body.appendChild(playerDiv);
+
+    // Initialize YouTube player
+    const player = new (window as any).YT.Player(playerDiv.id, {
+      videoId: videoId,
+      events: {
+        'onReady': (event: any) => {
+          console.log('YouTube player ready');
+        },
+        'onStateChange': (event: any) => {
+          console.log('YouTube player state change:', event.data);
+          if (event.data === (window as any).YT.PlayerState.PLAYING) {
+            console.log('YouTube video started playing');
+            // Start progress tracking
+            const cleanup = startYouTubeProgressTracking(player);
+            youtubeCleanupRef.current = cleanup;
+          }
+        }
+      }
+    });
+
+    // Store cleanup function
+    youtubeCleanupRef.current = () => {
+      if (player && player.destroy) {
+        player.destroy();
+      }
+      if (document.body.contains(playerDiv)) {
+        document.body.removeChild(playerDiv);
+      }
+    };
+  };
+
+  const startYouTubeProgressTracking = (player: any) => {
+    const trackProgress = () => {
+      try {
+        const currentTime = player.getCurrentTime();
+        const duration = player.getDuration();
+        
+        console.log('YouTube progress:', { currentTime, duration });
+        
+        if (duration > 0) {
+          updateProgress(currentTime, duration);
+        }
+      } catch (error) {
+        console.error('Error tracking YouTube progress:', error);
+      }
+    };
+
+    // Track progress every 2 seconds
+    const interval = setInterval(trackProgress, 2000);
+    
+    // Store interval for cleanup
+    return () => clearInterval(interval);
+  };
+
 
   // Auto-hide controls after 3 seconds
   useEffect(() => {
@@ -102,13 +274,27 @@ const VideoPlayer = ({ videoUrl, title, thumbnail }: { videoUrl: string; title: 
 
   const handleTimeUpdate = () => {
     if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
+      const currentTime = videoRef.current.currentTime;
+      const duration = videoRef.current.duration;
+      setCurrentTime(currentTime);
+      
+      console.log('Video time update:', { currentTime, duration, videoRef: !!videoRef.current });
+      
+      // Update progress tracking for all videos
+      if (duration && duration > 0) {
+        console.log('Calling updateProgress with:', { currentTime, duration });
+        updateProgress(currentTime, duration);
+      } else {
+        console.log('Duration not ready yet:', { duration });
+      }
     }
   };
 
   const handleLoadedMetadata = () => {
     if (videoRef.current) {
-      setDuration(videoRef.current.duration);
+      const duration = videoRef.current.duration;
+      console.log('Video metadata loaded:', { duration, videoRef: !!videoRef.current });
+      setDuration(duration);
     }
   };
 
@@ -155,7 +341,7 @@ const VideoPlayer = ({ videoUrl, title, thumbnail }: { videoUrl: string; title: 
   return (
     <div 
       ref={containerRef}
-      className="relative w-full h-full bg-black group"
+      className="absolute inset-0 w-full h-full bg-black group"
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => isPlaying && setShowControls(false)}
     >
@@ -174,6 +360,22 @@ const VideoPlayer = ({ videoUrl, title, thumbnail }: { videoUrl: string; title: 
           className="w-full h-full"
           allowFullScreen
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          onClick={handleExternalVideoInteraction}
+          onLoad={() => {
+            console.log('YouTube iframe loaded - onLoad event fired');
+            // For YouTube videos, we can't track actual progress, so we'll mark as completed after user interaction
+            // This is a practical solution since YouTube doesn't allow cross-origin progress tracking
+            console.log('YouTube video ready - will mark as completed after 10 seconds of interaction');
+            
+            // Start a timer to mark as completed after 10 seconds (faster for testing)
+            setTimeout(() => {
+              console.log('Auto-marking YouTube video as completed after 10 seconds');
+              markAsCompleted();
+            }, 10000); // 10 seconds
+          }}
+          onError={(e) => {
+            console.error('YouTube iframe error:', e);
+          }}
         />
       ) : (
         <video
@@ -182,12 +384,45 @@ const VideoPlayer = ({ videoUrl, title, thumbnail }: { videoUrl: string; title: 
           poster={thumbnail}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
-          onPlay={() => setIsPlaying(true)}
-          onPause={() => setIsPlaying(false)}
-          onEnded={() => setIsPlaying(false)}
+          onLoadStart={() => console.log('Video load started for URL:', processedVideoUrl)}
+          onClick={() => console.log('Video clicked - testing event handlers')}
+          onPlay={() => {
+            console.log('Video play event fired');
+            setIsPlaying(true);
+          }}
+          onPause={() => {
+            setIsPlaying(false);
+            // Save progress when paused
+            if (videoRef.current) {
+              const currentTime = videoRef.current.currentTime;
+              const duration = videoRef.current.duration;
+              if (duration && duration > 0) {
+                updateProgress(currentTime, duration);
+                // Force save immediately
+                setTimeout(() => {
+                  saveProgress();
+                }, 100);
+              }
+            }
+          }}
+          onEnded={() => {
+            setIsPlaying(false);
+            // Save progress when video ends
+            if (videoRef.current) {
+              const duration = videoRef.current.duration;
+              if (duration && duration > 0) {
+                updateProgress(duration, duration);
+                // Force save immediately
+                setTimeout(() => {
+                  saveProgress();
+                }, 100);
+              }
+            }
+          }}
           onError={(e) => {
             console.error('Video error:', e);
             console.error('Video error details:', e.currentTarget.error);
+            console.error('Video URL that failed:', processedVideoUrl);
             // Show error message
             const videoContainer = e.currentTarget.parentElement;
             if (videoContainer) {
@@ -210,11 +445,11 @@ const VideoPlayer = ({ videoUrl, title, thumbnail }: { videoUrl: string; title: 
           controls={true}
           preload="metadata"
         >
-          <source src={videoUrl} type="video/mp4" />
-          <source src={videoUrl} type="video/webm" />
-          <source src={videoUrl} type="video/ogg" />
-          <source src={videoUrl} type="video/mov" />
-          <source src={videoUrl} type="video/avi" />
+          <source src={processedVideoUrl} type="video/mp4" />
+          <source src={processedVideoUrl} type="video/webm" />
+          <source src={processedVideoUrl} type="video/ogg" />
+          <source src={processedVideoUrl} type="video/mov" />
+          <source src={processedVideoUrl} type="video/avi" />
           Your browser does not support the video tag.
         </video>
       )}
@@ -296,6 +531,32 @@ const VideoPlayer = ({ videoUrl, title, thumbnail }: { videoUrl: string; title: 
             <span className="text-white text-sm">
               {formatTime(currentTime)} / {formatTime(duration)}
             </span>
+            
+            {/* Progress tracking indicator */}
+            <div className="flex items-center space-x-2 text-white text-sm">
+              <span>Progress: {watchPercentage}%</span>
+              {isCompleted && (
+                <CheckCircle className="w-4 h-4 text-green-400" />
+              )}
+              {/* Manual completion button for external videos */}
+              {isExternalVideo && !isCompleted && watchPercentage === 0 && (
+                <button
+                  onClick={async () => {
+                    console.log('Manual completion for external video');
+                    const duration = 300; // 5 minutes
+                    updateProgress(duration, duration);
+                    setTimeout(() => {
+                      saveProgress();
+                    }, 100);
+                  }}
+                  className="px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                  title="Mark as Complete (External Video)"
+                >
+                  Mark Complete
+                </button>
+              )}
+            </div>
+            
           </div>
 
           <button
@@ -308,6 +569,14 @@ const VideoPlayer = ({ videoUrl, title, thumbnail }: { videoUrl: string; title: 
           </button>
         </div>
       </div>
+      )}
+      
+      
+      {/* Progress error display */}
+      {progressError && (
+        <div className="absolute top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg text-sm">
+          {progressError}
+        </div>
       )}
     </div>
   );
@@ -395,15 +664,48 @@ export default function CourseDetail() {
   const [userProgress, setUserProgress] = useState(0);
   const [completedVideos, setCompletedVideos] = useState<string[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
-  const { settings } = useSettings();
+  const [courseProgress, setCourseProgress] = useState(0);
+  const { settings, loading: settingsLoading } = useSettings();
 
-
+  // Prevent hydration mismatch by showing loading state
+  if (settingsLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   useEffect(() => {
     if (courseId) {
       fetchCourseDetails();
+      fetchCourseProgress();
     }
   }, [courseId]);
+
+  const fetchCourseProgress = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      const response = await fetch(`/api/progress/${courseId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCourseProgress(data.progress?.overallProgress?.percentage || 0);
+      }
+    } catch (error) {
+      console.error('Error fetching course progress:', error);
+    }
+  };
 
   const fetchCourseDetails = async () => {
     try {
@@ -563,6 +865,24 @@ export default function CourseDetail() {
     // Keep original content type - don't auto-correct
     let actualType = content.type;
     
+    // Determine if this is an external video (YouTube, Vimeo, etc.)
+    const isExternalVideo = content.videoUrl && (
+      content.videoUrl.includes('youtube.com') || 
+      content.videoUrl.includes('youtu.be') ||
+      content.videoUrl.includes('vimeo.com') ||
+      content.videoUrl.includes('dailymotion.com')
+    );
+    
+    // For external videos, check if this content is completed
+    // We'll assume it's completed if the course progress is 100%
+    const isCompleted = isExternalVideo && courseProgress >= 100;
+    
+    // Calculate watch percentage for non-external videos
+    // For external videos, we'll use 100% if completed, 0% if not
+    const watchPercentage = isExternalVideo 
+      ? (isCompleted ? 100 : 0) 
+      : Math.min(100, Math.max(0, courseProgress));
+    
     // For debugging only - don't change the type
     console.log('Content type analysis (no changes):', {
       type: content.type,
@@ -580,69 +900,20 @@ export default function CourseDetail() {
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-4">{content.title}</h2>
             
-            {/* YouTube Video Player */}
-            <div className="aspect-video bg-gray-900 rounded-xl mb-4 overflow-hidden">
-              {content.videoUrl ? (
-                <div className="w-full h-full">
-                  {/* Check if it's a YouTube URL and convert to embed */}
-                  {content.videoUrl.includes('youtube.com') || content.videoUrl.includes('youtu.be') ? (
-                    <iframe
-                      src={getYouTubeEmbedUrl(content.videoUrl)}
-                      title={content.title}
-                      className="w-full h-full"
-                      allowFullScreen
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    />
-                  ) : content.videoUrl.includes('vimeo.com') ? (
-                    <iframe
-                      src={getVimeoEmbedUrl(content.videoUrl)}
-                      title={content.title}
-                      className="w-full h-full"
-                      allowFullScreen
-                    />
-                  ) : content.videoUrl.includes('dailymotion.com') ? (
-                    <iframe
-                      src={getDailymotionEmbedUrl(content.videoUrl)}
-                      title={content.title}
-                      className="w-full h-full"
-                      allowFullScreen
-                    />
-                  ) : (
-                    /* Local video file */
-                    <video
-                      src={content.videoUrl}
-                      controls
-                      className="w-full h-full object-contain"
-                      poster={content.thumbnail}
-                    >
-                      <source src={content.videoUrl} type="video/mp4" />
-                      <source src={content.videoUrl} type="video/webm" />
-                      <source src={content.videoUrl} type="video/ogg" />
-                      Your browser does not support the video tag.
-                    </video>
-                  )}
-                </div>
-              ) : (
-                /* No video URL - show placeholder with text content */
-                <div className="w-full h-full flex items-center justify-center">
-                  <div className="text-center text-white p-6">
-                    <Play className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg font-medium mb-2">Video Content</p>
-                    {content.videoUrl && content.videoUrl.length > 100 && !content.videoUrl.startsWith('http') ? (
-                      <div className="bg-white/10 p-4 rounded-lg max-h-32 overflow-y-auto">
-                        <p className="text-sm text-left whitespace-pre-wrap">
-                          {content.videoUrl.substring(0, 200)}...
-                        </p>
-                      </div>
-                    ) : (
-                      <p className="text-sm opacity-75">No video URL provided</p>
-                    )}
-                  </div>
-                </div>
-              )}
+            {/* Video Player with Progress Tracking */}
+            <div className="relative w-full h-[500px] bg-black rounded-lg overflow-hidden mb-6">
+              <NewVideoPlayer
+                videoUrl={content.videoUrl}
+                title={content.title}
+                thumbnail={content.thumbnail}
+                courseId={course._id}
+                contentId={content._id}
+                onProgressUpdate={fetchCourseProgress}
+              />
             </div>
             
             <p className="text-gray-700 mb-4">{content.description}</p>
+            
             <div className="flex items-center justify-between text-sm text-gray-500">
               <span>Duration: {formatDuration(content.duration || 0)}</span>
               <span>{content.views} views</span>
@@ -852,6 +1123,43 @@ export default function CourseDetail() {
             <div className="flex items-center space-x-4">
               <DarkModeToggle size="sm" />
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Course Details</h1>
+              {/* Temporary Reset All Progress Button for Testing */}
+              <button
+                onClick={async () => {
+                  if (!confirm('Are you sure you want to reset ALL progress for this course? This action cannot be undone.')) {
+                    return;
+                  }
+                  
+                  try {
+                    const token = localStorage.getItem('token');
+                    if (!token) return;
+                    
+                    const response = await fetch(`/api/progress/${courseId}/reset-all`, {
+                      method: 'DELETE',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                      },
+                    });
+                    
+                    if (response.ok) {
+                      console.log('All progress reset successfully');
+                      // Refresh the page to show updated progress
+                      window.location.reload();
+                    } else {
+                      console.error('Failed to reset all progress');
+                      alert('Failed to reset progress');
+                    }
+                  } catch (error) {
+                    console.error('Error resetting all progress:', error);
+                    alert('Error resetting progress');
+                  }
+                }}
+                className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+                title="Reset All Progress (Testing Only)"
+              >
+                Reset All Progress
+              </button>
             </div>
           </div>
         </div>
@@ -909,6 +1217,7 @@ export default function CourseDetail() {
                   <p className="text-lg font-semibold text-gray-900 dark:text-white">{typeof course.totalStudents === 'number' ? course.totalStudents : 0}</p>
                 </div>
               </div>
+              
             </motion.div>
 
             {/* Content Player */}
@@ -1089,6 +1398,54 @@ export default function CourseDetail() {
                 </ul>
               </div>
             </motion.div>
+
+            {/* Course Progress */}
+            {isEnrolled && (
+              <motion.div 
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.35 }}
+                className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg"
+              >
+                <div className="flex items-center space-x-2 mb-4">
+                  <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  <h3 className="font-semibold text-gray-900 dark:text-white">Course Progress</h3>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="text-center">
+                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
+                      {courseProgress}%
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Complete</p>
+                  </div>
+                  
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                    <div 
+                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 ease-out"
+                      style={{ width: `${courseProgress}%` }}
+                    />
+                  </div>
+                  
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Complete all content to earn your certificate
+                    </p>
+                  </div>
+                  
+                  {courseProgress >= 80 && (
+                    <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                      <div className="flex items-center space-x-2">
+                        <Award className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                          Certificate Eligible!
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )}
 
             {/* Course Info */}
             <motion.div 

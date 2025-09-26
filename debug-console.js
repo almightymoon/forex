@@ -24,3 +24,5 @@ try {
 console.log('Current URL:', window.location.href);
 console.log('Expected URL for admin:', 'http://localhost:3000/admin');
 console.log('========================');
+
+

@@ -14,18 +14,21 @@ import {
   CheckSquare,
   Settings,
   X,
+  GripVertical,
   Bold,
   Italic,
   Underline,
   AlignLeft,
   AlignCenter,
   AlignRight,
+  AlignJustify,
   List,
   ListOrdered,
+  Type,
+  Palette,
+  Link2,
   Image as ImageIcon,
-  Video as VideoIcon,
-  Link as LinkIcon,
-  GripVertical
+  Video as VideoIcon
 } from 'lucide-react';
 
 interface Question {
@@ -809,6 +812,8 @@ function BasicInfoTab({
               onChange={(e) => setCourseData({ ...courseData, title: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
               placeholder="Enter course title"
+              style={{ direction: 'ltr', textAlign: 'left' }}
+              dir="ltr"
             />
           </div>
 
@@ -970,6 +975,8 @@ function BasicInfoTab({
                       onChange={(e) => setNewCategory(e.target.value)}
                       className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       placeholder="Enter category name"
+                      style={{ direction: 'ltr', textAlign: 'left' }}
+                      dir="ltr"
                     />
                     <button
                       onClick={addCategory}
@@ -1231,167 +1238,55 @@ function ContentBlock({
   );
 }
 
-// Rich Text Editor Component
-function RichTextEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const [selection, setSelection] = useState({ start: 0, end: 0 });
-  const editorRef = useRef<HTMLDivElement>(null);
+// ========================================
+// SIMPLE TEXT EDITOR COMPONENT
+// ========================================
+// A clean, simple text editor using textarea
+// Features:
+// - Basic text input with LTR direction
+// - No text direction issues
+// - Resizable textarea
+// - Dark mode support
+// - Simple and reliable
+// ========================================
+function SimpleTextEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [text, setText] = useState(value);
 
-  const execCommand = (command: string, value?: string) => {
-    document.execCommand(command, false, value);
-    editorRef.current?.focus();
-  };
+  useEffect(() => {
+    setText(value);
+  }, [value]);
 
-  const insertText = (text: string) => {
-    const textarea = document.createElement('textarea');
-    textarea.value = text;
-    document.body.appendChild(textarea);
-    textarea.select();
-    document.execCommand('insertText', false, text);
-    document.body.removeChild(textarea);
-    editorRef.current?.focus();
-  };
-
-  const insertImage = () => {
-    const url = prompt('Enter image URL:');
-    if (url) {
-      const width = prompt('Enter image width (optional, e.g., 300px):') || '';
-      const height = prompt('Enter image height (optional, e.g., 200px):') || '';
-      
-      let imgTag = `<img src="${url}" alt="Image"`;
-      if (width) imgTag += ` width="${width}"`;
-      if (height) imgTag += ` height="${height}"`;
-      imgTag += ' style="max-width: 100%; height: auto;" />';
-      
-      insertText(imgTag);
-    }
-  };
-
-  const insertVideo = () => {
-    const url = prompt('Enter video URL:');
-    if (url) {
-      const videoHtml = `<video controls width="100%"><source src="${url}" type="video/mp4">Your browser does not support the video tag.</video>`;
-      insertText(videoHtml);
-    }
-  };
-
-  const insertLink = () => {
-    const url = prompt('Enter URL:');
-    const text = prompt('Enter link text:');
-    if (url && text) {
-      execCommand('createLink', url);
-    }
-  };
-
-  const handleInput = () => {
-    if (editorRef.current) {
-      onChange(editorRef.current.innerHTML);
-    }
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setText(newValue);
+    onChange(newValue);
   };
 
   return (
-    <div className="border border-gray-300 dark:border-gray-600 rounded-lg">
-      {/* Toolbar */}
-      <div className="border-b border-gray-300 dark:border-gray-600 p-2 bg-gray-50 dark:bg-gray-700 flex flex-wrap gap-1">
-        <button
-          onClick={() => execCommand('bold')}
-          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-          title="Bold"
-        >
-          <Bold className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-        </button>
-        <button
-          onClick={() => execCommand('italic')}
-          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-          title="Italic"
-        >
-          <Italic className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-        </button>
-        <button
-          onClick={() => execCommand('underline')}
-          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-          title="Underline"
-        >
-          <Underline className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-        </button>
-        
-        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-        
-        <button
-          onClick={() => execCommand('justifyLeft')}
-          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-          title="Align Left"
-        >
-          <AlignLeft className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-        </button>
-        <button
-          onClick={() => execCommand('justifyCenter')}
-          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-          title="Align Center"
-        >
-          <AlignCenter className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-        </button>
-        <button
-          onClick={() => execCommand('justifyRight')}
-          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-          title="Align Right"
-        >
-          <AlignRight className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-        </button>
-        
-        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-        
-        <button
-          onClick={() => execCommand('insertUnorderedList')}
-          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-          title="Bullet List"
-        >
-          <List className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-        </button>
-        <button
-          onClick={() => execCommand('insertOrderedList')}
-          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-          title="Numbered List"
-        >
-          <ListOrdered className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-        </button>
-        
-        <div className="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-        
-        <button
-          onClick={insertImage}
-          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-          title="Insert Image"
-        >
-          <ImageIcon className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-        </button>
-        <button
-          onClick={insertVideo}
-          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-          title="Insert Video"
-        >
-          <VideoIcon className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-        </button>
-        <button
-          onClick={insertLink}
-          className="p-2 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
-          title="Insert Link"
-        >
-          <LinkIcon className="w-4 h-4 text-gray-700 dark:text-gray-300" />
-        </button>
-      </div>
-      
-      {/* Editor */}
-      <div
-        ref={editorRef}
-        contentEditable
-        className="p-4 min-h-[200px] focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
-        dangerouslySetInnerHTML={{ __html: value }}
-        onInput={handleInput}
-        onBlur={handleInput}
+    <div className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+      <textarea
+        value={text}
+        onChange={handleChange}
+        className="w-full p-4 min-h-[300px] focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-vertical"
+        style={{ 
+          direction: 'ltr', 
+          textAlign: 'left',
+          unicodeBidi: 'normal',
+          writingMode: 'horizontal-tb'
+        }}
+        dir="ltr"
+        placeholder="Enter your text content here..."
       />
     </div>
   );
 }
+// ========================================
+// END OF SIMPLE TEXT EDITOR COMPONENT
+// ========================================
+// This component provides a simple, reliable text editing experience
+// without the complexity of rich text formatting. Perfect for basic
+// text content that doesn't require advanced formatting features.
+// ========================================
 
 // Content Editor Component
 function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload, isUploading }: any) {
@@ -1427,6 +1322,8 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
                 value={editingData.title}
                 onChange={(e) => setEditingData({ ...editingData, title: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+                style={{ direction: 'ltr', textAlign: 'left' }}
+                dir="ltr"
               />
             </div>
 
@@ -1435,7 +1332,7 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Content
                 </label>
-                <RichTextEditor
+                <SimpleTextEditor
                   value={editingData.content}
                   onChange={(value) => setEditingData({ ...editingData, content: value })}
                 />

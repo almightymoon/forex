@@ -139,6 +139,9 @@ interface DashboardContextType {
   updateCourseProgress: (courseId: string, progress: number) => void;
   addEnrolledCourse: (course: Course) => void;
   removeEnrolledCourse: (courseId: string) => void;
+  enrollInSession: (sessionId: string, userId: string) => void;
+  cancelSessionEnrollment: (sessionId: string, userId: string) => void;
+  deleteSession: (sessionId: string) => void;
 }
 
 const DashboardContext = createContext<DashboardContextType | undefined>(undefined);
@@ -223,7 +226,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           }),
           apiRequest('api/signals'),
           apiRequest('api/assignments'),
-          apiRequest('api/sessions'),
+          apiRequest(`api/sessions?t=${Date.now()}`),
           apiRequest('api/certificates/student'),
           apiRequest(`api/notifications/user?unreadOnly=true&limit=1&t=${Date.now()}`)
         ]);
@@ -323,14 +326,118 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const refreshData = useCallback(async () => {
     setRefreshing(true);
-    try {
-      // Force refresh by clearing cache
-      setData(prev => ({ ...prev, lastUpdated: 0 }));
-      await Promise.all([fetchUserData(), fetchAvailableCourses()]);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [fetchUserData, fetchAvailableCourses]);
+    
+    // INSTANT UI UPDATE - No waiting for APIs
+    setData(prev => ({
+      ...prev,
+      lastUpdated: Date.now()
+    }));
+    
+    // Background API calls - completely non-blocking
+    setTimeout(async () => {
+      try {
+        if (typeof window === 'undefined') return;
+        
+        const token = localStorage.getItem('token');
+        if (!token) {
+          setError('No authentication token found');
+          return;
+        }
+
+        // Fetch essential data in background
+        const [liveSessionsResult, coursesResult] = await Promise.all([
+          apiRequest(`api/sessions?t=${Date.now()}`),
+          fetchWithMaintenanceCheck('/api/courses/enrolled', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          })
+        ]);
+
+        // Parse and update sessions immediately
+        let liveSessionsData = [];
+        if (liveSessionsResult.ok) {
+          try {
+            liveSessionsData = await liveSessionsResult.json();
+          } catch (error) {
+            console.error('Error parsing live sessions:', error);
+          }
+        }
+
+        // Update sessions data
+        setData(prev => ({
+          ...prev,
+          liveSessions: liveSessionsData,
+          courses: coursesResult.data || prev.courses
+        }));
+
+        // Fetch other data in background (non-blocking)
+        Promise.all([
+          apiRequest('api/signals'),
+          apiRequest('api/assignments'),
+          apiRequest('api/certificates/student'),
+          apiRequest(`api/notifications/user?unreadOnly=true&limit=1&t=${Date.now()}`),
+          fetchWithMaintenanceCheck('/api/courses')
+        ]).then(async ([signalsResult, assignmentsResult, certificatesResult, notificationResult, availableCoursesResult]) => {
+          // Parse background data
+          let signalsData = [];
+          let assignmentsData = [];
+          let certificatesData = [];
+          let notificationCountData = 0;
+
+          if (signalsResult.ok) {
+            try {
+              signalsData = await signalsResult.json();
+            } catch (error) {
+              console.error('Error parsing signals:', error);
+            }
+          }
+
+          if (assignmentsResult.ok) {
+            try {
+              assignmentsData = await assignmentsResult.json();
+            } catch (error) {
+              console.error('Error parsing assignments:', error);
+            }
+          }
+
+          if (certificatesResult.ok) {
+            try {
+              certificatesData = await certificatesResult.json();
+            } catch (error) {
+              console.error('Error parsing certificates:', error);
+            }
+          }
+
+          if (notificationResult.ok) {
+            try {
+              const notificationData = await notificationResult.json();
+              notificationCountData = notificationData.unreadCount || 0;
+            } catch (error) {
+              console.error('Error parsing notifications:', error);
+            }
+          }
+
+          // Update background data silently
+          setData(prev => ({
+            ...prev,
+            signals: signalsData,
+            assignments: assignmentsData,
+            certificates: Array.isArray(certificatesData) ? certificatesData : 
+                        (certificatesData as any)?.certificates || [],
+            notificationCount: notificationCountData,
+            availableCourses: availableCoursesResult.data || prev.availableCourses
+          }));
+        }).catch(error => {
+          console.error('Background data fetch error:', error);
+        });
+
+      } catch (error) {
+        console.error('Error refreshing data:', error);
+        setError('Failed to refresh dashboard data');
+      } finally {
+        setRefreshing(false);
+      }
+    }, 0); // Execute in next tick
+  }, []);
 
   const clearCache = useCallback(() => {
     setData({
@@ -373,6 +480,54 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }));
   }, []);
 
+  // Optimistic session enrollment
+  const enrollInSession = useCallback((sessionId: string, userId: string) => {
+    setData(prev => ({
+      ...prev,
+      liveSessions: prev.liveSessions.map(session => 
+        session._id === sessionId 
+          ? {
+              ...session,
+              currentParticipants: [
+                ...session.currentParticipants,
+                {
+                  student: { _id: userId },
+                  bookedAt: new Date().toISOString(),
+                  attended: false,
+                  totalWatchTime: 0
+                }
+              ]
+            }
+          : session
+      )
+    }));
+  }, []);
+
+  // Optimistic session cancellation
+  const cancelSessionEnrollment = useCallback((sessionId: string, userId: string) => {
+    setData(prev => ({
+      ...prev,
+      liveSessions: prev.liveSessions.map(session => 
+        session._id === sessionId 
+          ? {
+              ...session,
+              currentParticipants: session.currentParticipants.filter(
+                p => p.student._id !== userId
+              )
+            }
+          : session
+      )
+    }));
+  }, []);
+
+  // Optimistic session deletion
+  const deleteSession = useCallback((sessionId: string) => {
+    setData(prev => ({
+      ...prev,
+      liveSessions: prev.liveSessions.filter(session => session._id !== sessionId)
+    }));
+  }, []);
+
   // Initialize data on mount
   useEffect(() => {
     fetchUserData();
@@ -411,7 +566,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     clearCache,
     updateCourseProgress,
     addEnrolledCourse,
-    removeEnrolledCourse
+    removeEnrolledCourse,
+    enrollInSession,
+    cancelSessionEnrollment,
+    deleteSession
   };
 
   return (

@@ -304,6 +304,15 @@ export default function LiveSessions() {
       if (response.ok) {
         showToast('Session started successfully', 'success');
         fetchSessions();
+        
+        // Find the session to get the meeting link
+        const session = sessions.find(s => s._id === sessionId);
+        if (session && session.meetingLink) {
+          // Open Google Meet in a new window
+          window.open(session.meetingLink, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+        } else {
+          showToast('No meeting link found for this session', 'warning');
+        }
       } else {
         const error = await response.json();
         showToast(error.message || 'Failed to start session', 'error');
@@ -368,13 +377,14 @@ export default function LiveSessions() {
   };
 
   const generateGoogleMeetLink = () => {
-    // Create a unique meeting room ID for our own system
-    const roomId = Math.random().toString(36).substring(2, 15);
-    const meetingUrl = `${window.location.origin}/meeting/${roomId}`;
+    // Use Google Meet's official meeting creation
+    // This ensures we get a valid meeting that Google recognizes
+    const meetUrl = 'https://meet.google.com/new';
     
-    setNewSession({ ...newSession, meetingLink: meetingUrl });
-    showToast('Meeting room created! You can now share this link with participants.', 'success');
+    setNewSession({ ...newSession, meetingLink: meetUrl });
+    showToast('Google Meet URL generated! Click "Start Session" to create a new meeting. You will be the host.', 'success');
   };
+
 
   const createExternalMeetingLink = () => {
     // Create a link to an external meeting service (Zoom, Teams, etc.)
@@ -426,15 +436,58 @@ export default function LiveSessions() {
       });
 
       if (response.ok) {
-        showToast('Meeting session started!', 'success');
+        showToast('Meeting session started! Opening Google Meet to create the meeting. You will be the host.', 'success');
         fetchSessions(); // Refresh the sessions list
         setShowMeetingModal(false); // Close the modal
+        
+        // Open Google Meet for the teacher to create the meeting
+        const session = sessions.find(s => s._id === sessionId);
+        if (session?.meetingLink && session.meetingLink.includes('meet.google.com')) {
+          // Add a small delay to ensure the session status is updated
+          setTimeout(() => {
+            const meetWindow = window.open(session.meetingLink, '_blank');
+            
+            // Show instructions to the teacher
+            setTimeout(() => {
+              showToast('After Google Meet opens, copy the meeting URL and click "Update URL" button to update the session.', 'info');
+            }, 2000);
+          }, 500);
+        }
       } else {
         const error = await response.json();
         showToast(error.message || 'Failed to start meeting session', 'error');
       }
     } catch (error) {
       showToast('Error starting meeting session', 'error');
+    }
+  };
+
+  const updateSessionMeetingLink = async (sessionId: string, newMeetingLink: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        showToast('Authentication required', 'error');
+        return;
+      }
+
+      const response = await fetch(`http://localhost:4000/api/teacher/live-sessions/${sessionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ meetingLink: newMeetingLink })
+      });
+
+      if (response.ok) {
+        showToast('Meeting URL updated successfully! Students can now join the session.', 'success');
+        fetchSessions(); // Refresh the sessions list
+      } else {
+        const error = await response.json();
+        showToast(error.message || 'Failed to update meeting URL', 'error');
+      }
+    } catch (error) {
+      showToast('Error updating meeting URL', 'error');
     }
   };
 
@@ -712,11 +765,11 @@ export default function LiveSessions() {
                       setShowMeetingModal(true);
                     }}
                     className={`px-3 py-2 text-white text-sm rounded-lg transition-colors ${
-                      session.meetingLink.includes(window.location.origin) 
-                        ? 'bg-blue-600 hover:bg-blue-700' 
+                      session.meetingLink.includes('meet.google.com') 
+                        ? 'bg-red-600 hover:bg-red-700' 
                         : 'bg-green-600 hover:bg-green-700'
                     }`}
-                    title={session.meetingLink.includes(window.location.origin) ? 'Join Meeting Room' : 'Join External Meeting'}
+                    title={session.meetingLink.includes('meet.google.com') ? 'Join Google Meet' : 'Join External Meeting'}
                   >
                     <Video className="w-4 h-4" />
                   </button>
@@ -742,6 +795,23 @@ export default function LiveSessions() {
                        {session.recordingEnabled ? <Square className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                     </button>
                   </>
+                )}
+
+                {session.status === 'live' && session.meetingLink === 'https://meet.google.com/new' && (
+                  <button
+                    onClick={() => {
+                      const actualMeetingUrl = prompt('Please paste the actual Google Meet URL from your browser:');
+                      if (actualMeetingUrl && actualMeetingUrl.includes('meet.google.com')) {
+                        updateSessionMeetingLink(session._id, actualMeetingUrl);
+                      } else if (actualMeetingUrl) {
+                        showToast('Please enter a valid Google Meet URL', 'error');
+                      }
+                    }}
+                    className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                    title="Update Meeting URL"
+                  >
+                    Update URL
+                  </button>
                 )}
 
                 <button
@@ -921,14 +991,14 @@ export default function LiveSessions() {
                     value={newSession.meetingLink || ''}
                     onChange={(e) => setNewSession({ ...newSession, meetingLink: e.target.value })}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter meeting room URL or click Create Room"
+                    placeholder="Enter meeting URL or click Google Meet"
                   />
                   <button
                     type="button"
                     onClick={generateGoogleMeetLink}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors whitespace-nowrap"
                   >
-                    Create Room
+                    Google Meet
                   </button>
                   <button
                     type="button"
@@ -1177,19 +1247,19 @@ export default function LiveSessions() {
                     value={editingSession.meetingLink || ''}
                     onChange={(e) => setEditingSession({ ...editingSession, meetingLink: e.target.value })}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter meeting room URL or click Create Room"
+                    placeholder="Enter meeting URL or click Google Meet"
                   />
                   <button
                     type="button"
                     onClick={() => {
-                      const roomId = Math.random().toString(36).substring(2, 15);
-                      const meetingUrl = `${window.location.origin}/meeting/${roomId}`;
-                      setEditingSession({ ...editingSession, meetingLink: meetingUrl });
-                      showToast('Meeting room created! You can now share this link with participants.', 'success');
+                      // Use Google Meet's official meeting creation
+                      const meetUrl = 'https://meet.google.com/new';
+                      setEditingSession({ ...editingSession, meetingLink: meetUrl });
+                      showToast('Google Meet URL generated! Click "Start Session" to create a new meeting.', 'success');
                     }}
-                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors whitespace-nowrap"
                   >
-                    Create Room
+                    Google Meet
                   </button>
                   <button
                     type="button"
@@ -1330,11 +1400,11 @@ export default function LiveSessions() {
                     <Video className="w-12 h-12 text-blue-600" />
                   </div>
                   
-                  {/* Check if it's an external meeting link or our internal meeting room */}
-                  {selectedSession.meetingLink.includes(window.location.origin) ? (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
-                      <p className="text-blue-800 text-sm">
-                        <strong>Meeting Room Ready!</strong> You can now join the meeting room or share the link with participants.
+                  {/* Check if it's a Google Meet link or other external meeting */}
+                  {selectedSession.meetingLink.includes('meet.google.com') ? (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                      <p className="text-red-800 text-sm">
+                        <strong>Google Meet Ready!</strong> You can now join the Google Meet session or share the link with participants.
                       </p>
                     </div>
                   ) : (
@@ -1347,13 +1417,13 @@ export default function LiveSessions() {
                   
                   <div>
                     <h4 className="text-xl font-semibold text-gray-800 mb-2">
-                      {selectedSession.meetingLink.includes(window.location.origin) 
-                        ? 'Ready to join the meeting room?' 
+                      {selectedSession.meetingLink.includes('meet.google.com') 
+                        ? 'Ready to join Google Meet?' 
                         : 'Ready to join the external meeting?'}
                     </h4>
                     <p className="text-gray-600 mb-6 max-w-md">
-                      {selectedSession.meetingLink.includes(window.location.origin)
-                        ? 'Click the button below to join the meeting room. You can also copy the link to share with participants.'
+                      {selectedSession.meetingLink.includes('meet.google.com')
+                        ? 'Click the button below to join the Google Meet session. You can also copy the link to share with participants.'
                         : 'Click the button below to join the external meeting. This will open in a new tab.'}
                     </p>
                     <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -1363,8 +1433,8 @@ export default function LiveSessions() {
                       >
                         <Video className="w-5 h-5" />
                         <span>
-                          {selectedSession.meetingLink.includes(window.location.origin) 
-                            ? 'Join Meeting Room' 
+                          {selectedSession.meetingLink.includes('meet.google.com') 
+                            ? 'Join Google Meet' 
                             : 'Join External Meeting'}
                         </span>
                       </button>

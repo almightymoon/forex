@@ -33,6 +33,8 @@ import CoolLoader from '../../../components/CoolLoader';
 import NotificationDropdown from '../../dashboard/components/NotificationDropdown';
 
 export default function AdminDashboard() {
+  console.log('AdminDashboard - Component rendering...');
+  
   const [activeTab, setActiveTab] = useState('overview');
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -42,6 +44,9 @@ export default function AdminDashboard() {
   const { settings: globalSettings } = useSettings();
   const { showToast } = useToast();
   const { data, loading, refreshing, refreshData } = useAdmin();
+  
+  console.log('AdminDashboard - Loading state:', loading);
+  console.log('AdminDashboard - User data:', data.user);
   
   const { user, users, payments, analytics, promoCodes, settings: contextSettings } = data;
   
@@ -65,6 +70,14 @@ export default function AdminDashboard() {
       window.location.href = '/login';
     }
   });
+
+  // Ensure data is loaded when component mounts
+  useEffect(() => {
+    if (!loading && data.users.length === 0) {
+      console.log('AdminDashboard - No data found, triggering refresh...');
+      refreshData();
+    }
+  }, [loading, data.users.length, refreshData]);
 
   // Route guard - check if user is admin (handled by layout)
   // useEffect(() => {

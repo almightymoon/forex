@@ -100,24 +100,30 @@ messageSchema.virtual('displayContent').get(function() {
 });
 
 // Method to add reaction
-messageSchema.methods.addReaction = function(emoji, userId) {
+messageSchema.methods.addReaction = async function(emoji, userId) {
+  console.log('Adding reaction:', { emoji, userId, messageId: this._id });
   let reaction = this.reactions.find(r => r.emoji === emoji);
   
   if (!reaction) {
     reaction = { emoji, users: [userId], count: 1 };
     this.reactions.push(reaction);
+    console.log('Created new reaction:', reaction);
   } else {
     if (!reaction.users.includes(userId)) {
       reaction.users.push(userId);
       reaction.count = reaction.users.length;
+      console.log('Added user to existing reaction:', reaction);
     }
   }
   
-  return this.save();
+  await this.save();
+  console.log('Saved message with reactions:', this.reactions);
+  return this.populate('reactions.users', 'firstName lastName');
 };
 
 // Method to remove reaction
-messageSchema.methods.removeReaction = function(emoji, userId) {
+messageSchema.methods.removeReaction = async function(emoji, userId) {
+  console.log('Removing reaction:', { emoji, userId, messageId: this._id });
   const reaction = this.reactions.find(r => r.emoji === emoji);
   
   if (reaction) {
@@ -126,10 +132,15 @@ messageSchema.methods.removeReaction = function(emoji, userId) {
     
     if (reaction.count === 0) {
       this.reactions = this.reactions.filter(r => r.emoji !== emoji);
+      console.log('Removed reaction completely');
+    } else {
+      console.log('Updated reaction:', reaction);
     }
   }
   
-  return this.save();
+  await this.save();
+  console.log('Saved message with reactions:', this.reactions);
+  return this.populate('reactions.users', 'firstName lastName');
 };
 
 // Method to edit message
@@ -159,6 +170,7 @@ messageSchema.statics.findByChannel = function(channelId, limit = 50, skip = 0) 
     .populate('author', 'firstName lastName role')
     .populate('attachments')
     .populate('mentions.userId', 'firstName lastName')
+    .populate('reactions.users', 'firstName lastName')
     .sort({ createdAt: -1 })
     .limit(limit)
     .skip(skip);
@@ -197,7 +209,7 @@ messageSchema.pre('save', async function(next) {
       await Channel.findByIdAndUpdate(this.channelId, {
         lastMessage: {
           content: this.content,
-          timestamp: this.createdAt,
+          timestamp: new Date(),
           author: this.author
         }
       });

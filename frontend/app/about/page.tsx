@@ -34,8 +34,20 @@ import DarkModeToggle from '../../components/DarkModeToggle';
 
 export default function AboutPage() {
   const [isVisible, setIsVisible] = useState(false);
-  const { settings } = useSettings();
+  const { settings, loading } = useSettings();
   const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
+
+  // Prevent hydration mismatch by showing loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   const stats = [
     {
@@ -167,9 +179,9 @@ export default function AboutPage() {
               transition={{ duration: 0.5 }}
             >
               <img 
-                src="/all-07.png" 
+                src="/all-07.svg" 
                 alt={`${settings.platformName} Logo`} 
-                className="w-20 h-20 object-contain"
+                className="w-20 h-20 object-contain dark:invert"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                 }}
@@ -187,9 +199,8 @@ export default function AboutPage() {
             >
               <Link href="/" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">Home</Link>
               <a href="/#features" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">Features</a>
-              <a href="/#courses" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">Courses</a>
               <Link href="/about" className="text-blue-600 dark:text-blue-400 font-medium">About</Link>
-              <a href="/#contact" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">Contact</a>
+              <a href="/contact" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium">Contact</a>
             </motion.div>
             
             <motion.div 
@@ -341,7 +352,7 @@ export default function AboutPage() {
                 </p>
               </div>
               <p className="text-lg text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
-                As a seasoned forex trader with nearly a decade of experience, I've developed winning strategies that consistently deliver results. My mission is to share this expertise with dedicated traders who are ready to transform their trading journey and achieve financial freedom.
+                I've been trading forex for over 9 years, learning from both wins and losses. Through countless market cycles, I've refined approaches that actually work in real trading conditions. Now I want to help other traders avoid the mistakes I made and build the skills needed for consistent results.
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="flex items-center space-x-3 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700">
@@ -364,6 +375,31 @@ export default function AboutPage() {
               transition={{ duration: 0.8 }}
               className="relative"
             >
+              {/* Owner Image - Professional Circular Design */}
+              <div className="mb-12 flex justify-center">
+                <div className="relative group">
+                  {/* Outer ring with gradient */}
+                  <div className="absolute -inset-4 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full opacity-75 group-hover:opacity-100 transition-opacity duration-300 blur-sm"></div>
+                  
+                  {/* Main image container */}
+                  <div className="relative bg-white dark:bg-gray-800 p-2 rounded-full shadow-2xl">
+                    <img 
+                      src="/owner.jpeg" 
+                      alt="Muhammad Adnan Khan - CEO & Founder" 
+                      className="w-48 h-48 object-cover rounded-full border-4 border-white dark:border-gray-700 shadow-xl"
+                    />
+                  </div>
+                  
+                  {/* Professional badge overlay */}
+                  <div className="absolute -bottom-2 -right-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg border-2 border-white dark:border-gray-800">
+                    <div className="flex items-center space-x-1">
+                      <Award className="w-4 h-4" />
+                      <span>CEO</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
               <div className="relative bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-slate-900 dark:via-blue-900 dark:to-purple-900 rounded-3xl p-8 text-slate-900 dark:text-white overflow-hidden border border-slate-200 dark:border-slate-700">
                 <div className="absolute inset-0 opacity-40">
                   <div className="absolute inset-0 bg-gradient-to-r from-blue-500/5 to-purple-500/5"></div>
@@ -708,9 +744,9 @@ export default function AboutPage() {
               >
                 <div className="relative">
                   <img 
-                    src="/all-07.png" 
+                    src="/all-07.svg" 
                     alt={`${settings.platformName} Logo`} 
-                    className="w-8 h-8 object-contain"
+                    className="w-8 h-8 object-contain dark:invert"
                   />
                   <motion.div
                     className="absolute inset-0 bg-blue-400 rounded-full opacity-20"
@@ -730,7 +766,7 @@ export default function AboutPage() {
             {[
               {
                 title: 'Platform',
-                links: ['Courses', 'Live Sessions', 'Trading Signals', 'Community']
+                links: ['Live Sessions', 'Trading Signals', 'Community']
               },
               {
                 title: 'Support',

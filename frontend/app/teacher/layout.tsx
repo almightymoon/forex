@@ -45,6 +45,9 @@ export default function TeacherLayout({
           console.error('Error parsing user data:', error);
           localStorage.removeItem('token');
           localStorage.removeItem('user');
+          
+          // Clear token cookie
+          document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';
           router.push('/login?redirect=/teacher&error=invalid_user_data');
           return;
         }

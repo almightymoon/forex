@@ -25,6 +25,7 @@ const notificationRoutes = require('./routes/notifications');
 const teacherRoutes = require('./routes/teacher');
 const communityRoutes = require('./routes/community');
 const certificateRoutes = require('./routes/certificates');
+const progressRoutes = require('./routes/progress');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -104,6 +105,7 @@ app.use('/api/certificates', certificateRoutes);
 app.use('/api/certificate-templates', require('./routes/certificateTemplates'));
 app.use('/api/teacher/certificates', require('./routes/teacherCertificates'));
 app.use('/api/certificate-assignments', require('./routes/certificateAssignments'));
+app.use('/api/progress', progressRoutes);
 
 // Apply session timeout check to all protected routes
 app.use(checkSessionTimeout);

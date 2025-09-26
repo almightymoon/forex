@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useToast } from '../components/Toast';
+import { handleSessionExpiration } from '../utils/tokenUtils';
 
 interface UseSessionTimeoutProps {
   timeoutMinutes?: number;
@@ -41,14 +42,10 @@ export const useSessionTimeout = ({
 
     // Set logout timeout
     timeoutRef.current = setTimeout(() => {
-      showToast('Session expired. Please log in again.', 'error');
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      
       if (onTimeout) {
         onTimeout();
       } else {
-        router.push('/login');
+        handleSessionExpiration('Session expired. Please log in again.');
       }
     }, timeoutMs);
   };

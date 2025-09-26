@@ -1226,28 +1226,6 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                   Refresh
                 </button>
                 <button
-                  onClick={async () => {
-                    console.log('Testing API for assignment:', selectedAssignment);
-                    console.log('Assignment submissions before fetch:', selectedAssignment.submissions);
-                    await fetchSubmissions(selectedAssignment);
-                  }}
-                  className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
-                >
-                  Test API
-                </button>
-                <button
-                  onClick={() => {
-                    console.log('Current submissions state:', submissions);
-                    console.log('Submissions length:', submissions.length);
-                    if (submissions.length > 0) {
-                      console.log('First submission full data:', submissions[0]);
-                    }
-                  }}
-                  className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700"
-                >
-                  Debug Submissions
-                </button>
-                <button
                   onClick={() => setShowSubmissionsModal(false)}
                   className="text-gray-400 hover:text-gray-600"
                 >
