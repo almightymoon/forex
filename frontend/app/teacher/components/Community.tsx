@@ -2,6 +2,7 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import useChatSocket from '@/hooks/useChatSocket';
 import { 
   Hash, 
   Plus, 
@@ -42,9 +43,73 @@ export default function Community({ students, courses }: CommunityProps) {
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
   const [isClient, setIsClient] = useState(false);
   const [deletingChannel, setDeletingChannel] = useState<string | null>(null);
+  const [lastMessageCount, setLastMessageCount] = useState<number>(0);
+  const [hasNewMessages, setHasNewMessages] = useState<boolean>(false);
+  const [deletedMessageIds, setDeletedMessageIds] = useState<Set<string>>(new Set());
+  const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
+  const [useWebSocket, setUseWebSocket] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // WebSocket event handler with better deduplication
+  const handleWebSocketEvent = (event: any) => {
+    console.log('Teacher WebSocket event:', event.type, event.data);
+    
+    switch (event.type) {
+      case 'new':
+        // Add new message if not already present and not from current user
+        setMessages(prev => {
+          const exists = prev.some(m => m._id === event.data._id);
+          if (exists) {
+            console.log('Message already exists, skipping:', event.data._id);
+            return prev;
+          }
+          // Don't add if it's from current user (optimistic update already handled)
+          if (event.data.author?._id === currentUser?.id) {
+            console.log('Message from current user, skipping WebSocket update:', event.data._id);
+            return prev;
+          }
+          console.log('Adding new message from WebSocket:', event.data._id);
+          return sortMessages([...prev, event.data]);
+        });
+        break;
+      case 'update':
+        // Update existing message
+        setMessages(prev => prev.map(m => 
+          m._id === event.data._id ? event.data : m
+        ));
+        break;
+      case 'delete':
+        // Remove deleted message and add to deleted set
+        setMessages(prev => prev.filter(m => m._id !== event.data));
+        setDeletedMessageIds(prev => new Set([...prev, event.data]));
+        console.log('Message deleted via WebSocket:', event.data);
+        break;
+      case 'channel:new':
+        // Add new channel if not already present
+        setChannels(prev => {
+          const exists = prev.some(c => c._id === event.data._id);
+          if (exists) return prev;
+          return [...prev, event.data];
+        });
+        break;
+      case 'channel:delete':
+        // Remove deleted channel
+        setChannels(prev => prev.filter(c => c._id !== event.data));
+        if (activeChannel === event.data) {
+          setActiveChannel(null);
+        }
+        break;
+    }
+  };
+
+  // Initialize WebSocket
+  useChatSocket({
+    channelId: activeChannel,
+    onEvent: handleWebSocketEvent,
+    enabled: useWebSocket
+  });
 
   // --- helpers ---
   const getCurrentUser = () => {
@@ -146,10 +211,17 @@ export default function Community({ students, courses }: CommunityProps) {
       if (isInitialLoad) {
         // For initial load, set messages directly
         setMessages(sortMessages(serverMessages));
+        setLastMessageCount(serverMessages.length);
+        setHasNewMessages(false);
         if (serverMessages.length > 0) {
           setLastMessageId(serverMessages[serverMessages.length - 1]._id);
         }
       } else {
+        // Check for new messages
+        const newMessageCount = serverMessages.length;
+        if (newMessageCount > lastMessageCount) {
+          setHasNewMessages(true);
+        }
         // For auto-refresh, merge server messages with optimistic messages
         setMessages(prevMessages => {
           if (!serverMessages.length) return prevMessages;
@@ -158,9 +230,9 @@ export default function Community({ students, courses }: CommunityProps) {
           const optimistic = prevMessages.filter(m => m._id.startsWith("temp-"));
           const confirmed = prevMessages.filter(m => !m._id.startsWith("temp-"));
 
-          // find new server messages not already in confirmed
+          // find new server messages not already in confirmed and not deleted
           const newServerMessages = serverMessages.filter(
-            m => !confirmed.some(pm => pm._id === m._id)
+            m => !confirmed.some(pm => pm._id === m._id) && !deletedMessageIds.has(m._id)
           );
 
           // replace optimistic if server version exists
@@ -174,15 +246,18 @@ export default function Community({ students, courses }: CommunityProps) {
               )
           );
 
-          // merge and sort
-          return sortMessages([...confirmed, ...newServerMessages, ...stillOptimistic]);
+          // merge and sort, but exclude deleted messages
+          const allMessages = [...confirmed, ...newServerMessages, ...stillOptimistic];
+          const filteredMessages = allMessages.filter(m => !deletedMessageIds.has(m._id));
+          return sortMessages(filteredMessages);
         });
 
-        // update last message id
+        // update last message id and count
         const lastServerMessage = serverMessages[serverMessages.length - 1];
         if (lastServerMessage?._id) {
           setLastMessageId(lastServerMessage._id);
         }
+        setLastMessageCount(newMessageCount);
       }
     } catch (error) {
       console.error("Error fetching messages:", error);
@@ -272,6 +347,11 @@ export default function Community({ students, courses }: CommunityProps) {
         ])
       );
 
+          // INSTANT refresh to sync with other users immediately (only if WebSocket disabled)
+          if (!useWebSocket) {
+            setTimeout(() => fetchMessages(activeChannel, false), 100);
+          }
+
       // Update channels last message
       await fetchChannels();
     } catch (e) {
@@ -340,6 +420,11 @@ export default function Community({ students, courses }: CommunityProps) {
         setMessages(prev => prev.map(m => (m._id === editingMessage ? { ...m, content: editContent.trim(), isEdited: true } : m)));
         setEditingMessage(null);
         setEditContent('');
+        
+          // INSTANT refresh to sync with other users immediately (only if WebSocket disabled)
+          if (!useWebSocket) {
+            setTimeout(() => fetchMessages(activeChannel, false), 100);
+          }
       }
     } catch (e) {
       console.error(e);
@@ -348,26 +433,109 @@ export default function Community({ students, courses }: CommunityProps) {
   };
 
   const handleDeleteMessage = async (messageId: string) => {
+    // Prevent duplicate delete requests
+    if (deletingMessageIds.has(messageId)) return;
+    
+    // Optimistically remove the message from UI immediately
+    const originalMessages = messages;
+    setMessages(prev => prev.filter(m => m._id !== messageId));
+    setDeletedMessageIds(prev => new Set([...prev, messageId]));
+    setDeletingMessageIds(prev => new Set([...prev, messageId]));
+    setShowMessageMenu(null);
+    
     try {
       const token = localStorage.getItem('token');
-      if (!token) return;
-      const res = await fetch(`/api/community/messages/${messageId}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } });
+      if (!token) {
+        // Restore message if no token
+        setMessages(originalMessages);
+        setDeletedMessageIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(messageId);
+          return newSet;
+        });
+        setDeletingMessageIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(messageId);
+          return newSet;
+        });
+        return;
+      }
+      
+      const res = await fetch(`/api/community/messages/${messageId}`, { 
+        method: 'DELETE', 
+        headers: { Authorization: `Bearer ${token}` } 
+      });
+      
       if (!res.ok) {
+        // If message not found (404), it's already deleted - treat as success
+        if (res.status === 404) {
+          showToast('Message deleted', 'success');
+          // Message is already removed from UI and marked as deleted
+          setDeletingMessageIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(messageId);
+            return newSet;
+          });
+          return;
+        }
+        
         const err = await res.json();
+        // Restore message on other failures
+        setMessages(originalMessages);
+        setDeletedMessageIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(messageId);
+          return newSet;
+        });
+        setDeletingMessageIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(messageId);
+          return newSet;
+        });
         showToast(err.message || 'Failed to delete', 'error');
         return;
       }
+      
       const data = await res.json();
-        if (data.success) {
+      if (data.success) {
         showToast('Message deleted', 'success');
-        setMessages(prev => prev.filter(m => m._id !== messageId));
-          await fetchChannels();
+        // Message is already removed from UI and marked as deleted
+        // The deletedMessageIds will prevent it from reappearing during polling
+        
+          // INSTANT refresh to sync with other users immediately (only if WebSocket disabled)
+          if (!useWebSocket) {
+            setTimeout(() => fetchMessages(activeChannel, false), 100);
+          }
+      } else {
+        // Restore message if deletion failed
+        setMessages(originalMessages);
+        setDeletedMessageIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(messageId);
+          return newSet;
+        });
+        setDeletingMessageIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(messageId);
+          return newSet;
+        });
+        showToast('Failed to delete message', 'error');
       }
     } catch (e) {
       console.error(e);
+      // Restore message on error
+      setMessages(originalMessages);
+      setDeletedMessageIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
+      setDeletingMessageIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
       showToast('Failed to delete message', 'error');
-    } finally {
-      setShowMessageMenu(null);
     }
   };
 
@@ -395,6 +563,11 @@ export default function Community({ students, courses }: CommunityProps) {
           setIsPrivateChannel(false);
           setShowChannelCreator(false);
           await fetchChannels();
+          
+          // INSTANT refresh to sync with other users immediately (only if WebSocket disabled)
+          if (!useWebSocket) {
+            setTimeout(() => fetchChannels(), 100);
+          }
       }
     } catch (e) {
       console.error(e);
@@ -452,17 +625,20 @@ export default function Community({ students, courses }: CommunityProps) {
 
   useEffect(() => {
     if (!activeChannel) return;
+    // Clear deleted messages and deleting state when switching channels
+    setDeletedMessageIds(new Set());
+    setDeletingMessageIds(new Set());
     fetchMessages(activeChannel, true);
   }, [activeChannel]);
 
-  // poll for messages (server is authoritative)
+  // poll for messages (server is authoritative) - Fallback when WebSocket is disabled
   useEffect(() => {
-    if (!activeChannel) return;
+    if (!activeChannel || useWebSocket) return;
     const id = setInterval(() => {
       if (!isSendingMessage) fetchMessages(activeChannel, false);
-    }, 5000);
+    }, 500); // Ultra-fast polling for instant updates
     return () => clearInterval(id);
-  }, [activeChannel, isSendingMessage]);
+  }, [activeChannel, isSendingMessage, useWebSocket]);
 
   // user scrolled up detection
   const checkIfUserScrolledUp = () => {
@@ -472,9 +648,18 @@ export default function Community({ students, courses }: CommunityProps) {
     setIsUserScrolledUp(!isAtBottom);
   };
 
+  // scroll to bottom function
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    setHasNewMessages(false);
+  };
+
   // scroll to bottom when new messages arrive (only if the user isn't scrolled up)
   useEffect(() => {
-    if (!isUserScrolledUp) messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    if (!isUserScrolledUp) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+      setHasNewMessages(false);
+    }
   }, [messages, isUserScrolledUp]);
 
   // Prevent hydration mismatch by not rendering until client-side
@@ -516,7 +701,22 @@ export default function Community({ students, courses }: CommunityProps) {
         </div>
         
         <div className="p-4">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Channels ({channels.length})</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Channels ({channels.length})</h3>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-400">WebSocket</span>
+              <button
+                onClick={() => setUseWebSocket(!useWebSocket)}
+                className={`w-8 h-4 rounded-full transition-colors ${
+                  useWebSocket ? 'bg-green-500' : 'bg-gray-400'
+                }`}
+              >
+                <div className={`w-3 h-3 bg-white rounded-full transition-transform ${
+                  useWebSocket ? 'translate-x-4' : 'translate-x-0.5'
+                }`} />
+              </button>
+            </div>
+          </div>
           <div className="space-y-1">
             {channels.map(c => (
               <div
@@ -559,10 +759,31 @@ export default function Community({ students, courses }: CommunityProps) {
       {/* Main */}
       <div className="flex-1 flex flex-col bg-white dark:bg-gray-800">
         <div className="p-4 border-b">
-          <h3 className="font-semibold text-gray-900 dark:text-white">
-            {channels.find(x => x._id === activeChannel)?.name ? `#${channels.find(x => x._id === activeChannel)?.name}` : 'Select a channel'}
-          </h3>
-          <p className="text-sm text-gray-500 mt-1">{channels.find(x => x._id === activeChannel)?.description}</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-gray-900 dark:text-white">
+                {channels.find(x => x._id === activeChannel)?.name ? `#${channels.find(x => x._id === activeChannel)?.name}` : 'Select a channel'}
+              </h3>
+              <p className="text-sm text-gray-500 mt-1">{channels.find(x => x._id === activeChannel)?.description}</p>
+            </div>
+            <div className="flex items-center space-x-2">
+              {hasNewMessages && (
+                <div className="flex items-center space-x-2 text-blue-600">
+                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
+                  <span className="text-xs font-medium">New messages</span>
+                </div>
+              )}
+              <button
+                onClick={() => activeChannel && fetchMessages(activeChannel, false)}
+                className="p-1 hover:bg-gray-100 rounded transition-colors"
+                title="Refresh messages"
+              >
+                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
         
         <div ref={messagesContainerRef} className="flex-1 p-4 overflow-y-auto" onScroll={checkIfUserScrolledUp}>
@@ -631,6 +852,19 @@ export default function Community({ students, courses }: CommunityProps) {
                 </div>
               ))}
               <div ref={messagesEndRef} />
+            </div>
+          )}
+          
+          {/* New Messages Indicator */}
+          {hasNewMessages && isUserScrolledUp && (
+            <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-10">
+              <button
+                onClick={scrollToBottom}
+                className="bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 animate-bounce"
+              >
+                <span className="text-sm">New messages</span>
+                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+              </button>
             </div>
           )}
         </div>

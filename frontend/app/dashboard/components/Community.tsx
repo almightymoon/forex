@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
+import useChatSocket from '@/hooks/useChatSocket';
 import { 
   Hash, 
   Send, 
@@ -83,9 +84,71 @@ export default function Community() {
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
+  const [deletedMessageIds, setDeletedMessageIds] = useState<Set<string>>(new Set());
+  const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
+  const [useWebSocket, setUseWebSocket] = useState(true);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // WebSocket event handler with better deduplication
+  const handleWebSocketEvent = (event: any) => {
+    console.log('Student WebSocket event:', event.type, event.data);
+    
+    switch (event.type) {
+      case 'new':
+        // Add new message if not already present and not from current user
+        setMessages(prev => {
+          const exists = prev.some(m => m._id === event.data._id);
+          if (exists) {
+            console.log('Message already exists, skipping:', event.data._id);
+            return prev;
+          }
+          // Don't add if it's from current user (optimistic update already handled)
+          if (event.data.author?._id === currentUser?.id) {
+            console.log('Message from current user, skipping WebSocket update:', event.data._id);
+            return prev;
+          }
+          console.log('Adding new message from WebSocket:', event.data._id);
+          return sortMessages([...prev, event.data]);
+        });
+        break;
+      case 'update':
+        // Update existing message
+        setMessages(prev => prev.map(m => 
+          m._id === event.data._id ? event.data : m
+        ));
+        break;
+      case 'delete':
+        // Remove deleted message and add to deleted set
+        setMessages(prev => prev.filter(m => m._id !== event.data));
+        setDeletedMessageIds(prev => new Set([...prev, event.data]));
+        console.log('Message deleted via WebSocket:', event.data);
+        break;
+      case 'channel:new':
+        // Add new channel if not already present
+        setChannels(prev => {
+          const exists = prev.some(c => c._id === event.data._id);
+          if (exists) return prev;
+          return [...prev, event.data];
+        });
+        break;
+      case 'channel:delete':
+        // Remove deleted channel
+        setChannels(prev => prev.filter(c => c._id !== event.data));
+        if (activeChannel === event.data) {
+          setActiveChannel(null);
+        }
+        break;
+    }
+  };
+
+  // Initialize WebSocket
+  useChatSocket({
+    channelId: activeChannel,
+    onEvent: handleWebSocketEvent,
+    enabled: useWebSocket
+  });
 
   // Get current user info from token
   const getCurrentUser = () => {
@@ -213,6 +276,11 @@ export default function Community() {
           ));
           setEditingMessage(null);
           setEditContent('');
+          
+          // INSTANT refresh to sync with other users immediately (only if WebSocket disabled)
+          if (!useWebSocket) {
+            setTimeout(() => fetchMessages(activeChannel, false), 100);
+          }
         }
       } else {
         const errorData = await response.json();
@@ -283,8 +351,9 @@ export default function Community() {
       const serverMessages: Message[] = data.messages || [];
 
       if (isInitialLoad) {
-        // For initial load, set messages directly
-        setMessages(sortMessages(serverMessages));
+        // For initial load, set messages directly but filter out deleted ones
+        const filteredMessages = serverMessages.filter(m => !deletedMessageIds.has(m._id));
+        setMessages(sortMessages(filteredMessages));
         if (serverMessages.length > 0) {
           setLastMessageId(serverMessages[serverMessages.length - 1]._id);
         }
@@ -297,9 +366,9 @@ export default function Community() {
           const optimistic = prevMessages.filter(m => m._id.startsWith("temp-"));
           const confirmed = prevMessages.filter(m => !m._id.startsWith("temp-"));
 
-          // find new server messages not already in confirmed
+          // find new server messages not already in confirmed and not deleted
           const newServerMessages = serverMessages.filter(
-            m => !confirmed.some(pm => pm._id === m._id)
+            m => !confirmed.some(pm => pm._id === m._id) && !deletedMessageIds.has(m._id)
           );
 
           // replace optimistic if server version exists
@@ -313,8 +382,10 @@ export default function Community() {
               )
           );
 
-          // merge and sort
-          return sortMessages([...confirmed, ...newServerMessages, ...stillOptimistic]);
+          // merge and sort, but exclude deleted messages
+          const allMessages = [...confirmed, ...newServerMessages, ...stillOptimistic];
+          const filteredMessages = allMessages.filter(m => !deletedMessageIds.has(m._id));
+          return sortMessages(filteredMessages);
         });
 
         // update last message id
@@ -385,6 +456,12 @@ export default function Community() {
             ])
           );
           setLastMessageId(data.message._id);
+          
+          // INSTANT refresh to sync with other users immediately (only if WebSocket disabled)
+          if (!useWebSocket) {
+            setTimeout(() => fetchMessages(activeChannel, false), 100);
+          }
+          
           // Refresh channels to update last message
           await fetchChannels();
         }
@@ -407,10 +484,34 @@ export default function Community() {
 
   // Delete message
   const handleDeleteMessage = async (messageId: string) => {
+    // Prevent duplicate delete requests
+    if (deletingMessageIds.has(messageId)) return;
+    
+    // Optimistically remove the message from UI immediately
+    const originalMessages = messages;
+    setMessages(prev => prev.filter(m => m._id !== messageId));
+    setDeletedMessageIds(prev => new Set([...prev, messageId]));
+    setDeletingMessageIds(prev => new Set([...prev, messageId]));
+    setShowMessageMenu(null);
+    
     try {
       const token = localStorage.getItem('token');
-      if (!token) return;
-
+      if (!token) {
+        // Restore message if no token
+        setMessages(originalMessages);
+        setDeletedMessageIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(messageId);
+          return newSet;
+        });
+        setDeletingMessageIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(messageId);
+          return newSet;
+        });
+        return;
+      }
+      
       const response = await fetch(`/api/community/messages/${messageId}`, {
         method: 'DELETE',
         headers: {
@@ -422,43 +523,95 @@ export default function Community() {
         const data = await response.json();
         if (data.success) {
           showToast('Message deleted successfully', 'success');
-          // Remove message from local state
-          setMessages(prev => prev.filter(msg => msg._id !== messageId));
-          // Refresh channels to update last message
+          // Message is already removed from UI and marked as deleted
+          // The deletedMessageIds will prevent it from reappearing during polling
+          
+          // INSTANT refresh to sync with other users immediately (only if WebSocket disabled)
+          if (!useWebSocket) {
+            setTimeout(() => fetchMessages(activeChannel, false), 100);
+          }
+          
           await fetchChannels();
+        } else {
+          // Restore message if deletion failed
+          setMessages(originalMessages);
+          setDeletedMessageIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(messageId);
+            return newSet;
+          });
+          showToast('Failed to delete message', 'error');
         }
       } else {
+        // If message not found (404), it's already deleted - treat as success
+        if (response.status === 404) {
+          showToast('Message deleted successfully', 'success');
+          // Message is already removed from UI and marked as deleted
+          setDeletingMessageIds(prev => {
+            const newSet = new Set(prev);
+            newSet.delete(messageId);
+            return newSet;
+          });
+          await fetchChannels();
+          return;
+        }
+        
         const errorData = await response.json();
+        // Restore message on other failures
+        setMessages(originalMessages);
+        setDeletedMessageIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(messageId);
+          return newSet;
+        });
+        setDeletingMessageIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(messageId);
+          return newSet;
+        });
         showToast(errorData.message || 'Failed to delete message', 'error');
       }
     } catch (error) {
       console.error('Error deleting message:', error);
+      // Restore message on error
+      setMessages(originalMessages);
+      setDeletedMessageIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
+      setDeletingMessageIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(messageId);
+        return newSet;
+      });
       showToast('Failed to delete message', 'error');
-    } finally {
-      setShowMessageMenu(null);
     }
   };
 
   // Load messages when channel changes
   useEffect(() => {
     if (activeChannel) {
+      // Clear deleted messages and deleting state when switching channels
+      setDeletedMessageIds(new Set());
+      setDeletingMessageIds(new Set());
       fetchMessages(activeChannel, true);
     }
   }, [activeChannel]);
 
-  // Auto-refresh messages every 5 seconds for real-time updates
+  // Auto-refresh messages INSTANTLY like Discord (fallback when WebSocket disabled)
   useEffect(() => {
-    if (!activeChannel) return;
+    if (!activeChannel || useWebSocket) return;
 
     const interval = setInterval(() => {
       // Only refresh if we're not sending a message
       if (!isSendingMessage) {
         fetchMessages(activeChannel, false);
       }
-    }, 5000); // Poll every 5 seconds
+    }, 500); // Ultra-fast polling for instant updates
 
     return () => clearInterval(interval);
-  }, [activeChannel, isSendingMessage]);
+  }, [activeChannel, isSendingMessage, useWebSocket]);
 
   // Auto-scroll to bottom when new messages arrive (only if user is at bottom)
   useEffect(() => {
@@ -542,9 +695,24 @@ export default function Community() {
         </div>
         
         <div className="p-4">
-          <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-3">
-            Channels ({channels.length})
-          </h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+              Channels ({channels.length})
+            </h3>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs text-gray-400">WebSocket</span>
+              <button
+                onClick={() => setUseWebSocket(!useWebSocket)}
+                className={`w-8 h-4 rounded-full transition-colors ${
+                  useWebSocket ? 'bg-green-500' : 'bg-gray-400'
+                }`}
+              >
+                <div className={`w-3 h-3 bg-white rounded-full transition-transform ${
+                  useWebSocket ? 'translate-x-4' : 'translate-x-0.5'
+                }`} />
+              </button>
+            </div>
+          </div>
           <div className="space-y-1">
             {channels.map((channel) => (
               <button

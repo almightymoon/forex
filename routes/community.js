@@ -3,6 +3,7 @@ const router = express.Router();
 const Channel = require('../models/Channel');
 const Message = require('../models/Message');
 const { authenticateToken } = require('../middleware/auth');
+const { broadcastMessage, broadcastToAll } = require('../websocket');
 
 // Get all public channels
 router.get('/channels', authenticateToken, async (req, res) => {
@@ -54,6 +55,9 @@ router.post('/channels', authenticateToken, async (req, res) => {
     
     // Populate creator info
     await channel.populate('createdBy', 'firstName lastName');
+    
+    // Broadcast new channel via WebSocket
+    broadcastToAll('channel:new', channel);
     
     res.status(201).json({ success: true, channel });
   } catch (error) {
@@ -199,6 +203,9 @@ router.post('/channels/:id/messages', authenticateToken, async (req, res) => {
     // Populate author info
     await message.populate('author', 'firstName lastName role');
     
+    // Broadcast new message via WebSocket
+    broadcastMessage(req.params.id, 'message:new', message);
+    
     res.status(201).json({ success: true, message });
   } catch (error) {
     console.error('Error sending message:', error);
@@ -230,6 +237,9 @@ router.put('/messages/:id', authenticateToken, async (req, res) => {
     // Populate author info
     await message.populate('author', 'firstName lastName role');
     
+    // Broadcast message update via WebSocket
+    broadcastMessage(message.channelId.toString(), 'message:update', message);
+    
     res.json({ success: true, message });
   } catch (error) {
     console.error('Error editing message:', error);
@@ -253,7 +263,14 @@ router.delete('/messages/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Cannot delete this message' });
     }
 
+    const channelId = message.channelId.toString();
+    const messageId = message._id.toString();
+    
     await message.deleteOne();
+    
+    // Broadcast message deletion via WebSocket
+    broadcastMessage(channelId, 'message:delete', messageId);
+    
     res.json({ success: true, message: 'Message deleted successfully' });
   } catch (error) {
     console.error('Error deleting message:', error);
@@ -423,11 +440,16 @@ router.delete('/channels/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Only teachers and admins can delete channels' });
     }
 
+    const channelId = req.params.id;
+    
     // Delete all messages in the channel
-    await Message.deleteMany({ channelId: req.params.id });
+    await Message.deleteMany({ channelId });
 
     // Delete the channel
-    await Channel.findByIdAndDelete(req.params.id);
+    await Channel.findByIdAndDelete(channelId);
+
+    // Broadcast channel deletion via WebSocket
+    broadcastToAll('channel:delete', channelId);
 
     res.json({ success: true, message: 'Channel deleted successfully' });
   } catch (error) {

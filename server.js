@@ -26,9 +26,14 @@ const teacherRoutes = require('./routes/teacher');
 const communityRoutes = require('./routes/community');
 const certificateRoutes = require('./routes/certificates');
 const progressRoutes = require('./routes/progress');
+const { initializeWebSocket } = require('./websocket');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+// Create HTTP server for WebSocket
+const http = require('http');
+const server = http.createServer(app);
 
 // CORS configuration - MUST come before other middleware
 app.use(cors({
@@ -144,10 +149,14 @@ app.use('*', (req, res) => {
   res.status(404).json({ error: 'Route not found' });
 });
 
+// Initialize WebSocket
+initializeWebSocket(server);
+
 // Start server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
+  console.log(`WebSocket server initialized`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
 });
 
-module.exports = app;
+module.exports = { app, server };

@@ -4,6 +4,7 @@ import { LanguageProvider } from '../context/LanguageContext'
 import { ToastProvider } from '../components/Toast'
 import { DashboardProvider } from '../context/DashboardContext'
 import { AdminProvider } from '../context/AdminContext'
+import { WebSocketProvider } from '../context/WebSocketContext'
 import { GlobalSessionHandler } from '../components/GlobalSessionHandler'
 
 export const metadata = {
@@ -22,12 +23,14 @@ export default function RootLayout({
         <ToastProvider>
           <LanguageProvider>
             <SettingsProvider>
-              <DashboardProvider>
-                <AdminProvider>
-                  <GlobalSessionHandler />
-                  {children}
-                </AdminProvider>
-              </DashboardProvider>
+              <WebSocketProvider>
+                <DashboardProvider>
+                  <AdminProvider>
+                    <GlobalSessionHandler />
+                    {children}
+                  </AdminProvider>
+                </DashboardProvider>
+              </WebSocketProvider>
             </SettingsProvider>
           </LanguageProvider>
         </ToastProvider>

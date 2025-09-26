@@ -1521,7 +1521,7 @@ export default function Dashboard() {
                                   ? 'Teacher Must Start First'
                                   : session.meetingLink.includes('meet.google.com') 
                                     ? 'Waiting for Teacher' 
-                                    : 'Join Meeting'}
+                                  : 'Join Meeting'}
                             </button>
                           )}
                           <button
@@ -1582,13 +1582,13 @@ export default function Dashboard() {
                     </button>
                   </div>
                   
-                  <button
-                    onClick={() => refreshData()}
+                <button
+                  onClick={() => refreshData()}
                     className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-sm rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg transform hover:scale-105"
-                  >
-                    <RefreshCw className="w-4 h-4" />
-                    <span>Refresh</span>
-                  </button>
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  <span>Refresh</span>
+                </button>
                 </div>
               </div>
               {liveSessions.length === 0 ? (
@@ -1661,7 +1661,7 @@ export default function Dashboard() {
                       <div className={`relative z-10 ${sessionsViewMode === 'list' ? 'flex-1 p-6' : 'p-6'}`}>
                         {/* Header section */}
                         <div className={`flex items-start justify-between mb-4 ${sessionsViewMode === 'list' ? 'flex-col' : ''}`}>
-                          <div className="flex-1">
+                        <div className="flex-1">
                             <div className="flex items-center gap-3 mb-3">
                               <div className={`w-3 h-3 rounded-full shadow-lg ${
                                 session.status === 'live' 
@@ -1696,8 +1696,8 @@ export default function Dashboard() {
                                 )}
                               </span>
                             </div>
-                          </div>
-                        </div>
+                            </div>
+                            </div>
                         
                         {/* Information grid - responsive based on view mode */}
                         <div className={`grid gap-3 mb-6 ${
@@ -1709,12 +1709,12 @@ export default function Dashboard() {
                             <div className="flex items-center gap-1.5 mb-1.5">
                               <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-md flex items-center justify-center flex-shrink-0">
                                 <Calendar className="w-3 h-3 text-white" />
-                              </div>
+                            </div>
                               <p className="text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wide truncate">{safeT('date')}</p>
                             </div>
                             <p className="text-gray-900 dark:text-white font-bold text-sm truncate" title={new Date(session.scheduledAt).toLocaleDateString()}>{new Date(session.scheduledAt).toLocaleDateString()}</p>
                           </div>
-                          
+
                           <div className="group/info bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-3 border border-green-100 dark:border-green-800 hover:shadow-lg transition-all duration-300 hover:scale-105">
                             <div className="flex items-center gap-1.5 mb-1.5">
                               <div className="w-6 h-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-md flex items-center justify-center flex-shrink-0">
@@ -1770,71 +1770,71 @@ export default function Dashboard() {
                               {session.teacher?.firstName} {session.teacher?.lastName}
                             </span>
                           </div>
-                        </div>
+                          </div>
 
                         {/* Enhanced topics */}
-                        {session.topics && session.topics.length > 0 && (
-                          <div className="mb-4">
+                          {session.topics && session.topics.length > 0 && (
+                            <div className="mb-4">
                             <p className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1.5">
                               <BookOpen className="w-3.5 h-3.5" />
                               Topics:
                             </p>
                             <div className="flex flex-wrap gap-1.5">
-                              {session.topics.slice(0, 3).map((topic, idx) => (
+                                {session.topics.slice(0, 3).map((topic, idx) => (
                                 <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-gradient-to-r from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 text-blue-800 dark:text-blue-200 border border-blue-200 dark:border-blue-700 font-semibold shadow-sm hover:shadow-md transition-all duration-200 hover:scale-105 truncate max-w-[120px]" title={topic}>
-                                  {topic}
-                                </span>
-                              ))}
-                              {session.topics.length > 3 && (
+                                    {topic}
+                                  </span>
+                                ))}
+                                {session.topics.length > 3 && (
                                 <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600 font-semibold shadow-sm">
                                   +{session.topics.length - 3}
-                                </span>
-                              )}
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        )}
+                          )}
                       </div>
                       
                       {/* Enhanced footer with price and actions */}
                       <div className={`relative z-10 ${sessionsViewMode === 'list' ? 'flex flex-col justify-center p-6 border-l border-gray-100 dark:border-gray-700' : 'px-6 pb-6'}`}>
                         <div className={`${sessionsViewMode === 'list' ? 'space-y-4' : 'flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700'}`}>
-                          <div className="flex items-center space-x-2">
-                            {session.isFree ? (
+                        <div className="flex items-center space-x-2">
+                          {session.isFree ? (
                               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-full border border-green-200 dark:border-green-700 shadow-lg">
                                 <div className="w-1.5 h-1.5 bg-green-500 rounded-full shadow-lg shadow-green-500/50"></div>
                                 <span className="text-green-800 dark:text-green-200 font-bold text-sm">Free</span>
                               </div>
-                            ) : (
+                          ) : (
                               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-purple-100 to-violet-100 dark:from-purple-900/30 dark:to-violet-900/30 rounded-full border border-purple-200 dark:border-purple-700 shadow-lg">
                                 <span className="text-purple-800 dark:text-purple-200 font-bold text-sm">
-                                  ${session.price} {session.currency}
-                                </span>
+                              ${session.price} {session.currency}
+                            </span>
                               </div>
-                            )}
-                          </div>
-                          
+                          )}
+                        </div>
+                        
                           <div className={`flex space-x-2 ${sessionsViewMode === 'list' ? 'flex-col space-y-2 space-x-0' : ''}`}>
                             {session.status === 'scheduled' && !session.currentParticipants.some(p => p.student === user?._id || p.student._id === user?._id) ? (
-                              <button
-                                onClick={() => handleSignUpSession(session._id)}
+                            <button
+                              onClick={() => handleSignUpSession(session._id)}
                                 className="group/btn bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white px-4 py-2 rounded-lg font-semibold transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl flex items-center gap-1.5 text-xs"
-                              >
+                            >
                                 <Users className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
                                 Sign up
-                              </button>
+                            </button>
                             ) : session.currentParticipants.some(p => p.student === user?._id || p.student._id === user?._id) ? (
                               <span className="px-4 py-2 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 text-green-800 dark:text-green-200 rounded-lg font-semibold border border-green-200 dark:border-green-700 flex items-center gap-1.5 shadow-lg text-xs">
                                 <CheckCircle className="w-3.5 h-3.5" />
                                 Enrolled
-                              </span>
+                            </span>
                             ) : null}
                             
-                            {session.meetingLink && (
-                              <button
-                                onClick={() => {
-                                  setSelectedSession(session);
-                                  setShowMeetingModal(true);
-                                }}
+                          {session.meetingLink && (
+                            <button
+                              onClick={() => {
+                                setSelectedSession(session);
+                                setShowMeetingModal(true);
+                              }}
                                 disabled={session.meetingLink === 'https://meet.google.com/new' || (session.meetingLink.includes('meet.google.com') && session.status !== 'live')}
                                 className={`group/btn px-4 py-2 text-white rounded-lg font-semibold transition-all duration-300 transform shadow-lg flex items-center gap-1.5 text-xs ${
                                   session.meetingLink === 'https://meet.google.com/new' || (session.meetingLink.includes('meet.google.com') && session.status !== 'live')
@@ -1864,11 +1864,11 @@ export default function Dashboard() {
                                     Join Meeting
                                   </>
                                 )}
-                              </button>
-                            )}
-                          </div>
+                            </button>
+                          )}
                         </div>
                       </div>
+                    </div>
                     </motion.div>
                   ))}
                 </div>
@@ -1973,7 +1973,7 @@ export default function Dashboard() {
                                 ? selectedSession.status === 'live' 
                                   ? 'Join as Participant' 
                                   : 'Waiting for Teacher'
-                                : 'Join External Meeting'}
+                              : 'Join External Meeting'}
                           </span>
                         </button>
                         <button
