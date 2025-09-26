@@ -14,7 +14,7 @@ const MaintenancePage: React.FC<MaintenancePageProps> = ({
   platformName = 'Forex Navigators',
   message = 'We are currently performing scheduled maintenance to improve your experience.',
   estimatedTime = 'We expect to be back online shortly.',
-  contactEmail = 'support@forexnavigators.com'
+  contactEmail = 'thefxnavigators@gmail.com'
 }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center p-4">

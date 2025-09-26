@@ -20,9 +20,13 @@ export default function TeacherLayout({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [user, setUser] = useState<User | null>(null);
+  const [isClient, setIsClient] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
+    // Set client flag to prevent hydration mismatch
+    setIsClient(true);
+    
     const checkAuthentication = async () => {
       try {
         // Check if we're on the client side
@@ -76,6 +80,18 @@ export default function TeacherLayout({
 
     checkAuthentication();
   }, [router]);
+
+  // Prevent hydration mismatch by not rendering until client-side
+  if (!isClient) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner />
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Show loading spinner while checking authentication
   if (isLoading) {

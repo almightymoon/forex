@@ -661,7 +661,7 @@ export default function AboutPage() {
                   <p className="text-slate-600 dark:text-slate-400">Professional correspondence</p>
                 </div>
               </div>
-              <p className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4">info@forexnavigators.com</p>
+              <p className="text-lg font-semibold text-slate-700 dark:text-slate-300 mb-4">thefxnavigators.com</p>
               <p className="text-slate-600 dark:text-slate-400">Detailed inquiries and program information</p>
             </motion.div>
           </div>

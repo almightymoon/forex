@@ -410,4 +410,30 @@ router.post('/messages/:id/reaction', authenticateToken, async (req, res) => {
   }
 });
 
+// Delete channel (teachers and admins only)
+router.delete('/channels/:id', authenticateToken, async (req, res) => {
+  try {
+    const channel = await Channel.findById(req.params.id);
+    if (!channel) {
+      return res.status(404).json({ success: false, message: 'Channel not found' });
+    }
+
+    // Check if user is teacher or admin
+    if (req.user.role !== 'teacher' && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, message: 'Only teachers and admins can delete channels' });
+    }
+
+    // Delete all messages in the channel
+    await Message.deleteMany({ channelId: req.params.id });
+
+    // Delete the channel
+    await Channel.findByIdAndDelete(req.params.id);
+
+    res.json({ success: true, message: 'Channel deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting channel:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete channel' });
+  }
+});
+
 module.exports = router;

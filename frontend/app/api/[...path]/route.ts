@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://217.196.51.104:9090';
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
 
 export async function GET(
   request: NextRequest,
@@ -44,8 +44,16 @@ async function handleRequest(
 ) {
   try {
     const path = params.path.join('/');
+    
+    // Skip community routes - they have dedicated handlers
+    if (path.startsWith('community/')) {
+      return NextResponse.json({ error: 'Route not found' }, { status: 404 });
+    }
+    
     const url = new URL(request.url);
     const backendUrl = `${BACKEND_URL}/api/${path}${url.search}`;
+    
+    console.log(`Catch-all API proxy: ${method} ${path} -> ${backendUrl}`);
 
     // Get the request body if it exists
     let body = null;

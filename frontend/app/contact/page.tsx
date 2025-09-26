@@ -80,13 +80,13 @@ export default function ContactPage() {
     {
       icon: Mail,
       title: 'Email Us',
-      details: ['support@forexnavigators.com', 'info@forexnavigators.com'],
+      details: ['thefxnavigators@gmail.com', 'thefxnavigators.com'],
       description: 'We typically respond within 24 hours'
     },
     {
       icon: Phone,
       title: 'Call Us',
-      details: ['+1 (555) 123-4567', '+92 300 1234567'],
+      details: ['+92 3488566147', '03488566147'],
       description: 'Mon-Fri 9AM-6PM (PST)'
     },
     {
@@ -196,7 +196,7 @@ export default function ContactPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid md:grid-cols-4 gap-8 text-center">
             {[
-              { number: "10K+", label: "Students Helped" },
+              { number: "500+", label: "Students Helped" },
               { number: "24hrs", label: "Response Time" },
               { number: "98%", label: "Satisfaction Rate" },
               { number: "5★", label: "Average Rating" }
@@ -645,7 +645,7 @@ export default function ContactPage() {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Support</h3>
               <ul className="space-y-2 text-gray-600 dark:text-gray-400">
                 <li><a href="/contact" className="hover:text-blue-600 dark:hover:text-white transition-colors">Help Center</a></li>
-                <li><a href="mailto:support@forexnavigators.com" className="hover:text-blue-600 dark:hover:text-white transition-colors">Email Support</a></li>
+                <li><a href="mailto:thefxnavigators@gmail.com" className="hover:text-blue-600 dark:hover:text-white transition-colors">Email Support</a></li>
                 <li><a href="tel:+15551234567" className="hover:text-blue-600 dark:hover:text-white transition-colors">Phone Support</a></li>
               </ul>
             </div>

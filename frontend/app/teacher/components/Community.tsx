@@ -40,6 +40,8 @@ export default function Community({ students, courses }: CommunityProps) {
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   const [lastMessageId, setLastMessageId] = useState<string | null>(null);
+  const [isClient, setIsClient] = useState(false);
+  const [deletingChannel, setDeletingChannel] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -402,8 +404,43 @@ export default function Community({ students, courses }: CommunityProps) {
     }
   };
 
+  const handleDeleteChannel = async (channelId: string) => {
+    if (!confirm('Are you sure you want to delete this channel? This action cannot be undone.')) return;
+    
+    setDeletingChannel(channelId);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      const res = await fetch(`/api/community/channels/${channelId}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      
+      if (res.ok) {
+        await fetchChannels();
+        if (activeChannel === channelId) {
+          setActiveChannel('');
+          setMessages([]);
+        }
+        showToast('Channel deleted successfully!', 'success');
+      } else {
+        const error = await res.json();
+        showToast(error.message || 'Failed to delete channel', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to delete channel', 'error');
+    } finally {
+      setDeletingChannel(null);
+    }
+  };
+
   // --- lifecycle ---
   useEffect(() => {
+    // Set client flag to prevent hydration mismatch
+    setIsClient(true);
+    
     const load = async () => {
       setLoading(true);
       setCurrentUser(getCurrentUser());
@@ -440,6 +477,18 @@ export default function Community({ students, courses }: CommunityProps) {
     if (!isUserScrolledUp) messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
   }, [messages, isUserScrolledUp]);
 
+  // Prevent hydration mismatch by not rendering until client-side
+  if (!isClient) {
+    return (
+      <div className="flex h-[calc(100vh-200px)] items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-lg">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex h-[calc(100vh-200px)] items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-lg">
@@ -470,22 +519,38 @@ export default function Community({ students, courses }: CommunityProps) {
           <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">Channels ({channels.length})</h3>
           <div className="space-y-1">
             {channels.map(c => (
-              <button
+              <div
                 key={c._id}
-                onClick={() => setActiveChannel(c._id)}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left ${
+                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg ${
                   activeChannel === c._id ? 'bg-blue-100 text-blue-900' : 'hover:bg-gray-100 text-gray-700'
                 }`}
               >
-                {c.isPrivate ? <Lock className="w-4 h-4" /> : <Hash className="w-4 h-4" />}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-medium truncate">#{c.name}</span>
+                <button
+                  onClick={() => setActiveChannel(c._id)}
+                  className="flex items-center space-x-3 flex-1 min-w-0 text-left"
+                >
+                  {c.isPrivate ? <Lock className="w-4 h-4" /> : <Hash className="w-4 h-4" />}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center space-x-2">
+                      <span className="font-medium truncate">#{c.name}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 truncate">{c.description}</p>
                   </div>
-                  <p className="text-xs text-gray-500 truncate">{c.description}</p>
-                </div>
-                <span className="text-xs text-gray-400">{c.memberCount}</span>
-              </button>
+                  <span className="text-xs text-gray-400">{c.memberCount}</span>
+                </button>
+                <button
+                  onClick={() => handleDeleteChannel(c._id)}
+                  disabled={deletingChannel === c._id}
+                  className="p-1 hover:bg-red-100 rounded text-red-600 hover:text-red-700 disabled:opacity-50"
+                  title="Delete channel"
+                >
+                  {deletingChannel === c._id ? (
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600" />
+                  ) : (
+                    <Trash2 className="w-3 h-3" />
+                  )}
+                </button>
+              </div>
             ))}
           </div>
         </div>
