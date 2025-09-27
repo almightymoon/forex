@@ -118,9 +118,15 @@ router.put('/:courseId/video/:contentId', authenticateToken, async (req, res) =>
       watchedSegments
     });
 
-    // Check if course is completed (90% or more) and generate certificate
+    // Check if course is completed and generate certificate
     let certificateGenerated = false;
-    if (progress.overallProgress.percentage >= 90) {
+    
+    // Get course to check certificate settings
+    const Course = require('../models/Course');
+    const course = await Course.findById(courseId).populate('teacher', 'firstName lastName');
+    
+    if (course && course.certificate && course.certificate.isAvailable && 
+        progress.overallProgress.percentage >= course.certificate.minProgress) {
       try {
         // Check if certificate already exists
         const Certificate = require('../models/Certificate');
@@ -132,10 +138,8 @@ router.put('/:courseId/video/:contentId', authenticateToken, async (req, res) =>
         if (!existingCertificate) {
           // Generate certificate
           const certificateService = require('../services/certificateService');
-          const Course = require('../models/Course');
           const User = require('../models/User');
 
-          const course = await Course.findById(courseId).populate('teacher', 'firstName lastName');
           const student = await User.findById(userId);
 
           if (course && student) {
@@ -649,6 +653,156 @@ router.get('/:courseId/certificate-eligibility', authenticateToken, async (req, 
   } catch (error) {
     console.error('Check certificate eligibility error:', error);
     res.status(500).json({ error: 'Failed to check certificate eligibility' });
+  }
+});
+
+// @route   PUT /api/progress/:courseId/text/:contentId
+// @desc    Update text content progress
+// @access  Private (enrolled students)
+router.put('/:courseId/text/:contentId', authenticateToken, async (req, res) => {
+  try {
+    console.log('=== TEXT PROGRESS UPDATE STARTED ===');
+    const { courseId, contentId } = req.params;
+    const userId = req.user.userId || req.user._id;
+    const { timeSpent, readingPercentage, isCompleted, lastReadAt } = req.body;
+    
+    console.log('Request data:', {
+      courseId,
+      contentId,
+      userId,
+      timeSpent,
+      readingPercentage,
+      isCompleted,
+      lastReadAt
+    });
+
+    if (timeSpent === undefined || timeSpent === null) {
+      console.log('Validation failed:', { timeSpent });
+      return res.status(400).json({ 
+        error: 'Time spent is required',
+        received: { timeSpent }
+      });
+    }
+
+    // Get or create progress record
+    let progress = await CourseProgress.findOne({ 
+      student: userId, 
+      course: courseId 
+    });
+
+    if (!progress) {
+      const course = await Course.findById(courseId);
+      if (!course) {
+        return res.status(404).json({ error: 'Course not found' });
+      }
+      progress = await CourseProgress.initializeProgress(userId, courseId, course.content);
+    }
+
+    // Ensure contentProgress array exists
+    if (!progress.contentProgress) {
+      progress.contentProgress = [];
+    }
+
+    console.log('Progress record:', {
+      studentId: userId,
+      courseId,
+      contentId,
+      contentProgressLength: progress.contentProgress.length,
+      timeSpent,
+      readingPercentage
+    });
+
+    // Update text progress
+    await progress.updateContentProgress(contentId, 'text', {
+      timeSpent,
+      readingPercentage,
+      isCompleted,
+      lastReadAt
+    });
+
+    // Check if course is completed and generate certificate
+    let certificateGenerated = false;
+    
+    // Get course to check certificate settings
+    const Course = require('../models/Course');
+    const course = await Course.findById(courseId).populate('teacher', 'firstName lastName');
+    
+    if (course && course.certificate && course.certificate.isAvailable && 
+        progress.overallProgress.percentage >= course.certificate.minProgress) {
+      try {
+        // Check if certificate already exists
+        const Certificate = require('../models/Certificate');
+        const existingCertificate = await Certificate.findOne({
+          student: userId,
+          course: courseId
+        });
+
+        if (!existingCertificate) {
+          // Generate certificate
+          const certificateService = require('../services/certificateService');
+          const User = require('../models/User');
+
+          const student = await User.findById(userId);
+
+          if (course && student) {
+            const certificateId = certificateService.generateCertificateId();
+            const certificateData = {
+              studentName: `${student.firstName} ${student.lastName}`,
+              courseTitle: course.title,
+              instructorName: `${course.teacher.firstName} ${course.teacher.lastName}`,
+              completionDate: new Date(),
+              completionPercentage: progress.overallProgress.percentage,
+              certificateId,
+              issuedBy: 'FOREX NAVIGATORS'
+            };
+
+            const { filePath, fileName, certificateUrl } = await certificateService.generateCertificate(certificateData);
+
+            // Save certificate to database
+            const certificate = new Certificate({
+              student: userId,
+              course: courseId,
+              certificateId,
+              completionDate: certificateData.completionDate,
+              completionPercentage: certificateData.completionPercentage,
+              studentName: certificateData.studentName,
+              courseTitle: certificateData.courseTitle,
+              instructorName: certificateData.instructorName,
+              certificateUrl,
+              issuedBy: certificateData.issuedBy
+            });
+
+            await certificate.save();
+            certificateGenerated = true;
+            console.log('Certificate generated successfully:', certificateId);
+          }
+        }
+      } catch (certError) {
+        console.error('Certificate generation error:', certError);
+        // Don't fail the progress update if certificate generation fails
+      }
+    }
+
+    console.log('=== TEXT PROGRESS UPDATE COMPLETED ===');
+    console.log('Final progress:', {
+      overallPercentage: progress.overallProgress.percentage,
+      completedContent: progress.overallProgress.completedContent,
+      totalContent: progress.overallProgress.totalContent,
+      certificateGenerated
+    });
+
+    res.json({
+      success: true,
+      progress: {
+        overallProgress: progress.overallProgress,
+        contentProgress: progress.contentProgress.find(cp => cp.contentId.toString() === contentId)
+      },
+      certificateGenerated
+    });
+
+  } catch (error) {
+    console.error('Text progress update error:', error);
+    res.status(500).json({ error: 'Failed to update text progress' });
   }
 });
 

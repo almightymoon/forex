@@ -107,6 +107,12 @@ const contentCompletionSchema = new mongoose.Schema({
       type: Number, // in seconds
       default: 0
     },
+    readingPercentage: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 100
+    },
     lastReadAt: Date,
     isMarkedComplete: {
       type: Boolean,
@@ -381,15 +387,37 @@ courseProgressSchema.methods.updateContentProgress = function(contentId, content
 
     case 'text':
     case 'ppt':
+      // Initialize readingProgress if it doesn't exist
+      if (!contentProgress.readingProgress) {
+        contentProgress.readingProgress = {
+          timeSpent: 0,
+          lastReadAt: null,
+          isMarkedComplete: false,
+          markedCompleteAt: null
+        };
+      }
+      
       if (progressData.markedComplete) {
         contentProgress.readingProgress.isMarkedComplete = true;
         contentProgress.readingProgress.markedCompleteAt = new Date();
         contentProgress.isCompleted = true;
         contentProgress.completedAt = new Date();
       }
-      if (progressData.timeSpent) {
-        contentProgress.readingProgress.timeSpent += progressData.timeSpent;
-        contentProgress.readingProgress.lastReadAt = new Date();
+      
+      if (progressData.timeSpent !== undefined) {
+        contentProgress.readingProgress.timeSpent = progressData.timeSpent;
+        contentProgress.readingProgress.lastReadAt = progressData.lastReadAt ? new Date(progressData.lastReadAt) : new Date();
+      }
+      
+      if (progressData.readingPercentage !== undefined) {
+        contentProgress.readingProgress.readingPercentage = progressData.readingPercentage;
+      }
+      
+      if (progressData.isCompleted !== undefined) {
+        contentProgress.isCompleted = progressData.isCompleted;
+        if (progressData.isCompleted && !contentProgress.completedAt) {
+          contentProgress.completedAt = new Date();
+        }
       }
       break;
   }

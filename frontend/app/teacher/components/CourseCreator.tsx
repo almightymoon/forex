@@ -702,6 +702,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
               { id: 'content', name: 'Content Builder', icon: FileText },
               { id: 'quizzes', name: 'Assessments', icon: CheckSquare },
               { id: 'assignments', name: 'Assignments', icon: FileText },
+              { id: 'settings', name: 'Settings', icon: Settings },
               { id: 'preview', name: 'Preview', icon: Eye }
             ].map((tab) => {
               const Icon = tab.icon;
@@ -787,6 +788,13 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
             setEditingAssignment={setEditingAssignment}
             showAssignmentBuilder={showAssignmentBuilder}
             setShowAssignmentBuilder={setShowAssignmentBuilder}
+          />
+        )}
+
+        {activeTab === 'settings' && (
+          <SettingsTab
+            courseData={courseData}
+            setCourseData={setCourseData}
           />
         )}
 
@@ -2585,6 +2593,136 @@ function AssignmentsTab({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// Settings Tab Component
+function SettingsTab({ courseData, setCourseData }: { courseData: any, setCourseData: any }) {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Course Settings</h2>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Certificate Settings</h3>
+        
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Enable Certificate on Completion
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Students will receive a certificate when they complete the course
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={courseData.settings?.certificateOnCompletion || false}
+                onChange={(e) => setCourseData({
+                  ...courseData,
+                  settings: {
+                    ...courseData.settings,
+                    certificateOnCompletion: e.target.checked
+                  }
+                })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          {courseData.settings?.certificateOnCompletion && (
+            <div className="ml-4 pl-4 border-l-2 border-blue-200 dark:border-blue-700">
+              <div className="space-y-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Minimum Progress Required (%)
+                  </label>
+                  <input
+                    type="number"
+                    min="50"
+                    max="100"
+                    value={courseData.settings?.minProgressForCertificate || 80}
+                    onChange={(e) => setCourseData({
+                      ...courseData,
+                      settings: {
+                        ...courseData.settings,
+                        minProgressForCertificate: parseInt(e.target.value)
+                      }
+                    })}
+                    className="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                  />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    Students must complete this percentage to receive a certificate
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Content Settings</h3>
+        
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Sequential Content Unlocking
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Students must complete content in order to unlock the next item
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={courseData.settings?.sequentialUnlocking !== false}
+                onChange={(e) => setCourseData({
+                  ...courseData,
+                  settings: {
+                    ...courseData.settings,
+                    sequentialUnlocking: e.target.checked
+                  }
+                })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                Allow Preview Content
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Students can access preview content without enrollment
+              </p>
+            </div>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={courseData.settings?.allowPreview !== false}
+                onChange={(e) => setCourseData({
+                  ...courseData,
+                  settings: {
+                    ...courseData.settings,
+                    allowPreview: e.target.checked
+                  }
+                })}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 dark:peer-focus:ring-blue-800 rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-blue-600"></div>
+            </label>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

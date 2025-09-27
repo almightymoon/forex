@@ -38,6 +38,7 @@ import DarkModeToggle from '../../../components/DarkModeToggle';
 import { getDashboardRoute, getUserRole } from '../../../utils/dashboardUtils';
 import { useVideoProgress } from '../../../hooks/useVideoProgress';
 import NewVideoPlayer from '../../../components/NewVideoPlayer';
+import TextContent from '../../../components/TextContent';
 
 // Video Player Component
 const VideoPlayer = ({ 
@@ -574,7 +575,7 @@ const VideoPlayer = ({
       
       {/* Progress error display */}
       {progressError && (
-        <div className="absolute top-4 right-4 bg-red-100 border border-red-400 text-red-700 px-4 py-2 rounded-lg text-sm">
+        <div className="absolute top-4 right-4 bg-red-100 dark:bg-red-900/30 border border-red-400 dark:border-red-600 text-red-700 dark:text-red-300 px-4 py-2 rounded-lg text-sm">
           {progressError}
         </div>
       )}
@@ -665,6 +666,8 @@ export default function CourseDetail() {
   const [completedVideos, setCompletedVideos] = useState<string[]>([]);
   const [assignments, setAssignments] = useState<any[]>([]);
   const [courseProgress, setCourseProgress] = useState(0);
+  const [contentProgress, setContentProgress] = useState<any[]>([]);
+  const [certificateEligible, setCertificateEligible] = useState(false);
   const { settings, loading: settingsLoading } = useSettings();
 
   // Prevent hydration mismatch by showing loading state
@@ -701,10 +704,17 @@ export default function CourseDetail() {
       if (response.ok) {
         const data = await response.json();
         setCourseProgress(data.progress?.overallProgress?.percentage || 0);
+        setContentProgress(data.progress?.contentProgress || []);
+        setCertificateEligible(data.progress?.certificateEligibility?.isEligible || false);
       }
     } catch (error) {
       console.error('Error fetching course progress:', error);
     }
+  };
+
+  // Function to refresh progress after content completion
+  const refreshProgress = async () => {
+    await fetchCourseProgress();
   };
 
   const fetchCourseDetails = async () => {
@@ -712,6 +722,63 @@ export default function CourseDetail() {
       const response = await fetch(`/api/courses/${courseId}`);
       if (response.ok) {
         const courseData = await response.json();
+        
+        // Check if user is enrolled by looking at course data BEFORE cleaning it
+        const token = localStorage.getItem('token');
+        if (token) {
+          try {
+            // First, try to get user info from token to check enrollment
+            const userResponse = await fetch('/api/auth/me', {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            
+            if (userResponse.ok) {
+              const userData = await userResponse.json();
+              const userId = userData.user?._id || userData.user?.id || userData._id || userData.id;
+              
+              // Check if user is in enrolledStudents array
+              const isUserEnrolled = courseData.enrolledStudents?.some(
+                (enrollment: any) => {
+                  const studentId = enrollment.student?._id || enrollment.student?.id || enrollment.student;
+                  return studentId === userId;
+                }
+              );
+              
+              if (isUserEnrolled) {
+                setIsEnrolled(true);
+                
+                // Find the enrollment to get progress
+                const enrollment = courseData.enrolledStudents.find(
+                  (enrollment: any) => {
+                    const studentId = enrollment.student?._id || enrollment.student?.id || enrollment.student;
+                    return studentId === userId;
+                  }
+                );
+                
+                if (enrollment) {
+                  setUserProgress(enrollment.progress || 0);
+                  setCompletedVideos(enrollment.completedVideos || []);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error checking enrollment:', error);
+            // Fallback: try the progress API
+            try {
+              const enrolledResponse = await fetch(`/api/courses/${courseId}/progress`, {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              if (enrolledResponse.ok) {
+                const progressData = await enrolledResponse.json();
+                setIsEnrolled(true);
+                setUserProgress(progressData.progress);
+                setCompletedVideos(progressData.completedVideos);
+              }
+            } catch (progressError) {
+              console.error('Error fetching progress:', progressError);
+            }
+          }
+        }
         
         // Clean up the course data to prevent rendering issues
         const cleanCourseData = { ...courseData };
@@ -733,7 +800,6 @@ export default function CourseDetail() {
         
         // Fetch assignments for this course
         try {
-          const token = localStorage.getItem('token');
           const assignmentsResponse = await fetch(`http://localhost:4000/api/assignments?courseId=${courseId}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {}
           });
@@ -750,20 +816,6 @@ export default function CourseDetail() {
         } catch (error) {
           console.error('Error fetching assignments:', error);
           setAssignments([]);
-        }
-        
-        // Check if user is enrolled
-        const token = localStorage.getItem('token');
-        if (token) {
-          const enrolledResponse = await fetch(`/api/courses/${courseId}/progress`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          if (enrolledResponse.ok) {
-            const progressData = await enrolledResponse.json();
-            setIsEnrolled(true);
-            setUserProgress(progressData.progress);
-            setCompletedVideos(progressData.completedVideos);
-          }
         }
         
         // Set first content item as selected
@@ -788,23 +840,41 @@ export default function CourseDetail() {
     }
   };
 
+  // Helper function to check if content is unlocked (removed locking mechanism)
+  const isContentUnlocked = (content: Content, index: number): boolean => {
+    if (!isEnrolled) return false;
+    return true; // All content is always unlocked
+  };
+
+  // Helper function to get content completion status
+  const getContentCompletionStatus = (content: Content) => {
+    const progress = contentProgress.find(cp => cp.contentId === content._id);
+    return {
+      isCompleted: progress?.isCompleted || false,
+      progress: progress || null
+    };
+  };
+
   const handleContentSelect = (content: Content) => {
-    setSelectedContent(content);
+    const contentIndex = (course?.content || course?.videos || []).findIndex(c => c._id === content._id);
+    if (isContentUnlocked(content, contentIndex)) {
+      setSelectedContent(content);
+    }
   };
 
   // Helper function to get content icon
   const getContentIcon = (type: string) => {
     switch (type) {
       case 'video':
-        return <Play className="w-5 h-5 text-blue-600" />;
+        return <Play className="w-5 h-5 text-blue-600 dark:text-blue-400" />;
       case 'text':
-        return <FileText className="w-5 h-5 text-green-600" />;
+        return <FileText className="w-5 h-5 text-green-600 dark:text-green-400" />;
       case 'assignment':
-        return <FileText className="w-5 h-5 text-blue-600" />;
+        return <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />;
       case 'quiz':
-        return <CheckSquare className="w-5 h-5 text-purple-600" />;
+        return <CheckSquare className="w-5 h-5 text-purple-600 dark:text-purple-400" />;
       default:
-        return <FileText className="w-5 h-5 text-gray-600" />;
+        return <FileText className="w-5 h-5 text-gray-600 dark:text-gray-400" />;
     }
   };
 
@@ -812,15 +882,15 @@ export default function CourseDetail() {
   const getContentTypeStyle = (type: string) => {
     switch (type) {
       case 'video':
-        return 'bg-blue-100 text-blue-700';
+        return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
       case 'text':
-        return 'bg-green-100 text-green-700';
+        return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
       case 'assignment':
-        return 'bg-blue-100 text-blue-700';
+        return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
       case 'quiz':
-        return 'bg-purple-100 text-purple-700';
+        return 'bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300';
       default:
-        return 'bg-gray-100 text-gray-700';
+        return 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300';
     }
   };
 
@@ -898,7 +968,7 @@ export default function CourseDetail() {
       case 'video':
         return (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">{content.title}</h2>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{content.title}</h2>
             
             {/* Video Player with Progress Tracking */}
             <div className="relative w-full h-[500px] bg-black rounded-lg overflow-hidden mb-6">
@@ -908,17 +978,17 @@ export default function CourseDetail() {
                 thumbnail={content.thumbnail}
                 courseId={course._id}
                 contentId={content._id}
-                onProgressUpdate={fetchCourseProgress}
+                onProgressUpdate={refreshProgress}
               />
             </div>
             
-            <p className="text-gray-700 mb-4">{content.description}</p>
+            <p className="text-gray-700 dark:text-gray-300 mb-4">{content.description}</p>
             
-            <div className="flex items-center justify-between text-sm text-gray-500">
+            <div className="flex items-center justify-between text-sm text-gray-500 dark:text-gray-400">
               <span>Duration: {formatDuration(content.duration || 0)}</span>
               <span>{content.views} views</span>
               {content.isPreview && (
-                <span className="px-2 py-1 bg-green-100 text-green-700 rounded-full text-xs">
+                <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs">
                   Preview Available
                 </span>
               )}
@@ -928,46 +998,24 @@ export default function CourseDetail() {
 
       case 'text':
         return (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">{content.title}</h2>
-            <div className="prose prose-lg max-w-none">
-              <div className="bg-gray-50 p-6 rounded-xl border border-gray-200">
-                {/* Try to get text content from textContent field first */}
-                {content.textContent ? (
-                  <div dangerouslySetInnerHTML={{ __html: content.textContent }} />
-                ) : (
-                  /* If no textContent, check if videoUrl contains text content */
-                  content.videoUrl && content.videoUrl.length > 100 && 
-                  !content.videoUrl.startsWith('http') && !content.videoUrl.startsWith('data:') && 
-                  !content.videoUrl.includes('.mp4') && !content.videoUrl.includes('.webm') && 
-                  !content.videoUrl.includes('.ogg') && !content.videoUrl.includes('.mov') && 
-                  !content.videoUrl.includes('.avi') ? (
-                    <div className="text-gray-800 whitespace-pre-wrap">
-                      {content.videoUrl}
-                    </div>
-                  ) : (
-                    <div className="text-gray-500 italic">
-                      No text content available
-                    </div>
-                  )
-                )}
-              </div>
-            </div>
-            <p className="text-gray-600 mt-4 text-sm">{content.description}</p>
-          </div>
+          <TextContent 
+            content={content}
+            courseId={Array.isArray(courseId) ? courseId[0] : courseId}
+            onProgressUpdate={refreshProgress}
+          />
         );
 
       case 'ppt':
         return (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">{content.title}</h2>
-            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 mb-4">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{content.title}</h2>
+            <div className="bg-gray-50 dark:bg-gray-700 p-6 rounded-xl border border-gray-200 dark:border-gray-600 mb-4">
               <div className="text-center">
-                <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <FileText className="w-8 h-8 text-blue-600" />
+                <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                 </div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">PowerPoint Presentation</h3>
-                <p className="text-gray-600 mb-4">{content.description}</p>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">PowerPoint Presentation</h3>
+                <p className="text-gray-600 dark:text-gray-300 mb-4">{content.description}</p>
                 <a 
                   href={content.pptUrl} 
                   target="_blank" 
@@ -980,7 +1028,7 @@ export default function CourseDetail() {
               </div>
             </div>
             {content.pptSlides && (
-              <p className="text-sm text-gray-500">Total slides: {content.pptSlides}</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Total slides: {content.pptSlides}</p>
             )}
           </div>
         );
@@ -988,10 +1036,10 @@ export default function CourseDetail() {
       case 'quiz':
         return (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">{content.title}</h2>
-            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 mb-4">
-              <p className="text-gray-700 mb-4">{content.description}</p>
-              <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{content.title}</h2>
+            <div className="bg-gray-50 dark:bg-gray-700 p-6 rounded-xl border border-gray-200 dark:border-gray-600 mb-4">
+              <p className="text-gray-700 dark:text-gray-300 mb-4">{content.description}</p>
+              <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-4">
                 <span>Total Points: {content.totalPoints || 0}</span>
                 <span>Passing Score: {content.passingScore || 70}%</span>
               </div>
@@ -1005,10 +1053,10 @@ export default function CourseDetail() {
       case 'assignment':
         return (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">{content.title}</h2>
-            <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 mb-4">
-              <p className="text-gray-700 mb-4">{content.description}</p>
-              <div className="flex items-center justify-between text-sm text-gray-600 mb-4">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{content.title}</h2>
+            <div className="bg-gray-50 dark:bg-gray-700 p-6 rounded-xl border border-gray-200 dark:border-gray-600 mb-4">
+              <p className="text-gray-700 dark:text-gray-300 mb-4">{content.description}</p>
+              <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-4">
                 <span>Assignment Type: {content.assignmentType || 'N/A'}</span>
                 <span>Max Points: {content.maxPoints || 0}</span>
               </div>
@@ -1022,8 +1070,8 @@ export default function CourseDetail() {
       default:
         return (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">{content.title}</h2>
-            <p className="text-gray-700">{content.description}</p>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{content.title}</h2>
+            <p className="text-gray-700 dark:text-gray-300">{content.description}</p>
           </div>
         );
     }
@@ -1062,10 +1110,10 @@ export default function CourseDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="text-gray-700 text-xl mt-4 font-medium">Loading course...</p>
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 dark:border-blue-400 mx-auto"></div>
+          <p className="text-gray-700 dark:text-gray-300 text-xl mt-4 font-medium">Loading course...</p>
         </div>
       </div>
     );
@@ -1123,43 +1171,6 @@ export default function CourseDetail() {
             <div className="flex items-center space-x-4">
               <DarkModeToggle size="sm" />
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">Course Details</h1>
-              {/* Temporary Reset All Progress Button for Testing */}
-              <button
-                onClick={async () => {
-                  if (!confirm('Are you sure you want to reset ALL progress for this course? This action cannot be undone.')) {
-                    return;
-                  }
-                  
-                  try {
-                    const token = localStorage.getItem('token');
-                    if (!token) return;
-                    
-                    const response = await fetch(`/api/progress/${courseId}/reset-all`, {
-                      method: 'DELETE',
-                      headers: {
-                        'Authorization': `Bearer ${token}`,
-                        'Content-Type': 'application/json',
-                      },
-                    });
-                    
-                    if (response.ok) {
-                      console.log('All progress reset successfully');
-                      // Refresh the page to show updated progress
-                      window.location.reload();
-                    } else {
-                      console.error('Failed to reset all progress');
-                      alert('Failed to reset progress');
-                    }
-                  } catch (error) {
-                    console.error('Error resetting all progress:', error);
-                    alert('Error resetting progress');
-                  }
-                }}
-                className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
-                title="Reset All Progress (Testing Only)"
-              >
-                Reset All Progress
-              </button>
             </div>
           </div>
         </div>
@@ -1241,51 +1252,65 @@ export default function CourseDetail() {
               <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Course Content</h2>
               <div className="space-y-3">
                 {/* Course Content */}
-                {(course.content || course.videos || []).map((item, index) => (
-                  <div
-                    key={item._id}
-                    onClick={() => handleContentSelect(item)}
-                    className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
-                      selectedContent?._id === item._id
-                        ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                        : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                        {isEnrolled || item.isPreview ? (
-                          getContentIcon(item.type)
-                        ) : (
-                          <Lock className="w-5 h-5 text-gray-400 dark:text-gray-500" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2">
-                          <h3 className="font-medium text-gray-900 dark:text-white">{item.title}</h3>
-                          {item.isPreview && (
-                            <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs">
-                              Preview
-                            </span>
+                {(course.content || course.videos || []).map((item, index) => {
+                  const { isCompleted } = getContentCompletionStatus(item);
+                  
+                  return (
+                    <div
+                      key={item._id}
+                      onClick={() => handleContentSelect(item)}
+                      className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
+                        selectedContent?._id === item._id
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
+                          isCompleted 
+                            ? 'bg-green-100 dark:bg-green-900/30' 
+                            : 'bg-blue-100 dark:bg-blue-900/30'
+                        }`}>
+                          {isCompleted ? (
+                            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          ) : (
+                            getContentIcon(item.type)
                           )}
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            getContentTypeStyle(item.type)
-                          }`}>
-                            {item.type.toUpperCase()}
-                          </span>
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">{item.description}</p>
-                      </div>
-                      <div className="text-right">
-                        {item.type === 'video' && item.duration && (
-                          <p className="text-sm text-gray-500 dark:text-gray-400">{formatDuration(item.duration)}</p>
-                        )}
-                        {isEnrolled && completedVideos.includes(item._id) && (
-                          <CheckCircle className="w-5 h-5 text-green-500 mt-1" />
-                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-2">
+                            <h3 className="font-medium text-gray-900 dark:text-white">
+                              {item.title}
+                            </h3>
+                            {item.isPreview && (
+                              <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs">
+                                Preview
+                              </span>
+                            )}
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              getContentTypeStyle(item.type)
+                            }`}>
+                              {item.type.toUpperCase()}
+                            </span>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-300">
+                            {item.description}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          {item.type === 'video' && item.duration && (
+                            <p className="text-sm text-gray-500 dark:text-gray-400">
+                              {formatDuration(item.duration)}
+                            </p>
+                          )}
+                          {isCompleted && (
+                            <CheckCircle className="w-5 h-5 text-green-500 mt-1" />
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 
                 {/* Course Assignments */}
                 {assignments.length > 0 && (
@@ -1361,7 +1386,7 @@ export default function CourseDetail() {
                       <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
                     </div>
                     <p className="text-green-600 dark:text-green-400 font-semibold">Enrolled!</p>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm">Your progress: {userProgress}%</p>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm">Your progress: {courseProgress}%</p>
                   </div>
                   <button className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl">
                     Continue Learning
@@ -1428,17 +1453,42 @@ export default function CourseDetail() {
                   </div>
                   
                   <div className="text-center">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Complete all content to earn your certificate
-                    </p>
+                    {course?.certificate?.isAvailable ? (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Complete {course.certificate.minProgress}% to earn your certificate
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Certificate not available for this course
+                      </p>
+                    )}
                   </div>
                   
-                  {courseProgress >= 80 && (
+                  {course?.certificate?.isAvailable && certificateEligible && (
                     <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <Award className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          <span className="text-sm font-medium text-green-800 dark:text-green-200">
+                            Certificate Ready!
+                          </span>
+                        </div>
+                        <button 
+                          onClick={() => window.open('/dashboard?tab=certificates', '_blank')}
+                          className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 transition-colors"
+                        >
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {course?.certificate?.isAvailable && courseProgress >= course.certificate.minProgress && !certificateEligible && (
+                    <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
                       <div className="flex items-center space-x-2">
-                        <Award className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                          Certificate Eligible!
+                        <Award className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
+                        <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                          Certificate Processing...
                         </span>
                       </div>
                     </div>

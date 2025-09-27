@@ -27,6 +27,12 @@
   margin-bottom: 1.5rem;
 }
 
+.dark .notification-section {
+  background: #1f2937;
+  border: 1px solid #374151;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
 .notification-stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -61,6 +67,11 @@
   max-width: 32rem;
   max-height: 90vh;
   overflow-y: auto;
+}
+
+.dark .modal-content {
+  background: #1f2937;
+  border: 1px solid #374151;
 }
 
 /* Form Styles */
@@ -125,6 +136,16 @@
   background: #e5e7eb;
 }
 
+.dark .btn-secondary {
+  background: #374151;
+  color: #f9fafb;
+  border: 1px solid #4b5563;
+}
+
+.dark .btn-secondary:hover {
+  background: #4b5563;
+}
+
 .btn-danger {
   background: linear-gradient(to right, #dc2626, #b91c1c);
   color: white;
@@ -148,13 +169,26 @@
   border-bottom: 1px solid #e5e7eb;
 }
 
+.dark .admin-table th {
+  color: #f9fafb;
+  border-bottom: 1px solid #374151;
+}
+
 .admin-table td {
   padding: 1rem;
   border-bottom: 1px solid #f3f4f6;
 }
 
+.dark .admin-table td {
+  border-bottom: 1px solid #374151;
+}
+
 .admin-table tr:hover {
   background-color: #f9fafb;
+}
+
+.dark .admin-table tr:hover {
+  background-color: #374151;
 }
 
 /* Status Badge Styles */
@@ -196,6 +230,12 @@
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
 }
 
+.dark .admin-card {
+  background: #1f2937;
+  border: 1px solid #374151;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3);
+}
+
 .admin-card-header {
   display: flex;
   align-items: center;
@@ -209,9 +249,17 @@
   color: #111827;
 }
 
+.dark .admin-card-title {
+  color: #f9fafb;
+}
+
 .admin-card-subtitle {
   color: #6b7280;
   margin-top: 0.25rem;
+}
+
+.dark .admin-card-subtitle {
+  color: #9ca3af;
 }
 
 /* Responsive Design */

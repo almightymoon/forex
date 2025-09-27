@@ -227,7 +227,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           apiRequest('api/signals'),
           apiRequest('api/assignments'),
           apiRequest(`api/sessions?t=${Date.now()}`),
-          apiRequest('api/certificates/student'),
+          apiRequest('api/certificates/my-certificates'),
           apiRequest(`api/notifications/user?unreadOnly=true&limit=1&t=${Date.now()}`)
         ]);
 
@@ -373,7 +373,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         Promise.all([
           apiRequest('api/signals'),
           apiRequest('api/assignments'),
-          apiRequest('api/certificates/student'),
+          apiRequest('api/certificates/my-certificates'),
           apiRequest(`api/notifications/user?unreadOnly=true&limit=1&t=${Date.now()}`),
           fetchWithMaintenanceCheck('/api/courses')
         ]).then(async ([signalsResult, assignmentsResult, certificatesResult, notificationResult, availableCoursesResult]) => {

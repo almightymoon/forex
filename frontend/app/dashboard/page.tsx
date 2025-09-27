@@ -1147,14 +1147,19 @@ export default function Dashboard() {
               <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">{safeT('availableCourses')}</h3>
               <p className="text-gray-600 dark:text-gray-300 mb-6">{safeT('courseDescription')}</p>
               
-              {availableCourses.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
-                  <p className="text-gray-600 dark:text-gray-300">{safeT('loadingCourses')}</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {availableCourses.map((course) => (
+              {(() => {
+                // Filter out courses that the user is already enrolled in
+                const enrolledCourseIds = courses.map(course => course._id);
+                const unenrolledCourses = availableCourses.filter(course => !enrolledCourseIds.includes(course._id));
+                
+                return unenrolledCourses.length === 0 ? (
+                  <div className="text-center py-12">
+                    <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-gray-600 dark:text-gray-300">{safeT('loadingCourses')}</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {unenrolledCourses.map((course) => (
                     <div key={course._id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                       <div className="w-full h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-4 flex items-center justify-center shadow-lg">
                         {course.thumbnail ? (
@@ -1210,9 +1215,10 @@ export default function Dashboard() {
                         </button>
                       </div>
                     </div>
-                  ))}
-                </div>
-              )}
+                    ))}
+                  </div>
+                );
+              })()}
             </div>
           </motion.div>
         )}
