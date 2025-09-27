@@ -176,15 +176,15 @@ export default function LandingPage() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5 }}
             >
-                              <img 
-                  src="/all-07.svg" 
-                  alt={`${settings.platformName} Logo`} 
-                  className="w-20 h-20 object-contain dark:invert"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              <span className="ml-2 text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+              <img 
+                src="/all-07.svg" 
+                alt={`${settings.platformName} Logo`} 
+                className="w-8 h-8 sm:w-12 sm:h-12 object-contain dark:invert"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
+              <span className="ml-1 sm:ml-2 text-sm sm:text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 {settings.platformName}
               </span>
             </motion.div>
@@ -201,23 +201,23 @@ export default function LandingPage() {
             </motion.div>
             
             <motion.div 
-              className="flex items-center space-x-4"
+              className="flex items-center space-x-2 sm:space-x-4"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
             >
-              <DarkModeToggle size="sm" className="mr-2" />
+              <DarkModeToggle size="sm" className="mr-1 sm:mr-2" />
               
               <Link 
                 href="/login"
-                className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium"
+                className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium text-sm sm:text-base"
               >
                 Login
               </Link>
          
               <Link 
                 href="/register"
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 py-1.5 sm:px-6 sm:py-2 rounded-full hover:from-blue-700 hover:to-purple-700 transition-all transform hover:scale-105 shadow-lg hover:shadow-xl text-sm sm:text-base"
               >
                 Get Started
               </Link>
@@ -251,7 +251,7 @@ export default function LandingPage() {
               </span>
             </motion.div>
 
-            <h1 className="text-5xl md:text-7xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-7xl font-bold text-gray-900 dark:text-white mb-6 leading-tight px-4">
               Master the Art of
               <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600">
@@ -259,48 +259,50 @@ export default function LandingPage() {
               </span>
             </h1>
             
-            <p className="text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-4xl mx-auto leading-relaxed">
+            <p className="text-lg sm:text-xl md:text-2xl text-gray-600 dark:text-gray-300 mb-8 max-w-4xl mx-auto leading-relaxed px-4">
               Join thousands of successful traders who learned from expert instructors. 
               Access comprehensive courses, live sessions, and real-time trading signals.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12 px-4">
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                className="w-full sm:w-auto"
               >
                 <Link 
                   href="/register"
-                  className="inline-flex items-center bg-gradient-to-r from-blue-600 to-purple-600 text-white px-8 py-4 rounded-full text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
+                  className="inline-flex items-center justify-center w-full sm:w-auto bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg hover:shadow-xl transform hover:-translate-y-1"
                 >
                   Start Learning Today
-                  <ArrowRight className="ml-2 w-5 h-5" />
+                  <ArrowRight className="ml-2 w-4 h-4 sm:w-5 sm:h-5" />
                 </Link>
               </motion.div>
               
               <motion.div
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
+                className="w-full sm:w-auto"
               >
-                <button className="inline-flex items-center border-2 border-blue-600 text-blue-600 px-8 py-4 rounded-full text-lg font-semibold hover:bg-blue-600 hover:text-white transition-all transform hover:-translate-y-1 shadow-lg">
-                  <Play className="mr-2 w-5 h-5" />
+                <button className="inline-flex items-center justify-center w-full sm:w-auto border-2 border-blue-600 text-blue-600 px-6 sm:px-8 py-3 sm:py-4 rounded-full text-base sm:text-lg font-semibold hover:bg-blue-600 hover:text-white transition-all transform hover:-translate-y-1 shadow-lg">
+                  <Play className="mr-2 w-4 h-4 sm:w-5 sm:h-5" />
                   Watch Demo
                 </button>
               </motion.div>
             </div>
 
             {/* Benefits */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto px-4">
               {benefits.map((benefit, index) => (
                 <motion.div
                   key={index}
-                  className="flex items-center justify-center text-sm text-gray-600"
+                  className="flex items-center justify-center text-xs sm:text-sm text-gray-600 dark:text-gray-300"
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.5, delay: 0.6 + index * 0.1 }}
                 >
                   <span className="text-blue-600 mr-2">{benefit.icon}</span>
-                  {benefit.text}
+                  <span className="text-center">{benefit.text}</span>
                 </motion.div>
               ))}
             </div>
@@ -311,7 +313,7 @@ export default function LandingPage() {
       {/* Stats Section */}
       <section className="py-16 bg-white/50 dark:bg-gray-900/50 backdrop-blur-sm relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8">
             {stats.map((stat, index) => (
               <motion.div
                 key={index}
@@ -321,15 +323,15 @@ export default function LandingPage() {
                 className="text-center group"
               >
                 <motion.div
-                  className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 mb-4 group-hover:from-blue-200 group-hover:to-purple-200 dark:group-hover:from-blue-800/40 dark:group-hover:to-purple-800/40 transition-all"
+                  className="inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 mb-3 sm:mb-4 group-hover:from-blue-200 group-hover:to-purple-200 dark:group-hover:from-blue-800/40 dark:group-hover:to-purple-800/40 transition-all"
                   whileHover={{ scale: 1.1, rotate: 5 }}
                 >
-                  <span className={stat.color}>{stat.icon}</span>
+                  <span className={`${stat.color} w-6 h-6 sm:w-8 sm:h-8`}>{stat.icon}</span>
                 </motion.div>
-                <div className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-2">
+                <div className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-1 sm:mb-2">
                   {stat.number}
                 </div>
-                <div className="text-gray-600 dark:text-gray-300 font-medium">{stat.label}</div>
+                <div className="text-xs sm:text-sm md:text-base text-gray-600 dark:text-gray-300 font-medium">{stat.label}</div>
               </motion.div>
             ))}
           </div>
@@ -340,23 +342,23 @@ export default function LandingPage() {
       <section id="features" className="py-20 bg-gradient-to-br from-gray-50 to-blue-50 dark:from-gray-900 dark:to-gray-800 relative">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <motion.div 
-            className="text-center mb-20"
+            className="text-center mb-12 sm:mb-20 px-4"
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8 }}
           >
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-6">
+            <h2 className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-bold text-gray-900 dark:text-white mb-4 sm:mb-6">
               Why Choose{' '}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-purple-600">
                 {settings.platformName}?
               </span>
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto leading-relaxed">
               We provide everything you need to become a successful trader with our comprehensive platform
             </p>
           </motion.div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
             {features.map((feature, index) => (
               <motion.div
                 key={index}
@@ -365,28 +367,28 @@ export default function LandingPage() {
                 transition={{ duration: 0.6, delay: feature.delay }}
                 className="group"
               >
-                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-2 border border-white/20 dark:border-gray-700/20">
+                <div className="bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-lg hover:shadow-2xl transition-all transform hover:-translate-y-2 border border-white/20 dark:border-gray-700/20">
                   <motion.div 
-                    className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-r ${feature.gradient} text-white mb-6 group-hover:scale-110 transition-transform`}
+                    className={`inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-r ${feature.gradient} text-white mb-4 sm:mb-6 group-hover:scale-110 transition-transform`}
                     whileHover={{ rotate: 5 }}
                   >
-                    {feature.icon}
+                    <div className="w-6 h-6 sm:w-10 sm:h-10">{feature.icon}</div>
                   </motion.div>
                   
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                  <h3 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-3 sm:mb-4">
                     {feature.title}
                   </h3>
                   
-                  <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                  <p className="text-sm sm:text-base text-gray-600 dark:text-gray-300 leading-relaxed">
                     {feature.description}
                   </p>
                   
                   <motion.div
-                    className="mt-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="mt-4 sm:mt-6 opacity-0 group-hover:opacity-100 transition-opacity"
                     initial={{ opacity: 0, x: -20 }}
                     whileHover={{ opacity: 1, x: 0 }}
                   >
-                    <ArrowRight className="w-5 h-5 text-blue-600" />
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                   </motion.div>
                 </div>
               </motion.div>
@@ -652,15 +654,29 @@ export default function LandingPage() {
             {[
               {
                 title: 'Platform',
-                links: ['Live Sessions', 'Trading Signals', 'Community']
+                links: [
+                  { name: 'Live Sessions', href: '/dashboard' },
+                  { name: 'Trading Signals', href: '/dashboard' },
+                  { name: 'Community', href: '/dashboard' }
+                ]
               },
               {
                 title: 'Support',
-                links: ['Help Center', 'Contact Us', 'FAQ', 'Terms of Service']
+                links: [
+                  { name: 'Help Center', href: '/contact' },
+                  { name: 'Contact Us', href: '/contact' },
+                  { name: 'FAQ', href: '/faq' },
+                  { name: 'Terms of Service', href: '/terms' }
+                ]
               },
               {
                 title: 'Connect',
-                links: ['Twitter', 'LinkedIn', 'YouTube', 'Discord']
+                links: [
+                  { name: 'Twitter', href: '#' },
+                  { name: 'LinkedIn', href: '#' },
+                  { name: 'YouTube', href: '#' },
+                  { name: 'Discord', href: '#' }
+                ]
               }
             ].map((section, index) => (
               <motion.div
@@ -673,9 +689,9 @@ export default function LandingPage() {
                  <ul className="space-y-3">
                    {section.links.map((link, linkIndex) => (
                      <li key={linkIndex}>
-                       <a href="#" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
-                         {link}
-                       </a>
+                       <Link href={link.href} className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
+                         {link.name}
+                       </Link>
                      </li>
                    ))}
                  </ul>

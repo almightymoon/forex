@@ -766,15 +766,29 @@ export default function AboutPage() {
             {[
               {
                 title: 'Platform',
-                links: ['Live Sessions', 'Trading Signals', 'Community']
+                links: [
+                  { name: 'Live Sessions', href: '/dashboard' },
+                  { name: 'Trading Signals', href: '/dashboard' },
+                  { name: 'Community', href: '/dashboard' }
+                ]
               },
               {
                 title: 'Support',
-                links: ['Help Center', 'Contact Us', 'FAQ', 'Terms of Service']
+                links: [
+                  { name: 'Help Center', href: '/contact' },
+                  { name: 'Contact Us', href: '/contact' },
+                  { name: 'FAQ', href: '/faq' },
+                  { name: 'Terms of Service', href: '/terms' }
+                ]
               },
               {
                 title: 'Connect',
-                links: ['Twitter', 'LinkedIn', 'YouTube', 'Discord']
+                links: [
+                  { name: 'Twitter', href: '#' },
+                  { name: 'LinkedIn', href: '#' },
+                  { name: 'YouTube', href: '#' },
+                  { name: 'Discord', href: '#' }
+                ]
               }
             ].map((section, index) => (
               <motion.div
@@ -787,9 +801,9 @@ export default function AboutPage() {
                 <ul className="space-y-3">
                   {section.links.map((link, linkIndex) => (
                     <li key={linkIndex}>
-                      <a href="#" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
-                        {link}
-                      </a>
+                      <Link href={link.href} className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
+                        {link.name}
+                      </Link>
                     </li>
                   ))}
                 </ul>
