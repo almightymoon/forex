@@ -1148,18 +1148,30 @@ export default function Dashboard() {
               <p className="text-gray-600 dark:text-gray-300 mb-6">{safeT('courseDescription')}</p>
               
               {(() => {
-                // Filter out courses that the user is already enrolled in
-                const enrolledCourseIds = courses.map(course => course._id);
-                const unenrolledCourses = availableCourses.filter(course => !enrolledCourseIds.includes(course._id));
+                // Show loading if availableCourses is empty and we're still loading
+                if (availableCourses.length === 0 && loading) {
+                  return (
+                    <div className="text-center py-12">
+                      <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
+                      <p className="text-gray-600 dark:text-gray-300">{safeT('loadingCourses')}</p>
+                    </div>
+                  );
+                }
                 
-                return unenrolledCourses.length === 0 ? (
+                // Show all courses (don't filter out enrolled ones)
+                const enrolledCourseIds = courses.map(course => course._id);
+                
+                return availableCourses.length === 0 ? (
                   <div className="text-center py-12">
-                    <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
-                    <p className="text-gray-600 dark:text-gray-300">{safeT('loadingCourses')}</p>
+                    <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No courses available</h3>
+                    <p className="text-gray-500 dark:text-gray-400">No courses have been published yet.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {unenrolledCourses.map((course) => (
+                    {availableCourses.map((course) => {
+                      const isEnrolled = enrolledCourseIds.includes(course._id);
+                      return (
                     <div key={course._id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
                       <div className="w-full h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-4 flex items-center justify-center shadow-lg">
                         {course.thumbnail ? (
@@ -1177,7 +1189,14 @@ export default function Dashboard() {
                       
                       <div className="flex items-center justify-between mb-3 text-sm">
                         <span className="text-gray-500 dark:text-gray-400">{safeT('instructor')}: {course.instructor?.firstName} {course.instructor?.lastName}</span>
-                        <span className="text-yellow-600 dark:text-yellow-400 font-semibold">⭐ {course.rating || 'N/A'}</span>
+                        <div className="flex items-center space-x-2">
+                          {isEnrolled && (
+                            <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs font-medium">
+                              Enrolled
+                            </span>
+                          )}
+                          <span className="text-yellow-600 dark:text-yellow-400 font-semibold">⭐ {course.rating || 'N/A'}</span>
+                        </div>
                       </div>
                       
                       <div className="space-y-3 mb-4">
@@ -1205,17 +1224,20 @@ export default function Dashboard() {
                           onClick={() => window.location.href = `/course/${course._id}`}
                           className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                         >
-                          {safeT('viewCourse')}
+                          {isEnrolled ? 'Continue Learning' : safeT('viewCourse')}
                         </button>
-                        <button 
-                          onClick={() => handleEnrollCourse(course._id)}
-                          className="px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                        >
-                          {safeT('enroll')}
-                        </button>
+                        {!isEnrolled && (
+                          <button 
+                            onClick={() => handleEnrollCourse(course._id)}
+                            className="px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                          >
+                            {safeT('enroll')}
+                          </button>
+                        )}
                       </div>
                     </div>
-                    ))}
+                    );
+                    })}
                   </div>
                 );
               })()}

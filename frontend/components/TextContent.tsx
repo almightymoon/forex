@@ -138,22 +138,6 @@ const TextContent: React.FC<TextContentProps> = ({
         </div>
         
         <div className="flex items-center space-x-4">
-          {/* Reading Progress */}
-          <div className="flex items-center space-x-2">
-            <Eye className="w-4 h-4 text-gray-500" />
-            <span className="text-sm text-gray-600 dark:text-gray-300">
-              {readingPercentage}% read
-            </span>
-          </div>
-          
-          {/* Time Spent */}
-          <div className="flex items-center space-x-2">
-            <Clock className="w-4 h-4 text-gray-500" />
-            <span className="text-sm text-gray-600 dark:text-gray-300">
-              {formatTime(timeSpent)} / ~{formatTime(estimatedReadingTime)}
-            </span>
-          </div>
-          
           {/* Completion Status */}
           {isCompleted ? (
             <div className="flex items-center space-x-2 text-green-600">
