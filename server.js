@@ -31,6 +31,9 @@ const { initializeWebSocket } = require('./websocket');
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+// Trust proxy for rate limiting behind reverse proxy
+app.set('trust proxy', 1);
+
 // Create HTTP server for WebSocket
 const http = require('http');
 const server = http.createServer(app);

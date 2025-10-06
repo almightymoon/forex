@@ -55,7 +55,8 @@ export async function GET(request: NextRequest) {
     const courseId = searchParams.get('courseId');
     
     // Build backend URL with query parameters
-    let backendUrl = '/api/assignments';
+    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    let backendUrl = `${BACKEND_URL}/api/assignments`;
     if (courseId) {
       backendUrl += `?courseId=${courseId}`;
     }

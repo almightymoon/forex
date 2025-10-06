@@ -66,7 +66,8 @@ export async function GET(request: NextRequest) {
     }
     
     // Build backend URL with query parameters
-    let backendUrl = '/api/courses';
+    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    let backendUrl = `${BACKEND_URL}/api/courses`;
     const params = new URLSearchParams();
     
     if (category) params.append('category', category);

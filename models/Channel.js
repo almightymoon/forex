@@ -4,7 +4,6 @@ const channelSchema = new mongoose.Schema({
   name: {
     type: String,
     required: true,
-    unique: true,
     lowercase: true,
     trim: true,
     match: /^[a-z0-9-]+$/
@@ -82,7 +81,7 @@ const channelSchema = new mongoose.Schema({
 });
 
 // Indexes for better performance
-channelSchema.index({ name: 1 });
+channelSchema.index({ name: 1 }, { unique: true });
 channelSchema.index({ isPrivate: 1 });
 channelSchema.index({ createdAt: -1 });
 channelSchema.index({ 'lastMessage.timestamp': -1 });

@@ -34,7 +34,6 @@ const paymentSchema = new mongoose.Schema({
   },
   transactionId: {
     type: String,
-    unique: true,
     sparse: true
   },
   externalPaymentId: {
@@ -131,8 +130,8 @@ paymentSchema.index({ course: 1 });
 paymentSchema.index({ status: 1 });
 paymentSchema.index({ paymentMethod: 1 });
 paymentSchema.index({ createdAt: -1 });
-paymentSchema.index({ transactionId: 1 });
-paymentSchema.index({ externalPaymentId: 1 });
+paymentSchema.index({ transactionId: 1 }, { unique: true, sparse: true });
+paymentSchema.index({ externalPaymentId: 1 }, { unique: true, sparse: true });
 
 // Virtual for total amount including tax and discount
 paymentSchema.virtual('totalAmount').get(function() {
