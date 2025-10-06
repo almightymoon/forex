@@ -1,7 +1,7 @@
 // API configuration utility
 import { env } from '../lib/env';
 
-export const API_BASE_URL = env.API_BASE_URL;
+export const API_BASE_URL = env.API_BASE_URL || 'https://thefxnavigators.com/api';
 
 // Simple in-memory cache
 const cache = new Map();
@@ -36,6 +36,11 @@ function isRateLimited(endpoint: string): boolean {
 // Helper function to build API URLs
 export const buildApiUrl = (endpoint: string): string => {
   try {
+    console.log('buildApiUrl called with endpoint:', endpoint);
+    console.log('API_BASE_URL:', API_BASE_URL);
+    console.log('process.env.BACKEND_URL:', process.env.BACKEND_URL);
+    console.log('process.env.NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL);
+    
     // Remove leading slash if present to avoid double slashes
     const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
     // Remove 'api/' prefix from endpoint if API_BASE_URL already includes '/api'
@@ -43,6 +48,7 @@ export const buildApiUrl = (endpoint: string): string => {
       ? cleanEndpoint.slice(4) 
       : cleanEndpoint;
     const url = `${API_BASE_URL}/${finalEndpoint}`;
+    console.log('Final URL:', url);
     return url;
   } catch (error) {
     console.error('Error building API URL:', error);
