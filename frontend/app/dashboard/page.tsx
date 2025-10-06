@@ -7,6 +7,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useToast } from '../../components/Toast';
 import { useMaintenanceMode } from '../../hooks/useMaintenanceMode';
+import { useSessionTimeout } from '../../hooks/useSessionTimeout';
 import { env } from '../../lib/env';
 import { buildApiUrl } from '../../utils/api';
 import { useDashboard } from '../../context/DashboardContext';

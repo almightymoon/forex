@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../../components/Toast';
 import { useLanguage } from '../../../context/LanguageContext';
+import { buildApiUrl } from '../../../utils/api';
 import dynamic from 'next/dynamic';
 
 // Dynamically import ReactQuill to avoid SSR issues
@@ -195,7 +196,7 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
         console.log('Could not decode token payload:', e);
       }
 
-                      const response = await fetch(buildApiUrl('api/assignments?t=${Date.now()}'), {
+                      const response = await fetch(buildApiUrl(`api/assignments?t=${Date.now()}`), {
                   headers: {
                     'Authorization': `Bearer ${cleanToken}`,
                     'Cache-Control': 'no-cache',

@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 import { useToast } from '../../../components/Toast';
 import { Course, Student } from '../types';
+import { buildApiUrl } from '../../../utils/api';
 
 // Extended Student interface for the detailed student management
 interface ExtendedStudent {
