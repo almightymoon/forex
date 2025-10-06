@@ -38,6 +38,7 @@ export const buildApiUrl = (endpoint: string): string => {
   try {
     console.log('buildApiUrl called with endpoint:', endpoint);
     console.log('API_BASE_URL:', API_BASE_URL);
+    console.log('env.API_BASE_URL:', env.API_BASE_URL);
     console.log('process.env.BACKEND_URL:', process.env.BACKEND_URL);
     console.log('process.env.NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL);
     

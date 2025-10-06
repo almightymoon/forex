@@ -3,8 +3,37 @@
 
 export const env = {
   // API Configuration
-  API_BASE_URL: (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com') + (process.env.BACKEND_URL?.includes('/api') || process.env.NEXT_PUBLIC_API_BASE_URL?.includes('/api') ? '' : '/api'),
-  WS_URL: process.env.NEXT_PUBLIC_WS_URL || process.env.BACKEND_URL || 'https://thefxnavigators.com',
+  API_BASE_URL: (() => {
+    const backendUrl = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
+    
+    // If no environment variable is set, use production URL
+    if (!backendUrl) {
+      return 'https://thefxnavigators.com/api';
+    }
+    
+    // If localhost is set, use production URL instead
+    if (backendUrl.includes('localhost') || backendUrl.includes('127.0.0.1')) {
+      return 'https://thefxnavigators.com/api';
+    }
+    
+    // Otherwise use the provided URL and add /api if needed
+    return backendUrl + (backendUrl.includes('/api') ? '' : '/api');
+  })(),
+  WS_URL: (() => {
+    const wsUrl = process.env.NEXT_PUBLIC_WS_URL || process.env.BACKEND_URL;
+    
+    // If no environment variable is set, use production URL
+    if (!wsUrl) {
+      return 'https://thefxnavigators.com';
+    }
+    
+    // If localhost is set, use production URL instead
+    if (wsUrl.includes('localhost') || wsUrl.includes('127.0.0.1')) {
+      return 'https://thefxnavigators.com';
+    }
+    
+    return wsUrl;
+  })(),
   
   // Environment
   NODE_ENV: process.env.NEXT_PUBLIC_NODE_ENV || process.env.NODE_ENV || 'development',
