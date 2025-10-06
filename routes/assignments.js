@@ -15,7 +15,12 @@ router.get('/', authenticateToken, async (req, res) => {
     
     // Get student's enrolled courses
     const student = await User.findById(userId);
-    if (!student || !student.enrolledCourses || student.enrolledCourses.length === 0) {
+    if (!student) {
+      console.log('Student not found');
+      return res.json([]);
+    }
+    
+    if (!student.enrolledCourses || student.enrolledCourses.length === 0) {
       console.log('No enrolled courses found for student');
       return res.json([]);
     }
