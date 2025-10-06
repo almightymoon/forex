@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached.data);
     }
     
-    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
     const backendUrl = `${BACKEND_URL}/api/settings/public`;
     
     console.log('Fetching from backend:', backendUrl);

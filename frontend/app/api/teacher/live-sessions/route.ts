@@ -25,7 +25,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Proxy to your actual backend
-    const backendResponse = await fetch('/api/teacher/live-sessions', {
+    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
+    const backendResponse = await fetch(`${BACKEND_URL}/api/teacher/live-sessions`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'

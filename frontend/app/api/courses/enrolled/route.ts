@@ -16,7 +16,8 @@ export async function GET(request: NextRequest) {
     console.log('Token received, length:', token.length);
     
     // Proxy to backend
-    const backendResponse = await fetch('/api/courses/enrolled', {
+    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
+    const backendResponse = await fetch(`${BACKEND_URL}/api/courses/enrolled`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,

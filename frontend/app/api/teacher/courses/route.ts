@@ -25,7 +25,8 @@ export async function GET(request: NextRequest) {
     }
 
     // Proxy to your actual backend
-    const backendResponse = await fetch('/api/teacher/courses', {
+    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
+    const backendResponse = await fetch(`${BACKEND_URL}/api/teacher/courses`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -86,7 +87,8 @@ export async function POST(request: NextRequest) {
     console.log('Attempting to connect to backend at /api/teacher/courses');
     
     // Proxy to your actual backend
-    const backendResponse = await fetch('/api/teacher/courses', {
+    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
+    const backendResponse = await fetch(`${BACKEND_URL}/api/teacher/courses`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -155,7 +157,8 @@ export async function PUT(request: NextRequest) {
     console.log('Attempting to connect to backend at /api/teacher/courses');
     
     // Proxy to your actual backend
-    const backendResponse = await fetch('/api/teacher/courses', {
+    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
+    const backendResponse = await fetch(`${BACKEND_URL}/api/teacher/courses`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,

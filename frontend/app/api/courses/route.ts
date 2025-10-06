@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Build backend URL with query parameters
-    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
     let backendUrl = `${BACKEND_URL}/api/courses`;
     const params = new URLSearchParams();
     

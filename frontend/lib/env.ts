@@ -3,8 +3,8 @@
 
 export const env = {
   // API Configuration
-  API_BASE_URL: (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || '') + (process.env.BACKEND_URL?.includes('/api') || process.env.NEXT_PUBLIC_API_BASE_URL?.includes('/api') ? '' : '/api'),
-  WS_URL: process.env.NEXT_PUBLIC_WS_URL || process.env.BACKEND_URL || '',
+  API_BASE_URL: (process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com') + (process.env.BACKEND_URL?.includes('/api') || process.env.NEXT_PUBLIC_API_BASE_URL?.includes('/api') ? '' : '/api'),
+  WS_URL: process.env.NEXT_PUBLIC_WS_URL || process.env.BACKEND_URL || 'https://thefxnavigators.com',
   
   // Environment
   NODE_ENV: process.env.NEXT_PUBLIC_NODE_ENV || process.env.NODE_ENV || 'development',
