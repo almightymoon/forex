@@ -54,7 +54,17 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   contentSecurityPolicy: false // Disable CSP for development
 }));
-app.use(compression());
+
+// Compression middleware - configure to avoid conflicts with Apache
+app.use(compression({
+  filter: (req, res) => {
+    // Don't compress if Apache is handling it
+    if (req.headers['x-forwarded-for'] || req.headers['x-real-ip']) {
+      return false;
+    }
+    return compression.filter(req, res);
+  }
+}));
 
 // Rate limiting - More generous for development
 const limiter = rateLimit({
