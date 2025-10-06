@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 import { useRouter } from 'next/navigation';
+import { buildApiUrl } from '../../utils/api';
 import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useDashboard } from '../../context/DashboardContext';
@@ -142,7 +143,7 @@ export default function ProfilePage() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/auth/me', {
+      const response = await fetch(buildApiUrl('api/auth/me'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -185,7 +186,7 @@ export default function ProfilePage() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/auth/profile', {
+      const response = await fetch(buildApiUrl('api/auth/profile'), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

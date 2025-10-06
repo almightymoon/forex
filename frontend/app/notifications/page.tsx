@@ -18,6 +18,7 @@ import {
   X
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
+import { buildApiUrl } from '../../utils/api';
 
 interface Notification {
   _id: string;
@@ -47,7 +48,7 @@ export default function NotificationsPage() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/notifications/user', {
+      const response = await fetch(buildApiUrl('api/notifications/user'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -69,7 +70,7 @@ export default function NotificationsPage() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/notifications/user/read', {
+      const response = await fetch(buildApiUrl('api/notifications/user/read'), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -96,7 +97,7 @@ export default function NotificationsPage() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/notifications/user/read-all', {
+      const response = await fetch(buildApiUrl('api/notifications/user/read-all'), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -117,7 +118,7 @@ export default function NotificationsPage() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/notifications/user/${notificationId}'), {
+      const response = await fetch(buildApiUrl(`api/notifications/user/${notificationId}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

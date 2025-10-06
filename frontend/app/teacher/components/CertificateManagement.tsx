@@ -7,7 +7,7 @@ import {
   Search, Filter, X, Edit
 } from 'lucide-react';
 import { toast } from 'react-hot-toast';
-
+import { buildApiUrl } from "../../../utils/api";
 interface TeacherCertificate {
   _id: string;
   name: string;

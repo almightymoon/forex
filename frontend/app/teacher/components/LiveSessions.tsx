@@ -25,7 +25,7 @@ import {
   Square
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
-
+import { buildApiUrl } from "../../../utils/api";
 interface LiveSession {
   _id: string;
   title: string;
@@ -150,7 +150,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/teacher/live-sessions', {
+      const response = await fetch(buildApiUrl('api/teacher/live-sessions'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -182,7 +182,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/teacher/live-sessions', {
+      const response = await fetch(buildApiUrl('api/teacher/live-sessions'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -234,7 +234,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${editingSession._id}'), {
+      const response = await fetch(buildApiUrl(`api/teacher/live-sessions/${editingSession._id}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -267,7 +267,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${sessionId}'), {
+      const response = await fetch(buildApiUrl(`api/teacher/live-sessions/${sessionId}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -470,7 +470,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${sessionId}'), {
+      const response = await fetch(buildApiUrl(`api/teacher/live-sessions/${sessionId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

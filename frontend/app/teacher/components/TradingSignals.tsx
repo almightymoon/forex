@@ -23,7 +23,7 @@ import {
   Zap
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
-
+import { buildApiUrl } from "../../../utils/api";
 interface TradingSignal {
   _id: string;
   symbol: string;
@@ -146,7 +146,7 @@ export default function TradingSignals() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/signals', {
+      const response = await fetch(buildApiUrl('api/signals'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -200,7 +200,7 @@ export default function TradingSignals() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/signals', {
+      const response = await fetch(buildApiUrl('api/signals'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -255,7 +255,7 @@ export default function TradingSignals() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/signals/${editingSignal._id}'), {
+      const response = await fetch(buildApiUrl(`api/signals/${editingSignal._id}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -288,7 +288,7 @@ export default function TradingSignals() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/signals/${signalId}'), {
+      const response = await fetch(buildApiUrl(`api/signals/${signalId}`), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -315,7 +315,7 @@ export default function TradingSignals() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/signals/${signalId}'), {
+      const response = await fetch(buildApiUrl(`api/signals/${signalId}`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

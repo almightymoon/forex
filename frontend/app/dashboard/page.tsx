@@ -8,6 +8,7 @@ import { useLanguage } from '../../context/LanguageContext';
 import { useToast } from '../../components/Toast';
 import { useMaintenanceMode } from '../../hooks/useMaintenanceMode';
 import { env } from '../../lib/env';
+import { buildApiUrl } from '../../utils/api';
 import { useDashboard } from '../../context/DashboardContext';
 import DarkModeToggle from '../../components/DarkModeToggle';
 import CoolLoader from '../../components/CoolLoader';
@@ -321,7 +322,7 @@ export default function Dashboard() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/notifications/create', {
+      const response = await fetch(buildApiUrl('api/notifications/create'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -359,7 +360,7 @@ export default function Dashboard() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/notifications/create', {
+      const response = await fetch(buildApiUrl('api/notifications/create'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -388,7 +389,7 @@ export default function Dashboard() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/certificates/${certificateId}/view'), {
+      const response = await fetch(buildApiUrl(`api/certificates/${certificateId}/view`), {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -409,7 +410,7 @@ export default function Dashboard() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/certificates/${certificateId}/download'), {
+      const response = await fetch(buildApiUrl(`api/certificates/${certificateId}/download`), {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -494,7 +495,7 @@ export default function Dashboard() {
       }
 
       // Background API call - non-blocking
-      const response = await fetch(buildApiUrl('api/sessions/${sessionId}/book'), {
+      const response = await fetch(buildApiUrl(`api/sessions/${sessionId}/book`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -536,7 +537,7 @@ export default function Dashboard() {
       }
 
       // Background API call - non-blocking
-      const response = await fetch(buildApiUrl('api/sessions/${sessionId}/cancel'), {
+      const response = await fetch(buildApiUrl(`api/sessions/${sessionId}/cancel`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

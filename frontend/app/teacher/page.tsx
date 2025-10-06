@@ -17,6 +17,7 @@ import LoadingSpinner from './components/LoadingSpinner';
 import { Course, Student, LiveSession, Analytics as AnalyticsType } from './types';
 import { getStatusColor, getSessionStatusColor, calculateAnalytics } from './utils/helpers';
 import { useToast } from '../../components/Toast';
+import { buildApiUrl } from '../../utils/api';
 
 // Dynamically import components that use localStorage to prevent hydration issues
 const CertificateManagement = dynamic(() => import('./components/CertificateManagement'), {
@@ -108,19 +109,19 @@ export default function TeacherDashboard() {
               'Content-Type': 'application/json'
             }
           }),
-          fetch(buildApiUrl('api/teacher/students', {
+          fetch(buildApiUrl('api/teacher/students'), {
             headers: { 
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
           }),
-          fetch(buildApiUrl('api/teacher/live-sessions', {
+          fetch(buildApiUrl('api/teacher/live-sessions'), {
             headers: { 
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
           }),
-          fetch(buildApiUrl('api/teacher/analytics', {
+          fetch(buildApiUrl('api/teacher/analytics'), {
             headers: { 
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'

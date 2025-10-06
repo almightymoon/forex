@@ -8,6 +8,7 @@ import UserProfileDropdown from '@/app/components/UserProfileDropdown';
 import ChangePasswordModal from '@/app/components/ChangePasswordModal';
 import TwoFactorModal from '@/app/components/TwoFactorModal';
 import { useSettings } from '../../context/SettingsContext';
+import { buildApiUrl } from '../../utils/api';
 import { useLanguage } from '../../context/LanguageContext';
 import DarkModeToggle from '../../components/DarkModeToggle';
 
@@ -70,7 +71,7 @@ export default function SettingsPage() {
 
       // For now, we'll use the settings from the profile
       // In a real implementation, this would call a dedicated settings API
-      const response = await fetch(buildApiUrl('api/auth/me', {
+      const response = await fetch(buildApiUrl('api/auth/me'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -100,7 +101,7 @@ export default function SettingsPage() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/user2fa/status', {
+      const response = await fetch(buildApiUrl('api/user2fa/status'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -132,7 +133,7 @@ export default function SettingsPage() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/auth/profile', {
+      const response = await fetch(buildApiUrl('api/auth/profile'), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

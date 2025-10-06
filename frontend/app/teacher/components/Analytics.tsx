@@ -22,7 +22,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
-
+import { buildApiUrl } from "../../../utils/api";
 interface AnalyticsData {
   overview: {
     totalCourses: number;
@@ -118,7 +118,7 @@ export default function Analytics() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/teacher/analytics?${queryParams}'), {
+      const response = await fetch(buildApiUrl(`api/teacher/analytics?${queryParams}`), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -263,7 +263,7 @@ export default function Analytics() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/teacher/students', {
+      const response = await fetch(buildApiUrl('api/teacher/students'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }

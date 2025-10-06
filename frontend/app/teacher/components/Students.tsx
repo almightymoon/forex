@@ -328,7 +328,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/teacher/students/${deleteData.studentId}'), {
+      const response = await fetch(buildApiUrl(`api/teacher/students/${deleteData.studentId}`), {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -464,7 +464,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
       const deletePromises = selectedStudents.map(async (studentId) => {
         console.log('Deleting student:', studentId);
         try {
-          const response = await fetch(buildApiUrl('api/teacher/students/${studentId}'), {
+          const response = await fetch(buildApiUrl(`api/teacher/students/${studentId}`), {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json',
