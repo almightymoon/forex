@@ -51,6 +51,12 @@ export async function GET(request: NextRequest) {
   try {
     console.log('GET /api/assignments - Request received');
     
+    // Get authorization token
+    const token = request.headers.get('authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
     // Get query parameters
     const { searchParams } = new URL(request.url);
     const courseId = searchParams.get('courseId');
@@ -68,6 +74,7 @@ export async function GET(request: NextRequest) {
     const backendResponse = await fetch(backendUrl, {
       method: 'GET',
       headers: {
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       }
     });
