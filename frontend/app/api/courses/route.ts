@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Build backend URL with query parameters
-    let backendUrl = 'http://localhost:4000/api/courses';
+    let backendUrl = '/api/courses';
     const params = new URLSearchParams();
     
     if (category) params.append('category', category);

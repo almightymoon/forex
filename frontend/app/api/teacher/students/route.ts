@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || '';
+
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +16,7 @@ export async function GET(request: NextRequest) {
     // Get query parameters and pass them to backend
     const { searchParams } = new URL(request.url);
     const queryString = searchParams.toString();
-    const backendUrl = `http://localhost:4000/api/teacher/students${queryString ? `?${queryString}` : ''}`;
+    const backendUrl = `${BACKEND_URL}/api/teacher/students${queryString ? `?${queryString}` : ''}`;
 
     // Proxy directly to backend - let backend handle authentication
     const backendResponse = await fetch(backendUrl, {

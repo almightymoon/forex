@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export async function GET(request: NextRequest) {
   try {
     // Forward the request to the backend
-    const response = await fetch(`${process.env.BACKEND_URL || 'http://localhost:4000'}/api/teacher/messages`, {
+    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/teacher/messages`, {
       method: 'GET',
       headers: {
         'Authorization': request.headers.get('Authorization') || '',
@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Forward the request to the backend
-    const response = await fetch(`${process.env.BACKEND_URL || 'http://localhost:4000'}/api/teacher/messages`, {
+    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/teacher/messages`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

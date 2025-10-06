@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Proxy to your actual backend
-    const backendResponse = await fetch('http://localhost:4000/api/teacher/analytics', {
+    const backendResponse = await fetch('/api/teacher/analytics', {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'

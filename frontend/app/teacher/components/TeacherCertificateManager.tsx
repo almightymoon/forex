@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { env } from '../../../lib/env';
 import { Upload, FileText, Download, Trash2, Eye, Plus, CheckCircle, AlertCircle, Users } from 'lucide-react';
 import { toast } from 'react-hot-toast';
 
@@ -303,7 +303,7 @@ export default function TeacherCertificateManager() {
                       onClick={() => {
                         const fullUrl = certificate.certificateUrl.startsWith('http') 
                           ? certificate.certificateUrl 
-                          : `http://localhost:4000${certificate.certificateUrl}`;
+                          : `${env.API_BASE_URL.replace('/api', '')}${certificate.certificateUrl}`;
                         window.open(fullUrl, '_blank');
                       }}
                       className="px-3 py-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"

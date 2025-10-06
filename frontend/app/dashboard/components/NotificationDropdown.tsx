@@ -90,7 +90,7 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(`http://localhost:4000/api/notifications/user?t=${Date.now()}`, {
+      const response = await fetch(buildApiUrl('api/notifications/user?t=${Date.now()}'), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Cache-Control': 'no-cache',
@@ -115,7 +115,7 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:4000/api/notifications/user/read', {
+      const response = await fetch(buildApiUrl('api/notifications/user/read', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -145,7 +145,7 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:4000/api/notifications/user/read-all', {
+      const response = await fetch(buildApiUrl('api/notifications/user/read-all', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -169,7 +169,7 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(`http://localhost:4000/api/notifications/user/${notificationId}`, {
+      const response = await fetch(buildApiUrl('api/notifications/user/${notificationId}'), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`

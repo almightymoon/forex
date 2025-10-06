@@ -36,10 +36,10 @@ export async function PUT(
     console.log('Course update data received:', JSON.stringify(courseData, null, 2));
 
     // Check if backend is accessible
-    console.log(`Attempting to connect to backend at http://localhost:4000/api/teacher/courses/${params.id}`);
+    console.log(`Attempting to connect to backend at /api/teacher/courses/${params.id}`);
     
     // Proxy to your actual backend
-    const backendResponse = await fetch(`http://localhost:4000/api/teacher/courses/${params.id}`, {
+    const backendResponse = await fetch(`/api/teacher/courses/${params.id}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -101,10 +101,10 @@ export async function DELETE(
     }
 
     // Check if backend is accessible
-    console.log(`Attempting to connect to backend at http://localhost:4000/api/teacher/courses/${params.id}`);
+    console.log(`Attempting to connect to backend at /api/teacher/courses/${params.id}`);
     
     // Proxy to your actual backend
-    const backendResponse = await fetch(`http://localhost:4000/api/teacher/courses/${params.id}`, {
+    const backendResponse = await fetch(`/api/teacher/courses/${params.id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,

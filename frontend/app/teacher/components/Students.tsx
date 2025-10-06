@@ -155,7 +155,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/enroll-student`, {
+      const response = await fetch(buildApiUrl('api/teacher/enroll-student'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -191,7 +191,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/remove-student`, {
+      const response = await fetch(buildApiUrl('api/teacher/remove-student'), {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -227,7 +227,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/block-student`, {
+      const response = await fetch(buildApiUrl('api/teacher/block-student'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -258,7 +258,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/unblock-student`, {
+      const response = await fetch(buildApiUrl('api/teacher/unblock-student'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -292,7 +292,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/assign-course`, {
+      const response = await fetch(buildApiUrl('api/teacher/assign-course'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -328,7 +328,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/students/${deleteData.studentId}`, {
+      const response = await fetch(buildApiUrl('api/teacher/students/${deleteData.studentId}'), {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -396,7 +396,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
       const enrollPromises = selectedStudents.map(async (studentId) => {
         console.log('Enrolling student:', studentId, bulkEnrollData.courseId);
         try {
-          const response = await fetch(`http://localhost:4000/api/teacher/enroll-student`, {
+          const response = await fetch(buildApiUrl('api/teacher/enroll-student'), {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -464,7 +464,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
       const deletePromises = selectedStudents.map(async (studentId) => {
         console.log('Deleting student:', studentId);
         try {
-          const response = await fetch(`http://localhost:4000/api/teacher/students/${studentId}`, {
+          const response = await fetch(buildApiUrl('api/teacher/students/${studentId}'), {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json',
@@ -553,7 +553,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
       const removePromises = selectedStudents.map(async (studentId) => {
         console.log('Removing student from course:', studentId, bulkRemoveCourseData.courseId);
         try {
-          const response = await fetch(`http://localhost:4000/api/teacher/remove-student`, {
+          const response = await fetch(buildApiUrl('api/teacher/remove-student'), {
             method: 'DELETE',
             headers: {
               'Content-Type': 'application/json',

@@ -118,7 +118,7 @@ export default function Analytics() {
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/analytics?${queryParams}`, {
+      const response = await fetch(buildApiUrl('api/teacher/analytics?${queryParams}'), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -263,7 +263,7 @@ export default function Analytics() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:4000/api/teacher/students', {
+      const response = await fetch(buildApiUrl('api/teacher/students', {
         headers: {
           'Authorization': `Bearer ${token}`
         }

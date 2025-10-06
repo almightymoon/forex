@@ -195,7 +195,7 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
         console.log('Could not decode token payload:', e);
       }
 
-                      const response = await fetch(`http://localhost:4000/api/assignments?t=${Date.now()}`, {
+                      const response = await fetch(buildApiUrl('api/assignments?t=${Date.now()}'), {
                   headers: {
                     'Authorization': `Bearer ${cleanToken}`,
                     'Cache-Control': 'no-cache',
@@ -337,7 +337,7 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
         console.log(`${key}:`, value);
       });
 
-      const response = await fetch(`http://localhost:4000/api/assignments/${selectedAssignment._id}/submit`, {
+      const response = await fetch(buildApiUrl('api/assignments/${selectedAssignment._id}/submit'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`

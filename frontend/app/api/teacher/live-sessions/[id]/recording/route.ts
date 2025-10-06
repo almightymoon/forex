@@ -5,7 +5,7 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const response = await fetch(`${process.env.BACKEND_URL || 'http://localhost:4000'}/api/teacher/live-sessions/${params.id}/recording`, {
+    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/teacher/live-sessions/${params.id}/recording`, {
       method: 'POST',
       headers: {
         'Authorization': request.headers.get('Authorization') || '',

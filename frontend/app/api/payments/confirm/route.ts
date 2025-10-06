@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
 
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || '';
+
 export async function POST(request: NextRequest) {
   try {
     // Verify authentication
@@ -20,7 +22,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
 
     // Proxy to backend
-    const response = await fetch('http://localhost:4000/api/payments/confirm', {
+    const response = await fetch(`${BACKEND_URL}/api/payments/confirm`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

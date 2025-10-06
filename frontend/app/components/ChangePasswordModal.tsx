@@ -39,7 +39,7 @@ export default function ChangePasswordModal({ isOpen, onClose }: ChangePasswordM
         return;
       }
 
-      const response = await fetch('http://localhost:4000/api/auth/password', {
+      const response = await fetch(buildApiUrl('api/auth/password', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

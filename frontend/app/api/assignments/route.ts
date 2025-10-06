@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Proxy to backend
-    const backendResponse = await fetch('http://localhost:4000/api/assignments', {
+    const backendResponse = await fetch('/api/assignments', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
     const courseId = searchParams.get('courseId');
     
     // Build backend URL with query parameters
-    let backendUrl = 'http://localhost:4000/api/assignments';
+    let backendUrl = '/api/assignments';
     if (courseId) {
       backendUrl += `?courseId=${courseId}`;
     }

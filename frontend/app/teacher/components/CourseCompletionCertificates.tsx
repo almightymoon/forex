@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { env } from '../../../lib/env';
 import { 
   Award, Download, Trash2, Eye, Edit, RefreshCw, Search, Filter,
   Calendar, User, BookOpen, CheckCircle, AlertCircle, X
@@ -207,7 +207,7 @@ const CourseCompletionCertificates: React.FC = () => {
   const handleView = (certificate: CourseCompletionCertificate) => {
     const fullUrl = certificate.certificateUrl.startsWith('http') 
       ? certificate.certificateUrl 
-      : `http://localhost:4000${certificate.certificateUrl}`;
+      : `${env.API_BASE_URL.replace('/api', '')}${certificate.certificateUrl}`;
     window.open(fullUrl, '_blank');
   };
 

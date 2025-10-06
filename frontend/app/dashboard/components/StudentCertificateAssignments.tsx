@@ -6,7 +6,7 @@ import {
   Download, MessageSquare, Calendar, User, BookOpen,
   Filter, Search, FileText
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+import { env } from '../../../lib/env';
 
 interface TeacherCertificate {
   _id: string;
@@ -147,7 +147,7 @@ const StudentCertificateAssignments: React.FC = () => {
     const link = document.createElement('a');
     const fullUrl = certificateUrl.startsWith('http') 
       ? certificateUrl 
-      : `http://localhost:4000${certificateUrl}`;
+      : `${env.API_BASE_URL.replace('/api', '')}${certificateUrl}`;
     link.href = fullUrl;
     link.download = certificateName;
     document.body.appendChild(link);
@@ -410,7 +410,7 @@ const StudentCertificateAssignments: React.FC = () => {
                     onClick={() => {
                       const fullUrl = assignment.teacherCertificateId.certificateUrl.startsWith('http') 
                         ? assignment.teacherCertificateId.certificateUrl 
-                        : `http://localhost:4000${assignment.teacherCertificateId.certificateUrl}`;
+                        : `${env.API_BASE_URL.replace('/api', '')}${assignment.teacherCertificateId.certificateUrl}`;
                       window.open(fullUrl, '_blank');
                     }}
                     className="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center space-x-2 text-sm"

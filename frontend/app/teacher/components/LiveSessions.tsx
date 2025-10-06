@@ -150,7 +150,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch('http://localhost:4000/api/teacher/live-sessions', {
+      const response = await fetch(buildApiUrl('api/teacher/live-sessions', {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -182,7 +182,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch('http://localhost:4000/api/teacher/live-sessions', {
+      const response = await fetch(buildApiUrl('api/teacher/live-sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -234,7 +234,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/live-sessions/${editingSession._id}`, {
+      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${editingSession._id}'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -267,7 +267,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/live-sessions/${sessionId}`, {
+      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${sessionId}'), {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -294,7 +294,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/live-sessions/${sessionId}/start`, {
+      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${sessionId}/start'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -330,7 +330,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/live-sessions/${sessionId}/end`, {
+      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${sessionId}/end'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -357,7 +357,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/live-sessions/${sessionId}/recording`, {
+      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${sessionId}/recording'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -427,7 +427,7 @@ export default function LiveSessions() {
       }
 
       // Update session status to 'live' and start the meeting
-      const response = await fetch(`http://localhost:4000/api/teacher/live-sessions/${sessionId}/start`, {
+      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${sessionId}/start'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -470,7 +470,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(`http://localhost:4000/api/teacher/live-sessions/${sessionId}`, {
+      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${sessionId}'), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',

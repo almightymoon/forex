@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Forward the request to the backend
-    const response = await fetch(`${process.env.BACKEND_URL || 'http://localhost:4000'}/api/teacher/enroll-student`, {
+    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/teacher/enroll-student`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

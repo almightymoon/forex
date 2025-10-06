@@ -30,7 +30,7 @@ export default function TwoFactorModal({ isOpen, onClose, isEnabled }: TwoFactor
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:4000/api/user2fa/setup', {
+      const response = await fetch(buildApiUrl('api/user2fa/setup', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -65,7 +65,7 @@ export default function TwoFactorModal({ isOpen, onClose, isEnabled }: TwoFactor
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:4000/api/user2fa/enable', {
+      const response = await fetch(buildApiUrl('api/user2fa/enable', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -105,7 +105,7 @@ export default function TwoFactorModal({ isOpen, onClose, isEnabled }: TwoFactor
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:4000/api/user2fa/disable', {
+      const response = await fetch(buildApiUrl('api/user2fa/disable', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,

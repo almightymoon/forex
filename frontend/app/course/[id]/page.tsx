@@ -800,7 +800,7 @@ export default function CourseDetail() {
         
         // Fetch assignments for this course
         try {
-          const assignmentsResponse = await fetch(`http://localhost:4000/api/assignments?courseId=${courseId}`, {
+          const assignmentsResponse = await fetch(buildApiUrl('api/assignments?courseId=${courseId}'), {
             headers: token ? { Authorization: `Bearer ${token}` } : {}
           });
           if (assignmentsResponse.ok) {

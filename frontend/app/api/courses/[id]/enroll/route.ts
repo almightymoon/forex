@@ -19,7 +19,7 @@ export async function POST(
     const body = await request.json();
     
     // Proxy to backend
-    const backendResponse = await fetch(`http://localhost:4000/api/courses/${params.id}/enroll`, {
+    const backendResponse = await fetch(`/api/courses/${params.id}/enroll`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

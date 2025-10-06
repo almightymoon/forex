@@ -70,7 +70,7 @@ export default function SettingsPage() {
 
       // For now, we'll use the settings from the profile
       // In a real implementation, this would call a dedicated settings API
-      const response = await fetch('http://localhost:4000/api/auth/me', {
+      const response = await fetch(buildApiUrl('api/auth/me', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -100,7 +100,7 @@ export default function SettingsPage() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:4000/api/user2fa/status', {
+      const response = await fetch(buildApiUrl('api/user2fa/status', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -132,7 +132,7 @@ export default function SettingsPage() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:4000/api/auth/profile', {
+      const response = await fetch(buildApiUrl('api/auth/profile', {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,

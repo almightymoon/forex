@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Proxy to your actual backend
-    const backendResponse = await fetch('http://localhost:4000/api/teacher/courses', {
+    const backendResponse = await fetch('/api/teacher/courses', {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -83,10 +83,10 @@ export async function POST(request: NextRequest) {
     console.log('Course data received:', JSON.stringify(courseData, null, 2));
 
     // Check if backend is accessible
-    console.log('Attempting to connect to backend at http://localhost:4000/api/teacher/courses');
+    console.log('Attempting to connect to backend at /api/teacher/courses');
     
     // Proxy to your actual backend
-    const backendResponse = await fetch('http://localhost:4000/api/teacher/courses', {
+    const backendResponse = await fetch('/api/teacher/courses', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -152,10 +152,10 @@ export async function PUT(request: NextRequest) {
     console.log('Course update data received:', JSON.stringify(courseData, null, 2));
 
     // Check if backend is accessible
-    console.log('Attempting to connect to backend at http://localhost:4000/api/teacher/courses');
+    console.log('Attempting to connect to backend at /api/teacher/courses');
     
     // Proxy to your actual backend
-    const backendResponse = await fetch('http://localhost:4000/api/teacher/courses', {
+    const backendResponse = await fetch('/api/teacher/courses', {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -228,10 +228,10 @@ export async function DELETE(request: NextRequest) {
     console.log('Deleting course with ID:', courseId);
 
     // Check if backend is accessible
-    console.log('Attempting to connect to backend at http://localhost:4000/api/teacher/courses');
+    console.log('Attempting to connect to backend at /api/teacher/courses');
     
     // Proxy to your actual backend
-    const backendResponse = await fetch(`http://localhost:4000/api/teacher/courses?id=${courseId}`, {
+    const backendResponse = await fetch(`/api/teacher/courses?id=${courseId}`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,

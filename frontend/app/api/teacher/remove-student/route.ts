@@ -13,7 +13,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     // Forward the request to the backend
-    const response = await fetch(`${process.env.BACKEND_URL || 'http://localhost:4000'}/api/teacher/remove-student`, {
+    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/teacher/remove-student`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',

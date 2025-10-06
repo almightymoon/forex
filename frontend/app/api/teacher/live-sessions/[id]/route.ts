@@ -5,7 +5,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const response = await fetch(`${process.env.BACKEND_URL || 'http://localhost:4000'}/api/teacher/live-sessions/${params.id}`, {
+    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/teacher/live-sessions/${params.id}`, {
       method: 'GET',
       headers: {
         'Authorization': request.headers.get('Authorization') || '',
@@ -38,7 +38,7 @@ export async function PUT(
   try {
     const body = await request.json();
 
-    const response = await fetch(`${process.env.BACKEND_URL || 'http://localhost:4000'}/api/teacher/live-sessions/${params.id}`, {
+    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/teacher/live-sessions/${params.id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -71,7 +71,7 @@ export async function DELETE(
   { params }: { params: { id: string } }
 ) {
   try {
-    const response = await fetch(`${process.env.BACKEND_URL || 'http://localhost:4000'}/api/teacher/live-sessions/${params.id}`, {
+    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/teacher/live-sessions/${params.id}`, {
       method: 'DELETE',
       headers: {
         'Authorization': request.headers.get('Authorization') || '',

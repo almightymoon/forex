@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
     console.log('Token received, length:', token.length);
     
     // Proxy to backend
-    const backendResponse = await fetch('http://localhost:4000/api/courses/enrolled', {
+    const backendResponse = await fetch('/api/courses/enrolled', {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,

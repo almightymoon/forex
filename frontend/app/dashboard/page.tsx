@@ -7,7 +7,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useToast } from '../../components/Toast';
 import { useMaintenanceMode } from '../../hooks/useMaintenanceMode';
-import { useSessionTimeout } from '../../hooks/useSessionTimeout';
+import { env } from '../../lib/env';
 import { useDashboard } from '../../context/DashboardContext';
 import DarkModeToggle from '../../components/DarkModeToggle';
 import CoolLoader from '../../components/CoolLoader';
@@ -321,7 +321,7 @@ export default function Dashboard() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:4000/api/notifications/create', {
+      const response = await fetch(buildApiUrl('api/notifications/create', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -359,7 +359,7 @@ export default function Dashboard() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch('http://localhost:4000/api/notifications/create', {
+      const response = await fetch(buildApiUrl('api/notifications/create', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -388,7 +388,7 @@ export default function Dashboard() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(`http://localhost:4000/api/certificates/${certificateId}/view`, {
+      const response = await fetch(buildApiUrl('api/certificates/${certificateId}/view'), {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -409,7 +409,7 @@ export default function Dashboard() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(`http://localhost:4000/api/certificates/${certificateId}/download`, {
+      const response = await fetch(buildApiUrl('api/certificates/${certificateId}/download'), {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -494,7 +494,7 @@ export default function Dashboard() {
       }
 
       // Background API call - non-blocking
-      const response = await fetch(`http://localhost:4000/api/sessions/${sessionId}/book`, {
+      const response = await fetch(buildApiUrl('api/sessions/${sessionId}/book'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -536,7 +536,7 @@ export default function Dashboard() {
       }
 
       // Background API call - non-blocking
-      const response = await fetch(`http://localhost:4000/api/sessions/${sessionId}/cancel`, {
+      const response = await fetch(buildApiUrl('api/sessions/${sessionId}/cancel'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -2284,7 +2284,7 @@ export default function Dashboard() {
                               onClick={() => {
                                 const fullUrl = assignment.teacherCertificateId.certificateUrl.startsWith('http') 
                                   ? assignment.teacherCertificateId.certificateUrl 
-                                  : `http://localhost:4000${assignment.teacherCertificateId.certificateUrl}`;
+                                  : `${env.API_BASE_URL.replace('/api', '')}${assignment.teacherCertificateId.certificateUrl}`;
                                 window.open(fullUrl, '_blank');
                               }}
                               className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center space-x-2"
@@ -2299,7 +2299,7 @@ export default function Dashboard() {
                                 const link = document.createElement('a');
                                 const fullUrl = assignment.teacherCertificateId.certificateUrl.startsWith('http') 
                                   ? assignment.teacherCertificateId.certificateUrl 
-                                  : `http://localhost:4000${assignment.teacherCertificateId.certificateUrl}`;
+                                  : `${env.API_BASE_URL.replace('/api', '')}${assignment.teacherCertificateId.certificateUrl}`;
                                 link.href = fullUrl;
                                 link.download = assignment.teacherCertificateId.name || 'certificate.pdf';
                                 document.body.appendChild(link);

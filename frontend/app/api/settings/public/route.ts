@@ -19,10 +19,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(cached.data);
     }
     
-    console.log('Fetching from backend: http://localhost:4000/api/settings/public');
+    console.log('Fetching from backend: /api/settings/public');
     
     // Proxy to backend
-    const backendResponse = await fetch('http://localhost:4000/api/settings/public', {
+    const backendResponse = await fetch('/api/settings/public', {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json'

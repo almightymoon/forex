@@ -108,19 +108,19 @@ export default function TeacherDashboard() {
               'Content-Type': 'application/json'
             }
           }),
-          fetch('http://localhost:4000/api/teacher/students', {
+          fetch(buildApiUrl('api/teacher/students', {
             headers: { 
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
           }),
-          fetch('http://localhost:4000/api/teacher/live-sessions', {
+          fetch(buildApiUrl('api/teacher/live-sessions', {
             headers: { 
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
           }),
-          fetch('http://localhost:4000/api/teacher/analytics', {
+          fetch(buildApiUrl('api/teacher/analytics', {
             headers: { 
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'

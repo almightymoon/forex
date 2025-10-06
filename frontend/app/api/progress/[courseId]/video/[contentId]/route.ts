@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || '';
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { courseId: string; contentId: string } }
@@ -19,7 +21,7 @@ export async function PUT(
     const body = await request.json();
     
     // Proxy to backend
-    const backendResponse = await fetch(`http://localhost:4000/api/progress/${params.courseId}/video/${params.contentId}`, {
+    const backendResponse = await fetch(`${BACKEND_URL}/api/progress/${params.courseId}/video/${params.contentId}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,

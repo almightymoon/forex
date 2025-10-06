@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || '';
+
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
 
@@ -18,7 +20,7 @@ export async function GET(
     }
     
     // Build backend URL
-    const backendUrl = `http://localhost:4000/api/courses/${params.id}`;
+    const backendUrl = `${BACKEND_URL}/api/courses/${params.id}`;
     
     console.log('Fetching from backend:', backendUrl);
     

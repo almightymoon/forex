@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { env } from '../../../lib/env';
 import { 
   Upload, FileText, Download, Trash2, Eye, Plus, CheckCircle, AlertCircle, 
   Users, Send, Calendar, MessageSquare, BookOpen, Clock, AlertTriangle,
@@ -836,7 +836,7 @@ const CertificateManagement: React.FC = () => {
                       onClick={() => {
                         const fullUrl = certificate.certificateUrl.startsWith('http') 
                           ? certificate.certificateUrl 
-                          : `http://localhost:4000${certificate.certificateUrl}`;
+                          : `${env.API_BASE_URL.replace('/api', '')}${certificate.certificateUrl}`;
                         window.open(fullUrl, '_blank');
                       }}
                       className="px-3 py-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors"
@@ -939,7 +939,7 @@ const CertificateManagement: React.FC = () => {
                   
                   <div className="flex gap-2">
                     <button
-                      onClick={() => window.open(`http://localhost:4000/api/certificates/file/certificate_${certificate.certificateId}.pdf`, '_blank')}
+                      onClick={() => window.open(buildApiUrl('api/certificates/file/certificate_${certificate.certificateId}.pdf'), '_blank')}
                       className="flex-1 px-3 py-2 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-200 dark:hover:bg-blue-800 transition-colors flex items-center justify-center gap-2"
                     >
                       <Eye className="w-4 h-4" />
@@ -948,7 +948,7 @@ const CertificateManagement: React.FC = () => {
                     <button
                       onClick={() => {
                         const link = document.createElement('a');
-                        link.href = `http://localhost:4000/api/certificates/file/certificate_${certificate.certificateId}.pdf`;
+                        link.href = buildApiUrl('api/certificates/file/certificate_${certificate.certificateId}.pdf');
                         link.download = `${certificate.courseTitle}_Certificate.pdf`;
                         link.click();
                       }}
