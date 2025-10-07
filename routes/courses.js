@@ -371,7 +371,7 @@ router.put('/:id/progress', authenticateToken, requireEnrollment, async (req, re
     enrollment.progress = totalContent > 0 ? Math.round((enrollment.completedVideos.length / totalContent) * 100) : 0;
     enrollment.lastAccessed = new Date();
 
-    await req.course.save();
+    await req.course.save({ validateBeforeSave: false });
 
     res.json({
       message: 'Progress updated successfully',
