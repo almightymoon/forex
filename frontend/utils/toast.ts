@@ -10,7 +10,7 @@ interface ToastOptions {
 
 const createToastContainer = () => {
   if (toastContainer) return toastContainer;
-  
+    
   // Check if we're in the browser
   if (typeof document === 'undefined') return null;
   
