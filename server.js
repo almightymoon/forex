@@ -99,9 +99,9 @@ app.use('/api/assignments/*/submit', upload.any());
 app.use(morgan('combined'));
 
 // Database connection
-const mongoUri = `${process.env.MONGODB_URI.trim()}${process.env.DB_NAME}`;
+const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/forex-lms';
 mongoose.connect(mongoUri)
-  .then(() => console.log(`Connected to MongoDB Atlas database: ${process.env.DB_NAME}`))
+  .then(() => console.log(`Connected to MongoDB: ${mongoUri}`))
   .catch(err => console.error('MongoDB connection error:', err));
 
 // Debug environment variables

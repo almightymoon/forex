@@ -7,7 +7,7 @@ let io;
 const initializeWebSocket = (server) => {
   io = new Server(server, {
     cors: {
-      origin: process.env.FRONTEND_URL || "https://thefxnavigators.com",
+      origin: process.env.FRONTEND_URL || "https://thefxnavigators.com" || "http://localhost:3000",
       methods: ["GET", "POST"],
       credentials: true
     }

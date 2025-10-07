@@ -1,0 +1,12 @@
+Environment variables check:
+- JWT_SECRET length: 20
+- NODE_ENV: development
+- PORT: 4000
+(node:44581) [MONGOOSE] Warning: Duplicate schema index on {"transactionId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:44581) [MONGOOSE] Warning: Duplicate schema index on {"externalPaymentId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+Server running on port 4000
+WebSocket server initialized
+Environment: development
+Connected to MongoDB: mongodb://localhost:27017/forex-lms
+Email configuration incomplete, email notifications disabled

@@ -1,8 +1,8 @@
 // API configuration utility
 import { env } from '../lib/env';
 
-export const API_BASE_URL = env.API_BASE_URL || 'https://thefxnavigators.com/api';
-
+// export const API_BASE_URL = env.API_BASE_URL || 'https://thefxnavigators.com/api';
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com/api';
 // Simple in-memory cache
 const cache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
