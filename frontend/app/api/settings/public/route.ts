@@ -35,9 +35,13 @@ export async function GET(request: NextRequest) {
     console.log('Backend response status:', backendResponse.status);
 
     if (!backendResponse.ok) {
+      // Return backend error directly without wrapping to prevent recursion
       const errorText = await backendResponse.text();
       console.error('Backend error response:', errorText);
-      throw new Error(`Backend responded with ${backendResponse.status}: ${errorText}`);
+      return new NextResponse(errorText, {
+        status: backendResponse.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const settings = await backendResponse.json();
@@ -53,7 +57,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching settings:', error);
     return NextResponse.json(
-      { error: `Failed to fetch settings: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Failed to fetch settings' },
       { status: 500 }
     );
   }
