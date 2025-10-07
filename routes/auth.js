@@ -347,9 +347,8 @@ router.post('/login', [
       });
     }
 
-    // Update last login
-    user.lastLogin = new Date();
-    await user.save();
+    // Update last login (skip validation to avoid issues with existing users)
+    await User.findByIdAndUpdate(user._id, { lastLogin: new Date() }, { validateBeforeSave: false });
 
     // Generate token with session timeout and role
     const token = await generateTokenWithTimeout(user._id, user.role);
