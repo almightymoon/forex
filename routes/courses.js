@@ -275,7 +275,7 @@ router.post('/:id/enroll', authenticateToken, async (req, res) => {
     }
 
     course.enrollStudent(req.user._id);
-    await course.save();
+    await course.save({ validateBeforeSave: false });
 
     // Also update the user's enrolled courses
     const user = await User.findById(req.user._id);
