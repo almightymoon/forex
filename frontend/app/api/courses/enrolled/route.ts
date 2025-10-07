@@ -30,7 +30,10 @@ export async function GET(request: NextRequest) {
     if (!backendResponse.ok) {
       const errorText = await backendResponse.text();
       console.error('Backend error response:', errorText);
-      throw new Error(`Backend responded with ${backendResponse.status}: ${errorText}`);
+      return new NextResponse(errorText, {
+        status: backendResponse.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const enrolledCourses = await backendResponse.json();
@@ -40,7 +43,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching enrolled courses:', error);
     return NextResponse.json(
-      { error: `Failed to fetch enrolled courses: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Failed to fetch enrolled courses' },
       { status: 500 }
     );
   }

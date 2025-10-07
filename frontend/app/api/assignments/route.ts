@@ -31,7 +31,10 @@ export async function POST(request: NextRequest) {
     if (!backendResponse.ok) {
       const errorText = await backendResponse.text();
       console.error('Backend error response:', errorText);
-      throw new Error(`Backend responded with ${backendResponse.status}: ${errorText}`);
+      return new NextResponse(errorText, {
+        status: backendResponse.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const result = await backendResponse.json();
@@ -41,7 +44,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating assignment:', error);
     return NextResponse.json(
-      { error: `Failed to create assignment: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Failed to create assignment' },
       { status: 500 }
     );
   }
@@ -84,7 +87,10 @@ export async function GET(request: NextRequest) {
     if (!backendResponse.ok) {
       const errorText = await backendResponse.text();
       console.error('Backend error response:', errorText);
-      throw new Error(`Backend responded with ${backendResponse.status}: ${errorText}`);
+      return new NextResponse(errorText, {
+        status: backendResponse.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const assignments = await backendResponse.json();
@@ -94,7 +100,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching assignments:', error);
     return NextResponse.json(
-      { error: `Failed to fetch assignments: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Failed to fetch assignments' },
       { status: 500 }
     );
   }

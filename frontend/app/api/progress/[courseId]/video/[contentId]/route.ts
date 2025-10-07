@@ -35,7 +35,10 @@ export async function PUT(
     if (!backendResponse.ok) {
       const errorText = await backendResponse.text();
       console.error('Backend error response:', errorText);
-      throw new Error(`Backend responded with ${backendResponse.status}: ${errorText}`);
+      return new NextResponse(errorText, {
+        status: backendResponse.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const result = await backendResponse.json();
@@ -45,7 +48,7 @@ export async function PUT(
   } catch (error) {
     console.error('Error updating video progress:', error);
     return NextResponse.json(
-      { error: `Failed to update video progress: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Failed to update video progress' },
       { status: 500 }
     );
   }

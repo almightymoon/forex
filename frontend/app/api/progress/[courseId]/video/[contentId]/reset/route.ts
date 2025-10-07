@@ -31,7 +31,10 @@ export async function DELETE(
     if (!backendResponse.ok) {
       const errorText = await backendResponse.text();
       console.error('Backend error response:', errorText);
-      throw new Error(`Backend responded with ${backendResponse.status}: ${errorText}`);
+      return new NextResponse(errorText, {
+        status: backendResponse.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const result = await backendResponse.json();
@@ -41,7 +44,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error resetting video progress:', error);
     return NextResponse.json(
-      { error: `Failed to reset video progress: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Failed to reset video progress' },
       { status: 500 }
     );
   }

@@ -34,7 +34,11 @@ export async function GET(request: NextRequest) {
     });
 
     if (!backendResponse.ok) {
-      throw new Error(`Backend responded with ${backendResponse.status}`);
+      const errorText = await backendResponse.text();
+      return new NextResponse(errorText || JSON.stringify({ error: 'Backend error' }), {
+        status: backendResponse.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const backendData = await backendResponse.json();

@@ -33,7 +33,10 @@ export async function POST(
     if (!backendResponse.ok) {
       const errorText = await backendResponse.text();
       console.error('Backend error response:', errorText);
-      throw new Error(`Backend responded with ${backendResponse.status}: ${errorText}`);
+      return new NextResponse(errorText, {
+        status: backendResponse.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const result = await backendResponse.json();
@@ -43,7 +46,7 @@ export async function POST(
   } catch (error) {
     console.error('Error enrolling in course:', error);
     return NextResponse.json(
-      { error: `Failed to enroll in course: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Failed to enroll in course' },
       { status: 500 }
     );
   }

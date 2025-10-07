@@ -31,7 +31,10 @@ export async function GET(
     if (!backendResponse.ok) {
       const errorText = await backendResponse.text();
       console.error('Backend error response:', errorText);
-      throw new Error(`Backend responded with ${backendResponse.status}: ${errorText}`);
+      return new NextResponse(errorText, {
+        status: backendResponse.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const result = await backendResponse.json();
@@ -41,7 +44,7 @@ export async function GET(
   } catch (error) {
     console.error('Error getting progress:', error);
     return NextResponse.json(
-      { error: `Failed to get progress: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Failed to get progress' },
       { status: 500 }
     );
   }
