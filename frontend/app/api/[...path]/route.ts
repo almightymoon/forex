@@ -43,7 +43,12 @@ async function handleRequest(
   method: string
 ) {
   try {
-    const path = params.path.join('/');
+    let path = params.path.join('/');
+    
+    // Strip 'api/' prefix if it exists to prevent duplication
+    if (path.startsWith('api/')) {
+      path = path.slice(4); // Remove 'api/' (4 characters)
+    }
     
     // Skip community routes - they have dedicated handlers
     if (path.startsWith('community/')) {
@@ -56,7 +61,7 @@ async function handleRequest(
     }
     
     const url = new URL(request.url);
-    // Fix: Don't add /api/ if BACKEND_URL already includes it
+    // Build backend URL - BACKEND_URL already includes /api
     const backendUrl = BACKEND_URL.includes('/api') 
       ? `${BACKEND_URL}/${path}${url.search}`
       : `${BACKEND_URL}/api/${path}${url.search}`;
