@@ -56,7 +56,10 @@ async function handleRequest(
     }
     
     const url = new URL(request.url);
-    const backendUrl = `${BACKEND_URL}/api/${path}${url.search}`;
+    // Fix: Don't add /api/ if BACKEND_URL already includes it
+    const backendUrl = BACKEND_URL.includes('/api') 
+      ? `${BACKEND_URL}/${path}${url.search}`
+      : `${BACKEND_URL}/api/${path}${url.search}`;
     
     console.log(`Catch-all API proxy: ${method} ${path} -> ${backendUrl}`);
 
