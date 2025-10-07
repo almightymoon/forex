@@ -94,9 +94,13 @@ export async function GET(request: NextRequest) {
     console.log('Backend response status:', backendResponse.status);
 
     if (!backendResponse.ok) {
+      // Return error directly without wrapping to prevent recursion
       const errorText = await backendResponse.text();
       console.error('Backend error response:', errorText);
-      throw new Error(`Backend responded with ${backendResponse.status}: ${errorText}`);
+      return new NextResponse(errorText, {
+        status: backendResponse.status,
+        headers: { 'Content-Type': 'application/json' }
+      });
     }
 
     const courses = await backendResponse.json();
@@ -112,7 +116,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Error fetching courses:', error);
     return NextResponse.json(
-      { error: `Failed to fetch courses: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Failed to fetch courses' },
       { status: 500 }
     );
   }
