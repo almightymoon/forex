@@ -112,7 +112,7 @@ async function handleRequest(
   } catch (error) {
     console.error('API proxy error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Internal server error', details: 'See server logs' },
       { status: 500 }
     );
   }

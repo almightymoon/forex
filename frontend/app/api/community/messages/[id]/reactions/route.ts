@@ -52,7 +52,7 @@ export async function POST(
   } catch (error) {
     console.error('Community message reaction API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Internal server error', details: 'See server logs' },
       { status: 500 }
     );
   }
@@ -108,7 +108,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Community message reaction remove API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Internal server error', details: 'See server logs' },
       { status: 500 }
     );
   }

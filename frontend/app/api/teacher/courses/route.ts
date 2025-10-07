@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating teacher course:', error);
     return NextResponse.json(
-      { error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -188,7 +188,7 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     console.error('Error updating teacher course:', error);
     return NextResponse.json(
-      { error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -266,7 +266,7 @@ export async function DELETE(request: NextRequest) {
   } catch (error) {
     console.error('Error deleting teacher course:', error);
     return NextResponse.json(
-      { error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

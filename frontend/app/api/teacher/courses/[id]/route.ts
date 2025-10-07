@@ -66,7 +66,7 @@ export async function PUT(
   } catch (error) {
     console.error('Error updating teacher course:', error);
     return NextResponse.json(
-      { error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }
@@ -133,7 +133,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Error deleting teacher course:', error);
     return NextResponse.json(
-      { error: `Internal server error: ${error instanceof Error ? error.message : 'Unknown error'}` },
+      { error: 'Internal server error' },
       { status: 500 }
     );
   }

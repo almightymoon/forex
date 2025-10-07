@@ -44,7 +44,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Community channels API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Internal server error', details: 'See server logs' },
       { status: 500 }
     );
   }
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Community channels API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Internal server error', details: 'See server logs' },
       { status: 500 }
     );
   }

@@ -48,7 +48,7 @@ export async function DELETE(
   } catch (error) {
     console.error('Community channel delete API error:', error);
     return NextResponse.json(
-      { error: 'Internal server error', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Internal server error', details: 'See server logs' },
       { status: 500 }
     );
   }
