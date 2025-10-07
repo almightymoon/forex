@@ -10,7 +10,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 // Rate limiting
 const requestCounts = new Map();
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const MAX_REQUESTS_PER_WINDOW = 10; // Max 10 requests per minute
+const MAX_REQUESTS_PER_WINDOW = 100; // Max 100 requests per minute (increased for production)
 
 function isRateLimited(ip: string): boolean {
   const now = Date.now();
