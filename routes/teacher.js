@@ -1124,7 +1124,7 @@ router.post('/unblock-student', async (req, res) => {
 });
 
 // Assign a course to a student
-router.post('/assign-course', async (req, res) => {
+router.post('/assign-course', authenticateToken, requireTeacher, async (req, res) => {
   try {
     const { studentId, courseId, progress = 0 } = req.body;
     const teacherId = req.user._id;
