@@ -51,24 +51,133 @@ router.post('/', [
   requireTeacher,
   body('symbol').trim().notEmpty().withMessage('Symbol is required'),
   body('type').isIn(['buy', 'sell', 'hold', 'strong_buy', 'strong_sell']).withMessage('Invalid signal type'),
-  body('entryPrice').isNumeric().withMessage('Entry price is required'),
-  body('targetPrice').isNumeric().withMessage('Target price is required'),
-  body('stopLoss').isNumeric().withMessage('Stop loss is required'),
+  body('entryPrice').isFloat({ min: 0 }).withMessage('Entry price must be a positive number'),
+  body('targetPrice').isFloat({ min: 0 }).withMessage('Target price must be a positive number'),
+  body('stopLoss').isFloat({ min: 0 }).withMessage('Stop loss must be a positive number'),
   body('description').trim().notEmpty().withMessage('Description is required'),
   body('timeframe').isIn(['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M']).withMessage('Invalid timeframe'),
   body('confidence').isInt({ min: 1, max: 100 }).withMessage('Confidence must be between 1-100'),
   body('instrumentType').isIn(['forex', 'crypto', 'stocks', 'commodities', 'indices', 'futures']).withMessage('Invalid instrument type'),
-  body('currentBid').isNumeric().withMessage('Current bid price is required'),
-  body('currentAsk').isNumeric().withMessage('Current ask price is required'),
-  body('dailyHigh').isNumeric().withMessage('Daily high is required'),
-  body('dailyLow').isNumeric().withMessage('Daily low is required'),
-  body('priceChange').isNumeric().withMessage('Price change is required'),
-  body('priceChangePercent').isNumeric().withMessage('Price change percentage is required')
+  body('currentBid').isFloat({ min: 0 }).withMessage('Current bid price must be a positive number'),
+  body('currentAsk').isFloat({ min: 0 }).withMessage('Current ask price must be a positive number'),
+  body('dailyHigh').isFloat({ min: 0 }).withMessage('Daily high must be a positive number'),
+  body('dailyLow').isFloat({ min: 0 }).withMessage('Daily low must be a positive number'),
+  body('priceChange').isFloat().withMessage('Price change must be a number'),
+  body('priceChangePercent').isFloat().withMessage('Price change percentage must be a number'),
+  body('positionSize').optional().isFloat({ min: 0 }).withMessage('Position size must be a positive number'),
+  body('maxRisk').optional().isFloat({ min: 0 }).withMessage('Maximum risk must be a positive number'),
+  body('riskRewardRatio').optional().isFloat({ min: 0 }).withMessage('Risk-reward ratio must be a positive number'),
+  body('expectedReturn').optional().isFloat({ min: 0 }).withMessage('Expected return must be a positive number')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        message: 'Please check your input and try again',
+        errors: errors.array().map(err => ({
+          field: err.path || err.param,
+          message: err.msg,
+          value: err.value
+        }))
+      });
+    }
+
+    // Additional business logic validation
+    const validationErrors = [];
+
+    // Validate bid/ask relationship
+    if (req.body.currentBid >= req.body.currentAsk) {
+      validationErrors.push({
+        field: 'currentBid',
+        message: 'Bid price must be lower than ask price',
+        value: { bid: req.body.currentBid, ask: req.body.currentAsk }
+      });
+    }
+
+    // Validate daily high/low relationship
+    if (req.body.dailyLow >= req.body.dailyHigh) {
+      validationErrors.push({
+        field: 'dailyLow',
+        message: 'Daily low must be lower than daily high',
+        value: { low: req.body.dailyLow, high: req.body.dailyHigh }
+      });
+    }
+
+    // Validate signal prices based on type
+    if (req.body.type === 'buy' || req.body.type === 'strong_buy') {
+      if (req.body.targetPrice <= req.body.entryPrice) {
+        validationErrors.push({
+          field: 'targetPrice',
+          message: 'Target price must be higher than entry price for buy signals',
+          value: { entry: req.body.entryPrice, target: req.body.targetPrice }
+        });
+      }
+      if (req.body.stopLoss >= req.body.entryPrice) {
+        validationErrors.push({
+          field: 'stopLoss',
+          message: 'Stop loss must be lower than entry price for buy signals',
+          value: { entry: req.body.entryPrice, stopLoss: req.body.stopLoss }
+        });
+      }
+    } else if (req.body.type === 'sell' || req.body.type === 'strong_sell') {
+      if (req.body.targetPrice >= req.body.entryPrice) {
+        validationErrors.push({
+          field: 'targetPrice',
+          message: 'Target price must be lower than entry price for sell signals',
+          value: { entry: req.body.entryPrice, target: req.body.targetPrice }
+        });
+      }
+      if (req.body.stopLoss <= req.body.entryPrice) {
+        validationErrors.push({
+          field: 'stopLoss',
+          message: 'Stop loss must be higher than entry price for sell signals',
+          value: { entry: req.body.entryPrice, stopLoss: req.body.stopLoss }
+        });
+      }
+    }
+
+    // Validate current prices are within daily range (with tolerance)
+    if (req.body.currentBid < req.body.dailyLow * 0.8 || req.body.currentAsk > req.body.dailyHigh * 1.2) {
+      validationErrors.push({
+        field: 'currentBid',
+        message: 'Current prices should be reasonably within daily high/low range (allowing 20% tolerance for market volatility)',
+        value: { bid: req.body.currentBid, ask: req.body.currentAsk, low: req.body.dailyLow, high: req.body.dailyHigh }
+      });
+    }
+
+    // Validate optional fields if provided
+    if (req.body.positionSize !== undefined && req.body.positionSize < 0) {
+      validationErrors.push({
+        field: 'positionSize',
+        message: 'Position size cannot be negative',
+        value: req.body.positionSize
+      });
+    }
+
+    if (req.body.maxRisk !== undefined && req.body.maxRisk < 0) {
+      validationErrors.push({
+        field: 'maxRisk',
+        message: 'Maximum risk cannot be negative',
+        value: req.body.maxRisk
+      });
+    }
+
+    if (req.body.expectedReturn !== undefined && req.body.expectedReturn < 0) {
+      validationErrors.push({
+        field: 'expectedReturn',
+        message: 'Expected return cannot be negative',
+        value: req.body.expectedReturn
+      });
+    }
+
+    // Return validation errors if any
+    if (validationErrors.length > 0) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        message: 'Please correct the following errors',
+        errors: validationErrors
+      });
     }
 
     const signalData = {
@@ -86,7 +195,34 @@ router.post('/', [
 
   } catch (error) {
     console.error('Create signal error:', error);
-    res.status(500).json({ error: 'Failed to create signal' });
+    
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const mongooseErrors = Object.values(error.errors).map(err => ({
+        field: err.path,
+        message: err.message,
+        value: err.value
+      }));
+      
+      return res.status(400).json({
+        error: 'Validation failed',
+        message: 'Please check your input and try again',
+        errors: mongooseErrors
+      });
+    }
+
+    // Handle custom pre-save validation errors
+    if (error.message && error.message.includes('must be')) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        message: error.message
+      });
+    }
+
+    res.status(500).json({ 
+      error: 'Failed to create signal',
+      message: 'An unexpected error occurred. Please try again.'
+    });
   }
 });
 
@@ -97,12 +233,30 @@ router.put('/:id', [
   authenticateToken,
   requireOwnership('TradingSignal'),
   body('description').optional().trim().notEmpty().withMessage('Description cannot be empty'),
-  body('confidence').optional().isInt({ min: 1, max: 100 }).withMessage('Confidence must be between 1-100')
+  body('confidence').optional().isInt({ min: 1, max: 100 }).withMessage('Confidence must be between 1-100'),
+  body('entryPrice').optional().isFloat({ min: 0 }).withMessage('Entry price must be a positive number'),
+  body('targetPrice').optional().isFloat({ min: 0 }).withMessage('Target price must be a positive number'),
+  body('stopLoss').optional().isFloat({ min: 0 }).withMessage('Stop loss must be a positive number'),
+  body('currentBid').optional().isFloat({ min: 0 }).withMessage('Current bid price must be a positive number'),
+  body('currentAsk').optional().isFloat({ min: 0 }).withMessage('Current ask price must be a positive number'),
+  body('dailyHigh').optional().isFloat({ min: 0 }).withMessage('Daily high must be a positive number'),
+  body('dailyLow').optional().isFloat({ min: 0 }).withMessage('Daily low must be a positive number'),
+  body('positionSize').optional().isFloat({ min: 0 }).withMessage('Position size must be a positive number'),
+  body('maxRisk').optional().isFloat({ min: 0 }).withMessage('Maximum risk must be a positive number'),
+  body('expectedReturn').optional().isFloat({ min: 0 }).withMessage('Expected return must be a positive number')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
-      return res.status(400).json({ errors: errors.array() });
+      return res.status(400).json({ 
+        error: 'Validation failed',
+        message: 'Please check your input and try again',
+        errors: errors.array().map(err => ({
+          field: err.path || err.param,
+          message: err.msg,
+          value: err.value
+        }))
+      });
     }
 
     const signal = await TradingSignal.findByIdAndUpdate(
@@ -122,7 +276,34 @@ router.put('/:id', [
 
   } catch (error) {
     console.error('Update signal error:', error);
-    res.status(500).json({ error: 'Failed to update signal' });
+    
+    // Handle Mongoose validation errors
+    if (error.name === 'ValidationError') {
+      const mongooseErrors = Object.values(error.errors).map(err => ({
+        field: err.path,
+        message: err.message,
+        value: err.value
+      }));
+      
+      return res.status(400).json({
+        error: 'Validation failed',
+        message: 'Please check your input and try again',
+        errors: mongooseErrors
+      });
+    }
+
+    // Handle custom pre-save validation errors
+    if (error.message && error.message.includes('must be')) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        message: error.message
+      });
+    }
+
+    res.status(500).json({ 
+      error: 'Failed to update signal',
+      message: 'An unexpected error occurred. Please try again.'
+    });
   }
 });
 
