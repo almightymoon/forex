@@ -13,18 +13,39 @@ const checkSessionTimeout = async (req, res, next) => {
     // Decode token to get expiration
     const decoded = jwt.decode(token);
     if (!decoded) {
-      return res.status(401).json({ error: 'Invalid token' });
+      return next(); // Invalid token, let auth middleware handle it
     }
     
-    // Get current settings for session timeout
-    const settings = await Settings.getSettings();
-    const sessionTimeoutMinutes = settings.security.sessionTimeout;
-    const sessionTimeoutMs = sessionTimeoutMinutes * 60 * 1000;
+    // Get current settings for session timeout with error handling
+    let settings;
+    try {
+      settings = await Settings.getSettings();
+    } catch (settingsError) {
+      console.error('Failed to get settings for session timeout:', settingsError);
+      // Use default timeout if settings unavailable
+      const defaultTimeoutMinutes = 60;
+      const now = Date.now() / 1000;
+      const sessionStartTime = decoded.iat || decoded.sessionStart / 1000;
+      const sessionAge = now - sessionStartTime;
+      
+      if (sessionAge > defaultTimeoutMinutes * 60) {
+        return res.status(401).json({
+          error: 'Session expired',
+          message: 'Your session has expired due to inactivity. Please log in again.',
+          sessionExpired: true,
+          redirectTo: '/login',
+          code: 'SESSION_EXPIRED'
+        });
+      }
+      return next();
+    }
+    
+    const sessionTimeoutMinutes = settings?.security?.sessionTimeout || 60;
     
     // Check if token is close to expiration based on settings
     const now = Date.now() / 1000; // Convert to seconds
     const timeUntilExpiry = decoded.exp - now;
-    const sessionStartTime = decoded.iat;
+    const sessionStartTime = decoded.iat || (decoded.sessionStart ? decoded.sessionStart / 1000 : decoded.iat);
     const sessionAge = now - sessionStartTime;
     
     // If session is older than configured timeout, force re-authentication
