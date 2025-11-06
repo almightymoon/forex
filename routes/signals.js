@@ -180,13 +180,36 @@ router.post('/', [
       });
     }
 
+    // Prepare signal data
     const signalData = {
       ...req.body,
       teacher: req.user._id
     };
 
+    // Convert string numbers to actual numbers if needed
+    const numericFields = [
+      'entryPrice', 'targetPrice', 'stopLoss', 'currentBid', 'currentAsk',
+      'dailyHigh', 'dailyLow', 'priceChange', 'priceChangePercent',
+      'positionSize', 'maxRisk', 'riskRewardRatio', 'expectedReturn', 'confidence'
+    ];
+    
+    numericFields.forEach(field => {
+      if (signalData[field] !== undefined && signalData[field] !== null) {
+        const numValue = parseFloat(signalData[field]);
+        if (!isNaN(numValue)) {
+          signalData[field] = numValue;
+        }
+      }
+    });
+
     const signal = new TradingSignal(signalData);
-    await signal.save();
+    
+    try {
+      await signal.save();
+    } catch (saveError) {
+      // Re-throw to be caught by outer catch block
+      throw saveError;
+    }
 
     res.status(201).json({
       message: 'Signal created successfully',
@@ -195,13 +218,20 @@ router.post('/', [
 
   } catch (error) {
     console.error('Create signal error:', error);
+    console.error('Error stack:', error.stack);
+    console.error('Error details:', {
+      name: error.name,
+      message: error.message,
+      errors: error.errors
+    });
     
     // Handle Mongoose validation errors
     if (error.name === 'ValidationError') {
       const mongooseErrors = Object.values(error.errors).map(err => ({
         field: err.path,
         message: err.message,
-        value: err.value
+        value: err.value,
+        kind: err.kind
       }));
       
       return res.status(400).json({
@@ -211,17 +241,48 @@ router.post('/', [
       });
     }
 
-    // Handle custom pre-save validation errors
-    if (error.message && error.message.includes('must be')) {
+    // Handle custom pre-save validation errors (from model pre-save hook)
+    if (error.message && (
+      error.message.includes('must be') || 
+      error.message.includes('must be lower') || 
+      error.message.includes('must be higher') ||
+      error.message.includes('should be reasonably within') ||
+      error.message.includes('Bid price') ||
+      error.message.includes('Daily low') ||
+      error.message.includes('Target price') ||
+      error.message.includes('Stop loss')
+    )) {
       return res.status(400).json({
         error: 'Validation failed',
-        message: error.message
+        message: error.message,
+        type: 'pre-save-validation',
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
 
+    // Handle CastError (invalid ObjectId, etc.)
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        error: 'Invalid data format',
+        message: `Invalid value for ${error.path}: ${error.value}`,
+        field: error.path,
+        value: error.value
+      });
+    }
+
+    // Return detailed error in development, generic in production
     res.status(500).json({ 
       error: 'Failed to create signal',
-      message: 'An unexpected error occurred. Please try again.'
+      message: process.env.NODE_ENV === 'development' 
+        ? (error.message || 'An unexpected error occurred')
+        : 'An unexpected error occurred. Please try again.',
+      errorType: error.name,
+      details: process.env.NODE_ENV === 'development' ? {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        errors: error.errors
+      } : undefined
     });
   }
 });
