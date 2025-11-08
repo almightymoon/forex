@@ -26,6 +26,7 @@ const teacherRoutes = require('./routes/teacher');
 const communityRoutes = require('./routes/community');
 const certificateRoutes = require('./routes/certificates');
 const progressRoutes = require('./routes/progress');
+const uploadRoutes = require('./routes/upload');
 const { initializeWebSocket } = require('./websocket');
 
 const app = express();
@@ -134,6 +135,7 @@ app.use('/api/signals', checkSessionTimeout, signalRoutes);
 app.use('/api/payments', checkSessionTimeout, paymentRoutes);
 app.use('/api/promos', checkSessionTimeout, promoRoutes);
 app.use('/api/assignments', checkSessionTimeout, assignmentRoutes);
+app.use('/api/upload', checkSessionTimeout, uploadRoutes);
 
 // Apply maintenance mode middleware to protected routes only
 app.use('/api', maintenanceMiddleware);

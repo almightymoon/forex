@@ -287,9 +287,12 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
       try {
         const formData = new FormData();
         formData.append('file', file);
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
         
         const response = await fetch('/api/upload', {
           method: 'POST',
+          headers,
           body: formData
         });
         
@@ -310,9 +313,12 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         setIsUploading(true);
         const formData = new FormData();
         formData.append('file', files[0]);
+        const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+        const headers: HeadersInit = token ? { 'Authorization': `Bearer ${token}` } : {};
         
         const response = await fetch('/api/upload', {
           method: 'POST',
+          headers,
           body: formData
         });
         
