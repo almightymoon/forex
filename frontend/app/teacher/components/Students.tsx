@@ -955,33 +955,33 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                     <div className="text-sm text-gray-900 dark:text-white">{student.averageScore || 'N/A'}</div>
                     <div className="text-xs text-gray-500 dark:text-white">{student.totalAssignments || 0} assignments</div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                     {/* Status column - updated to use correct field names */}
                     {(student.security?.isLocked || student.isBlocked) ? (
                       <div className="space-y-1">
-                        <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                        <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
                           <XCircle className="w-3 h-3 mr-1" />
                           Blocked
                         </div>
                         {(student.security?.lockReason || student.blockReason) && (
-                          <div className="text-xs text-gray-600 max-w-xs truncate" title={student.security?.lockReason || student.blockReason}>
+                          <div className="text-xs text-gray-600 dark:text-gray-300 max-w-xs truncate" title={student.security?.lockReason || student.blockReason}>
                             {student.security?.lockReason || student.blockReason}
                           </div>
                         )}
                         {(student.security?.lockedUntil || student.blockExpiry) && (
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-gray-500 dark:text-white">
                             Until: {new Date(student.security?.lockedUntil || student.blockExpiry).toLocaleDateString()}
                           </div>
                         )}
                       </div>
                     ) : (
-                      <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                      <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
                         <CheckCircle className="w-3 h-4 mr-1" />
                         Active
                       </div>
                     )}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-white">
                     {student.lastActive ? new Date(student.lastActive).toLocaleDateString() : 'Never'}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
