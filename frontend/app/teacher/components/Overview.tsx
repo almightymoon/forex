@@ -127,16 +127,16 @@ export default function Overview({
           <div className="space-y-3">
             {Array.isArray(liveSessions) && liveSessions.filter(s => s.status === 'scheduled').length > 0 ? (
               liveSessions.filter(s => s.status === 'scheduled').slice(0, 3).map((session) => (
-                <div key={session.id} className="p-3 bg-gray-50 rounded-lg">
+                <div key={session.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
                   <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-medium text-gray-900">{session.title}</h4>
+                    <h4 className="text-sm font-medium text-gray-900 dark:text-white">{session.title}</h4>
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSessionStatusColor(session.status)}`}>
                       {session.status}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-500 mb-2">{session.courseName || 'General Session'}</p>
-                  <div className="flex items-center text-xs text-gray-500">
-                    <Clock className="w-3 h-3 mr-1" />
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{session.courseName || 'General Session'}</p>
+                  <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
+                    <Clock className="w-3 h-3 mr-1 text-gray-500 dark:text-gray-400" />
                     {session.scheduledDate ? 
                       `${new Date(session.scheduledDate).toLocaleDateString()} at ${new Date(session.scheduledDate).toLocaleTimeString()}` :
                       'Date not set'
@@ -145,8 +145,8 @@ export default function Overview({
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-500" />
                 <p className="text-sm">No upcoming sessions</p>
                 <p className="text-xs">Schedule live sessions to see them here</p>
               </div>

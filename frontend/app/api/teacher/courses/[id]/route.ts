@@ -36,10 +36,15 @@ export async function PUT(
     console.log('Course update data received:', JSON.stringify(courseData, null, 2));
 
     // Check if backend is accessible
-    console.log(`Attempting to connect to backend at /api/teacher/courses/${params.id}`);
+    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const backendUrl = BACKEND_URL.includes('/api') 
+      ? `${BACKEND_URL}/teacher/courses/${params.id}`
+      : `${BACKEND_URL}/api/teacher/courses/${params.id}`;
+    
+    console.log(`Attempting to connect to backend at ${backendUrl}`);
     
     // Proxy to your actual backend
-    const backendResponse = await fetch(`/api/teacher/courses/${params.id}`, {
+    const backendResponse = await fetch(backendUrl, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -104,10 +109,15 @@ export async function DELETE(
     }
 
     // Check if backend is accessible
-    console.log(`Attempting to connect to backend at /api/teacher/courses/${params.id}`);
+    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
+    const backendUrl = BACKEND_URL.includes('/api') 
+      ? `${BACKEND_URL}/teacher/courses/${params.id}`
+      : `${BACKEND_URL}/api/teacher/courses/${params.id}`;
+    
+    console.log(`Attempting to connect to backend at ${backendUrl}`);
     
     // Proxy to your actual backend
-    const backendResponse = await fetch(`/api/teacher/courses/${params.id}`, {
+    const backendResponse = await fetch(backendUrl, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,

@@ -828,26 +828,26 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Create New Assignment</h3>
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Create New Assignment</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Title *</label>
                 <input
                   type="text"
                   value={assignmentForm.title}
                   onChange={(e) => setAssignmentForm({...assignmentForm, title: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Assignment title"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Course *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Course *</label>
                 <select
                   value={assignmentForm.courseId}
                   onChange={(e) => setAssignmentForm({...assignmentForm, courseId: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Select a course...</option>
                   {courses.map((course) => (
@@ -859,45 +859,45 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Due Date</label>
                 <input
                   type="date"
                   value={assignmentForm.dueDate}
                   onChange={(e) => setAssignmentForm({...assignmentForm, dueDate: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Max Points</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Points</label>
                 <input
                   type="number"
                   value={assignmentForm.maxPoints}
                   onChange={(e) => setAssignmentForm({...assignmentForm, maxPoints: parseInt(e.target.value)})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   min="1"
                   max="1000"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Passing Score</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Passing Score</label>
                 <input
                   type="number"
                   value={assignmentForm.passingScore}
                   onChange={(e) => setAssignmentForm({...assignmentForm, passingScore: parseInt(e.target.value)})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   min="0"
                   max={assignmentForm.maxPoints}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Assignment Type</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assignment Type</label>
                 <select
                   value={assignmentForm.assignmentType}
                   onChange={(e) => setAssignmentForm({...assignmentForm, assignmentType: e.target.value as any})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="essay">Essay</option>
                   <option value="quiz">Quiz</option>
@@ -909,11 +909,11 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Difficulty</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Difficulty</label>
                 <select
                   value={assignmentForm.difficulty}
                   onChange={(e) => setAssignmentForm({...assignmentForm, difficulty: e.target.value as any})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="beginner">Beginner</option>
                   <option value="intermediate">Intermediate</option>
@@ -923,12 +923,12 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Estimated Time (minutes)</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Estimated Time (minutes)</label>
                 <input
                   type="number"
                   value={assignmentForm.estimatedTime}
                   onChange={(e) => setAssignmentForm({...assignmentForm, estimatedTime: parseInt(e.target.value)})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   min="15"
                   max="480"
                 />
@@ -936,23 +936,23 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
             </div>
             
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description *</label>
               <textarea
                 value={assignmentForm.description}
                 onChange={(e) => setAssignmentForm({...assignmentForm, description: e.target.value})}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Assignment description"
               />
             </div>
             
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Instructions</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Instructions</label>
               <textarea
                 value={assignmentForm.instructions}
                 onChange={(e) => setAssignmentForm({...assignmentForm, instructions: e.target.value})}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Detailed instructions for students"
               />
             </div>
@@ -963,9 +963,9 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                   type="checkbox"
                   checked={assignmentForm.isPublished}
                   onChange={(e) => setAssignmentForm({...assignmentForm, isPublished: e.target.checked})}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-700"
                 />
-                <span className="ml-2 text-sm text-gray-700">Publish immediately</span>
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Publish immediately</span>
               </label>
               
               <label className="flex items-center">
@@ -973,22 +973,22 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                   type="checkbox"
                   checked={assignmentForm.allowLateSubmission}
                   onChange={(e) => setAssignmentForm({...assignmentForm, allowLateSubmission: e.target.checked})}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-700"
                 />
-                <span className="ml-2 text-sm text-gray-700">Allow late submissions</span>
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Allow late submissions</span>
               </label>
             </div>
             
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateAssignment}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
               >
                 Create Assignment
               </button>
@@ -1000,27 +1000,27 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
       {/* Edit Assignment Modal */}
       {showEditModal && selectedAssignment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <h3 className="text-lg font-semibold mb-4">Edit Assignment</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">Edit Assignment</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Title *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Title *</label>
                 <input
                   type="text"
                   value={assignmentForm.title}
                   onChange={(e) => setAssignmentForm({...assignmentForm, title: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Assignment title"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Course *</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Course *</label>
                 <select
                   value={assignmentForm.courseId}
                   onChange={(e) => setAssignmentForm({...assignmentForm, courseId: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Select a course...</option>
                   {courses.map((course) => (
@@ -1032,45 +1032,45 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Due Date</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Due Date</label>
                 <input
                   type="date"
                   value={assignmentForm.dueDate}
                   onChange={(e) => setAssignmentForm({...assignmentForm, dueDate: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Max Points</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Max Points</label>
                 <input
                   type="number"
                   value={assignmentForm.maxPoints}
                   onChange={(e) => setAssignmentForm({...assignmentForm, maxPoints: parseInt(e.target.value)})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   min="1"
                   max="1000"
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Passing Score</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Passing Score</label>
                 <input
                   type="number"
                   value={assignmentForm.passingScore}
                   onChange={(e) => setAssignmentForm({...assignmentForm, passingScore: parseInt(e.target.value)})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   min="0"
                   max={assignmentForm.maxPoints}
                 />
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Assignment Type</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assignment Type</label>
                 <select
                   value={assignmentForm.assignmentType}
                   onChange={(e) => setAssignmentForm({...assignmentForm, assignmentType: e.target.value as any})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="essay">Essay</option>
                   <option value="quiz">Quiz</option>
@@ -1082,11 +1082,11 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Difficulty</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Difficulty</label>
                 <select
                   value={assignmentForm.difficulty}
                   onChange={(e) => setAssignmentForm({...assignmentForm, difficulty: e.target.value as any})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="beginner">Beginner</option>
                   <option value="intermediate">Intermediate</option>
@@ -1096,12 +1096,12 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Estimated Time (minutes)</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Estimated Time (minutes)</label>
                 <input
                   type="number"
                   value={assignmentForm.estimatedTime}
                   onChange={(e) => setAssignmentForm({...assignmentForm, estimatedTime: parseInt(e.target.value)})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   min="15"
                   max="480"
                 />
@@ -1109,23 +1109,23 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
             </div>
             
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Description *</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description *</label>
               <textarea
                 value={assignmentForm.description}
                 onChange={(e) => setAssignmentForm({...assignmentForm, description: e.target.value})}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Assignment description"
               />
             </div>
             
             <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Instructions</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Instructions</label>
               <textarea
                 value={assignmentForm.instructions}
                 onChange={(e) => setAssignmentForm({...assignmentForm, instructions: e.target.value})}
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 placeholder="Detailed instructions for students"
               />
             </div>
@@ -1136,9 +1136,9 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                   type="checkbox"
                   checked={assignmentForm.isPublished}
                   onChange={(e) => setAssignmentForm({...assignmentForm, isPublished: e.target.checked})}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-700"
                 />
-                <span className="ml-2 text-sm text-gray-700">Published</span>
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Published</span>
               </label>
               
               <label className="flex items-center">
@@ -1146,22 +1146,22 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                   type="checkbox"
                   checked={assignmentForm.allowLateSubmission}
                   onChange={(e) => setAssignmentForm({...assignmentForm, allowLateSubmission: e.target.checked})}
-                  className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-700"
                 />
-                <span className="ml-2 text-sm text-gray-700">Allow late submissions</span>
+                <span className="ml-2 text-sm text-gray-700 dark:text-gray-300">Allow late submissions</span>
               </label>
             </div>
             
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowEditModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUpdateAssignment}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
               >
                 Update Assignment
               </button>
@@ -1210,9 +1210,9 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
       {/* Submissions Modal */}
       {showSubmissionsModal && selectedAssignment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Submissions: {selectedAssignment.title}
               </h3>
               <div className="flex items-center space-x-3">
@@ -1221,52 +1221,52 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                     await fetchSubmissions(selectedAssignment);
                     await fetchAssignments();
                   }}
-                  className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                  className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
                 >
                   Refresh
                 </button>
                 <button
                   onClick={() => setShowSubmissionsModal(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
                 >
                   <XCircle className="w-6 h-6" />
                 </button>
               </div>
             </div>
             
-            <div className="bg-gray-50 p-4 rounded-lg mb-6">
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <p className="text-sm text-gray-600">Course</p>
-                  <p className="font-medium">{selectedAssignment.courseTitle}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Course</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedAssignment.courseTitle}</p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Due Date</p>
-                  <p className="font-medium">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Due Date</p>
+                  <p className="font-medium text-gray-900 dark:text-white">
                     {selectedAssignment.dueDate ? new Date(selectedAssignment.dueDate).toLocaleDateString() : 'No due date'}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-600">Max Points</p>
-                  <p className="font-medium">{selectedAssignment.maxPoints}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Max Points</p>
+                  <p className="font-medium text-gray-900 dark:text-white">{selectedAssignment.maxPoints}</p>
                 </div>
               </div>
             </div>
 
             {isLoadingSubmissions ? (
               <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                <p className="text-gray-500">Loading submissions...</p>
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
+                <p className="text-gray-500 dark:text-gray-400">Loading submissions...</p>
               </div>
             ) : submissions.length === 0 ? (
               <div className="text-center py-8">
-                <Users className="mx-auto h-12 w-12 text-gray-400 mb-4" />
-                <h4 className="text-lg font-medium text-gray-900 mb-2">No submissions yet</h4>
-                <p className="text-gray-500">Students will appear here once they submit their assignments.</p>
+                <Users className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500 mb-4" />
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No submissions yet</h4>
+                <p className="text-gray-500 dark:text-gray-400">Students will appear here once they submit their assignments.</p>
               </div>
             ) : (
               <div className="space-y-4">
-                <h4 className="text-lg font-medium text-gray-900 mb-4">
+                <h4 className="text-lg font-medium text-gray-900 dark:text-white mb-4">
                   {submissions.length} Submission{submissions.length !== 1 ? 's' : ''}
                 </h4>
                 {submissions.map((submission, index) => {
@@ -1275,28 +1275,28 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                   console.log(`Submission ${index} files:`, submission.files);
                   
                   return (
-                  <div key={index} className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div key={index} className="bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
                     <div className="flex items-center justify-between mb-3">
                       <div className="flex items-center space-x-3">
-                        <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                          <span className="text-sm font-medium text-blue-600">
+                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                          <span className="text-sm font-medium text-blue-600 dark:text-blue-300">
                             {submission.student?.firstName?.charAt(0) || 'S'}
                           </span>
                         </div>
                         <div>
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-gray-900 dark:text-white">
                             {submission.student?.firstName} {submission.student?.lastName}
                           </p>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-gray-500 dark:text-gray-400">
                             Submitted: {new Date(submission.submittedAt).toLocaleString()}
                           </p>
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          submission.status === 'submitted' ? 'bg-blue-100 text-blue-800' :
-                          submission.status === 'late' ? 'bg-orange-100 text-orange-800' :
-                          'bg-gray-100 text-gray-800'
+                          submission.status === 'submitted' ? 'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200' :
+                          submission.status === 'late' ? 'bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200' :
+                          'bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200'
                         }`}>
                           {submission.status}
                         </span>
@@ -1305,10 +1305,10 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                     
                     {submission.textContent && (
                       <div className="mb-3">
-                        <p className="text-sm font-medium text-gray-700 mb-2">Text Content:</p>
-                        <div className="bg-gray-50 p-3 rounded-lg">
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Text Content:</p>
+                        <div className="bg-gray-50 dark:bg-gray-600 p-3 rounded-lg">
                           <div 
-                            className="text-gray-800 submission-content"
+                            className="text-gray-800 dark:text-gray-200 submission-content"
                             dangerouslySetInnerHTML={{ 
                               __html: submission.textContent.length > 200 
                                 ? submission.textContent.substring(0, 200) + '...' 
@@ -1316,7 +1316,7 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                             }}
                           />
                           {submission.textContent.length > 200 && (
-                            <p className="text-xs text-gray-500 mt-2">
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                               Click "View Submission" to see full content
                             </p>
                           )}
@@ -1326,17 +1326,17 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                     
                     {submission.files && submission.files.length > 0 && (
                       <div className="mb-3">
-                        <p className="text-sm font-medium text-gray-700 mb-2">Attached Files:</p>
+                        <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Attached Files:</p>
                         <div className="space-y-2">
                           {submission.files.map((file: any, fileIndex: number) => (
-                            <div key={fileIndex} className="flex items-center space-x-2 bg-gray-50 p-2 rounded-lg">
-                              <FileText className="w-4 h-4 text-gray-500" />
-                              <span className="text-sm text-gray-700">{file.title || `File ${fileIndex + 1}`}</span>
+                            <div key={fileIndex} className="flex items-center space-x-2 bg-gray-50 dark:bg-gray-600 p-2 rounded-lg">
+                              <FileText className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                              <span className="text-sm text-gray-700 dark:text-gray-300">{file.title || `File ${fileIndex + 1}`}</span>
                               <a 
                                 href={file.fileUrl} 
                                 target="_blank" 
                                 rel="noopener noreferrer"
-                                className="text-blue-600 hover:text-blue-800 text-sm"
+                                className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 text-sm"
                               >
                                 View
                               </a>
@@ -1348,21 +1348,21 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                     
                     {/* Grade Display */}
                     {submission.grade !== undefined && submission.grade !== null && (
-                      <div className="mb-3 p-3 bg-green-50 border border-green-200 rounded-lg">
+                      <div className="mb-3 p-3 bg-green-50 dark:bg-green-900 border border-green-200 dark:border-green-700 rounded-lg">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-2">
-                            <span className="text-sm font-medium text-green-800">Grade:</span>
+                            <span className="text-sm font-medium text-green-800 dark:text-green-200">Grade:</span>
                             <span className={`text-lg font-bold ${
-                              submission.grade >= 90 ? 'text-green-600' :
-                              submission.grade >= 80 ? 'text-blue-600' :
-                              submission.grade >= 70 ? 'text-yellow-600' :
-                              'text-red-600'
+                              submission.grade >= 90 ? 'text-green-600 dark:text-green-400' :
+                              submission.grade >= 80 ? 'text-blue-600 dark:text-blue-400' :
+                              submission.grade >= 70 ? 'text-yellow-600 dark:text-yellow-400' :
+                              'text-red-600 dark:text-red-400'
                             }`}>
                               {submission.grade}%
                             </span>
                           </div>
                           {submission.feedback && (
-                            <span className="text-sm text-green-700">
+                            <span className="text-sm text-green-700 dark:text-green-300">
                               Feedback: {submission.feedback}
                             </span>
                           )}
@@ -1370,37 +1370,37 @@ export default function Assignments({ courses, isLoading, onRefresh }: Assignmen
                       </div>
                     )}
 
-                    <div className="flex space-x-3 pt-3 border-t border-gray-200">
+                    <div className="flex space-x-3 pt-3 border-t border-gray-200 dark:border-gray-600">
                       <button 
                         onClick={() => openSubmissionViewModal(submission)}
-                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+                        className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
                       >
                         View Submission
                       </button>
                       {submission.grade === undefined || submission.grade === null ? (
                         <button 
                           onClick={() => openGradingModal(submission)}
-                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700"
+                          className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
                         >
                           Grade
                         </button>
                       ) : (
                         <button 
                           onClick={() => openGradingModal(submission)}
-                          className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700"
+                          className="px-3 py-1 bg-yellow-600 text-white text-sm rounded hover:bg-yellow-700 dark:bg-yellow-500 dark:hover:bg-yellow-600"
                         >
                           Update Grade
                         </button>
                       )}
                       <button 
                         onClick={() => openFeedbackModal(submission)}
-                        className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700"
+                        className="px-3 py-1 bg-gray-600 text-white text-sm rounded hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600"
                       >
                         Provide Feedback
                       </button>
                       <button 
                         onClick={() => handleDeleteSubmission(submission)}
-                        className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                        className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
                       >
                         Delete
                       </button>

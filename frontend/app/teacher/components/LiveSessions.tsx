@@ -690,26 +690,26 @@ export default function LiveSessions() {
               </div>
 
               <div className="space-y-3 mb-4">
-                <div className="flex items-center text-sm text-gray-600">
-                  <Calendar className="w-4 h-4 mr-2" />
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Calendar className="w-4 h-4 mr-2 text-gray-600 dark:text-gray-400" />
                   {new Date(session.scheduledAt).toLocaleDateString()}
                 </div>
-                <div className="flex items-center text-sm text-gray-600">
-                  <Clock className="w-4 h-4 mr-2" />
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Clock className="w-4 h-4 mr-2 text-gray-600 dark:text-gray-400" />
                   {session.duration} minutes
                 </div>
-                <div className="flex items-center text-sm text-gray-600">
-                  <Users className="w-4 h-4 mr-2" />
+                <div className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                  <Users className="w-4 h-4 mr-2 text-gray-600 dark:text-gray-400" />
                   {session.currentParticipants.length}/{session.maxParticipants} participants
                 </div>
                 {session.status === 'live' && (
-                  <div className="flex items-center text-sm text-red-600 font-medium">
+                  <div className="flex items-center text-sm text-red-600 dark:text-red-400 font-medium">
                     <Play className="w-4 h-4 mr-2" />
                     LIVE NOW - Students can join!
                   </div>
                 )}
                 {session.status === 'completed' && (
-                  <div className="flex items-center text-sm text-gray-600 font-medium">
+                  <div className="flex items-center text-sm text-gray-600 dark:text-gray-400 font-medium">
                     <CheckCircle className="w-4 h-4 mr-2" />
                     COMPLETED - Can be deleted
                   </div>
@@ -720,15 +720,15 @@ export default function LiveSessions() {
 
               {session.topics.length > 0 && (
                 <div className="mb-4">
-                  <p className="text-xs font-medium text-gray-700 mb-2">Topics:</p>
+                  <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Topics:</p>
                   <div className="flex flex-wrap gap-1">
                     {session.topics.slice(0, 3).map((topic, idx) => (
-                      <span key={idx} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
+                      <span key={idx} className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
                         {topic}
                       </span>
                     ))}
                     {session.topics.length > 3 && (
-                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 text-gray-800">
+                      <span className="inline-flex items-center px-2 py-1 rounded-full text-xs bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
                         +{session.topics.length - 3} more
                       </span>
                     )}
@@ -741,7 +741,7 @@ export default function LiveSessions() {
                   <>
                     <button
                       onClick={() => handleStartSession(session._id)}
-                      className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 transition-colors"
+                      className="flex-1 bg-green-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 transition-colors"
                     >
                       Start Session
                     </button>
@@ -750,7 +750,7 @@ export default function LiveSessions() {
                         setEditingSession(session);
                         setShowEditModal(true);
                       }}
-                      className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors"
+                      className="px-3 py-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 transition-colors"
                       title="Edit Session"
                     >
                       <Edit className="w-4 h-4" />
@@ -766,8 +766,8 @@ export default function LiveSessions() {
                     }}
                     className={`px-3 py-2 text-white text-sm rounded-lg transition-colors ${
                       session.meetingLink.includes('meet.google.com') 
-                        ? 'bg-red-600 hover:bg-red-700' 
-                        : 'bg-green-600 hover:bg-green-700'
+                        ? 'bg-red-600 hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600' 
+                        : 'bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600'
                     }`}
                     title={session.meetingLink.includes('meet.google.com') ? 'Join Google Meet' : 'Join External Meeting'}
                   >
@@ -779,7 +779,7 @@ export default function LiveSessions() {
                   <>
                     <button
                       onClick={() => handleEndSession(session._id)}
-                      className="flex-1 bg-red-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors"
+                      className="flex-1 bg-red-600 text-white px-3 py-2 rounded-lg text-sm hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors"
                     >
                       End Session
                     </button>
@@ -787,8 +787,8 @@ export default function LiveSessions() {
                                               onClick={() => handleToggleRecording(session._id)}
                         className={`px-3 py-2 rounded-lg text-sm transition-colors ${
                          session.recordingEnabled 
-                            ? 'bg-red-600 text-white hover:bg-red-700' 
-                            : 'bg-gray-600 text-white hover:bg-gray-700'
+                            ? 'bg-red-600 text-white hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600' 
+                            : 'bg-gray-600 text-white hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600'
                         }`}
                        title={session.recordingEnabled ? 'Stop Recording' : 'Start Recording'}
                       >
@@ -807,7 +807,7 @@ export default function LiveSessions() {
                         showToast('Please enter a valid Google Meet URL', 'error');
                       }
                     }}
-                    className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                    className="px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors"
                     title="Update Meeting URL"
                   >
                     Update URL
@@ -819,7 +819,7 @@ export default function LiveSessions() {
                     setSelectedSession(session);
                     setShowParticipantsModal(true);
                   }}
-                  className="px-3 py-2 text-blue-600 hover:text-blue-900 transition-colors"
+                  className="px-3 py-2 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 transition-colors"
                   title="View Participants"
                 >
                   <Eye className="w-4 h-4" />
@@ -828,7 +828,7 @@ export default function LiveSessions() {
                 {(session.status === 'scheduled' || session.status === 'cancelled' || session.status === 'completed') && (
                   <button
                     onClick={() => handleDeleteSession(session._id)}
-                    className="px-3 py-2 text-red-600 hover:text-red-900 transition-colors"
+                    className="px-3 py-2 text-red-600 dark:text-red-400 hover:text-red-900 dark:hover:text-red-300 transition-colors"
                     title="Delete Session"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -938,13 +938,13 @@ export default function LiveSessions() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Level *
                   </label>
                   <select
                     value={newSession.level}
                     onChange={(e) => setNewSession({ ...newSession, level: e.target.value as any })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="all">All Levels</option>
                     <option value="beginner">Beginner</option>
@@ -954,7 +954,7 @@ export default function LiveSessions() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Price (USD)
                   </label>
                   <div className="flex items-center space-x-2">
@@ -964,15 +964,15 @@ export default function LiveSessions() {
                       onChange={(e) => setNewSession({ ...newSession, price: parseFloat(e.target.value) })}
                       min="0"
                       step="0.01"
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                       placeholder="0.00"
                     />
-                    <label className="flex items-center">
+                    <label className="flex items-center text-gray-700 dark:text-gray-300">
                       <input
                         type="checkbox"
                         checked={newSession.isFree}
                         onChange={(e) => setNewSession({ ...newSession, isFree: e.target.checked })}
-                        className="mr-2"
+                        className="mr-2 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-700"
                       />
                       Free
                     </label>
@@ -982,7 +982,7 @@ export default function LiveSessions() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Meeting Room Link
                 </label>
                 <div className="flex space-x-2">
@@ -990,20 +990,20 @@ export default function LiveSessions() {
                     type="url"
                     value={newSession.meetingLink || ''}
                     onChange={(e) => setNewSession({ ...newSession, meetingLink: e.target.value })}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     placeholder="Enter meeting URL or click Google Meet"
                   />
                   <button
                     type="button"
                     onClick={generateGoogleMeetLink}
-                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors whitespace-nowrap"
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600 transition-colors whitespace-nowrap"
                   >
                     Google Meet
                   </button>
                   <button
                     type="button"
                     onClick={createExternalMeetingLink}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 transition-colors whitespace-nowrap"
                   >
                     Add External Link
                   </button>
@@ -1011,13 +1011,13 @@ export default function LiveSessions() {
               </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Timezone
                   </label>
                   <select
                     value={newSession.timezone || 'Asia/Karachi'}
                     onChange={(e) => setNewSession({ ...newSession, timezone: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   >
                     <option value="Asia/Karachi">Asia/Karachi (PKT)</option>
                     <option value="UTC">UTC</option>
@@ -1028,50 +1028,50 @@ export default function LiveSessions() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <label className="flex items-center">
+                <label className="flex items-center text-gray-700 dark:text-gray-300">
                   <input
                     type="checkbox"
                     checked={newSession.chatEnabled}
                     onChange={(e) => setNewSession({ ...newSession, chatEnabled: e.target.checked })}
-                    className="mr-2"
+                    className="mr-2 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-700"
                   />
                   Chat Enabled
                 </label>
-                <label className="flex items-center">
+                <label className="flex items-center text-gray-700 dark:text-gray-300">
                   <input
                     type="checkbox"
                     checked={newSession.recordingEnabled}
                     onChange={(e) => setNewSession({ ...newSession, recordingEnabled: e.target.checked })}
-                    className="mr-2"
+                    className="mr-2 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-700"
                   />
                   Recording Enabled
                 </label>
-                <label className="flex items-center">
+                <label className="flex items-center text-gray-700 dark:text-gray-300">
                   <input
                     type="checkbox"
                     checked={newSession.isReplayAvailable}
                     onChange={(e) => setNewSession({ ...newSession, isReplayAvailable: e.target.checked })}
-                    className="mr-2"
+                    className="mr-2 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500 bg-white dark:bg-gray-700"
                   />
                   Replay Available
                 </label>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Notes
                 </label>
                 <textarea
                   value={newSession.notes || ''}
                   onChange={(e) => setNewSession({ ...newSession, notes: e.target.value })}
                   rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                   placeholder="Additional notes for the session"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Topics
                 </label>
                 <div className="flex space-x-2 mb-2">
@@ -1080,12 +1080,12 @@ export default function LiveSessions() {
                     value={newTopic}
                     onChange={(e) => setNewTopic(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && addTopic()}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     placeholder="Add a topic"
                   />
                   <button
                     onClick={addTopic}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 transition-colors"
                   >
                     Add
                   </button>
@@ -1094,12 +1094,12 @@ export default function LiveSessions() {
                   {newSession.topics.map((topic, index) => (
                     <span
                       key={index}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 text-blue-800"
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200"
                     >
                       {topic}
                       <button
                         onClick={() => removeTopic(topic)}
-                        className="ml-2 text-blue-600 hover:text-blue-800"
+                        className="ml-2 text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300"
                       >
                         <XCircle className="w-3 h-3" />
                       </button>
@@ -1109,7 +1109,7 @@ export default function LiveSessions() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Tags
                 </label>
                 <div className="flex space-x-2 mb-2">
@@ -1118,12 +1118,12 @@ export default function LiveSessions() {
                     value={newTag}
                     onChange={(e) => setNewTag(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && addTag()}
-                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     placeholder="Add a tag"
                   />
                   <button
                     onClick={addTag}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 dark:bg-gray-500 dark:hover:bg-gray-600 transition-colors"
                   >
                     Add
                   </button>
@@ -1132,12 +1132,12 @@ export default function LiveSessions() {
                   {newSession.tags.map((tag, index) => (
                     <span
                       key={index}
-                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 text-green-800"
+                      className="inline-flex items-center px-3 py-1 rounded-full text-sm bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200"
                     >
                       {tag}
                       <button
                         onClick={() => removeTag(tag)}
-                        className="ml-2 text-green-600 hover:text-green-800"
+                        className="ml-2 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-300"
                       >
                         <XCircle className="w-3 h-3" />
                       </button>
@@ -1150,13 +1150,13 @@ export default function LiveSessions() {
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowCreateModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateSession}
-                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
               >
                 Create Session
               </button>

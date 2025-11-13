@@ -894,17 +894,41 @@ export default function Community({ students, courses }: CommunityProps) {
       <AnimatePresence>
         {showChannelCreator && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white rounded-lg p-6 w-96">
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Create New Channel</h3>
-                <button onClick={() => setShowChannelCreator(false)}><X /></button>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Create New Channel</h3>
+                <button onClick={() => setShowChannelCreator(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                  <X />
+                </button>
               </div>
               <div className="space-y-4">
-                <input value={newChannelName} onChange={e => setNewChannelName(e.target.value)} className="w-full px-3 py-2 border rounded" placeholder="Channel name" />
-                <textarea value={newChannelDescription} onChange={e => setNewChannelDescription(e.target.value)} rows={3} className="w-full px-3 py-2 border rounded" placeholder="Description" />
+                <input 
+                  value={newChannelName} 
+                  onChange={e => setNewChannelName(e.target.value)} 
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" 
+                  placeholder="Channel name" 
+                />
+                <textarea 
+                  value={newChannelDescription} 
+                  onChange={e => setNewChannelDescription(e.target.value)} 
+                  rows={3} 
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" 
+                  placeholder="Description" 
+                />
                 <div className="flex items-center justify-end space-x-2">
-                  <button onClick={() => setShowChannelCreator(false)} className="px-4 py-2 border rounded">Cancel</button>
-                  <button onClick={handleCreateChannel} disabled={!newChannelName.trim() || creatingChannel} className="px-4 py-2 bg-blue-600 text-white rounded">Create</button>
+                  <button 
+                    onClick={() => setShowChannelCreator(false)} 
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    onClick={handleCreateChannel} 
+                    disabled={!newChannelName.trim() || creatingChannel} 
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Create
+                  </button>
                 </div>
               </div>
             </motion.div>
