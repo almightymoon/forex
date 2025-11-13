@@ -294,7 +294,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${sessionId}/start'), {
+      const response = await fetch(buildApiUrl(`api/teacher/live-sessions/${sessionId}/start`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -330,7 +330,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${sessionId}/end'), {
+      const response = await fetch(buildApiUrl(`api/teacher/live-sessions/${sessionId}/end`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -357,7 +357,7 @@ export default function LiveSessions() {
         return;
       }
 
-      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${sessionId}/recording'), {
+      const response = await fetch(buildApiUrl(`api/teacher/live-sessions/${sessionId}/recording`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -427,7 +427,7 @@ export default function LiveSessions() {
       }
 
       // Update session status to 'live' and start the meeting
-      const response = await fetch(buildApiUrl('api/teacher/live-sessions/${sessionId}/start'), {
+      const response = await fetch(buildApiUrl(`api/teacher/live-sessions/${sessionId}/start`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1299,14 +1299,14 @@ export default function LiveSessions() {
       {/* Participants Modal */}
       {showParticipantsModal && selectedSession && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                 Participants: {selectedSession.title}
               </h3>
               <button
                 onClick={() => setShowParticipantsModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <XCircle className="w-6 h-6" />
               </button>
@@ -1315,30 +1315,30 @@ export default function LiveSessions() {
             <div className="space-y-3">
               {selectedSession.currentParticipants.length > 0 ? (
                 selectedSession.currentParticipants.map((participant, index) => (
-                  <div key={index} className="flex items-center justify-between p-3 border border-gray-200 rounded-lg">
+                  <div key={index} className="flex items-center justify-between p-3 border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-gray-700">
                     <div className="flex items-center space-x-3">
-                      <div className="w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-gray-600">
+                      <div className="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
                           {participant.student?.firstName ? participant.student.firstName.charAt(0).toUpperCase() : '?'}
                         </span>
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">
+                        <p className="font-medium text-gray-900 dark:text-white">
                           {participant.student?.firstName ? `${participant.student.firstName} ${participant.student.lastName}` : 'Unknown Student'}
                         </p>
-                        <p className="text-sm text-gray-500">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">
                           Joined: {new Date(participant.joinedAt || participant.bookedAt).toLocaleTimeString()}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
                       {participant.attended ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200">
                           <CheckCircle className="w-3 h-3 mr-1" />
                           Present
                         </span>
                       ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-600 text-gray-800 dark:text-gray-200">
                           <AlertCircle className="w-3 h-3 mr-1" />
                           Left
                         </span>
@@ -1347,8 +1347,8 @@ export default function LiveSessions() {
                   </div>
                 ))
               ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
+                <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+                  <Users className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-500" />
                   <p>No participants yet</p>
                 </div>
               )}

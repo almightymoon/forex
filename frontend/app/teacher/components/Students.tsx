@@ -1200,14 +1200,14 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
       {/* Performance Modal */}
       {showPerformanceModal && selectedStudent && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Performance Report: {selectedStudent.firstName} {selectedStudent.lastName}
               </h3>
               <button
                 onClick={() => setShowPerformanceModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
               >
                 <XCircle className="w-6 h-6" />
               </button>
@@ -1215,35 +1215,35 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
 
             {/* Student Overview */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">{selectedStudent.totalCourses}</div>
-                <div className="text-sm text-blue-600">Enrolled Courses</div>
+              <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{selectedStudent.totalCourses}</div>
+                <div className="text-sm text-blue-600 dark:text-blue-400">Enrolled Courses</div>
               </div>
-              <div className="bg-green-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-green-600">{selectedStudent.averageProgress}%</div>
-                <div className="text-sm text-green-600">Average Progress</div>
+              <div className="bg-green-50 dark:bg-green-900/30 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{selectedStudent.averageProgress}%</div>
+                <div className="text-sm text-green-600 dark:text-green-400">Average Progress</div>
               </div>
-              <div className="bg-purple-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600">{selectedStudent.totalAssignments}</div>
-                <div className="text-sm text-purple-600">Total Assignments</div>
+              <div className="bg-purple-50 dark:bg-purple-900/30 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{selectedStudent.totalAssignments}</div>
+                <div className="text-sm text-purple-600 dark:text-purple-400">Total Assignments</div>
               </div>
-              <div className="bg-orange-50 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-orange-600">{selectedStudent.averageScore}%</div>
-                <div className="text-sm text-orange-600">Average Score</div>
+              <div className="bg-orange-50 dark:bg-orange-900/30 p-4 rounded-lg">
+                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{selectedStudent.averageScore}%</div>
+                <div className="text-sm text-orange-600 dark:text-orange-400">Average Score</div>
               </div>
             </div>
 
             {/* Quick Course Summary */}
             {selectedStudent.enrolledCourses && selectedStudent.enrolledCourses.length > 0 && (
               <div className="mb-6">
-                <h4 className="text-lg font-semibold mb-3">Enrolled Courses Summary</h4>
+                <h4 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Enrolled Courses Summary</h4>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                   {selectedStudent.enrolledCourses && selectedStudent.enrolledCourses.map((enrollment, index) => (
-                    <div key={index} className="bg-gray-50 p-3 rounded-lg border border-gray-200">
-                      <div className="font-medium text-gray-900 text-sm mb-1">
+                    <div key={index} className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600">
+                      <div className="font-medium text-gray-900 dark:text-white text-sm mb-1">
                         {enrollment.courseTitle}
                       </div>
-                      <div className="flex items-center justify-between text-xs text-gray-600">
+                      <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
                         <span>Progress: {enrollment.progress}%</span>
                         <span>Enrolled: {new Date(enrollment.enrolledAt).toLocaleDateString()}</span>
                       </div>
@@ -1255,34 +1255,34 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
 
             {/* Course Details */}
             <div className="space-y-4">
-              <h4 className="text-lg font-semibold">Course Performance</h4>
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Course Performance</h4>
               {selectedStudent.enrolledCourses && selectedStudent.enrolledCourses.map((enrollment, index) => (
-                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
                   <div className="flex items-center justify-between mb-3">
-                    <h5 className="font-medium text-gray-900">{enrollment.courseTitle}</h5>
-                    <span className="text-sm text-gray-500">
+                    <h5 className="font-medium text-gray-900 dark:text-white">{enrollment.courseTitle}</h5>
+                    <span className="text-sm text-gray-500 dark:text-gray-400">
                       Enrolled: {new Date(enrollment.enrolledAt).toLocaleDateString()}
                     </span>
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
                     <div className="flex items-center space-x-2">
-                      <Target className="w-4 h-4 text-blue-600" />
-                      <span className="text-sm text-gray-600">Progress:</span>
+                      <Target className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Progress:</span>
                       <span className={`font-medium ${getProgressColor(enrollment.progress)}`}>
                         {enrollment.progress}%
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <CheckCircle className="w-4 h-4 text-green-600" />
-                      <span className="text-sm text-gray-600">Completed:</span>
-                      <span className="font-medium text-gray-900">
+                      <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Completed:</span>
+                      <span className="font-medium text-gray-900 dark:text-white">
                         {enrollment.completedLessons}/{enrollment.totalLessons}
                       </span>
                     </div>
                     <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-orange-600" />
-                      <span className="text-sm text-gray-600 dark:text-white">Last Active:</span>
+                      <Clock className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                      <span className="text-sm text-gray-600 dark:text-gray-400">Last Active:</span>
                       <span className="font-medium text-gray-900 dark:text-white">
                         {new Date(enrollment.lastAccessed).toLocaleDateString()}
                       </span>
@@ -1292,16 +1292,16 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                   {/* Assignment Scores */}
 {enrollment.assignments && enrollment.assignments.length > 0 && (
   <div className="mt-3">
-    <h6 className="text-sm font-medium text-gray-700 mb-2">Assignment Scores</h6>
+    <h6 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assignment Scores</h6>
     <div className="space-y-2">
                         {enrollment.assignments.map((assignment, idx) => (
                           <div key={idx} className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600">{assignment.title}</span>
+                            <span className="text-gray-600 dark:text-gray-400">{assignment.title}</span>
                             <div className="flex items-center space-x-2">
                               <span className={`font-medium ${getScoreColor(assignment.score, assignment.maxScore)}`}>
                                 {assignment.score}/{assignment.maxScore}
                               </span>
-                              <span className="text-gray-400">
+                              <span className="text-gray-400 dark:text-gray-500">
                                 ({Math.round((assignment.score / assignment.maxScore) * 100)}%)
                               </span>
                             </div>
@@ -1422,7 +1422,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                 <select
                   value={courseAssignmentData.courseId}
                   onChange={(e) => setCourseAssignmentData({ ...courseAssignmentData, courseId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Choose a course...</option>
                   {courses.map(course => (
@@ -1433,7 +1433,7 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Initial Progress (%)
                 </label>
                 <input
@@ -1442,20 +1442,20 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                   max="100"
                   value={courseAssignmentData.progress}
                   onChange={(e) => setCourseAssignmentData({ ...courseAssignmentData, progress: parseInt(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
               </div>
             </div>
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowCourseAssignmentModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCourseAssignment}
-                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600"
               >
                 Assign Course
               </button>
@@ -1467,23 +1467,23 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
       {/* Delete Student Modal */}
       {showDeleteModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4 text-red-600">Delete Student</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4 text-red-600 dark:text-red-400">Delete Student</h3>
             <div className="space-y-4">
-              <div className="bg-red-50 p-4 rounded-lg">
-                <p className="text-sm text-red-700">
+              <div className="bg-red-50 dark:bg-red-900/30 p-4 rounded-lg">
+                <p className="text-sm text-red-700 dark:text-red-300">
                   <strong>Warning:</strong> This action will remove the student from all your courses. 
                   This action cannot be undone.
                 </p>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Student
                 </label>
                 <select
                   value={deleteData.studentId}
                   onChange={(e) => setDeleteData({ ...deleteData, studentId: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="">Choose a student...</option>
                   {students.map(student => (
@@ -1502,9 +1502,9 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
                   id="deleteFromSystem"
                   checked={deleteData.deleteFromSystem}
                   onChange={(e) => setDeleteData({ ...deleteData, deleteFromSystem: e.target.checked })}
-                  className="rounded border-gray-300 text-red-600 focus:ring-red-500"
+                  className="rounded border-gray-300 dark:border-gray-600 text-red-600 focus:ring-red-500 bg-white dark:bg-gray-700"
                 />
-                <label htmlFor="deleteFromSystem" className="text-sm text-gray-700">
+                <label htmlFor="deleteFromSystem" className="text-sm text-gray-700 dark:text-gray-300">
                   Delete from system entirely (Admin only)
                 </label>
               </div>
@@ -1512,13 +1512,13 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
             <div className="flex space-x-3 mt-6">
               <button
                 onClick={() => setShowDeleteModal(false)}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDeleteStudent}
-                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-500 dark:hover:bg-red-600"
               >
                 Delete Student
               </button>
