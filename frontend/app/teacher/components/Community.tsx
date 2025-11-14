@@ -799,14 +799,14 @@ export default function Community({ students, courses }: CommunityProps) {
         <div ref={messagesContainerRef} className="flex-1 p-4 overflow-y-auto" onScroll={checkIfUserScrolledUp}>
           {!activeChannel ? (
             <div className="text-center py-12">
-              <Hash className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium">Select a Channel</h3>
+              <Hash className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Select a Channel</h3>
             </div>
           ) : messages.length === 0 ? (
             <div className="text-center py-12">
-              <Hash className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium">No messages yet</h3>
-              <p className="text-gray-500">Be the first to start the conversation!</p>
+              <Hash className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">No messages yet</h3>
+              <p className="text-gray-500 dark:text-gray-400">Be the first to start the conversation!</p>
             </div>
           ) : (
             // Important: normal column order (oldest at top, newest at bottom)
@@ -821,22 +821,27 @@ export default function Community({ students, courses }: CommunityProps) {
                   <div className="flex-1">
                     <div className="flex items-center space-x-2">
                       <span className="font-medium text-gray-900 dark:text-white">{m.author.firstName} {m.author.lastName}</span>
-                      <span className="text-xs text-gray-500">{formatRelativeTime(m.timestamp || m.createdAt)}</span>
-                      {m.isEdited && <span className="text-xs text-gray-400 italic">(edited)</span>}
-                      {m.author.role === 'admin' && <Crown className="w-4 h-4 text-yellow-500" />}
-                      {m.author.role === 'teacher' && <Shield className="w-4 h-4 text-blue-500" />}
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{formatRelativeTime(m.timestamp || m.createdAt)}</span>
+                      {m.isEdited && <span className="text-xs text-gray-400 dark:text-gray-500 italic">(edited)</span>}
+                      {m.author.role === 'admin' && <Crown className="w-4 h-4 text-yellow-500 dark:text-yellow-400" />}
+                      {m.author.role === 'teacher' && <Shield className="w-4 h-4 text-blue-500 dark:text-blue-400" />}
                     </div>
 
                     {editingMessage === m._id ? (
                       <div className="mt-2 space-y-2">
-                        <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={2} className="w-full px-3 py-2 border rounded-lg bg-white" />
+                        <textarea 
+                          value={editContent} 
+                          onChange={(e) => setEditContent(e.target.value)} 
+                          rows={2} 
+                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
+                        />
                         <div className="flex items-center justify-end space-x-2">
-                          <button onClick={handleSaveEdit} className="px-3 py-1 bg-blue-600 text-white rounded">Save</button>
-                          <button onClick={() => { setEditingMessage(null); setEditContent(''); }} className="px-3 py-1 bg-gray-500 text-white rounded">Cancel</button>
+                          <button onClick={handleSaveEdit} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">Save</button>
+                          <button onClick={() => { setEditingMessage(null); setEditContent(''); }} className="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700">Cancel</button>
                         </div>
                       </div>
                     ) : (
-                      <p className="text-gray-700 mt-1">{m.content}</p>
+                      <p className="text-gray-700 dark:text-white mt-1">{m.content}</p>
                     )}
                   </div>
                   
@@ -844,16 +849,16 @@ export default function Community({ students, courses }: CommunityProps) {
                     { /* permissions check inline */}
                     { (currentUser?.role === 'admin' || currentUser?.role === 'teacher' || m.author._id === currentUser?.id) && (
                     <div className="relative">
-                        <button onClick={() => setShowMessageMenu(showMessageMenu === m._id ? null : m._id)} className="p-1 rounded hover:bg-gray-100">
+                        <button onClick={() => setShowMessageMenu(showMessageMenu === m._id ? null : m._id)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400">
                           <MoreVertical className="w-4 h-4" />
                       </button>
                       
                         {showMessageMenu === m._id && (
-                          <div className="absolute right-0 top-8 bg-white border rounded shadow z-10 min-w-[120px]">
+                          <div className="absolute right-0 top-8 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow z-10 min-w-[120px]">
                             { (currentUser?.role === 'admin' || currentUser?.role === 'teacher' || m.author._id === currentUser?.id) && (
-                              <button onClick={() => startEditMessage(m)} className="w-full px-3 py-2 text-left hover:bg-gray-50">Edit</button>
+                              <button onClick={() => startEditMessage(m)} className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white">Edit</button>
                             )}
-                            <button onClick={() => handleDeleteMessage(m._id)} className="w-full px-3 py-2 text-left hover:bg-gray-50 text-red-600">Delete</button>
+                            <button onClick={() => handleDeleteMessage(m._id)} className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-red-600 dark:text-red-400">Delete</button>
                         </div>
                       )}
                     </div>
