@@ -49,38 +49,50 @@ jobs:
             cd ..
             
             # Setup MT5 Bridge
+            echo "=========================================="
             echo "Setting up MT5 Bridge..."
+            echo "=========================================="
             cd mt5-bridge/
             
             # Check if Python 3 is installed
             if ! command -v python3 &> /dev/null; then
-              echo "Installing Python 3..."
-              sudo apt-get update
+              echo "Python 3 not found. Installing..."
+              sudo apt-get update -qq
               sudo apt-get install -y python3 python3-pip python3-venv
+            else
+              echo "Python 3 found: $(python3 --version)"
             fi
             
             # Create virtual environment if it doesn't exist
             if [ ! -d "venv" ]; then
               echo "Creating Python virtual environment..."
               python3 -m venv venv
+            else
+              echo "Virtual environment already exists"
             fi
             
             # Activate virtual environment and install dependencies
+            echo "Activating virtual environment..."
             source venv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt
+            echo "Upgrading pip..."
+            pip install --upgrade pip -q
+            echo "Installing Python dependencies..."
+            pip install -r requirements.txt -q
+            echo "Python dependencies installed successfully"
             
             # Create .env file if it doesn't exist
             if [ ! -f ".env" ]; then
               echo "Creating .env file..."
-              cat > .env << EOF
-            PORT=8080
-            HOST=0.0.0.0
-            DEBUG=False
-            EOF
+              echo "PORT=8080" > .env
+              echo "HOST=0.0.0.0" >> .env
+              echo "DEBUG=False" >> .env
+            else
+              echo ".env file already exists"
             fi
             
             cd ..
+            echo "MT5 Bridge setup completed!"
+            echo "=========================================="
             
             # Restart services
             pm2 restart frontend || pm2 start npm --name "frontend" -- start
