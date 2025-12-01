@@ -83,7 +83,13 @@ jobs:
             echo "Upgrading pip..."
             pip install --upgrade pip -q
             echo "Installing Python dependencies..."
-            pip install -r requirements.txt -q
+            pip install -r requirements.txt || {
+              echo "Warning: Some packages failed to install. Trying without version constraints..."
+              pip install flask flask-cors MetaTrader5 python-dotenv gunicorn werkzeug || {
+                echo "Error: Failed to install dependencies"
+                exit 1
+              }
+            }
             echo "Python dependencies installed successfully"
             
             # Create .env file if it doesn't exist
