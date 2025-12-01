@@ -114,6 +114,7 @@ def health():
     return jsonify({
         'status': 'ok',
         'service': 'MT5 REST API Bridge',
+        'mt5_available': MT5_AVAILABLE,
         'timestamp': datetime.now().isoformat()
     })
 
@@ -133,6 +134,13 @@ def authenticate():
                 'error': 'Missing required fields: login, password, server'
             }), 400
         
+        # Check if MT5 is available
+        if not MT5_AVAILABLE:
+            return jsonify({
+                'error': 'MT5 library not available. Please install MetaTrader5 terminal and Python package on the server.',
+                'details': 'MetaTrader5 Python package requires MT5 terminal to be installed'
+            }), 503
+        
         # Connect to MT5
         if connect_mt5(login, password, server):
             # Generate a simple token (in production, use proper JWT)
@@ -150,9 +158,10 @@ def authenticate():
                 'server': server
             })
         else:
+            error = mt5.last_error() if MT5_AVAILABLE else {'retcode': -1, 'description': 'MT5 not available'}
             return jsonify({
                 'error': 'Failed to connect to MT5',
-                'details': mt5.last_error()
+                'details': error
             }), 401
             
     except Exception as e:
@@ -643,11 +652,16 @@ def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    # Initialize MT5 on startup
-    if not mt5.initialize():
-        logger.error(f"MT5 initialization failed: {mt5.last_error()}")
+    # Initialize MT5 on startup if available
+    if MT5_AVAILABLE:
+        if not mt5.initialize():
+            logger.warning(f"MT5 initialization failed: {mt5.last_error()}")
+            logger.warning("Bridge will run but MT5 operations may fail")
+        else:
+            logger.info("MT5 initialized successfully")
     else:
-        logger.info("MT5 initialized successfully")
+        logger.warning("MT5 library not available. Bridge running in compatibility mode.")
+        logger.warning("Install MetaTrader5 terminal and Python package for full functionality.")
     
     # Get server config
     port = int(os.getenv('PORT', 8080))
@@ -655,5 +669,6 @@ if __name__ == '__main__':
     debug = os.getenv('DEBUG', 'False').lower() == 'true'
     
     logger.info(f"Starting MT5 REST API Bridge on {host}:{port}")
+    logger.info(f"MT5 Available: {MT5_AVAILABLE}")
     app.run(host=host, port=port, debug=debug)
 
