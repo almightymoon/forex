@@ -16,6 +16,7 @@ import { useToast } from '../../../components/Toast';
 import { useAdmin } from '../../../context/AdminContext';
 import { useSessionTimeout } from '../../../hooks/useSessionTimeout';
 import { buildApiUrl } from '../../../utils/api';
+import { getDashboardRoute, getUserRole } from '../../../utils/dashboardUtils';
 import Overview from './Overview';
 import UserManagement from './UserManagement';
 import PaymentManagement from './PaymentManagement';
@@ -135,7 +136,11 @@ export default function AdminDashboard() {
                 Reload Page
               </button>
               <button
-                onClick={() => window.location.href = '/dashboard'}
+                onClick={() => {
+                  const userRole = getUserRole();
+                  const dashboardRoute = getDashboardRoute(userRole || 'student');
+                  window.location.href = dashboardRoute;
+                }}
                 className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
               >
                 Go to Dashboard

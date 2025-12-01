@@ -107,10 +107,16 @@ export default function UserManagement({
 
   // Filter users based on search term, role, and status
   const filteredUsers = (users || []).filter(user => {
+    // Safely handle undefined/null values
+    const firstName = (user.firstName || '').toLowerCase();
+    const lastName = (user.lastName || '').toLowerCase();
+    const email = (user.email || '').toLowerCase();
+    const searchLower = searchTerm.toLowerCase();
+    
     const matchesSearch = 
-      user.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.lastName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase());
+      firstName.includes(searchLower) ||
+      lastName.includes(searchLower) ||
+      email.includes(searchLower);
     
     const matchesRole = filterRole === 'all' || user.role === filterRole;
     const matchesStatus = filterStatus === 'all' || 
@@ -193,12 +199,16 @@ export default function UserManagement({
                         {user.profileImage ? (
                           <img src={user.profileImage} alt="Profile" className="w-10 h-10 rounded-full object-cover" />
                         ) : (
-                          <span className="text-white font-semibold">{user.firstName.charAt(0)}</span>
+                          <span className="text-white font-semibold">{(user.firstName || user.email || 'U').charAt(0).toUpperCase()}</span>
                         )}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900 dark:text-white">{user.firstName} {user.lastName}</p>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                        <p className="font-medium text-gray-900 dark:text-white">
+                          {user.firstName || ''} {user.lastName || ''}
+                          {!user.firstName && !user.lastName && user.email && <span>{user.email.split('@')[0]}</span>}
+                          {!user.firstName && !user.lastName && !user.email && <span>Unknown User</span>}
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{user.email || 'No email'}</p>
                       </div>
                     </div>
                   </td>
@@ -208,7 +218,7 @@ export default function UserManagement({
                       user.role === 'teacher' ? 'bg-blue-100 text-blue-800' :
                       'bg-green-100 text-green-800'
                     }`}>
-                      {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
+                      {(user.role || 'student').charAt(0).toUpperCase() + (user.role || 'student').slice(1)}
                     </span>
                   </td>
                   <td className="py-4 px-4">

@@ -2,6 +2,7 @@
 
 import React, { Component, ReactNode } from 'react';
 import { AlertCircle, RefreshCw } from 'lucide-react';
+import { getDashboardRoute, getUserRole } from '../../../utils/dashboardUtils';
 
 interface Props {
   children: ReactNode;
@@ -53,7 +54,11 @@ class AdminErrorBoundary extends Component<Props, State> {
                   <span>Reload Page</span>
                 </button>
                 <button
-                  onClick={() => window.location.href = '/dashboard'}
+                  onClick={() => {
+                    const userRole = getUserRole();
+                    const dashboardRoute = getDashboardRoute(userRole || 'student');
+                    window.location.href = dashboardRoute;
+                  }}
                   className="w-full bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   Go to Dashboard
