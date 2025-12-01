@@ -5,11 +5,18 @@ A Flask-based REST API that bridges Node.js backend with MetaTrader 5 terminal.
 
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-import MetaTrader5 as mt5
 import os
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import logging
+
+# Try to import MetaTrader5, handle if not available
+try:
+    import MetaTrader5 as mt5
+    MT5_AVAILABLE = True
+except ImportError:
+    MT5_AVAILABLE = False
+    logger.warning("MetaTrader5 library not available. MT5 bridge will run in mock mode.")
 
 # Load environment variables
 load_dotenv()
@@ -20,6 +27,51 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Try to import MetaTrader5, handle if not available
+try:
+    import MetaTrader5 as mt5
+    MT5_AVAILABLE = True
+    logger.info("MetaTrader5 library loaded successfully")
+except ImportError:
+    MT5_AVAILABLE = False
+    logger.warning("MetaTrader5 library not available. Install MT5 terminal and MetaTrader5 package for full functionality.")
+    # Create a mock mt5 module for development
+    class MockMT5:
+        @staticmethod
+        def initialize():
+            return False
+        @staticmethod
+        def last_error():
+            return {'retcode': -1, 'description': 'MT5 not available'}
+        @staticmethod
+        def login(*args, **kwargs):
+            return False
+        @staticmethod
+        def account_info():
+            return None
+        @staticmethod
+        def symbol_info(*args):
+            return None
+        @staticmethod
+        def symbols_get():
+            return None
+        @staticmethod
+        def symbol_info_tick(*args):
+            return None
+        @staticmethod
+        def copy_rates_range(*args):
+            return None
+        @staticmethod
+        def order_send(*args):
+            return type('obj', (object,), {'retcode': -1, 'comment': 'MT5 not available'})()
+        @staticmethod
+        def positions_get(*args):
+            return None
+        @staticmethod
+        def history_deals_get(*args):
+            return None
+    mt5 = MockMT5()
 
 app = Flask(__name__)
 CORS(app)  # Enable CORS for all routes

@@ -84,13 +84,12 @@ jobs:
             pip install --upgrade pip -q
             echo "Installing Python dependencies..."
             pip install -r requirements.txt || {
-              echo "Warning: Some packages failed to install. Trying without version constraints..."
-              pip install flask flask-cors MetaTrader5 python-dotenv gunicorn werkzeug || {
-                echo "Error: Failed to install dependencies"
-                exit 1
-              }
+              echo "Error: Failed to install core dependencies"
+              exit 1
             }
-            echo "Python dependencies installed successfully"
+            echo "Core Python dependencies installed successfully"
+            echo "Note: MetaTrader5 package requires MT5 terminal installation on the server"
+            echo "The bridge will run in compatibility mode if MT5 is not available"
             
             # Create .env file if it doesn't exist
             if [ ! -f ".env" ]; then
