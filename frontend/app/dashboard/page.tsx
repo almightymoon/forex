@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useSettings } from '../../context/SettingsContext';
@@ -35,7 +35,6 @@ import {
   Play,
   Clock,
   Star,
-  ChevronRight,
   Trophy,
   Bell,
   Settings,
@@ -55,7 +54,10 @@ import {
   Heart,
   Bookmark,
   Share2,
-  MoreHorizontal
+  MoreHorizontal,
+  Copy,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -71,6 +73,9 @@ export default function Dashboard() {
   const [sessionsViewMode, setSessionsViewMode] = useState<'grid' | 'list'>('grid');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+  const navRef = useRef<HTMLDivElement>(null);
   const { settings, loading: settingsLoading } = useSettings();
   const { t } = useLanguage();
   const { isMaintenanceMode, maintenanceMessage } = useMaintenanceMode();
@@ -117,6 +122,48 @@ export default function Dashboard() {
   useEffect(() => {
     localStorage.setItem('sessionBookmarks', JSON.stringify(Array.from(bookmarks)));
   }, [bookmarks]);
+
+  // Check scrollability for navigation
+  const checkScrollability = () => {
+    if (navRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = navRef.current;
+      setCanScrollLeft(scrollLeft > 5);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 5);
+    }
+  };
+
+  useEffect(() => {
+    // Initial check after component mounts
+    const timer = setTimeout(() => {
+      checkScrollability();
+    }, 100);
+    
+    const nav = navRef.current;
+    if (nav) {
+      nav.addEventListener('scroll', checkScrollability);
+      window.addEventListener('resize', checkScrollability);
+      
+      return () => {
+        clearTimeout(timer);
+        nav.removeEventListener('scroll', checkScrollability);
+        window.removeEventListener('resize', checkScrollability);
+      };
+    }
+    
+    return () => clearTimeout(timer);
+  }, [activeTab]);
+
+  const scrollLeft = () => {
+    if (navRef.current) {
+      navRef.current.scrollBy({ left: -200, behavior: 'smooth' });
+    }
+  };
+
+  const scrollRight = () => {
+    if (navRef.current) {
+      navRef.current.scrollBy({ left: 200, behavior: 'smooth' });
+    }
+  };
 
   // Prevent hydration mismatch by showing loading state
   if (settingsLoading) {
@@ -836,35 +883,91 @@ export default function Dashboard() {
         </motion.div>
 
         {/* Navigation Tabs */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-2 border border-gray-200 dark:border-gray-700 shadow-lg mb-8">
-          <nav className="flex space-x-1">
-            {[
-              { id: 'overview', label: t('overview'), icon: BarChart3 },
-              { id: 'courses', label: t('myCourses'), icon: BookOpen },
-              { id: 'browse', label: t('browseCourses'), icon: TrendingUp },
-              { id: 'live-sessions', label: t('liveSessions'), icon: Play },
-              { id: 'signals', label: t('tradingSignals'), icon: Target },
-              { id: 'assignments', label: t('assignments'), icon: FileText },
-              { id: 'community', label: 'Community', icon: Users },
-              { id: 'certificates', label: 'Certificates', icon: Award }
-            ].map((tab) => {
-              const Icon = tab.icon;
-              return (
+        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 mb-8">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            {/* Desktop Navigation with scroll controls */}
+            <div className="relative">
+              {/* Scroll Left Button */}
+              {canScrollLeft && (
                 <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
-                    activeTab === tab.id
-                      ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                  }`}
+                  onClick={scrollLeft}
+                  className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full p-2 shadow-lg hover:shadow-xl transition-all hover:bg-gray-50 dark:hover:bg-gray-700"
+                  aria-label="Scroll left"
                 >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
+                  <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
                 </button>
-              );
-            })}
-          </nav>
+              )}
+              
+              {/* Scroll Right Button */}
+              {canScrollRight && (
+                <button
+                  onClick={scrollRight}
+                  className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full p-2 shadow-lg hover:shadow-xl transition-all hover:bg-gray-50 dark:hover:bg-gray-700"
+                  aria-label="Scroll right"
+                >
+                  <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </button>
+              )}
+
+              <nav 
+                ref={navRef}
+                className={`flex space-x-8 overflow-x-auto scrollbar-hide py-2 ${canScrollLeft ? 'pl-10' : ''} ${canScrollRight ? 'pr-10' : ''}`}
+              >
+                {[
+                  { id: 'overview', label: t('overview'), icon: BarChart3 },
+                  { id: 'courses', label: t('myCourses'), icon: BookOpen },
+                  { id: 'browse', label: t('browseCourses'), icon: TrendingUp },
+                  { id: 'live-sessions', label: t('liveSessions'), icon: Play },
+                  { id: 'signals', label: t('tradingSignals'), icon: Target },
+                  { id: 'mt5', label: 'MT5', icon: Zap },
+                  { id: 'assignments', label: t('assignments'), icon: FileText },
+                  { id: 'community', label: 'Community', icon: Users },
+                  { id: 'certificates', label: 'Certificates', icon: Award }
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors whitespace-nowrap flex-shrink-0 ${
+                        activeTab === tab.id
+                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                          : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+            
+            {/* Mobile Navigation - Dropdown for smaller screens */}
+            <div className="md:hidden mt-2">
+              <select
+                value={activeTab}
+                onChange={(e) => setActiveTab(e.target.value)}
+                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                {[
+                  { id: 'overview', label: t('overview') },
+                  { id: 'courses', label: t('myCourses') },
+                  { id: 'browse', label: t('browseCourses') },
+                  { id: 'live-sessions', label: t('liveSessions') },
+                  { id: 'signals', label: t('tradingSignals') },
+                  { id: 'mt5', label: 'MT5' },
+                  { id: 'assignments', label: t('assignments') },
+                  { id: 'community', label: 'Community' },
+                  { id: 'certificates', label: 'Certificates' }
+                ].map((tab) => (
+                  <option key={tab.id} value={tab.id}>
+                    {tab.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
         {/* Tab Content */}
@@ -1390,12 +1493,50 @@ export default function Dashboard() {
                         </div>
                       </div>
                       
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mb-4">
                         <span className="text-gray-600 dark:text-gray-300 text-sm">Timeframe: {signal.timeframe || 'Unknown'}</span>
                         <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 text-sm">
                           <MessageSquare className="w-4 h-4" />
                           <span>{signal.comments?.length || 0} comments</span>
                         </div>
+                      </div>
+                      
+                      {/* Copy Trade Button */}
+                      <div className="flex justify-end">
+                        <button
+                          onClick={async () => {
+                            try {
+                              const token = localStorage.getItem('token');
+                              const response = await fetch(buildApiUrl('/api/mt5/copy-trade'), {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                  'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({ signalId: signal._id })
+                              });
+
+                              const data = await response.json();
+
+                              if (!response.ok) {
+                                throw new Error(data.error || 'Failed to copy trade');
+                              }
+
+                              showToast('Copy trade executed successfully!', 'success');
+                            } catch (error: any) {
+                              if (error.message.includes('not found') || error.message.includes('not verified')) {
+                                showToast('Please connect your MT5 account first', 'error');
+                                router.push('/mt5');
+                              } else {
+                                showToast(error.message || 'Failed to copy trade', 'error');
+                              }
+                            }
+                          }}
+                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center space-x-2 transition-colors"
+                        >
+                          <Copy className="w-4 h-4" />
+                          <span>Copy Trade</span>
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -1485,6 +1626,116 @@ export default function Dashboard() {
                   </table>
                 </div>
               )}
+            </div>
+          </motion.div>
+        )}
+
+        {activeTab === 'mt5' && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            className="space-y-6"
+          >
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center">
+                    <Zap className="w-6 h-6 mr-2 text-blue-600 dark:text-blue-400" />
+                    MT5 Trading Dashboard
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-300 text-sm mt-1">
+                    Connect your MetaTrader 5 account and manage your trades
+                  </p>
+                </div>
+                <Link
+                  href="/mt5"
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center space-x-2"
+                >
+                  <span>Open MT5 Dashboard</span>
+                  <ExternalLink className="w-4 h-4" />
+                </Link>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div className="p-4 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Account Status</p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">Connect Account</p>
+                    </div>
+                    <Zap className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Copy Trading</p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">Available</p>
+                    </div>
+                    <Copy className="w-8 h-8 text-green-600 dark:text-green-400" />
+                  </div>
+                </div>
+                
+                <div className="p-4 bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl border border-orange-200 dark:border-orange-700">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">Features</p>
+                      <p className="text-lg font-semibold text-gray-900 dark:text-white">Live Trading</p>
+                    </div>
+                    <TrendingUp className="w-8 h-8 text-orange-600 dark:text-orange-400" />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 border border-gray-200 dark:border-gray-600">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                  What you can do with MT5 Integration:
+                </h4>
+                <ul className="space-y-3">
+                  <li className="flex items-start">
+                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mr-3 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700 dark:text-gray-300">
+                      Connect your MetaTrader 5 trading account securely
+                    </span>
+                  </li>
+                  <li className="flex items-start">
+                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mr-3 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700 dark:text-gray-300">
+                      Copy trades directly from trading signals with one click
+                    </span>
+                  </li>
+                  <li className="flex items-start">
+                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mr-3 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700 dark:text-gray-300">
+                      View real-time account balance, equity, and margin levels
+                    </span>
+                  </li>
+                  <li className="flex items-start">
+                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mr-3 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700 dark:text-gray-300">
+                      Monitor open positions and trade history
+                    </span>
+                  </li>
+                  <li className="flex items-start">
+                    <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400 mr-3 mt-0.5 flex-shrink-0" />
+                    <span className="text-gray-700 dark:text-gray-300">
+                      Configure risk management and copy trading settings
+                    </span>
+                  </li>
+                </ul>
+                
+                <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
+                  <Link
+                    href="/mt5"
+                    className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg font-medium transition-all shadow-lg hover:shadow-xl"
+                  >
+                    <Zap className="w-5 h-5 mr-2" />
+                    Go to MT5 Dashboard
+                    <ChevronRight className="w-5 h-5 ml-2" />
+                  </Link>
+                </div>
+              </div>
             </div>
           </motion.div>
         )}

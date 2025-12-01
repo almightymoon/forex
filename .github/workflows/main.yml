@@ -46,7 +46,53 @@ jobs:
             cd frontend/
             npm ci --production
             npm run build
+            cd ..
+            
+            # Setup MT5 Bridge
+            echo "Setting up MT5 Bridge..."
+            cd mt5-bridge/
+            
+            # Check if Python 3 is installed
+            if ! command -v python3 &> /dev/null; then
+              echo "Installing Python 3..."
+              sudo apt-get update
+              sudo apt-get install -y python3 python3-pip python3-venv
+            fi
+            
+            # Create virtual environment if it doesn't exist
+            if [ ! -d "venv" ]; then
+              echo "Creating Python virtual environment..."
+              python3 -m venv venv
+            fi
+            
+            # Activate virtual environment and install dependencies
+            source venv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+            
+            # Create .env file if it doesn't exist
+            if [ ! -f ".env" ]; then
+              echo "Creating .env file..."
+              cat > .env << EOF
+            PORT=8080
+            HOST=0.0.0.0
+            DEBUG=False
+            EOF
+            fi
+            
+            cd ..
             
             # Restart services
-            pm2 restart frontend
-            pm2 restart backend
+            pm2 restart frontend || pm2 start npm --name "frontend" -- start
+            pm2 restart backend || pm2 start npm --name "backend" -- start
+            
+            # Restart MT5 Bridge
+            echo "Restarting MT5 Bridge..."
+            cd mt5-bridge/
+            if pm2 list | grep -q "mt5-bridge"; then
+              pm2 restart mt5-bridge
+            else
+              pm2 start venv/bin/python3 --name "mt5-bridge" -- app.py
+              pm2 save
+            fi
+            cd ..
