@@ -73,7 +73,12 @@ async function handleRequest(
     if (method !== 'GET' && method !== 'HEAD') {
       try {
         body = await request.text();
+        // Log request body for debugging (truncated)
+        if (path.includes('register')) {
+          console.log(`Register request body (first 200 chars):`, body.substring(0, 200));
+        }
       } catch (error) {
+        console.error('Error reading request body:', error);
         // No body to read
       }
     }
@@ -86,6 +91,11 @@ async function handleRequest(
         headers.set(key, value);
       }
     });
+    
+    // Ensure Content-Type is set for POST/PUT/PATCH requests with body
+    if (body && !headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
 
     // Make request to backend
     const response = await fetch(backendUrl, {
@@ -96,6 +106,16 @@ async function handleRequest(
 
     // Get response body
     const responseBody = await response.text();
+    
+    // Log error responses for debugging
+    if (!response.ok) {
+      console.error(`Backend error (${response.status}):`, {
+        url: backendUrl,
+        method,
+        status: response.status,
+        body: responseBody.substring(0, 500) // First 500 chars
+      });
+    }
 
     // Create new response with same status and headers
     const newResponse = new NextResponse(responseBody, {

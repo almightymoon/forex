@@ -136,16 +136,32 @@ export default function RegisterPage() {
 
     try {
       // First, register the user
+      // Prepare request body - exclude confirmPassword and signupFee as backend doesn't expect them
+      const { confirmPassword, ...registrationData } = formData;
+      
+      const requestBody = {
+        ...registrationData,
+        paymentMethod: registrationData.paymentMethod || 'credit_card', // Ensure paymentMethod is always set
+        promoCode: promoCode || undefined,
+        // Don't send signupFee - backend calculates it internally
+      };
+      
+      // Remove undefined values to avoid sending them
+      Object.keys(requestBody).forEach(key => {
+        if (requestBody[key as keyof typeof requestBody] === undefined) {
+          delete requestBody[key as keyof typeof requestBody];
+        }
+      });
+      
+      console.log('Registration request body:', JSON.stringify(requestBody, null, 2));
+      console.log('Registration URL:', buildApiUrl('api/auth/register'));
+      
       const registerResponse = await fetch(buildApiUrl('api/auth/register'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          ...formData,
-          promoCode: promoCode || undefined,
-          signupFee: finalFee,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const registerData = await registerResponse.json();
@@ -185,7 +201,25 @@ export default function RegisterPage() {
           }, 2000);
         }
       } else {
-        setError(registerData.message || 'Registration failed. Please try again.');
+        // Show detailed error messages from validation
+        let errorMessage = registerData.message || 'Registration failed. Please try again.';
+        
+        if (registerData.details && Array.isArray(registerData.details)) {
+          // Format validation errors
+          const errorDetails = registerData.details.map((err: any) => {
+            if (typeof err === 'string') return err;
+            if (err.msg) return err.msg;
+            if (err.message) return err.message;
+            return JSON.stringify(err);
+          }).join(', ');
+          
+          if (errorDetails) {
+            errorMessage = errorDetails;
+          }
+        }
+        
+        setError(errorMessage);
+        console.error('Registration error:', registerData);
       }
     } catch (err) {
       setError('Network error. Please check your connection.');

@@ -129,12 +129,17 @@ export default function TeacherDashboard() {
           })
         ]);
 
-
+        // Parse all responses
+        let coursesData: Course[] = [];
+        let studentsData: Student[] = [];
+        let sessionsData: LiveSession[] = [];
+        let analyticsData: AnalyticsType | null = null;
 
         // Handle courses response
         if (coursesRes.ok) {
-          const coursesData = await coursesRes.json();
-          setCourses(coursesData.courses || []);
+          const data = await coursesRes.json();
+          coursesData = data.courses || [];
+          setCourses(coursesData);
         } else {
           console.error('Failed to fetch courses:', coursesRes.status);
           setCourses([]);
@@ -142,8 +147,9 @@ export default function TeacherDashboard() {
 
         // Handle students response
         if (studentsRes.ok) {
-          const studentsData = await studentsRes.json();
-          setStudents(studentsData.data || []);
+          const data = await studentsRes.json();
+          studentsData = data.data || [];
+          setStudents(studentsData);
         } else {
           console.error('Failed to fetch students:', studentsRes.status);
           setStudents([]);
@@ -151,20 +157,36 @@ export default function TeacherDashboard() {
 
         // Handle live sessions response
         if (liveSessionsRes.ok) {
-          const sessionsData = await liveSessionsRes.json();
-          setLiveSessions(sessionsData.data || []);
+          const data = await liveSessionsRes.json();
+          sessionsData = data.data || [];
+          setLiveSessions(sessionsData);
         } else {
           console.error('Failed to fetch live sessions:', liveSessionsRes.status);
           setLiveSessions([]);
         }
 
-        // Handle analytics response
+        // Handle analytics response - prioritize API data
         if (analyticsRes.ok) {
-          const analyticsData = await analyticsRes.json();
-          setAnalytics(analyticsData.data || null);
+          const data = await analyticsRes.json();
+          // Use the analytics data from API if available
+          if (data.success && data.data) {
+            analyticsData = data.data;
+            setAnalytics(analyticsData);
+          } else if (data.data) {
+            // Fallback: some APIs might return data directly
+            analyticsData = data.data;
+            setAnalytics(analyticsData);
+          } else {
+            // If API doesn't return analytics, calculate from fetched data
+            console.warn('Analytics API response missing data, calculating from courses/students');
+            analyticsData = calculateAnalytics(coursesData, studentsData);
+            setAnalytics(analyticsData);
+          }
         } else {
           console.error('Failed to fetch analytics:', analyticsRes.status);
-          // Analytics will be calculated from fetched data
+          // Calculate analytics from fetched courses and students as fallback
+          analyticsData = calculateAnalytics(coursesData, studentsData);
+          setAnalytics(analyticsData);
         }
 
     } catch (error) {
@@ -186,14 +208,6 @@ export default function TeacherDashboard() {
 
     fetchTeacherData();
   }, [refreshTrigger]);
-
-  // Calculate analytics whenever courses or students data changes
-  useEffect(() => {
-    if (courses.length > 0 || students.length > 0) {
-      const calculatedAnalytics = calculateAnalytics(courses, students);
-      setAnalytics(calculatedAnalytics);
-    }
-  }, [courses, students]);
 
   const filteredCourses = Array.isArray(courses) ? courses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||

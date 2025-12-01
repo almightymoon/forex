@@ -814,40 +814,66 @@ router.get('/analytics', async (req, res) => {
     const teacherId = req.user._id;
     const { period = 'month', showAll = 'false' } = req.query;
     
-    // Get teacher's courses
-    const courses = await Course.find({ teacher: teacherId });
-    const courseIds = courses.map(c => c._id);
+    // Get courses - match the behavior of the courses endpoint
+    // The courses endpoint returns all courses, not just teacher's courses
+    // So we'll count all courses for consistency
+    const courses = await Course.find({});
+    const courseIds = courses.map(c => c._id.toString());
+    
+    // Also get teacher's courses if we need them for other calculations
+    const teacherCourses = await Course.find({ teacher: teacherId });
     
     // Calculate basic metrics
+    // Match the behavior of the students endpoint - count all students by default
+    // The students endpoint returns all students, not just those enrolled in teacher's courses
     let totalStudents;
-    if (showAll === 'true') {
-      // Count all students in database
-      totalStudents = await User.countDocuments({ role: 'student' });
-    } else {
-      // Count unique students enrolled in teacher's courses
-      const uniqueStudentIds = new Set();
-      courses.forEach(course => {
-        if (course.enrolledStudents && Array.isArray(course.enrolledStudents)) {
-          course.enrolledStudents.forEach(enrollment => {
-            if (enrollment.student) {
-              uniqueStudentIds.add(enrollment.student.toString());
-            }
-          });
-        }
-      });
+    
+    // Default behavior: Count all students to match Students screen
+    // Only filter to enrolled students if explicitly requested (showAll='enrolled')
+    if (showAll === 'enrolled') {
+      // Count unique students enrolled in teacher's courses only
+      const enrolledStudents = await User.find({
+        role: 'student',
+        'enrolledCourses.courseId': { $in: courseIds }
+      }).select('_id');
       
-      // Filter out teachers and admins, only count actual students
-      const studentIds = Array.from(uniqueStudentIds);
-      const actualStudents = await User.find({
-        _id: { $in: studentIds },
-        role: 'student'
-      });
-      totalStudents = actualStudents.length;
+      totalStudents = enrolledStudents.length;
+      
+      // Fallback: Also check course.enrolledStudents if user.enrolledCourses doesn't have data
+      if (totalStudents === 0 && courseIds.length > 0) {
+        const uniqueStudentIds = new Set();
+        courses.forEach(course => {
+          if (course.enrolledStudents && Array.isArray(course.enrolledStudents)) {
+            course.enrolledStudents.forEach(enrollment => {
+              if (enrollment.student) {
+                uniqueStudentIds.add(enrollment.student.toString());
+              }
+            });
+          }
+        });
+        
+        const studentIds = Array.from(uniqueStudentIds);
+        if (studentIds.length > 0) {
+          const actualStudents = await User.find({
+            _id: { $in: studentIds },
+            role: 'student'
+          });
+          totalStudents = actualStudents.length;
+        }
+      }
+    } else {
+      // Default: Count all students in database (matches students endpoint default behavior)
+      totalStudents = await User.countDocuments({ role: 'student' });
     }
     
-    const totalRevenue = courses.reduce((sum, course) => sum + (course.price * (course.enrolledStudents?.length || 0)), 0);
-    const averageRating = courses.length > 0 ? 
-      courses.reduce((sum, course) => sum + (course.rating || 0), 0) / courses.length : 0;
+    // Calculate revenue from teacher's courses only (revenue is teacher-specific)
+    const totalRevenue = teacherCourses.reduce((sum, course) => sum + (course.price * (course.enrolledStudents?.length || 0)), 0);
+    
+    // Calculate average rating from all courses (to match courses screen behavior)
+    // But if teacher has courses, use teacher's courses for rating
+    const coursesForRating = teacherCourses.length > 0 ? teacherCourses : courses;
+    const averageRating = coursesForRating.length > 0 ? 
+      coursesForRating.reduce((sum, course) => sum + (course.rating || 0), 0) / coursesForRating.length : 0;
     
     // Get enrollment trends
     const now = new Date();
