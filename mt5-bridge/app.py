@@ -83,17 +83,23 @@ def connect_mt5(login=None, password=None, server=None):
     """
     Connect to MT5 terminal
     """
+    if not MT5_AVAILABLE:
+        logger.warning("MT5 library not available. Running in compatibility mode.")
+        return False
+    
     try:
         # Initialize MT5
         if not mt5.initialize():
-            logger.error(f"MT5 initialization failed: {mt5.last_error()}")
+            error = mt5.last_error()
+            logger.error(f"MT5 initialization failed: {error}")
             return None
         
         # If credentials provided, login
         if login and password and server:
             authorized = mt5.login(login=int(login), password=password, server=server)
             if not authorized:
-                logger.error(f"MT5 login failed: {mt5.last_error()}")
+                error = mt5.last_error()
+                logger.error(f"MT5 login failed: {error}")
                 return None
             logger.info(f"Connected to MT5 account: {login}")
         
