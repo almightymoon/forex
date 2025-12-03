@@ -487,6 +487,32 @@ router.post('/order/close', [
   }
 });
 
+// @route   DELETE /api/mt5/account
+// @desc    Disconnect MT5 account
+// @access  Private
+router.delete('/account', authenticateToken, async (req, res) => {
+  try {
+    const mt5Account = await MT5Account.findOne({ user: req.user._id });
+    
+    if (!mt5Account) {
+      return res.status(404).json({ error: 'MT5 account not found' });
+    }
+
+    // Delete all associated trades
+    await MT5Trade.deleteMany({ mt5Account: mt5Account._id });
+
+    // Delete the account
+    await MT5Account.deleteOne({ _id: mt5Account._id });
+
+    res.json({
+      message: 'MT5 account disconnected successfully'
+    });
+  } catch (error) {
+    console.error('Disconnect MT5 account error:', error);
+    res.status(500).json({ error: 'Failed to disconnect MT5 account', message: error.message });
+  }
+});
+
 // @route   GET /api/mt5/trades
 // @desc    Get trade history
 // @access  Private

@@ -305,6 +305,39 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
     }
   };
 
+  const handleDisconnect = async () => {
+    if (!confirm('Are you sure you want to disconnect your MT5 account? All trade data will be removed.')) {
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(buildApiUrl('/api/mt5/account'), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to disconnect account');
+      }
+
+      showToast('MT5 account disconnected successfully', 'success');
+      setShowSettingsModal(false);
+      setAccount(null);
+      setPositions([]);
+      setChartData([]);
+      setSelectedChartSymbol('');
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        setRefreshInterval(null);
+      }
+    } catch (error: any) {
+      showToast(error.message || 'Failed to disconnect account', 'error');
+    }
+  };
+
   const loadSymbols = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -1280,6 +1313,16 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
                   className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg"
                 >
                   Save Settings
+                </button>
+              </div>
+              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
+                <button
+                  type="button"
+                  onClick={handleDisconnect}
+                  className="w-full px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg flex items-center justify-center"
+                >
+                  <Unlink className="w-4 h-4 mr-2" />
+                  Disconnect MT5 Account
                 </button>
               </div>
             </form>
