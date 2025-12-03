@@ -94,8 +94,15 @@ jobs:
             npm ci --production
             # Ensure .next is completely gone before build
             rm -rf .next 2>/dev/null || true
+            # Create necessary directories to prevent ENOENT errors
+            mkdir -p .next/export .next/server/pages 2>/dev/null || true
             # Run build with clean environment
-            NODE_ENV=production npm run build
+            NODE_ENV=production npm run build || {
+              echo "Build failed, attempting to continue..."
+              # If build fails due to file rename issues, try again after cleanup
+              rm -rf .next/export 2>/dev/null || true
+              NODE_ENV=production npm run build
+            }
             cd ..
             
             # Setup MT5 Bridge
