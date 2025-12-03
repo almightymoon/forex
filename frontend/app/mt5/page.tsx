@@ -105,26 +105,15 @@ export default function MT5Page() {
 
   useEffect(() => {
     loadAccount();
-    loadPositions();
-    
-    // Set up auto-refresh every 5 seconds
-    const interval = setInterval(() => {
-      if (account) {
-        loadAccount();
-        loadPositions();
-      }
-    }, 5000);
-    
-    setRefreshInterval(interval);
     
     return () => {
-      if (interval) {
-        clearInterval(interval);
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
       }
     };
-  }, [account]);
+  }, []);
 
-  const loadAccount = async () => {
+  const loadAccount = async (silent = false) => {
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(buildApiUrl('/api/mt5/account'), {
@@ -136,6 +125,11 @@ export default function MT5Page() {
       if (response.status === 404) {
         setAccount(null);
         setLoading(false);
+        // Clear any existing refresh interval if account not found
+        if (refreshInterval) {
+          clearInterval(refreshInterval);
+          setRefreshInterval(null);
+        }
         return;
       }
 
@@ -154,20 +148,22 @@ export default function MT5Page() {
       
       await loadPositions();
       
-      // Set up auto-refresh
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
+      // Set up auto-refresh only if not already set
+      if (!refreshInterval) {
+        const interval = setInterval(() => {
+          loadAccount(true); // Silent refresh
+          loadPositions();
+        }, 30000); // Refresh every 30 seconds
+        setRefreshInterval(interval);
       }
-      const interval = setInterval(() => {
-        loadAccount();
-        loadPositions();
-      }, 30000); // Refresh every 30 seconds
-      setRefreshInterval(interval);
       
       setLoading(false);
     } catch (error) {
       console.error('Load account error:', error);
-      showToast('Failed to load MT5 account', 'error');
+      // Only show toast if not silent (i.e., manual refresh or initial load)
+      if (!silent) {
+        showToast('Failed to load MT5 account', 'error');
+      }
       setLoading(false);
     }
   };
