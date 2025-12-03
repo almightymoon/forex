@@ -150,7 +150,7 @@ export default function Overview({ analytics, onTabChange }: OverviewProps) {
             </div>
             <div className="flex-1">
               <p className="text-gray-900 dark:text-white font-medium">Payment Received</p>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">$30 signup fee payment completed</p>
+              <p className="text-gray-600 dark:text-gray-300 text-sm">$300 signup fee payment completed</p>
             </div>
             <span className="text-gray-500 dark:text-gray-400 text-sm">1 hour ago</span>
           </div>

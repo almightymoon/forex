@@ -47,7 +47,7 @@ export default function RegisterPage() {
   const router = useRouter();
   const { settings, loading: settingsLoading } = useSettings();
 
-  const signupFee = 30;
+  const signupFee = 300;
   const finalFee = signupFee - promoDiscount;
 
   // Prevent hydration mismatch by showing loading state

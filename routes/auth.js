@@ -90,7 +90,7 @@ router.post('/register', [
       }
     }
 
-    const signupFee = 30;
+    const signupFee = 300;
     const finalAmount = Math.max(0, signupFee - discount);
 
     // Create user object

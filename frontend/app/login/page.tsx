@@ -444,7 +444,7 @@ export default function LoginPage() {
               </Link>
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              New users pay a one-time $30 registration fee
+              New users pay a one-time $300 registration fee
             </p>
           </div>
         </motion.div>
