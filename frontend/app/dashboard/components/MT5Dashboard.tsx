@@ -742,37 +742,6 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
         });
         showToast('Using real-time prices (historical data unavailable)', 'info');
       } else {
-        showToast(error.message || 'Failed to load chart data', 'error');
-        setChartData([]);
-      }
-    } catch (error: any) {
-      console.error('Load chart data error:', error);
-      // Fallback to real-time price if available
-      if (realTimePrice && realTimePrice.mid > 0) {
-        console.log('Error occurred, using real-time price as fallback');
-        const now = new Date();
-        const realTimeData = [];
-        for (let i = 19; i >= 0; i--) {
-          const time = new Date(now.getTime() - i * (timeframe === 'M1' ? 60000 : timeframe === 'M5' ? 300000 : timeframe === 'H1' ? 3600000 : 3600000));
-          const variation = (Math.random() - 0.5) * 0.0002;
-          const price = realTimePrice.mid + variation;
-          realTimeData.push({
-            time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            timestamp: time.getTime(),
-            open: price,
-            high: price + 0.0001,
-            low: price - 0.0001,
-            close: price,
-            price: price
-          });
-        }
-        setChartData(realTimeData);
-        setCurrentPrice({
-          bid: realTimePrice.bid,
-          ask: realTimePrice.ask
-        });
-        showToast('Using real-time prices (historical data unavailable)', 'info');
-      } else {
         // If no real-time price, create empty chart to stop loading
         setChartData([]);
       }
