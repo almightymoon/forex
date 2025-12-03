@@ -44,6 +44,13 @@ jobs:
             
             # Build frontend
             cd frontend/
+            # Clean node_modules if it exists to avoid ENOTEMPTY errors
+            if [ -d "node_modules" ]; then
+              echo "Cleaning existing node_modules..."
+              rm -rf node_modules
+            fi
+            # Clean npm cache and install
+            npm cache clean --force || true
             npm ci --production
             npm run build
             cd ..
