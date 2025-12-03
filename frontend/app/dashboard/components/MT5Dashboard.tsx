@@ -444,18 +444,40 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
         if (data && Array.isArray(data) && data.length > 0) {
           // Format data for Recharts
           const formattedData = data.map((candle: any, index: number) => {
-            const timeValue = candle.time || candle.Time || candle.timestamp;
-            const date = timeValue ? new Date(timeValue) : new Date(Date.now() - (data.length - index) * 60000);
-            
-            return {
-              time: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-              open: parseFloat(candle.open || candle.Open || candle.o || 0),
-              high: parseFloat(candle.high || candle.High || candle.h || 0),
-              low: parseFloat(candle.low || candle.Low || candle.l || 0),
-              close: parseFloat(candle.close || candle.Close || candle.c || 0),
-              price: parseFloat(candle.close || candle.Close || candle.c || candle.open || candle.Open || candle.o || 0)
-            };
-          }).filter(item => item.price > 0); // Filter out invalid data
+            try {
+              const timeValue = candle.time || candle.Time || candle.timestamp;
+              let date: Date;
+              
+              if (timeValue) {
+                date = new Date(timeValue);
+                if (isNaN(date.getTime())) {
+                  // Invalid date, use calculated date
+                  date = new Date(Date.now() - (data.length - index) * 60000);
+                }
+              } else {
+                date = new Date(Date.now() - (data.length - index) * 60000);
+              }
+              
+              const open = parseFloat(candle.open || candle.Open || candle.o || 0);
+              const high = parseFloat(candle.high || candle.High || candle.h || 0);
+              const low = parseFloat(candle.low || candle.Low || candle.l || 0);
+              const close = parseFloat(candle.close || candle.Close || candle.c || 0);
+              const price = close || open || 0;
+              
+              return {
+                time: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                timestamp: date.getTime(),
+                open: open,
+                high: high || open,
+                low: low || open,
+                close: close || open,
+                price: price
+              };
+            } catch (err) {
+              console.error('Error formatting candle:', err, candle);
+              return null;
+            }
+          }).filter((item: any) => item !== null && item.price > 0 && !isNaN(item.price)); // Filter out invalid data
           
           console.log('Formatted chart data:', formattedData);
           if (formattedData.length > 0) {
