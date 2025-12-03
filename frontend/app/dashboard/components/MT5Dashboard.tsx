@@ -85,6 +85,10 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showTradeHistory, setShowTradeHistory] = useState(false);
+  const [showNewTradeModal, setShowNewTradeModal] = useState(false);
+  const [availableSymbols, setAvailableSymbols] = useState<string[]>([]);
+  const [currentPrice, setCurrentPrice] = useState<{ bid: number; ask: number } | null>(null);
+  const [placingOrder, setPlacingOrder] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Connection form state
@@ -102,8 +106,20 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
     symbols: [] as string[]
   });
 
+  // New trade form state
+  const [newTradeForm, setNewTradeForm] = useState({
+    symbol: '',
+    type: 'BUY' as 'BUY' | 'SELL',
+    volume: 0.01,
+    stopLoss: 0,
+    takeProfit: 0,
+    slippage: 10,
+    comment: ''
+  });
+
   useEffect(() => {
     loadAccount();
+    loadSymbols();
     
     return () => {
       if (refreshInterval) {
@@ -111,6 +127,12 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    if (newTradeForm.symbol && showNewTradeModal) {
+      loadCurrentPrice(newTradeForm.symbol);
+    }
+  }, [newTradeForm.symbol, showNewTradeModal]);
 
   const loadAccount = async (silent = false) => {
     try {
@@ -254,6 +276,97 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
       await loadAccount();
     } catch (error: any) {
       showToast(error.message || 'Failed to update settings', 'error');
+    }
+  };
+
+  const loadSymbols = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(buildApiUrl('/api/mt5/symbols'), {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableSymbols(data);
+      }
+    } catch (error) {
+      console.error('Load symbols error:', error);
+    }
+  };
+
+  const loadCurrentPrice = async (symbol: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(buildApiUrl(`/api/mt5/quotes?symbols=${symbol}`), {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.length > 0) {
+          setCurrentPrice({
+            bid: data[0].bid || 0,
+            ask: data[0].ask || 0
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Load current price error:', error);
+    }
+  };
+
+  const handlePlaceOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPlacingOrder(true);
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(buildApiUrl('/api/mt5/order'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          symbol: newTradeForm.symbol,
+          type: newTradeForm.type,
+          volume: newTradeForm.volume,
+          stopLoss: newTradeForm.stopLoss || 0,
+          takeProfit: newTradeForm.takeProfit || 0,
+          slippage: newTradeForm.slippage,
+          comment: newTradeForm.comment || 'Manual Order'
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to place order');
+      }
+
+      showToast('Order placed successfully', 'success');
+      setShowNewTradeModal(false);
+      setNewTradeForm({
+        symbol: '',
+        type: 'BUY',
+        volume: 0.01,
+        stopLoss: 0,
+        takeProfit: 0,
+        slippage: 10,
+        comment: ''
+      });
+      setCurrentPrice(null);
+      await loadPositions();
+      await loadAccount();
+    } catch (error: any) {
+      showToast(error.message || 'Failed to place order', 'error');
+    } finally {
+      setPlacingOrder(false);
     }
   };
 
@@ -402,6 +515,13 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
           </div>
           <div className="flex gap-4">
             <button
+              onClick={() => setShowNewTradeModal(true)}
+              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg"
+            >
+              <TrendingUp className="w-5 h-5 inline mr-2" />
+              New Trade
+            </button>
+            <button
               onClick={() => {
                 loadAccount(false);
                 loadPositions();
@@ -430,6 +550,13 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
             </h3>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => setShowNewTradeModal(true)}
+              className="px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm"
+            >
+              <TrendingUp className="w-4 h-4 inline mr-1" />
+              New Trade
+            </button>
             <button
               onClick={() => {
                 loadAccount(false);
