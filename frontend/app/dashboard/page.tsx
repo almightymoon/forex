@@ -21,6 +21,7 @@ import Community from './components/Community';
 import StudentCertificateAssignments from './components/StudentCertificateAssignments';
 import UserProfileDropdown from '../components/UserProfileDropdown';
 import ErrorBoundary from '../../components/ErrorBoundary';
+import MT5Dashboard from './components/MT5Dashboard';
 import { 
   BookOpen, 
   TrendingUp, 
