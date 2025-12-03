@@ -449,6 +449,9 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
     if (!account) return;
     
     setLoadingChart(true);
+    // Declare realTimePrice outside try block so it's accessible in catch
+    let realTimePrice: { bid: number; ask: number; mid: number } | null = null;
+    
     try {
       const token = localStorage.getItem('token');
       const toDate = new Date();
@@ -482,7 +485,6 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
       }
 
       // First try to get real-time price and add it to historical data
-      let realTimePrice: { bid: number; ask: number; mid: number } | null = null;
       try {
         const priceResponse = await fetch(buildApiUrl('/api/mt5/quotes'), {
           method: 'POST',
