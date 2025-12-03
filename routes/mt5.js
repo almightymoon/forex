@@ -546,6 +546,26 @@ router.post('/order/close', [
       // Update account statistics
       await mt5Account.updateStatistics({ profit: closeResult.profit });
 
+      // Refresh account info from MT5 to get updated balance
+      try {
+        const accountInfo = await mt5Service.getAccountInfo(mt5Account.mt5Login);
+        
+        // Update account info in database
+        mt5Account.accountInfo = {
+          balance: accountInfo.balance || mt5Account.accountInfo.balance,
+          equity: accountInfo.equity || mt5Account.accountInfo.equity,
+          margin: accountInfo.margin || mt5Account.accountInfo.margin,
+          freeMargin: accountInfo.freeMargin || mt5Account.accountInfo.freeMargin,
+          marginLevel: accountInfo.marginLevel || mt5Account.accountInfo.marginLevel,
+          currency: accountInfo.currency || mt5Account.accountInfo.currency,
+          leverage: accountInfo.leverage || mt5Account.accountInfo.leverage
+        };
+        await mt5Account.save();
+      } catch (accountError) {
+        console.error('Failed to refresh account info after closing position:', accountError);
+        // Don't fail the position close if account refresh fails
+      }
+
       res.json({
         message: 'Order closed successfully',
         trade,
