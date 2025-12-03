@@ -98,6 +98,14 @@ class MT5Service {
       return response.data;
     } catch (error) {
       console.error(`MT5 API Error (${endpoint}):`, error.message);
+      
+      // Check if it's a connection error (bridge not running)
+      if (error.code === 'ECONNREFUSED' || error.message.includes('ECONNREFUSED') || 
+          (error.message && error.message.includes('connect'))) {
+        const bridgePort = this.baseUrl.split(':').pop() || '8080';
+        throw new Error(`BRIDGE_NOT_RUNNING: MT5 bridge service is not running. Please start the MT5 Python bridge on port ${bridgePort}.`);
+      }
+      
       if (error.response) {
         throw new Error(`MT5 API Error: ${error.response.data?.message || error.response.statusText}`);
       }
