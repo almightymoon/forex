@@ -59,9 +59,19 @@ jobs:
             fi
             # Clean build artifacts and cache
             echo "Cleaning build artifacts..."
+            # Remove write protection and delete recursively
+            chmod -R u+w .next 2>/dev/null || true
+            chmod -R u+w out 2>/dev/null || true
+            # Use find to delete files first, then directories
+            find .next -type f -delete 2>/dev/null || true
+            find .next -type d -exec rmdir {} \; 2>/dev/null || true
+            find out -type f -delete 2>/dev/null || true
+            find out -type d -exec rmdir {} \; 2>/dev/null || true
+            # Final cleanup attempts
             rm -rf .next 2>/dev/null || true
             rm -rf out 2>/dev/null || true
             rm -rf .next/cache 2>/dev/null || true
+            rm -rf .next/export 2>/dev/null || true
             # Clean npm cache and install
             npm cache clean --force || true
             npm ci --production
