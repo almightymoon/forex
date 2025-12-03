@@ -59,26 +59,36 @@ jobs:
             fi
             # Clean build artifacts and cache
             echo "Cleaning build artifacts..."
+            # Stop any running Next.js processes that might lock files
+            pkill -f "next" 2>/dev/null || true
+            sleep 1
             # Remove write protection and delete recursively
             chmod -R u+w .next 2>/dev/null || true
             chmod -R u+w out 2>/dev/null || true
-            # Use find to delete files first, then directories (more reliable)
+            # Aggressive cleanup: remove entire directories
             if [ -d ".next" ]; then
-              find .next -mindepth 1 -type f -delete 2>/dev/null || true
-              find .next -mindepth 1 -type d -empty -delete 2>/dev/null || true
-              # Force remove remaining directories
-              find .next -mindepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
+              echo "Removing .next directory..."
+              # Try multiple methods to ensure complete removal
+              rm -rf .next/* 2>/dev/null || true
+              rm -rf .next/.* 2>/dev/null || true
+              find .next -delete 2>/dev/null || true
+              rm -rf .next 2>/dev/null || true
             fi
             if [ -d "out" ]; then
-              find out -mindepth 1 -type f -delete 2>/dev/null || true
-              find out -mindepth 1 -type d -empty -delete 2>/dev/null || true
-              find out -mindepth 1 -type d -exec rm -rf {} + 2>/dev/null || true
+              echo "Removing out directory..."
+              rm -rf out/* 2>/dev/null || true
+              rm -rf out/.* 2>/dev/null || true
+              find out -delete 2>/dev/null || true
+              rm -rf out 2>/dev/null || true
             fi
-            # Final cleanup attempts
-            rm -rf .next 2>/dev/null || true
-            rm -rf out 2>/dev/null || true
-            # Ensure directories are completely removed
-            [ ! -d ".next" ] && echo ".next directory removed successfully" || echo "Warning: .next directory still exists"
+            # Verify removal
+            if [ -d ".next" ]; then
+              echo "ERROR: .next directory still exists after cleanup!"
+              ls -la .next 2>/dev/null || true
+              exit 1
+            else
+              echo ".next directory removed successfully"
+            fi
             # Clean npm cache and install
             npm cache clean --force || true
             npm ci --production
