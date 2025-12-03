@@ -104,9 +104,14 @@ router.post('/connect', [
     console.error('Connect MT5 account error:', error);
     
     // Check if it's a connection error (bridge not running)
-    if (error.message && (error.message.includes('ECONNREFUSED') || error.message.includes('connect') || error.message.includes('BRIDGE_NOT_RUNNING'))) {
-      const bridgeMessage = error.message.includes('BRIDGE_NOT_RUNNING') 
-        ? error.message.replace('BRIDGE_NOT_RUNNING: ', '')
+    if (error.message && (
+        error.message.includes('ECONNREFUSED') || 
+        error.message.includes('connect') || 
+        error.message.includes('BRIDGE_NOT_RUNNING') ||
+        error.message.includes('bridge service is not running')
+      )) {
+      const bridgeMessage = error.message.includes('bridge service is not running')
+        ? error.message.replace('MT5 API Error: ', '').replace('BRIDGE_NOT_RUNNING: ', '')
         : 'The MT5 bridge service is not running. Please ensure the MT5 Python bridge is started on port 8080.';
       
       return res.status(503).json({ 
