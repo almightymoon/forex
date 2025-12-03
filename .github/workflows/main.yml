@@ -158,10 +158,17 @@ jobs:
             fi
             
             echo "Starting MT5 Bridge with PM2..."
-            # Start with absolute paths - PM2 will use current directory as cwd
+            # Update PM2 config with correct path
             cd "$BRIDGE_DIR"
-            # Set environment variables and start
-            PORT=8080 HOST=0.0.0.0 DEBUG=False pm2 start "$BRIDGE_DIR/venv/bin/python3" --name "mt5-bridge" -- "$BRIDGE_DIR/app.py"
+            # Use PM2 config file if it exists, otherwise use command line
+            if [ -f "pm2.config.js" ]; then
+              # Update cwd in config if needed (sed replacement)
+              sed -i "s|/var/www/forex/mt5-bridge|$BRIDGE_DIR|g" pm2.config.js || true
+              pm2 start pm2.config.js
+            else
+              # Fallback to command line start
+              PORT=8080 HOST=0.0.0.0 DEBUG=False pm2 start "$BRIDGE_DIR/venv/bin/python3" --name "mt5-bridge" -- "$BRIDGE_DIR/app.py"
+            fi
             sleep 3
             
             # Verify bridge started successfully
