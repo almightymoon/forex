@@ -59,11 +59,6 @@ jobs:
             fi
             # Clean build artifacts and cache
             echo "Cleaning build artifacts..."
-            # Stop any running Next.js processes that might lock files (be specific to avoid killing SSH)
-            pkill -f "next dev" 2>/dev/null || true
-            pkill -f "next start" 2>/dev/null || true
-            pkill -f "next-server" 2>/dev/null || true
-            sleep 1
             # Remove write protection and delete recursively
             chmod -R u+w .next 2>/dev/null || true
             chmod -R u+w out 2>/dev/null || true
