@@ -1,0 +1,625 @@
+Environment variables check:
+- JWT_SECRET length: 29
+- NODE_ENV: development
+- PORT: 4000
+(node:82189) [MONGOOSE] Warning: Duplicate schema index on {"transactionId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:82189) [MONGOOSE] Warning: Duplicate schema index on {"externalPaymentId":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:82189) [MONGOOSE] Warning: Duplicate schema index on {"user":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:82189) [MONGOOSE] Warning: Duplicate schema index on {"mt5Login":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+(node:82189) [MONGOOSE] Warning: Duplicate schema index on {"mt5Ticket":1} found. This is often due to declaring an index using both "index: true" and "schema.index()". Please remove the duplicate index definition.
+Server running on port 4000
+WebSocket server initialized
+Environment: development
+Connected to MongoDB: mongodb+srv://moon:947131@cluster0.gvga3.mongodb.net/
+User test@test.com connected to WebSocket
+Email configuration incomplete, email notifications disabled
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  'user-agent': 'curl/8.7.1',
+  accept: '*/*',
+  'content-type': 'application/json',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'content-length': '58'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+MT5 Authentication Error: connect ECONNREFUSED ::1:8080
+MT5 API Error (/account/123): MT5 bridge service is not running. Please start the MT5 Python bridge on port 8080.
+Get Account Info Error: Error: MT5 API Error: MT5 bridge service is not running. Please start the MT5 Python bridge on port 8080.
+    at MT5Service.makeRequest (/Users/moon/Documents/LMS/forex/services/mt5Service.js:112:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async MT5Service.getAccountInfo (/Users/moon/Documents/LMS/forex/services/mt5Service.js:123:24)
+    at async /Users/moon/Documents/LMS/forex/routes/mt5.js:66:27
+Connect MT5 account error: Error: MT5 API Error: MT5 bridge service is not running. Please start the MT5 Python bridge on port 8080.
+    at MT5Service.makeRequest (/Users/moon/Documents/LMS/forex/services/mt5Service.js:112:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async MT5Service.getAccountInfo (/Users/moon/Documents/LMS/forex/services/mt5Service.js:123:24)
+    at async /Users/moon/Documents/LMS/forex/routes/mt5.js:66:27
+::1 - - [03/Dec/2025:10:12:20 +0000] "POST /api/mt5/connect HTTP/1.1" 503 166 "-" "curl/8.7.1"
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  'content-length': '83',
+  'sec-ch-ua-platform': '"macOS"',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+  'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+  'content-type': 'application/json',
+  'sec-ch-ua-mobile': '?0',
+  accept: '*/*',
+  origin: 'http://localhost:3000',
+  'sec-fetch-site': 'same-site',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-dest': 'empty',
+  referer: 'http://localhost:3000/',
+  'accept-encoding': 'gzip, deflate, br, zstd',
+  'accept-language': 'en-PK,en-GB;q=0.9,en-US;q=0.8,en;q=0.7'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+MT5 Authentication Error: connect ECONNREFUSED ::1:8080
+MT5 API Error (/account/1100206744): MT5 bridge service is not running. Please start the MT5 Python bridge on port 8080.
+Get Account Info Error: Error: MT5 API Error: MT5 bridge service is not running. Please start the MT5 Python bridge on port 8080.
+    at MT5Service.makeRequest (/Users/moon/Documents/LMS/forex/services/mt5Service.js:112:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async MT5Service.getAccountInfo (/Users/moon/Documents/LMS/forex/services/mt5Service.js:123:24)
+    at async /Users/moon/Documents/LMS/forex/routes/mt5.js:66:27
+Connect MT5 account error: Error: MT5 API Error: MT5 bridge service is not running. Please start the MT5 Python bridge on port 8080.
+    at MT5Service.makeRequest (/Users/moon/Documents/LMS/forex/services/mt5Service.js:112:13)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async MT5Service.getAccountInfo (/Users/moon/Documents/LMS/forex/services/mt5Service.js:123:24)
+    at async /Users/moon/Documents/LMS/forex/routes/mt5.js:66:27
+::1 - - [03/Dec/2025:10:13:08 +0000] "POST /api/mt5/connect HTTP/1.1" 503 166 "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User test@test.com disconnected from WebSocket
+::1 - - [03/Dec/2025:10:24:03 +0000] "GET /api/sessions?t=1764757442920 HTTP/1.1" - - "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'content-type': 'application/json',
+  accept: '*/*',
+  'accept-language': '*',
+  'sec-fetch-mode': 'cors',
+  'user-agent': 'node',
+  'accept-encoding': 'gzip, deflate'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+::1 - - [03/Dec/2025:10:24:08 +0000] "GET /api/courses/enrolled HTTP/1.1" 200 2 "-" "node"
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'content-type': 'application/json',
+  accept: '*/*',
+  'accept-language': '*',
+  'sec-fetch-mode': 'cors',
+  'user-agent': 'node',
+  'accept-encoding': 'gzip, deflate'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+::1 - - [03/Dec/2025:10:24:42 +0000] "GET /api/sessions?t=1764757481423 HTTP/1.1" 200 - "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+::1 - - [03/Dec/2025:10:24:43 +0000] "GET /api/courses/enrolled HTTP/1.1" 200 2 "-" "node"
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  'sec-ch-ua-platform': '"macOS"',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+  'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+  'content-type': 'application/json',
+  'sec-ch-ua-mobile': '?0',
+  accept: '*/*',
+  origin: 'http://localhost:3000',
+  'sec-fetch-site': 'same-site',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-dest': 'empty',
+  referer: 'http://localhost:3000/',
+  'accept-encoding': 'gzip, deflate, br, zstd',
+  'accept-language': 'en-PK,en-GB;q=0.9,en-US;q=0.8,en;q=0.7',
+  'if-none-match': 'W/"2-l9Fw4VUO7kr8CvBlt4zaMCqXZ0w"'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  'sec-ch-ua-platform': '"macOS"',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+  'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+  'content-type': 'application/json',
+  'sec-ch-ua-mobile': '?0',
+  accept: '*/*',
+  origin: 'http://localhost:3000',
+  'sec-fetch-site': 'same-site',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-dest': 'empty',
+  referer: 'http://localhost:3000/',
+  'accept-encoding': 'gzip, deflate, br, zstd',
+  'accept-language': 'en-PK,en-GB;q=0.9,en-US;q=0.8,en;q=0.7',
+  'if-none-match': 'W/"22-ZUgzsfdC/dGJ3aphgQE8CaCJ3AQ"'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  'sec-ch-ua-platform': '"macOS"',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+  'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+  'content-type': 'application/json',
+  'sec-ch-ua-mobile': '?0',
+  accept: '*/*',
+  origin: 'http://localhost:3000',
+  'sec-fetch-site': 'same-site',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-dest': 'empty',
+  referer: 'http://localhost:3000/',
+  'accept-encoding': 'gzip, deflate, br, zstd',
+  'accept-language': 'en-PK,en-GB;q=0.9,en-US;q=0.8,en;q=0.7'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+=== FETCHING ASSIGNMENTS ===
+User ID: new ObjectId('692dcd0bf16768fd9f491c84')
+User object: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  userId: undefined,
+  email: 'test@test.com'
+}
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+No enrolled courses found for student
+::1 - - [03/Dec/2025:10:24:44 +0000] "GET /api/assignments HTTP/1.1" 304 - "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+::1 - - [03/Dec/2025:10:24:44 +0000] "GET /api/certificates/my-certificates HTTP/1.1" 304 - "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+::1 - - [03/Dec/2025:10:24:44 +0000] "GET /api/signals HTTP/1.1" 304 - "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+::1 - - [03/Dec/2025:10:24:46 +0000] "GET /api/courses HTTP/1.1" 200 - "-" "node"
+::1 - - [03/Dec/2025:10:24:46 +0000] "GET /api/notifications/user?unreadOnly=true&limit=1&t=1764757483506 HTTP/1.1" 200 61 "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'content-type': 'application/json',
+  accept: '*/*',
+  'accept-language': '*',
+  'sec-fetch-mode': 'cors',
+  'user-agent': 'node',
+  'accept-encoding': 'gzip, deflate'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+::1 - - [03/Dec/2025:10:24:59 +0000] "GET /api/sessions?t=1764757499388 HTTP/1.1" 200 - "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+User test@test.com disconnected from WebSocket
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  'sec-ch-ua-platform': '"macOS"',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+  'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+  'content-type': 'application/json',
+  'sec-ch-ua-mobile': '?0',
+  accept: '*/*',
+  origin: 'http://localhost:3000',
+  'sec-fetch-site': 'same-site',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-dest': 'empty',
+  referer: 'http://localhost:3000/',
+  'accept-encoding': 'gzip, deflate, br, zstd',
+  'accept-language': 'en-PK,en-GB;q=0.9,en-US;q=0.8,en;q=0.7'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+::1 - - [03/Dec/2025:10:25:01 +0000] "GET /api/courses/enrolled HTTP/1.1" 200 2 "-" "node"
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+::1 - - [03/Dec/2025:10:25:02 +0000] "GET /api/notifications/user?unreadOnly=true&limit=1&t=1764757500767 HTTP/1.1" 200 61 "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User test@test.com connected to WebSocket
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'content-type': 'application/json',
+  accept: '*/*',
+  'accept-language': '*',
+  'sec-fetch-mode': 'cors',
+  'user-agent': 'node',
+  'accept-encoding': 'gzip, deflate'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+::1 - - [03/Dec/2025:10:25:35 +0000] "GET /api/sessions?t=1764757534515 HTTP/1.1" 200 - "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User test@test.com disconnected from WebSocket
+::1 - - [03/Dec/2025:10:25:35 +0000] "GET /api/courses/enrolled HTTP/1.1" 200 2 "-" "node"
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  'sec-ch-ua-platform': '"macOS"',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+  'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+  'content-type': 'application/json',
+  'sec-ch-ua-mobile': '?0',
+  accept: '*/*',
+  origin: 'http://localhost:3000',
+  'sec-fetch-site': 'same-site',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-dest': 'empty',
+  referer: 'http://localhost:3000/',
+  'accept-encoding': 'gzip, deflate, br, zstd',
+  'accept-language': 'en-PK,en-GB;q=0.9,en-US;q=0.8,en;q=0.7'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+::1 - - [03/Dec/2025:10:25:36 +0000] "GET /api/notifications/user?unreadOnly=true&limit=1&t=1764757535627 HTTP/1.1" 200 61 "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'content-type': 'application/json',
+  accept: '*/*',
+  'accept-language': '*',
+  'sec-fetch-mode': 'cors',
+  'user-agent': 'node',
+  'accept-encoding': 'gzip, deflate'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+::1 - - [03/Dec/2025:10:26:53 +0000] "GET /api/sessions?t=1764757613229 HTTP/1.1" 200 - "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+::1 - - [03/Dec/2025:10:26:54 +0000] "GET /api/courses/enrolled HTTP/1.1" 200 2 "-" "node"
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  'sec-ch-ua-platform': '"macOS"',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+  'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+  'content-type': 'application/json',
+  'sec-ch-ua-mobile': '?0',
+  accept: '*/*',
+  origin: 'http://localhost:3000',
+  'sec-fetch-site': 'same-site',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-dest': 'empty',
+  referer: 'http://localhost:3000/',
+  'accept-encoding': 'gzip, deflate, br, zstd',
+  'accept-language': 'en-PK,en-GB;q=0.9,en-US;q=0.8,en;q=0.7'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+::1 - - [03/Dec/2025:10:26:55 +0000] "GET /api/notifications/user?unreadOnly=true&limit=1&t=1764757614309 HTTP/1.1" 200 61 "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+::1 - - [03/Dec/2025:10:27:24 +0000] "GET /api/sessions?t=1764757643865 HTTP/1.1" 200 - "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'content-type': 'application/json',
+  accept: '*/*',
+  'accept-language': '*',
+  'sec-fetch-mode': 'cors',
+  'user-agent': 'node',
+  'accept-encoding': 'gzip, deflate'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+::1 - - [03/Dec/2025:10:27:26 +0000] "GET /api/courses/enrolled HTTP/1.1" 200 2 "-" "node"
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  'sec-ch-ua-platform': '"macOS"',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+  'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+  'content-type': 'application/json',
+  'sec-ch-ua-mobile': '?0',
+  accept: '*/*',
+  origin: 'http://localhost:3000',
+  'sec-fetch-site': 'same-site',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-dest': 'empty',
+  referer: 'http://localhost:3000/',
+  'accept-encoding': 'gzip, deflate, br, zstd',
+  'accept-language': 'en-PK,en-GB;q=0.9,en-US;q=0.8,en;q=0.7'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+::1 - - [03/Dec/2025:10:27:26 +0000] "GET /api/notifications/user?unreadOnly=true&limit=1&t=1764757646367 HTTP/1.1" - - "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+User test@test.com disconnected from WebSocket
+User test@test.com connected to WebSocket
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'content-type': 'application/json',
+  accept: '*/*',
+  'accept-language': '*',
+  'sec-fetch-mode': 'cors',
+  'user-agent': 'node',
+  'accept-encoding': 'gzip, deflate'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+::1 - - [03/Dec/2025:10:29:09 +0000] "GET /api/sessions?t=1764757748959 HTTP/1.1" 200 - "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"
+::1 - - [03/Dec/2025:10:29:10 +0000] "GET /api/courses/enrolled HTTP/1.1" 200 2 "-" "node"
+Auth middleware - Headers: {
+  host: 'localhost:4000',
+  connection: 'keep-alive',
+  'sec-ch-ua-platform': '"macOS"',
+  authorization: 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4',
+  'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36',
+  'sec-ch-ua': '"Chromium";v="142", "Google Chrome";v="142", "Not_A Brand";v="99"',
+  'content-type': 'application/json',
+  'sec-ch-ua-mobile': '?0',
+  accept: '*/*',
+  origin: 'http://localhost:3000',
+  'sec-fetch-site': 'same-site',
+  'sec-fetch-mode': 'cors',
+  'sec-fetch-dest': 'empty',
+  referer: 'http://localhost:3000/',
+  'accept-encoding': 'gzip, deflate, br, zstd',
+  'accept-language': 'en-PK,en-GB;q=0.9,en-US;q=0.8,en;q=0.7'
+}
+Auth middleware - Auth header: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OTJkY2QwYmYxNjc2OGZkOWY0OTFjODQiLCJyb2xlIjoic3R1ZGVudCIsInNlc3Npb25TdGFydCI6MTc2NDc1NTU3NzgwNywiaWF0IjoxNzY0NzU1NTc3LCJleHAiOjE3NjQ3NTkxNzd9.ug2WT0tX0AFXLMmwzoGadIuttTitvP-BYfPosIkQwK4
+Auth middleware - Token: eyJhbGciOiJIUzI1NiIs...
+Auth middleware - Decoded token: {
+  userId: '692dcd0bf16768fd9f491c84',
+  role: 'student',
+  sessionStart: 1764755577807,
+  iat: 1764755577,
+  exp: 1764759177
+}
+Auth middleware - Found user: {
+  id: new ObjectId('692dcd0bf16768fd9f491c84'),
+  email: 'test@test.com',
+  role: 'student'
+}
+Auth middleware - Authentication successful for user: test@test.com
+::1 - - [03/Dec/2025:10:29:10 +0000] "GET /api/notifications/user?unreadOnly=true&limit=1&t=1764757750068 HTTP/1.1" 200 61 "http://localhost:3000/" "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/142.0.0.0 Safari/537.36"

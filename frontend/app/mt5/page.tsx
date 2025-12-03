@@ -22,8 +22,7 @@ import {
   Copy,
   Play,
   Pause,
-  Zap,
-  AlertCircle
+  Zap
 } from 'lucide-react';
 import { buildApiUrl } from '../../utils/api';
 import { showToast } from '../../utils/toast';
@@ -319,19 +318,15 @@ export default function MT5Page() {
                   <div className="space-y-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        MT5 Login (Account Number)
+                        MT5 Login
                       </label>
                       <input
-                        type="text"
+                        type="number"
                         value={connectionForm.mt5Login}
                         onChange={(e) => setConnectionForm({ ...connectionForm, mt5Login: e.target.value })}
                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        placeholder="Enter your MT5 account number"
                         required
                       />
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Your MT5 account login number (usually 6-8 digits)
-                      </p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
@@ -342,7 +337,6 @@ export default function MT5Page() {
                         value={connectionForm.mt5Password}
                         onChange={(e) => setConnectionForm({ ...connectionForm, mt5Password: e.target.value })}
                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        placeholder="Enter your MT5 password"
                         required
                       />
                     </div>
@@ -355,37 +349,9 @@ export default function MT5Page() {
                         value={connectionForm.mt5Server}
                         onChange={(e) => setConnectionForm({ ...connectionForm, mt5Server: e.target.value })}
                         className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        placeholder="e.g., YourBroker-Demo or YourBroker-Live"
+                        placeholder="e.g., YourBroker-Demo"
                         required
                       />
-                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                        Your broker's MT5 server name (check your MT5 terminal)
-                      </p>
-                    </div>
-                    
-                    {/* Demo Account Info */}
-                    <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4 mt-4">
-                      <div className="flex items-start">
-                        <AlertCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mr-3 mt-0.5 flex-shrink-0" />
-                        <div className="flex-1">
-                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-200 mb-2">
-                            Need Demo Credentials?
-                          </h4>
-                          <p className="text-xs text-blue-800 dark:text-blue-300 mb-2">
-                            To test the MT5 integration, you can create a free demo account:
-                          </p>
-                          <ol className="text-xs text-blue-800 dark:text-blue-300 list-decimal list-inside space-y-1">
-                            <li>Download and install MetaTrader 5 terminal</li>
-                            <li>Open MT5 and click "Open an Account"</li>
-                            <li>Choose a broker and select "Demo Account"</li>
-                            <li>Complete registration to get your demo credentials</li>
-                            <li>Use those credentials here to connect</li>
-                          </ol>
-                          <p className="text-xs text-blue-800 dark:text-blue-300 mt-2">
-                            <strong>Note:</strong> Demo accounts use virtual money and are perfect for testing.
-                          </p>
-                        </div>
-                      </div>
                     </div>
                   </div>
                   <div className="flex gap-4 mt-6">

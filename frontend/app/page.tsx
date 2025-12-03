@@ -516,6 +516,118 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* About Arjumail Jabbar - Co-Founder */}
+      <section className="py-20 bg-white dark:bg-gray-900 relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+            {/* Image on the left */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8 }}
+              className="relative order-2 lg:order-1"
+            >
+              {/* Co-Founder Photo */}
+              <div className="mb-8 text-center">
+                <motion.div
+                  className="relative inline-block"
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <div className="relative w-48 h-48 mx-auto">
+                    <img 
+                      src="/PHOTO-2025-12-03-14-57-28.jpg" 
+                      alt="Arjumail Jabbar - Co-Founder" 
+                      className="w-full h-full object-cover rounded-full border-4 border-white dark:border-gray-700 shadow-2xl"
+                    />
+                    <div className="absolute inset-0 rounded-full bg-gradient-to-r from-green-500/20 to-teal-500/20"></div>
+                    <div className="absolute -bottom-2 -right-2 w-16 h-16 bg-gradient-to-r from-green-500 to-teal-500 rounded-full flex items-center justify-center shadow-lg">
+                      <Award className="w-8 h-8 text-white" />
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+
+              <div className="relative bg-gradient-to-br from-slate-50 via-green-50 to-teal-50 dark:from-slate-900 dark:via-green-900 dark:to-teal-900 rounded-3xl p-8 text-slate-900 dark:text-white overflow-hidden border border-slate-200 dark:border-slate-700">
+                <div className="absolute inset-0 opacity-40">
+                  <div className="absolute inset-0 bg-gradient-to-r from-green-500/5 to-teal-500/5"></div>
+                </div>
+                <div className="relative z-10">
+                  <h3 className="text-3xl font-bold mb-8 text-center text-slate-900 dark:text-white">Track Record</h3>
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between p-4 bg-white/80 dark:bg-white/10 rounded-xl backdrop-blur-sm border border-slate-200/50 dark:border-white/10">
+                      <div className="flex items-center space-x-3">
+                        <TrendingUp className="w-6 h-6 text-green-600 dark:text-green-300" />
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Years Experience</span>
+                      </div>
+                      <span className="text-2xl font-bold text-green-600 dark:text-green-300">4+</span>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-white/80 dark:bg-white/10 rounded-xl backdrop-blur-sm border border-slate-200/50 dark:border-white/10">
+                      <div className="flex items-center space-x-3">
+                        <Users className="w-6 h-6 text-teal-600 dark:text-teal-300" />
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Traders Helped</span>
+                      </div>
+                      <span className="text-2xl font-bold text-teal-600 dark:text-teal-300">50+</span>
+                    </div>
+                    <div className="flex items-center justify-between p-4 bg-white/80 dark:bg-white/10 rounded-xl backdrop-blur-sm border border-slate-200/50 dark:border-white/10">
+                      <div className="flex items-center space-x-3">
+                        <Target className="w-6 h-6 text-blue-600 dark:text-blue-300" />
+                        <span className="font-medium text-slate-700 dark:text-slate-300">Market Cycles</span>
+                      </div>
+                      <span className="text-2xl font-bold text-blue-600 dark:text-blue-300">100+</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+            
+            {/* Text on the right */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8 }}
+              className="order-1 lg:order-2"
+            >
+              <div className="inline-flex items-center px-4 py-2 rounded-full bg-gradient-to-r from-green-500/10 to-teal-500/10 border border-green-500/20 text-green-600 dark:text-green-400 text-sm font-medium mb-8">
+                <Award className="w-4 h-4 mr-2" />
+                About Our Co-Founder
+              </div>
+              <h2 className="text-4xl md:text-5xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">
+                Arjumail Jabbar
+              </h2>
+              <div className="bg-gradient-to-r from-green-500/10 to-teal-500/10 border border-green-500/20 p-6 rounded-2xl mb-8">
+                <h3 className="text-2xl font-bold text-green-600 dark:text-green-400 mb-3">
+                  Co-Founder
+                </h3>
+                <p className="text-lg text-slate-700 dark:text-slate-300 font-medium">
+                  4+ Years of Professional Trading Experience
+                </p>
+              </div>
+              <p className="text-lg text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
+                I've been actively involved in the forex market for over 4 years, gaining experience through both the ups and downs of real trading conditions. Throughout this journey, I've learned to navigate market cycles, refine my strategies, and develop approaches that truly work in live environments.
+              </p>
+              <p className="text-lg text-slate-600 dark:text-slate-300 mb-8 leading-relaxed">
+                Now, as the Co-Founder of Forex Navigators, my mission is to help traders shorten their learning curve, avoid the mistakes I once made, and build the skills required for consistent and confident trading.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+                <div className="flex items-center space-x-3 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700">
+                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <Target className="w-5 h-5 text-green-600 dark:text-green-400" />
+                  </div>
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">Live Trading Expert</span>
+                </div>
+                <div className="flex items-center space-x-3 p-4 bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-slate-200 dark:border-gray-700">
+                  <div className="p-2 bg-teal-100 dark:bg-teal-900/30 rounded-lg">
+                    <TrendingUp className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+                  </div>
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">Strategy Developer</span>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+
       {/* CTA Section */}
       <section className="py-20 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 relative overflow-hidden">
         <div className="absolute inset-0 bg-black/10" />
