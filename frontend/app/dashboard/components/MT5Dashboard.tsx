@@ -24,6 +24,7 @@ import {
   Pause,
   Zap
 } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
 
@@ -90,6 +91,10 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
   const [currentPrice, setCurrentPrice] = useState<{ bid: number; ask: number } | null>(null);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
+  const [chartData, setChartData] = useState<any[]>([]);
+  const [selectedChartSymbol, setSelectedChartSymbol] = useState<string>('');
+  const [chartTimeframe, setChartTimeframe] = useState<string>('H1');
+  const [loadingChart, setLoadingChart] = useState(false);
 
   // Connection form state
   const [connectionForm, setConnectionForm] = useState({
@@ -133,6 +138,17 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
       loadCurrentPrice(newTradeForm.symbol);
     }
   }, [newTradeForm.symbol, showNewTradeModal]);
+
+  useEffect(() => {
+    if (selectedChartSymbol && account) {
+      loadChartData(selectedChartSymbol, chartTimeframe);
+      // Set up auto-refresh for chart data
+      const chartInterval = setInterval(() => {
+        loadChartData(selectedChartSymbol, chartTimeframe);
+      }, 30000); // Refresh every 30 seconds
+      return () => clearInterval(chartInterval);
+    }
+  }, [selectedChartSymbol, chartTimeframe, account]);
 
   const loadAccount = async (silent = false) => {
     try {
@@ -317,6 +333,73 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
       }
     } catch (error) {
       console.error('Load current price error:', error);
+    }
+  };
+
+  const loadChartData = async (symbol: string, timeframe: string) => {
+    if (!account) return;
+    
+    setLoadingChart(true);
+    try {
+      const token = localStorage.getItem('token');
+      const toDate = new Date();
+      const fromDate = new Date();
+      
+      // Set date range based on timeframe
+      switch (timeframe) {
+        case 'M1':
+          fromDate.setHours(fromDate.getHours() - 1);
+          break;
+        case 'M5':
+          fromDate.setHours(fromDate.getHours() - 5);
+          break;
+        case 'M15':
+          fromDate.setHours(fromDate.getHours() - 15);
+          break;
+        case 'M30':
+          fromDate.setHours(fromDate.getHours() - 30);
+          break;
+        case 'H1':
+          fromDate.setDate(fromDate.getDate() - 1);
+          break;
+        case 'H4':
+          fromDate.setDate(fromDate.getDate() - 4);
+          break;
+        case 'D1':
+          fromDate.setDate(fromDate.getDate() - 30);
+          break;
+        default:
+          fromDate.setDate(fromDate.getDate() - 1);
+      }
+
+      const response = await fetch(
+        buildApiUrl(`/api/mt5/history?symbol=${symbol}&timeframe=${timeframe}&from=${fromDate.toISOString()}&to=${toDate.toISOString()}`),
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data && Array.isArray(data)) {
+          // Format data for Recharts
+          const formattedData = data.map((candle: any) => ({
+            time: new Date(candle.time || candle.Time || candle.timestamp).toLocaleTimeString(),
+            open: candle.open || candle.Open || candle.o,
+            high: candle.high || candle.High || candle.h,
+            low: candle.low || candle.Low || candle.l,
+            close: candle.close || candle.Close || candle.c,
+            price: candle.close || candle.Close || candle.c || (candle.bid || 0)
+          }));
+          setChartData(formattedData);
+        }
+      }
+    } catch (error) {
+      console.error('Load chart data error:', error);
+    } finally {
+      setLoadingChart(false);
     }
   };
 
