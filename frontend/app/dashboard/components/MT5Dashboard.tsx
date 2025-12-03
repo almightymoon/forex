@@ -150,6 +150,16 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
     }
   }, [selectedChartSymbol, chartTimeframe, account]);
 
+  // Auto-select first symbol when symbols are loaded
+  useEffect(() => {
+    if (availableSymbols.length > 0 && !selectedChartSymbol) {
+      // Prefer common symbols
+      const preferredSymbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD'];
+      const symbol = preferredSymbols.find(s => availableSymbols.includes(s)) || availableSymbols[0];
+      setSelectedChartSymbol(symbol);
+    }
+  }, [availableSymbols, selectedChartSymbol]);
+
   const loadAccount = async (silent = false) => {
     try {
       const token = localStorage.getItem('token');
