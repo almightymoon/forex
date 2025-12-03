@@ -653,6 +653,83 @@ export default function MT5Page() {
           )}
         </motion.div>
 
+        {/* Trade History */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6"
+        >
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Trade History</h2>
+            <button
+              onClick={() => {
+                setShowTradeHistory(!showTradeHistory);
+                if (!showTradeHistory) {
+                  loadTradeHistory();
+                }
+              }}
+              className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-300 flex items-center"
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              {showTradeHistory ? 'Hide' : 'Show'} History
+            </button>
+          </div>
+
+          {showTradeHistory && (
+            <div className="overflow-x-auto">
+              {tradeHistory.length === 0 ? (
+                <div className="text-center py-12">
+                  <Clock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                  <p className="text-gray-600 dark:text-gray-400">No trade history</p>
+                </div>
+              ) : (
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">Symbol</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">Type</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">Volume</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">Open Price</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">Close Price</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">Profit</th>
+                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 dark:text-gray-400">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {tradeHistory.map((trade) => (
+                      <tr key={trade._id} className="border-b border-gray-100 dark:border-gray-700">
+                        <td className="py-3 px-4 font-medium text-gray-900 dark:text-white">{trade.symbol}</td>
+                        <td className="py-3 px-4">
+                          <span className={`px-2 py-1 rounded text-xs font-medium ${
+                            trade.type === 'BUY' 
+                              ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                              : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                          }`}>
+                            {trade.type}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4 text-gray-900 dark:text-white">{trade.volume}</td>
+                        <td className="py-3 px-4 text-gray-900 dark:text-white">{trade.openPrice?.toFixed(5) || 'N/A'}</td>
+                        <td className="py-3 px-4 text-gray-900 dark:text-white">{trade.closePrice?.toFixed(5) || 'N/A'}</td>
+                        <td className={`py-3 px-4 font-medium ${
+                          trade.profit >= 0 
+                            ? 'text-green-600 dark:text-green-400'
+                            : 'text-red-600 dark:text-red-400'
+                        }`}>
+                          {trade.profit >= 0 ? '+' : ''}{trade.profit?.toFixed(2) || '0.00'}
+                        </td>
+                        <td className="py-3 px-4 text-gray-600 dark:text-gray-400 text-sm">
+                          {trade.closeTime ? new Date(trade.closeTime).toLocaleDateString() : new Date(trade.openTime).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </motion.div>
+
         {/* Settings Modal */}
         {showSettingsModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
