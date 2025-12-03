@@ -77,6 +77,7 @@ interface Position {
 }
 
 export default function MT5Page() {
+  const router = useRouter();
   const [account, setAccount] = useState<MT5Account | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
   const [tradeHistory, setTradeHistory] = useState<any[]>([]);
