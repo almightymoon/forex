@@ -139,7 +139,7 @@ app.use('/api/assignments', checkSessionTimeout, assignmentRoutes);
 app.use('/api/upload', checkSessionTimeout, uploadRoutes);
 app.use('/api/mt5', checkSessionTimeout, mt5Routes);
 
-// Apply maintenance mode middleware to protected routes only
+// Apply maintenance mode middleware to protected routes only (after all routes are registered)
 app.use('/api', maintenanceMiddleware);
 
 // Health check endpoint
