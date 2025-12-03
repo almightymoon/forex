@@ -29,7 +29,7 @@ router.get('/test-connection', authenticateToken, async (req, res) => {
 // @access  Private
 router.post('/connect', [
   authenticateToken,
-  body('mt5Login').isNumeric().withMessage('MT5 login must be a number'),
+  body('mt5Login').notEmpty().withMessage('MT5 login is required'),
   body('mt5Password').notEmpty().withMessage('MT5 password is required'),
   body('mt5Server').notEmpty().withMessage('MT5 server is required')
 ], async (req, res) => {
@@ -41,11 +41,17 @@ router.post('/connect', [
 
     const { mt5Login, mt5Password, mt5Server } = req.body;
 
+    // Validate login is numeric (MT5 logins are typically numbers)
+    const loginNumber = parseInt(mt5Login);
+    if (isNaN(loginNumber)) {
+      return res.status(400).json({ error: 'MT5 login must be a valid number' });
+    }
+
     // Check if account already exists
     let mt5Account = await MT5Account.findOne({ 
       $or: [
         { user: req.user._id },
-        { mt5Login: parseInt(mt5Login) }
+        { mt5Login: loginNumber }
       ]
     });
 
@@ -72,7 +78,7 @@ router.post('/connect', [
 
       // Create or update account
       if (mt5Account) {
-        mt5Account.mt5Login = parseInt(mt5Login);
+        mt5Account.mt5Login = loginNumber;
         mt5Account.mt5Password = mt5Password;
         mt5Account.mt5Server = mt5Server;
         mt5Account.isVerified = true;
@@ -80,7 +86,7 @@ router.post('/connect', [
       } else {
         mt5Account = new MT5Account({
           user: req.user._id,
-          mt5Login: parseInt(mt5Login),
+          mt5Login: loginNumber,
           mt5Password: mt5Password,
           mt5Server: mt5Server,
           isVerified: true
