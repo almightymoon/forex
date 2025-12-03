@@ -434,7 +434,10 @@ export default function MT5Page() {
           </div>
           <div className="flex gap-4">
             <button
-              onClick={() => loadAccount()}
+              onClick={() => {
+                loadAccount(false); // Show errors on manual refresh
+                loadPositions();
+              }}
               className="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
             >
               <RefreshCw className="w-5 h-5 inline mr-2" />
