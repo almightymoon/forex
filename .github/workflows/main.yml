@@ -57,6 +57,11 @@ jobs:
                 echo "Warning: Could not fully remove node_modules, but continuing..."
               }
             fi
+            # Clean build artifacts and cache
+            echo "Cleaning build artifacts..."
+            rm -rf .next 2>/dev/null || true
+            rm -rf out 2>/dev/null || true
+            rm -rf .next/cache 2>/dev/null || true
             # Clean npm cache and install
             npm cache clean --force || true
             npm ci --production
