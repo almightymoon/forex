@@ -481,6 +481,42 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
           fromDate.setDate(fromDate.getDate() - 1);
       }
 
+      // First try to get real-time price and add it to historical data
+      let realTimePrice: { bid: number; ask: number; mid: number } | null = null;
+      try {
+        const priceResponse = await fetch(buildApiUrl('/api/mt5/quotes'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({ symbols: [symbol] })
+        });
+        if (priceResponse.ok) {
+          const priceData = await priceResponse.json();
+          if (Array.isArray(priceData) && priceData.length > 0) {
+            const quote = priceData[0];
+            realTimePrice = {
+              bid: quote.bid || 0,
+              ask: quote.ask || 0,
+              mid: ((quote.bid || 0) + (quote.ask || 0)) / 2
+            };
+          } else if (priceData && typeof priceData === 'object') {
+            const symbolKey = symbol.toUpperCase();
+            const quote = priceData[symbolKey] || priceData[symbol] || Object.values(priceData)[0];
+            if (quote) {
+              realTimePrice = {
+                bid: quote.bid || 0,
+                ask: quote.ask || 0,
+                mid: ((quote.bid || 0) + (quote.ask || 0)) / 2
+              };
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('Failed to get real-time price:', err);
+      }
+
       const response = await fetch(
         buildApiUrl(`/api/mt5/history?symbol=${symbol}&timeframe=${timeframe}&from=${fromDate.toISOString()}&to=${toDate.toISOString()}`),
         {
