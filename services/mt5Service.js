@@ -59,6 +59,12 @@ class MT5Service {
       throw new Error('Failed to authenticate with MT5');
     } catch (error) {
       console.error('MT5 Authentication Error:', error.message);
+      
+      // Check if it's a connection error
+      if (error.code === 'ECONNREFUSED' || error.message.includes('ECONNREFUSED') || error.message.includes('connect')) {
+        throw new Error(`MT5 bridge service is not running. Please start the MT5 Python bridge on port ${this.baseUrl.split(':').pop() || '8080'}.`);
+      }
+      
       throw new Error(`MT5 authentication failed: ${error.message}`);
     }
   }

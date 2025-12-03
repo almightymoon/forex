@@ -8,11 +8,6 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Debug route to verify router is working
-router.get('/test', (req, res) => {
-  res.json({ message: 'MT5 routes are working', path: '/api/mt5/test' });
-});
-
 // @route   GET /api/mt5/test-connection
 // @desc    Test MT5 API connection
 // @access  Private
@@ -107,6 +102,25 @@ router.post('/connect', [
     }
   } catch (error) {
     console.error('Connect MT5 account error:', error);
+    
+    // Check if it's a connection error (bridge not running)
+    if (error.message && (error.message.includes('ECONNREFUSED') || error.message.includes('connect'))) {
+      return res.status(503).json({ 
+        error: 'MT5 Bridge Service Unavailable',
+        message: 'The MT5 bridge service is not running. Please ensure the MT5 Python bridge is started on port 8080.',
+        code: 'BRIDGE_NOT_RUNNING'
+      });
+    }
+    
+    // Check if it's an authentication error
+    if (error.message && error.message.includes('authentication failed')) {
+      return res.status(401).json({ 
+        error: 'MT5 Authentication Failed',
+        message: 'Invalid MT5 credentials. Please check your login, password, and server name.',
+        code: 'AUTH_FAILED'
+      });
+    }
+    
     res.status(500).json({ 
       error: 'Failed to connect MT5 account',
       message: error.message 
