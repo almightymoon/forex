@@ -110,23 +110,73 @@ jobs:
             pm2 restart backend || pm2 start npm --name "backend" -- start
             
             # Restart MT5 Bridge
+            echo "=========================================="
             echo "Restarting MT5 Bridge..."
+            echo "=========================================="
             cd mt5-bridge/
-            # Ensure virtual environment is activated for PM2
-            if [ -f "venv/bin/python3" ]; then
-              if pm2 list | grep -q "mt5-bridge"; then
-                pm2 restart mt5-bridge
-              else
-                pm2 start venv/bin/python3 --name "mt5-bridge" -- app.py
-                pm2 save
-              fi
-            else
+            
+            # Create logs directory if it doesn't exist
+            mkdir -p logs
+            
+            # Ensure virtual environment exists and is valid
+            if [ ! -f "venv/bin/python3" ]; then
               echo "Warning: Virtual environment not found. Recreating..."
+              rm -rf venv
               python3 -m venv venv
               source venv/bin/activate
               pip install --upgrade pip -q
               pip install -r requirements.txt -q
-              pm2 start venv/bin/python3 --name "mt5-bridge" -- app.py
-              pm2 save
             fi
+            
+            # Verify Python interpreter exists
+            if [ ! -f "venv/bin/python3" ]; then
+              echo "ERROR: Python interpreter not found in venv!"
+              exit 1
+            fi
+            
+            # Get absolute path
+            BRIDGE_DIR=$(pwd)
+            echo "Bridge directory: $BRIDGE_DIR"
+            
+            # Check if bridge is already running
+            if pm2 list | grep -q "mt5-bridge"; then
+              echo "MT5 Bridge found in PM2. Stopping and removing..."
+              pm2 delete mt5-bridge || true
+              sleep 1
+            fi
+            
+            echo "Starting MT5 Bridge with PM2..."
+            # Start with absolute paths - PM2 will use current directory as cwd
+            cd "$BRIDGE_DIR"
+            # Set environment variables and start
+            PORT=8080 HOST=0.0.0.0 DEBUG=False pm2 start "$BRIDGE_DIR/venv/bin/python3" --name "mt5-bridge" -- "$BRIDGE_DIR/app.py"
+            sleep 3
+            
+            # Verify bridge started successfully
+            if pm2 list | grep -q "mt5-bridge"; then
+              BRIDGE_STATUS=$(pm2 jlist | python3 -c "import sys, json; data=json.load(sys.stdin); bridge=[x for x in data if x['name']=='mt5-bridge']; print(bridge[0]['pm2_env']['status'] if bridge else 'not found')" 2>/dev/null || echo "unknown")
+              echo "MT5 Bridge PM2 Status: $BRIDGE_STATUS"
+              
+              if [ "$BRIDGE_STATUS" != "online" ]; then
+                echo "WARNING: MT5 Bridge status is not 'online'. Checking logs..."
+                pm2 logs mt5-bridge --lines 20 --nostream || true
+              else
+                echo "✓ MT5 Bridge is running successfully"
+              fi
+            else
+              echo "ERROR: Failed to start MT5 Bridge in PM2"
+              pm2 logs mt5-bridge --lines 50 --nostream || true
+              exit 1
+            fi
+            
+            # Save PM2 configuration
+            pm2 save || echo "Warning: Failed to save PM2 configuration"
+            
+            # Test bridge health endpoint
+            echo "Testing bridge health endpoint..."
+            sleep 3
+            curl -f http://localhost:8080/health || echo "WARNING: Bridge health check failed (this might be normal if bridge is still starting)"
+            
             cd ..
+            echo "MT5 Bridge deployment completed!"
+            echo "=========================================="
