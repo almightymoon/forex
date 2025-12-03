@@ -71,6 +71,9 @@ CORS(app)  # Enable CORS for all routes
 # Store active connections
 active_connections = {}
 
+# Store mock positions (for compatibility mode)
+mock_positions = {}
+
 def connect_mt5(login=None, password=None, server=None):
     """
     Connect to MT5 terminal
@@ -418,7 +421,40 @@ def place_order():
         take_profit = data.get('takeProfit', 0)
         comment = data.get('comment', 'MT5 API Order')
         
-        # Prepare order request
+        # Mock mode support
+        if conn.get('mock_mode', False) or not MT5_AVAILABLE:
+            logger.info(f"Mock mode: Placing {order_type} order for {symbol}")
+            import random
+            mock_ticket = random.randint(100000000, 999999999)
+            mock_price = price if price > 0 else (1.1000 if order_type == 'BUY' else 1.0990)
+            
+            # Store mock position
+            mock_positions[mock_ticket] = {
+                'ticket': mock_ticket,
+                'symbol': symbol.upper(),
+                'type': order_type,
+                'volume': float(volume),
+                'priceOpen': mock_price,
+                'priceCurrent': mock_price,
+                'stopLoss': stop_loss,
+                'takeProfit': take_profit,
+                'profit': 0.0,
+                'swap': 0.0,
+                'commission': 0.0,
+                'time': datetime.now().isoformat(),
+                'comment': comment,
+                'login': conn.get('login')
+            }
+            
+            return jsonify({
+                'ticket': mock_ticket,
+                'price': mock_price,
+                'volume': float(volume),
+                'comment': comment,
+                'mock_mode': True
+            })
+        
+        # Real MT5 order
         if order_type == 'BUY':
             order_type_mt5 = mt5.ORDER_TYPE_BUY
             if price == 0:
@@ -485,7 +521,28 @@ def close_order():
         ticket = data.get('ticket')
         volume = data.get('volume', 0)  # 0 for full close
         
-        # Get position info
+        # Mock mode support
+        if conn.get('mock_mode', False) or not MT5_AVAILABLE:
+            logger.info(f"Mock mode: Closing position {ticket}")
+            if ticket not in mock_positions:
+                return jsonify({'error': 'Position not found'}), 404
+            
+            position = mock_positions[ticket]
+            close_price = position['priceCurrent']
+            profit = position.get('profit', 0.0)
+            
+            # Remove position
+            del mock_positions[ticket]
+            
+            return jsonify({
+                'ticket': ticket,
+                'price': close_price,
+                'profit': profit,
+                'comment': 'Position closed',
+                'mock_mode': True
+            })
+        
+        # Real MT5 close
         position = mt5.positions_get(ticket=ticket)
         if position is None or len(position) == 0:
             return jsonify({'error': 'Position not found'}), 404
@@ -553,7 +610,27 @@ def modify_order():
         stop_loss = data.get('stopLoss', 0)
         take_profit = data.get('takeProfit', 0)
         
-        # Get position
+        # Mock mode support
+        if conn.get('mock_mode', False) or not MT5_AVAILABLE:
+            logger.info(f"Mock mode: Modifying position {ticket}")
+            if ticket not in mock_positions:
+                return jsonify({'error': 'Position not found'}), 404
+            
+            position = mock_positions[ticket]
+            if stop_loss > 0:
+                position['stopLoss'] = stop_loss
+            if take_profit > 0:
+                position['takeProfit'] = take_profit
+            
+            return jsonify({
+                'ticket': ticket,
+                'stopLoss': stop_loss,
+                'takeProfit': take_profit,
+                'comment': 'Order modified',
+                'mock_mode': True
+            })
+        
+        # Real MT5 modify
         position = mt5.positions_get(ticket=ticket)
         if position is None or len(position) == 0:
             return jsonify({'error': 'Position not found'}), 404
@@ -603,6 +680,42 @@ def get_positions(login):
         if not conn:
             return jsonify({'error': 'Unauthorized'}), 401
         
+        # Mock mode support
+        if conn.get('mock_mode', False) or not MT5_AVAILABLE:
+            logger.info(f"Mock mode: Getting positions for login {login}")
+            
+            # Return positions for this login
+            positions_list = []
+            for ticket, pos in mock_positions.items():
+                if pos.get('login') == login:
+                    # Update current price and profit (simulate market movement)
+                    import random
+                    price_change = random.uniform(-0.001, 0.001)
+                    pos['priceCurrent'] = pos['priceOpen'] + price_change
+                    if pos['type'] == 'BUY':
+                        pos['profit'] = (pos['priceCurrent'] - pos['priceOpen']) * pos['volume'] * 100000
+                    else:
+                        pos['profit'] = (pos['priceOpen'] - pos['priceCurrent']) * pos['volume'] * 100000
+                    
+                    positions_list.append({
+                        'ticket': pos['ticket'],
+                        'symbol': pos['symbol'],
+                        'type': pos['type'],
+                        'volume': pos['volume'],
+                        'priceOpen': pos['priceOpen'],
+                        'priceCurrent': pos['priceCurrent'],
+                        'stopLoss': pos['stopLoss'],
+                        'takeProfit': pos['takeProfit'],
+                        'profit': pos['profit'],
+                        'swap': pos.get('swap', 0.0),
+                        'commission': pos.get('commission', 0.0),
+                        'time': pos['time'],
+                        'comment': pos.get('comment', '')
+                    })
+            
+            return jsonify(positions_list)
+        
+        # Real MT5 positions
         positions = mt5.positions_get()
         if positions is None:
             return jsonify([])
@@ -643,10 +756,17 @@ def get_order_history(login):
         if not conn:
             return jsonify({'error': 'Unauthorized'}), 401
         
-        data = request.get_json()
-        from_date = datetime.fromisoformat(data.get('from'))
-        to_date = datetime.fromisoformat(data.get('to'))
+        data = request.get_json() or {}
+        from_date = datetime.fromisoformat(data.get('from', (datetime.now() - timedelta(days=30)).isoformat()))
+        to_date = datetime.fromisoformat(data.get('to', datetime.now().isoformat()))
         
+        # Mock mode support
+        if conn.get('mock_mode', False) or not MT5_AVAILABLE:
+            logger.info(f"Mock mode: Getting order history for login {login}")
+            # Return empty history or mock closed trades
+            return jsonify([])
+        
+        # Real MT5 history
         deals = mt5.history_deals_get(from_date, to_date)
         if deals is None:
             return jsonify([])

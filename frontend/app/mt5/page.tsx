@@ -22,11 +22,14 @@ import {
   Copy,
   Play,
   Pause,
-  Zap
+  Zap,
+  ArrowLeft
 } from 'lucide-react';
 import { buildApiUrl } from '../../utils/api';
 import { showToast } from '../../utils/toast';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 
 interface MT5Account {
   _id: string;
@@ -77,10 +80,12 @@ interface Position {
 export default function MT5Page() {
   const [account, setAccount] = useState<MT5Account | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
+  const [tradeHistory, setTradeHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [connecting, setConnecting] = useState(false);
   const [showConnectModal, setShowConnectModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showTradeHistory, setShowTradeHistory] = useState(false);
   const [refreshInterval, setRefreshInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Connection form state
@@ -100,12 +105,24 @@ export default function MT5Page() {
 
   useEffect(() => {
     loadAccount();
+    loadPositions();
+    
+    // Set up auto-refresh every 5 seconds
+    const interval = setInterval(() => {
+      if (account) {
+        loadAccount();
+        loadPositions();
+      }
+    }, 5000);
+    
+    setRefreshInterval(interval);
+    
     return () => {
-      if (refreshInterval) {
-        clearInterval(refreshInterval);
+      if (interval) {
+        clearInterval(interval);
       }
     };
-  }, []);
+  }, [account]);
 
   const loadAccount = async () => {
     try {
@@ -384,13 +401,22 @@ export default function MT5Page() {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              MT5 Trading Dashboard
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Account: {account.mt5Login} | Server: {account.mt5Server}
-            </p>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={() => router.push('/dashboard')}
+              className="p-2 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-lg transition-colors"
+              title="Back to Dashboard"
+            >
+              <ArrowLeft className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+            </button>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                MT5 Trading Dashboard
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300">
+                Account: {account.mt5Login} | Server: {account.mt5Server}
+              </p>
+            </div>
           </div>
           <div className="flex gap-4">
             <button
@@ -547,17 +573,26 @@ export default function MT5Page() {
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6"
+          className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-6"
         >
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Open Positions</h2>
-            <Link
-              href="/signals"
-              className="text-blue-600 dark:text-blue-400 hover:underline flex items-center"
-            >
-              <Copy className="w-4 h-4 mr-2" />
-              Copy from Signals
-            </Link>
+            <div className="flex gap-2">
+              <button
+                onClick={loadPositions}
+                className="px-3 py-1 text-sm bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-lg text-gray-700 dark:text-gray-300"
+              >
+                <RefreshCw className="w-4 h-4 inline mr-1" />
+                Refresh
+              </button>
+              <Link
+                href="/signals"
+                className="px-3 py-1 text-sm bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center"
+              >
+                <Copy className="w-4 h-4 mr-1" />
+                Copy from Signals
+              </Link>
+            </div>
           </div>
 
           {positions.length === 0 ? (
