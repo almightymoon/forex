@@ -146,9 +146,46 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
       const chartInterval = setInterval(() => {
         loadChartData(selectedChartSymbol, chartTimeframe);
       }, 30000); // Refresh every 30 seconds
-      return () => clearInterval(chartInterval);
+      
+      // Set up real-time price updates (every 5 seconds)
+      const priceInterval = setInterval(() => {
+        if (selectedChartSymbol) {
+          loadCurrentPrice(selectedChartSymbol);
+          // Update the last data point in chart with real-time price
+          updateChartWithRealTimePrice(selectedChartSymbol);
+        }
+      }, 5000); // Update every 5 seconds
+      
+      return () => {
+        clearInterval(chartInterval);
+        clearInterval(priceInterval);
+      };
     }
   }, [selectedChartSymbol, chartTimeframe, account]);
+
+  const updateChartWithRealTimePrice = async (symbol: string) => {
+    if (!currentPrice || chartData.length === 0) return;
+    
+    try {
+      // Update the last data point with current price
+      const updatedData = [...chartData];
+      if (updatedData.length > 0) {
+        const lastPoint = updatedData[updatedData.length - 1];
+        const midPrice = (currentPrice.bid + currentPrice.ask) / 2;
+        
+        updatedData[updatedData.length - 1] = {
+          ...lastPoint,
+          price: midPrice,
+          close: midPrice,
+          high: Math.max(lastPoint.high || midPrice, midPrice),
+          low: Math.min(lastPoint.low || midPrice, midPrice)
+        };
+        setChartData(updatedData);
+      }
+    } catch (error) {
+      console.error('Update chart with real-time price error:', error);
+    }
+  };
 
   // Auto-select first symbol when symbols are loaded
   useEffect(() => {
@@ -373,19 +410,34 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
   const loadCurrentPrice = async (symbol: string) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(buildApiUrl(`/api/mt5/quotes?symbols=${symbol}`), {
+      const response = await fetch(buildApiUrl('/api/mt5/quotes'), {
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({ symbols: [symbol] })
       });
 
       if (response.ok) {
         const data = await response.json();
-        if (data && data.length > 0) {
+        // Handle both array and object formats
+        if (Array.isArray(data) && data.length > 0) {
+          const quote = data[0];
           setCurrentPrice({
-            bid: data[0].bid || 0,
-            ask: data[0].ask || 0
+            bid: quote.bid || 0,
+            ask: quote.ask || 0
           });
+        } else if (data && typeof data === 'object') {
+          // Handle object format { symbol: { bid, ask } }
+          const symbolKey = symbol.toUpperCase();
+          const quote = data[symbolKey] || data[symbol] || Object.values(data)[0];
+          if (quote) {
+            setCurrentPrice({
+              bid: quote.bid || 0,
+              ask: quote.ask || 0
+            });
+          }
         }
       }
     } catch (error) {
@@ -481,10 +533,55 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
           
           console.log('Formatted chart data:', formattedData);
           if (formattedData.length > 0) {
+            // Add real-time price as the latest data point if available
+            if (realTimePrice && realTimePrice.mid > 0) {
+              const lastCandle = formattedData[formattedData.length - 1];
+              const now = new Date();
+              formattedData.push({
+                time: now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                timestamp: now.getTime(),
+                open: lastCandle.close || realTimePrice.mid,
+                high: Math.max(lastCandle.close || realTimePrice.mid, realTimePrice.mid),
+                low: Math.min(lastCandle.close || realTimePrice.mid, realTimePrice.mid),
+                close: realTimePrice.mid,
+                price: realTimePrice.mid
+              });
+            }
             setChartData(formattedData);
+            // Also update current price state
+            if (realTimePrice) {
+              setCurrentPrice({
+                bid: realTimePrice.bid,
+                ask: realTimePrice.ask
+              });
+            }
           } else {
-            console.warn('No valid chart data after formatting');
-            setChartData([]);
+            // If no historical data, create chart from real-time price
+            if (realTimePrice && realTimePrice.mid > 0) {
+              const now = new Date();
+              const realTimeData = [];
+              // Create a small dataset from real-time price
+              for (let i = 9; i >= 0; i--) {
+                const time = new Date(now.getTime() - i * 60000);
+                realTimeData.push({
+                  time: time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+                  timestamp: time.getTime(),
+                  open: realTimePrice.mid,
+                  high: realTimePrice.mid + 0.0001,
+                  low: realTimePrice.mid - 0.0001,
+                  close: realTimePrice.mid,
+                  price: realTimePrice.mid
+                });
+              }
+              setChartData(realTimeData);
+              setCurrentPrice({
+                bid: realTimePrice.bid,
+                ask: realTimePrice.ask
+              });
+            } else {
+              console.warn('No valid chart data after formatting');
+              setChartData([]);
+            }
           }
         } else {
           console.warn('No chart data received or empty array');
