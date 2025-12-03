@@ -47,15 +47,14 @@ jobs:
             # Clean node_modules if it exists to avoid ENOTEMPTY errors
             if [ -d "node_modules" ]; then
               echo "Cleaning existing node_modules..."
-              # Remove write protection and delete recursively
+              # Remove write protection first
               chmod -R u+w node_modules 2>/dev/null || true
-              # Use find to delete files first, then directories (more robust)
-              find node_modules -mindepth 1 -delete 2>/dev/null || true
-              # Fallback to rm -rf with retries
+              # Delete using find with exec rm (most reliable)
+              find node_modules -type f -exec rm -f {} \; 2>/dev/null || true
+              find node_modules -type d -exec rmdir {} \; 2>/dev/null || true
+              # Final cleanup attempt
               rm -rf node_modules 2>/dev/null || {
-                echo "Warning: Some files could not be deleted, continuing..."
-                sleep 1
-                rm -rf node_modules 2>/dev/null || true
+                echo "Warning: Could not fully remove node_modules, but continuing..."
               }
             fi
             # Clean npm cache and install
