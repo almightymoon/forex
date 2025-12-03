@@ -383,21 +383,39 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
 
       if (response.ok) {
         const data = await response.json();
-        if (data && Array.isArray(data)) {
+        console.log('Chart data received:', data);
+        if (data && Array.isArray(data) && data.length > 0) {
           // Format data for Recharts
-          const formattedData = data.map((candle: any) => ({
-            time: new Date(candle.time || candle.Time || candle.timestamp).toLocaleTimeString(),
-            open: candle.open || candle.Open || candle.o,
-            high: candle.high || candle.High || candle.h,
-            low: candle.low || candle.Low || candle.l,
-            close: candle.close || candle.Close || candle.c,
-            price: candle.close || candle.Close || candle.c || (candle.bid || 0)
-          }));
+          const formattedData = data.map((candle: any, index: number) => {
+            const timeValue = candle.time || candle.Time || candle.timestamp;
+            const date = timeValue ? new Date(timeValue) : new Date(Date.now() - (data.length - index) * 60000);
+            
+            return {
+              time: date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+              open: parseFloat(candle.open || candle.Open || candle.o || 0),
+              high: parseFloat(candle.high || candle.High || candle.h || 0),
+              low: parseFloat(candle.low || candle.Low || candle.l || 0),
+              close: parseFloat(candle.close || candle.Close || candle.c || 0),
+              price: parseFloat(candle.close || candle.Close || candle.c || candle.open || candle.Open || candle.o || 0)
+            };
+          }).filter(item => item.price > 0); // Filter out invalid data
+          
+          console.log('Formatted chart data:', formattedData);
           setChartData(formattedData);
+        } else {
+          console.warn('No chart data received or empty array');
+          setChartData([]);
         }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Chart data fetch failed:', response.status, errorData);
+        showToast('Failed to load chart data', 'error');
+        setChartData([]);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Load chart data error:', error);
+      showToast(error.message || 'Failed to load chart data', 'error');
+      setChartData([]);
     } finally {
       setLoadingChart(false);
     }

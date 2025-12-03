@@ -360,6 +360,49 @@ def get_historical_data():
         from_date = datetime.fromisoformat(data.get('from'))
         to_date = datetime.fromisoformat(data.get('to'))
         
+        # Mock mode support
+        if conn.get('mock_mode', False) or not MT5_AVAILABLE:
+            logger.info(f"Mock mode: Generating historical data for {symbol}")
+            import random
+            candles = []
+            base_price = 1.1000 if 'EUR' in symbol.upper() else 1.3000
+            
+            # Generate mock candles based on timeframe
+            timeframe_minutes = {
+                'M1': 1, 'M5': 5, 'M15': 15, 'M30': 30,
+                'H1': 60, 'H4': 240, 'D1': 1440
+            }
+            minutes = timeframe_minutes.get(timeframe, 60)
+            
+            current_time = from_date
+            price = base_price
+            
+            while current_time <= to_date:
+                # Simulate price movement
+                change = random.uniform(-0.001, 0.001)
+                price += change
+                
+                open_price = price
+                high_price = price + abs(random.uniform(0, 0.002))
+                low_price = price - abs(random.uniform(0, 0.002))
+                close_price = price + random.uniform(-0.001, 0.001)
+                
+                candles.append({
+                    'time': current_time.isoformat(),
+                    'open': round(open_price, 5),
+                    'high': round(high_price, 5),
+                    'low': round(low_price, 5),
+                    'close': round(close_price, 5),
+                    'tick_volume': random.randint(100, 1000),
+                    'spread': random.randint(1, 5),
+                    'real_volume': random.randint(1000, 10000)
+                })
+                
+                current_time += timedelta(minutes=minutes)
+                price = close_price
+            
+            return jsonify(candles)
+        
         # Map timeframe string to MT5 constant
         timeframe_map = {
             'M1': mt5.TIMEFRAME_M1,
