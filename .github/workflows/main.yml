@@ -91,7 +91,7 @@ jobs:
             echo "Note: MetaTrader5 package requires MT5 terminal installation on the server"
             echo "The bridge will run in compatibility mode if MT5 is not available"
             
-            # Create .env file if it doesn't exist
+            # Create .env file if it doesn't exist or verify it has required variables
             if [ ! -f ".env" ]; then
               echo "Creating .env file..."
               echo "PORT=8080" > .env
@@ -99,7 +99,19 @@ jobs:
               echo "DEBUG=False" >> .env
             else
               echo ".env file already exists"
+              # Verify required variables exist
+              if ! grep -q "PORT=" .env; then
+                echo "PORT=8080" >> .env
+              fi
+              if ! grep -q "HOST=" .env; then
+                echo "HOST=0.0.0.0" >> .env
+              fi
+              if ! grep -q "DEBUG=" .env; then
+                echo "DEBUG=False" >> .env
+              fi
             fi
+            echo "Verifying .env file contents:"
+            cat .env
             
             cd ..
             echo "MT5 Bridge setup completed!"
