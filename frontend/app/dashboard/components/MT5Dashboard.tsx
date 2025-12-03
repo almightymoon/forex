@@ -349,10 +349,24 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
 
       if (response.ok) {
         const data = await response.json();
-        setAvailableSymbols(data);
+        console.log('Symbols loaded:', data);
+        if (Array.isArray(data) && data.length > 0) {
+          setAvailableSymbols(data);
+        } else {
+          console.warn('No symbols received or invalid format');
+          // Set default symbols as fallback
+          setAvailableSymbols(['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD']);
+        }
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Failed to load symbols:', response.status, errorData);
+        // Set default symbols as fallback
+        setAvailableSymbols(['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD']);
       }
     } catch (error) {
       console.error('Load symbols error:', error);
+      // Set default symbols as fallback
+      setAvailableSymbols(['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD']);
     }
   };
 
@@ -444,7 +458,12 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
           }).filter(item => item.price > 0); // Filter out invalid data
           
           console.log('Formatted chart data:', formattedData);
-          setChartData(formattedData);
+          if (formattedData.length > 0) {
+            setChartData(formattedData);
+          } else {
+            console.warn('No valid chart data after formatting');
+            setChartData([]);
+          }
         } else {
           console.warn('No chart data received or empty array');
           setChartData([]);
@@ -452,7 +471,7 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
       } else {
         const errorData = await response.json().catch(() => ({}));
         console.error('Chart data fetch failed:', response.status, errorData);
-        showToast('Failed to load chart data', 'error');
+        showToast(errorData.error || 'Failed to load chart data', 'error');
         setChartData([]);
       }
     } catch (error: any) {

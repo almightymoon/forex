@@ -331,6 +331,21 @@ def get_symbols():
         if not conn:
             return jsonify({'error': 'Unauthorized'}), 401
         
+        # Mock mode support
+        if conn.get('mock_mode', False) or not MT5_AVAILABLE:
+            logger.info("Mock mode: Returning common trading symbols")
+            # Return common forex symbols
+            mock_symbols = [
+                'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
+                'EURGBP', 'EURJPY', 'GBPJPY', 'AUDJPY', 'EURCHF', 'GBPCHF', 'CADJPY',
+                'EURCAD', 'AUDCAD', 'AUDNZD', 'NZDCAD', 'GBPAUD', 'GBPCAD', 'GBPNZD',
+                'EURAUD', 'EURNZD', 'CHFJPY', 'CADCHF', 'AUDCHF', 'NZDCHF', 'NZDJPY',
+                'XAUUSD', 'XAGUSD', 'XPDUSD', 'XPTUSD',  # Metals
+                'USOIL', 'UKOIL', 'NGAS',  # Commodities
+                'BTCUSD', 'ETHUSD', 'LTCUSD'  # Cryptos
+            ]
+            return jsonify(mock_symbols)
+        
         symbols = mt5.symbols_get()
         if symbols is None:
             return jsonify({'error': 'Failed to get symbols', 'details': mt5.last_error()}), 500
