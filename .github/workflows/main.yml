@@ -47,7 +47,11 @@ jobs:
             # Clean node_modules if it exists to avoid ENOTEMPTY errors
             if [ -d "node_modules" ]; then
               echo "Cleaning existing node_modules..."
-              rm -rf node_modules
+              # Use find to delete files first, then directories (more robust)
+              find node_modules -type f -delete 2>/dev/null || true
+              find node_modules -type d -delete 2>/dev/null || true
+              # Fallback to rm -rf if find didn't work
+              rm -rf node_modules 2>/dev/null || true
             fi
             # Clean npm cache and install
             npm cache clean --force || true
