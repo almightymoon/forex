@@ -930,12 +930,19 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
           </div>
         ) : chartData.length === 0 ? (
           <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
-            No chart data available
+            <div className="text-center">
+              <p>No chart data available</p>
+              <p className="text-sm mt-2">Try selecting a different symbol or timeframe</p>
+            </div>
           </div>
         ) : (
-          <div style={{ width: '100%', height: '400px' }}>
+          <div style={{ width: '100%', height: '400px', minHeight: '400px' }}>
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 60 }}>
+              <LineChart 
+                data={chartData} 
+                margin={{ top: 5, right: 20, left: 10, bottom: 60 }}
+                key={`chart-${selectedChartSymbol}-${chartTimeframe}`}
+              >
                 <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                 <XAxis 
                   dataKey="time" 
@@ -944,11 +951,13 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
                   angle={-45}
                   textAnchor="end"
                   height={60}
+                  interval="preserveStartEnd"
                 />
                 <YAxis 
                   stroke="#9CA3AF"
                   style={{ fontSize: '12px' }}
                   domain={['dataMin', 'dataMax']}
+                  tickFormatter={(value) => value.toFixed(5)}
                 />
                 <Tooltip 
                   contentStyle={{ 
@@ -969,6 +978,7 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
                   dot={false}
                   name="Price"
                   isAnimationActive={false}
+                  connectNulls={false}
                 />
                 <Line 
                   type="monotone" 
@@ -979,6 +989,7 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
                   strokeDasharray="5 5"
                   name="High"
                   isAnimationActive={false}
+                  connectNulls={false}
                 />
                 <Line 
                   type="monotone" 
@@ -989,6 +1000,7 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
                   strokeDasharray="5 5"
                   name="Low"
                   isAnimationActive={false}
+                  connectNulls={false}
                 />
               </LineChart>
             </ResponsiveContainer>
