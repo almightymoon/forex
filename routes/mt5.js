@@ -64,12 +64,12 @@ router.post('/connect', [
     const originalLogin = mt5Service.login;
     const originalServer = mt5Service.server;
     
-    mt5Service.login = mt5Login;
+    mt5Service.login = loginNumber.toString();
     mt5Service.password = mt5Password;
     mt5Service.server = mt5Server;
 
     try {
-      const accountInfo = await mt5Service.getAccountInfo(mt5Login);
+      const accountInfo = await mt5Service.getAccountInfo(loginNumber);
       
       // Restore original credentials
       mt5Service.login = originalLogin;
