@@ -8,6 +8,11 @@ const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
+// Debug route to verify router is working
+router.get('/test', (req, res) => {
+  res.json({ message: 'MT5 routes are working', path: '/api/mt5/test' });
+});
+
 // @route   GET /api/mt5/test-connection
 // @desc    Test MT5 API connection
 // @access  Private
@@ -29,7 +34,7 @@ router.get('/test-connection', authenticateToken, async (req, res) => {
 // @access  Private
 router.post('/connect', [
   authenticateToken,
-  body('mt5Login').notEmpty().withMessage('MT5 login is required'),
+  body('mt5Login').isNumeric().withMessage('MT5 login must be a number'),
   body('mt5Password').notEmpty().withMessage('MT5 password is required'),
   body('mt5Server').notEmpty().withMessage('MT5 server is required')
 ], async (req, res) => {
@@ -41,17 +46,11 @@ router.post('/connect', [
 
     const { mt5Login, mt5Password, mt5Server } = req.body;
 
-    // Validate login is numeric (MT5 logins are typically numbers)
-    const loginNumber = parseInt(mt5Login);
-    if (isNaN(loginNumber)) {
-      return res.status(400).json({ error: 'MT5 login must be a valid number' });
-    }
-
     // Check if account already exists
     let mt5Account = await MT5Account.findOne({ 
       $or: [
         { user: req.user._id },
-        { mt5Login: loginNumber }
+        { mt5Login: parseInt(mt5Login) }
       ]
     });
 
@@ -64,12 +63,12 @@ router.post('/connect', [
     const originalLogin = mt5Service.login;
     const originalServer = mt5Service.server;
     
-    mt5Service.login = loginNumber.toString();
+    mt5Service.login = mt5Login;
     mt5Service.password = mt5Password;
     mt5Service.server = mt5Server;
 
     try {
-      const accountInfo = await mt5Service.getAccountInfo(loginNumber);
+      const accountInfo = await mt5Service.getAccountInfo(mt5Login);
       
       // Restore original credentials
       mt5Service.login = originalLogin;
@@ -78,7 +77,7 @@ router.post('/connect', [
 
       // Create or update account
       if (mt5Account) {
-        mt5Account.mt5Login = loginNumber;
+        mt5Account.mt5Login = parseInt(mt5Login);
         mt5Account.mt5Password = mt5Password;
         mt5Account.mt5Server = mt5Server;
         mt5Account.isVerified = true;
@@ -86,7 +85,7 @@ router.post('/connect', [
       } else {
         mt5Account = new MT5Account({
           user: req.user._id,
-          mt5Login: loginNumber,
+          mt5Login: parseInt(mt5Login),
           mt5Password: mt5Password,
           mt5Server: mt5Server,
           isVerified: true
