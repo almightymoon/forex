@@ -435,6 +435,39 @@ router.post('/order', [
 
       await trade.save();
 
+      // Refresh account info from MT5 to get updated balance
+      try {
+        const originalPassword = mt5Service.password;
+        const originalLogin = mt5Service.login;
+        const originalServer = mt5Service.server;
+        
+        mt5Service.login = mt5Account.mt5Login;
+        mt5Service.password = mt5Account.mt5Password;
+        mt5Service.server = mt5Account.mt5Server;
+
+        const accountInfo = await mt5Service.getAccountInfo(mt5Account.mt5Login);
+        
+        // Restore original credentials
+        mt5Service.login = originalLogin;
+        mt5Service.password = originalPassword;
+        mt5Service.server = originalServer;
+
+        // Update account info in database
+        mt5Account.accountInfo = {
+          balance: accountInfo.balance || mt5Account.accountInfo.balance,
+          equity: accountInfo.equity || mt5Account.accountInfo.equity,
+          margin: accountInfo.margin || mt5Account.accountInfo.margin,
+          freeMargin: accountInfo.freeMargin || mt5Account.accountInfo.freeMargin,
+          marginLevel: accountInfo.marginLevel || mt5Account.accountInfo.marginLevel,
+          currency: accountInfo.currency || mt5Account.accountInfo.currency,
+          leverage: accountInfo.leverage || mt5Account.accountInfo.leverage
+        };
+        await mt5Account.save();
+      } catch (accountError) {
+        console.error('Failed to refresh account info after order placement:', accountError);
+        // Don't fail the order placement if account refresh fails
+      }
+
       res.json({
         message: 'Order placed successfully',
         trade,
