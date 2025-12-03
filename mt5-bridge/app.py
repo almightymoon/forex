@@ -10,18 +10,10 @@ from datetime import datetime, timedelta
 from dotenv import load_dotenv
 import logging
 
-# Try to import MetaTrader5, handle if not available
-try:
-    import MetaTrader5 as mt5
-    MT5_AVAILABLE = True
-except ImportError:
-    MT5_AVAILABLE = False
-    logger.warning("MetaTrader5 library not available. MT5 bridge will run in mock mode.")
-
 # Load environment variables
 load_dotenv()
 
-# Configure logging
+# Configure logging FIRST before using logger
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
