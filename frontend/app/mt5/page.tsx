@@ -189,6 +189,24 @@ export default function MT5Page() {
     }
   };
 
+  const loadTradeHistory = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(buildApiUrl('/api/mt5/trades?status=closed&limit=50'), {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setTradeHistory(data);
+      }
+    } catch (error) {
+      console.error('Load trade history error:', error);
+    }
+  };
+
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
     setConnecting(true);
