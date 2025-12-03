@@ -207,7 +207,7 @@ router.put('/account/settings', authenticateToken, async (req, res) => {
 });
 
 // @route   GET /api/mt5/quotes
-// @desc    Get market quotes
+// @desc    Get market quotes (GET method for query params)
 // @access  Private
 router.get('/quotes', authenticateToken, async (req, res) => {
   try {
@@ -219,6 +219,26 @@ router.get('/quotes', authenticateToken, async (req, res) => {
 
     const symbolsArray = Array.isArray(symbols) ? symbols : symbols.split(',');
     const quotes = await mt5Service.getMarketQuotes(symbolsArray);
+
+    res.json(quotes);
+  } catch (error) {
+    console.error('Get quotes error:', error);
+    res.status(500).json({ error: 'Failed to get quotes', message: error.message });
+  }
+});
+
+// @route   POST /api/mt5/quotes
+// @desc    Get market quotes (POST method for body)
+// @access  Private
+router.post('/quotes', authenticateToken, async (req, res) => {
+  try {
+    const { symbols } = req.body;
+    
+    if (!symbols || !Array.isArray(symbols) || symbols.length === 0) {
+      return res.status(400).json({ error: 'Symbols array is required' });
+    }
+
+    const quotes = await mt5Service.getMarketQuotes(symbols);
 
     res.json(quotes);
   } catch (error) {
