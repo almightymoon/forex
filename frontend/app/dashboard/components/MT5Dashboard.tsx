@@ -778,6 +778,112 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
         </motion.div>
       </div>
 
+      {/* Price Chart */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Price Chart</h3>
+          <div className="flex gap-2">
+            <select
+              value={selectedChartSymbol}
+              onChange={(e) => setSelectedChartSymbol(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+            >
+              <option value="">Select Symbol</option>
+              {availableSymbols.map((symbol) => (
+                <option key={symbol} value={symbol}>
+                  {symbol}
+                </option>
+              ))}
+            </select>
+            <select
+              value={chartTimeframe}
+              onChange={(e) => setChartTimeframe(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+            >
+              <option value="M1">M1</option>
+              <option value="M5">M5</option>
+              <option value="M15">M15</option>
+              <option value="M30">M30</option>
+              <option value="H1">H1</option>
+              <option value="H4">H4</option>
+              <option value="D1">D1</option>
+            </select>
+            {selectedChartSymbol && (
+              <button
+                onClick={() => loadChartData(selectedChartSymbol, chartTimeframe)}
+                className="px-3 py-1.5 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 text-sm"
+              >
+                <RefreshCw className="w-4 h-4 inline" />
+              </button>
+            )}
+          </div>
+        </div>
+        {!selectedChartSymbol ? (
+          <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
+            Select a symbol to view price chart
+          </div>
+        ) : loadingChart ? (
+          <div className="h-64 flex items-center justify-center">
+            <RefreshCw className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-400" />
+          </div>
+        ) : chartData.length === 0 ? (
+          <div className="h-64 flex items-center justify-center text-gray-500 dark:text-gray-400">
+            No chart data available
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={400}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis 
+                dataKey="time" 
+                stroke="#9CA3AF"
+                style={{ fontSize: '12px' }}
+              />
+              <YAxis 
+                stroke="#9CA3AF"
+                style={{ fontSize: '12px' }}
+                domain={['auto', 'auto']}
+              />
+              <Tooltip 
+                contentStyle={{ 
+                  backgroundColor: '#1F2937', 
+                  border: '1px solid #374151',
+                  borderRadius: '8px'
+                }}
+                labelStyle={{ color: '#F3F4F6' }}
+              />
+              <Legend />
+              <Line 
+                type="monotone" 
+                dataKey="price" 
+                stroke="#3B82F6" 
+                strokeWidth={2}
+                dot={false}
+                name="Price"
+              />
+              <Line 
+                type="monotone" 
+                dataKey="high" 
+                stroke="#10B981" 
+                strokeWidth={1}
+                dot={false}
+                strokeDasharray="5 5"
+                name="High"
+              />
+              <Line 
+                type="monotone" 
+                dataKey="low" 
+                stroke="#EF4444" 
+                strokeWidth={1}
+                dot={false}
+                strokeDasharray="5 5"
+                name="Low"
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
       {/* Open Positions */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
         <div className="flex justify-between items-center mb-4">
