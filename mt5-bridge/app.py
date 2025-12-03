@@ -301,17 +301,46 @@ def get_quotes():
         if not symbols:
             return jsonify({'error': 'No symbols provided'}), 400
         
-        quotes = {}
+        # Mock mode support
+        if conn.get('mock_mode', False) or not MT5_AVAILABLE:
+            logger.info(f"Mock mode: Generating quotes for {symbols}")
+            import random
+            quotes = []
+            for symbol in symbols:
+                # Base prices for common symbols
+                base_prices = {
+                    'EURUSD': 1.1000, 'GBPUSD': 1.2700, 'USDJPY': 150.00,
+                    'AUDUSD': 0.6600, 'USDCAD': 1.3500, 'USDCHF': 0.8800,
+                    'NZDUSD': 0.6100
+                }
+                base = base_prices.get(symbol.upper(), 1.0000)
+                # Add small random variation
+                variation = random.uniform(-0.001, 0.001)
+                bid = base + variation
+                ask = bid + random.uniform(0.0001, 0.0005)
+                
+                quotes.append({
+                    'symbol': symbol.upper(),
+                    'bid': round(bid, 5),
+                    'ask': round(ask, 5),
+                    'last': round((bid + ask) / 2, 5),
+                    'volume': random.randint(100, 1000),
+                    'time': datetime.now().isoformat()
+                })
+            return jsonify(quotes)
+        
+        quotes = []
         for symbol in symbols:
             tick = mt5.symbol_info_tick(symbol.upper())
             if tick:
-                quotes[symbol] = {
+                quotes.append({
+                    'symbol': symbol.upper(),
                     'bid': tick.bid,
                     'ask': tick.ask,
                     'last': tick.last,
                     'volume': tick.volume,
                     'time': datetime.fromtimestamp(tick.time).isoformat()
-                }
+                })
         
         return jsonify(quotes)
         
