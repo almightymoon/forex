@@ -126,14 +126,28 @@ def authenticate():
                 'error': 'Missing required fields: login, password, server'
             }), 400
         
-        # Check if MT5 is available
+        # In compatibility mode, accept credentials and return mock token
         if not MT5_AVAILABLE:
+            logger.warning(f"MT5 not available - accepting credentials in compatibility mode for login: {login}")
+            # Generate a simple token (in production, use proper JWT)
+            token = f"mt5_{login}_{datetime.now().timestamp()}"
+            active_connections[token] = {
+                'login': int(login),
+                'password': password,
+                'server': server,
+                'connected_at': datetime.now().isoformat(),
+                'mock_mode': True
+            }
+            
             return jsonify({
-                'error': 'MT5 library not available. Please install MetaTrader5 terminal and Python package on the server.',
-                'details': 'MetaTrader5 Python package requires MT5 terminal to be installed'
-            }), 503
+                'token': token,
+                'login': int(login),
+                'server': server,
+                'mock_mode': True,
+                'message': 'Running in compatibility mode - MT5 library not available'
+            })
         
-        # Connect to MT5
+        # Connect to MT5 if available
         if connect_mt5(login, password, server):
             # Generate a simple token (in production, use proper JWT)
             token = f"mt5_{login}_{datetime.now().timestamp()}"
@@ -141,7 +155,8 @@ def authenticate():
                 'login': int(login),
                 'password': password,
                 'server': server,
-                'connected_at': datetime.now().isoformat()
+                'connected_at': datetime.now().isoformat(),
+                'mock_mode': False
             }
             
             return jsonify({
@@ -168,8 +183,14 @@ def verify_token(token):
     # Check if token exists in active connections
     if token in active_connections:
         conn = active_connections[token]
-        # Reconnect if needed
-        if connect_mt5(conn['login'], conn['password'], conn['server']):
+        # If in mock mode, just return the connection
+        if conn.get('mock_mode', False):
+            return conn
+        # Reconnect if needed (only if MT5 is available)
+        if MT5_AVAILABLE and connect_mt5(conn['login'], conn['password'], conn['server']):
+            return conn
+        elif not MT5_AVAILABLE:
+            # MT5 not available but we have a valid token, return connection
             return conn
     return None
 
@@ -185,7 +206,24 @@ def get_account_info(login):
         if not conn:
             return jsonify({'error': 'Unauthorized'}), 401
         
-        # Get account info
+        # If in mock mode, return mock account info
+        if conn.get('mock_mode', False) or not MT5_AVAILABLE:
+            logger.info(f"Returning mock account info for login: {login}")
+            return jsonify({
+                'login': int(login),
+                'balance': 10000.0,
+                'equity': 10000.0,
+                'margin': 0.0,
+                'freeMargin': 10000.0,
+                'marginLevel': 0.0,
+                'currency': 'USD',
+                'company': conn.get('server', 'Mock Server'),
+                'server': conn.get('server', 'Mock Server'),
+                'name': f'Mock Account {login}',
+                'mock_mode': True
+            })
+        
+        # Get account info from MT5
         account_info = mt5.account_info()
         if account_info is None:
             return jsonify({'error': 'Failed to get account info', 'details': mt5.last_error()}), 500
