@@ -892,56 +892,66 @@ export default function MT5Dashboard({ embedded = false }: MT5DashboardProps) {
             No chart data available
           </div>
         ) : (
-          <ResponsiveContainer width="100%" height={400}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis 
-                dataKey="time" 
-                stroke="#9CA3AF"
-                style={{ fontSize: '12px' }}
-              />
-              <YAxis 
-                stroke="#9CA3AF"
-                style={{ fontSize: '12px' }}
-                domain={['auto', 'auto']}
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#1F2937', 
-                  border: '1px solid #374151',
-                  borderRadius: '8px'
-                }}
-                labelStyle={{ color: '#F3F4F6' }}
-              />
-              <Legend />
-              <Line 
-                type="monotone" 
-                dataKey="price" 
-                stroke="#3B82F6" 
-                strokeWidth={2}
-                dot={false}
-                name="Price"
-              />
-              <Line 
-                type="monotone" 
-                dataKey="high" 
-                stroke="#10B981" 
-                strokeWidth={1}
-                dot={false}
-                strokeDasharray="5 5"
-                name="High"
-              />
-              <Line 
-                type="monotone" 
-                dataKey="low" 
-                stroke="#EF4444" 
-                strokeWidth={1}
-                dot={false}
-                strokeDasharray="5 5"
-                name="Low"
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <div style={{ width: '100%', height: '400px' }}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                <XAxis 
+                  dataKey="time" 
+                  stroke="#9CA3AF"
+                  style={{ fontSize: '12px' }}
+                  angle={-45}
+                  textAnchor="end"
+                  height={60}
+                />
+                <YAxis 
+                  stroke="#9CA3AF"
+                  style={{ fontSize: '12px' }}
+                  domain={['dataMin', 'dataMax']}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    backgroundColor: '#1F2937', 
+                    border: '1px solid #374151',
+                    borderRadius: '8px',
+                    color: '#F3F4F6'
+                  }}
+                  labelStyle={{ color: '#F3F4F6' }}
+                  formatter={(value: any) => typeof value === 'number' ? value.toFixed(5) : value}
+                />
+                <Legend />
+                <Line 
+                  type="monotone" 
+                  dataKey="price" 
+                  stroke="#3B82F6" 
+                  strokeWidth={2}
+                  dot={false}
+                  name="Price"
+                  isAnimationActive={false}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="high" 
+                  stroke="#10B981" 
+                  strokeWidth={1}
+                  dot={false}
+                  strokeDasharray="5 5"
+                  name="High"
+                  isAnimationActive={false}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="low" 
+                  stroke="#EF4444" 
+                  strokeWidth={1}
+                  dot={false}
+                  strokeDasharray="5 5"
+                  name="Low"
+                  isAnimationActive={false}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </div>
 
