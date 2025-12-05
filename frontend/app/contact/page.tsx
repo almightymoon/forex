@@ -12,13 +12,16 @@ import {
   Users, 
   Headphones,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Menu,
+  X
 } from 'lucide-react';
 import { useSettings } from '../../context/SettingsContext';
 import DarkModeToggle from '../../components/DarkModeToggle';
 
 export default function ContactPage() {
   const { settings, loading: settingsLoading } = useSettings();
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -111,48 +114,117 @@ export default function ContactPage() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-gray-900">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-             <div className="flex items-center">
+      <header className="bg-white dark:bg-gray-800 shadow-sm border-b border-gray-200 dark:border-gray-700 sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
+          <div className="flex justify-between items-center h-14 sm:h-16">
+             <div className="flex items-center flex-shrink-0">
                <img 
                  src="/all-07.svg" 
                  alt={`${settings.platformName} Logo`} 
-                 className="w-12 h-12 object-contain dark:invert"
+                 className="w-7 h-7 sm:w-10 sm:h-10 md:w-12 md:h-12 object-contain dark:invert"
                />
-               <span className="ml-2 text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+               <span className="ml-1 sm:ml-2 text-xs sm:text-base md:text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent whitespace-nowrap">
                  {settings.platformName}
                </span>
              </div>
             
-            <nav className="hidden md:flex space-x-8">
-              <a href="/" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+            {/* Desktop Navigation */}
+            <nav className="hidden md:flex space-x-4 lg:space-x-6 xl:space-x-8">
+              <a href="/" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-sm lg:text-base">
                 Home
               </a>
-              <a href="/about" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+              <a href="/about" className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-sm lg:text-base">
                 About
               </a>
-              <a href="/contact" className="text-blue-600 dark:text-blue-400 font-medium">
+              <a href="/contact" className="text-blue-600 dark:text-blue-400 font-medium text-sm lg:text-base">
                 Contact
               </a>
             </nav>
 
-            <div className="flex items-center space-x-4">
+            {/* Desktop Action Buttons */}
+            <div className="hidden md:flex items-center space-x-3 lg:space-x-4">
               <DarkModeToggle size="sm" />
               <a 
                 href="/login" 
-                className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors text-sm lg:text-base whitespace-nowrap"
               >
                 Login
               </a>
               <a 
                 href="/register" 
-                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium"
+                className="bg-gradient-to-r from-blue-600 to-purple-600 text-white px-4 py-1.5 lg:px-6 lg:py-2 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium text-sm lg:text-base whitespace-nowrap"
               >
                 Get Started
               </a>
             </div>
+
+            {/* Mobile Menu Button */}
+            <div className="flex md:hidden items-center space-x-2">
+              <DarkModeToggle size="sm" />
+              <button
+                onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                className="p-2 rounded-lg text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                aria-label="Toggle menu"
+              >
+                {isMobileMenuOpen ? (
+                  <X className="w-6 h-6" />
+                ) : (
+                  <Menu className="w-6 h-6" />
+                )}
+              </button>
+            </div>
           </div>
+
+          {/* Mobile Menu */}
+          <motion.div
+            initial={false}
+            animate={{
+              height: isMobileMenuOpen ? 'auto' : 0,
+              opacity: isMobileMenuOpen ? 1 : 0
+            }}
+            transition={{ duration: 0.3, ease: 'easeInOut' }}
+            className="overflow-hidden md:hidden"
+          >
+            <div className="py-4 space-y-4 border-t border-gray-200 dark:border-gray-700">
+              <a 
+                href="/" 
+                className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors font-medium"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Home
+              </a>
+              <a 
+                href="/about" 
+                className="block px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors font-medium"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                About
+              </a>
+              <a 
+                href="/contact" 
+                className="block px-4 py-2 text-blue-600 dark:text-blue-400 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg transition-colors font-medium"
+                onClick={() => setIsMobileMenuOpen(false)}
+              >
+                Contact
+              </a>
+              <div className="pt-2 border-t border-gray-200 dark:border-gray-700 space-y-3 px-4">
+                <a 
+                  href="/login" 
+                  className="block w-full text-center text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors font-medium py-2"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Login
+                </a>
+                <a 
+                  href="/register" 
+                  className="block w-full text-center bg-gradient-to-r from-blue-600 to-purple-600 text-white px-6 py-2.5 rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all shadow-lg font-medium"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                >
+                  Get Started
+                </a>
+              </div>
+            </div>
+          </motion.div>
         </div>
       </header>
 
