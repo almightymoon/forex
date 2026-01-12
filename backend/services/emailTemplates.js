@@ -120,7 +120,7 @@ class EmailTemplateService {
                 <p style="color: #666; font-size: 14px;">Happy learning! 🚀</p>
               </div>
               <div class="footer">
-                <p>© 2024 Forex Navigators. All rights reserved.</p>
+                <p>© 2026 Forex Navigators. All rights reserved.</p>
                 <p>Questions? Contact our support team</p>
               </div>
             </div>
@@ -194,7 +194,7 @@ class EmailTemplateService {
                 </p>
               </div>
               <div class="footer">
-                <p>© 2024 Forex Navigators. All rights reserved.</p>
+                <p>© 2026 Forex Navigators. All rights reserved.</p>
                 <p>Questions about this payment? Contact support</p>
               </div>
             </div>
@@ -267,7 +267,7 @@ class EmailTemplateService {
                 </p>
               </div>
               <div class="footer">
-                <p>© 2024 Forex Navigators. All rights reserved.</p>
+                <p>© 2026 Forex Navigators. All rights reserved.</p>
                 <p>For urgent issues, contact our support team</p>
               </div>
             </div>
@@ -358,7 +358,7 @@ class EmailTemplateService {
                 </p>
               </div>
               <div class="footer">
-                <p>© 2024 Forex Navigators. All rights reserved.</p>
+                <p>© 2026 Forex Navigators. All rights reserved.</p>
                 <p>Professional trading signals and analysis</p>
               </div>
             </div>

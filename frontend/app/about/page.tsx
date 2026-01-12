@@ -1012,7 +1012,7 @@ export default function AboutPage() {
             whileInView={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.4 }}
           >
-            <p>&copy; 2024 {settings.platformName}. All rights reserved. | Built with ❤️ for forex traders worldwide</p>
+            <p>&copy; 2026 {settings.platformName}. All rights reserved. | Built with ❤️ for forex traders worldwide</p>
           </motion.div>
         </div>
       </footer>
