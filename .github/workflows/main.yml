@@ -108,7 +108,7 @@ jobs:
             echo "=========================================="
             echo "Setting up MT5 Bridge..."
             echo "=========================================="
-            cd mt5-bridge/
+            cd backend/mt5-bridge/
             
             # Check if Python 3 is installed
             if ! command -v python3 &> /dev/null; then
@@ -169,7 +169,7 @@ jobs:
             echo "Verifying .env file contents:"
             cat .env
             
-            cd ..
+            cd ../..
             echo "MT5 Bridge setup completed!"
             echo "=========================================="
             
@@ -186,7 +186,7 @@ jobs:
             echo "=========================================="
             echo "Restarting MT5 Bridge..."
             echo "=========================================="
-            cd mt5-bridge/
+            cd backend/mt5-bridge/
             
             # Create logs directory if it doesn't exist
             mkdir -p logs
