@@ -25,6 +25,7 @@ import {
   X
 } from 'lucide-react';
 import Link from 'next/link';
+import Packages from './packages/packages';
 
 export default function LandingPage() {
   const [isVisible, setIsVisible] = useState(false);
@@ -760,6 +761,8 @@ export default function LandingPage() {
           </motion.div>
         </div>
       </section>
+
+      <Packages />
 
       {/* Testimonials Section */}
       <section className="py-20 bg-white dark:bg-gray-900 relative">
