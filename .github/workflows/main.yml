@@ -39,10 +39,8 @@ jobs:
             # Pull latest changes
             git pull origin main
             
-            # Install backend dependencies
-            cd backend/
+            # Install dependencies
             npm ci --production
-            cd ..
             
             # Build frontend
             cd frontend/
@@ -174,13 +172,8 @@ jobs:
             echo "=========================================="
             
             # Restart services
-            cd frontend/
             pm2 restart frontend || pm2 start npm --name "frontend" -- start
-            cd ..
-            
-            cd backend/
             pm2 restart backend || pm2 start npm --name "backend" -- start
-            cd ..
             
             # Restart MT5 Bridge
             echo "=========================================="
