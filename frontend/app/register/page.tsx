@@ -67,6 +67,7 @@ export default function RegisterPage() {
     }
   }, [searchParams]);
 
+  const signupFee = selectedPackage ? selectedPackage.price : 0;
   const finalFee = selectedPackage ? selectedPackage.price - promoDiscount : 0;
 
   // Prevent hydration mismatch by showing loading state
