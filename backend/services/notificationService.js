@@ -2,6 +2,7 @@ const nodemailer = require('nodemailer');
 const Settings = require('../models/Settings');
 const User = require('../models/User');
 const NotificationTracking = require('../models/NotificationTracking');
+const Notification = require('../models/Notification');
 
 class NotificationService {
   constructor() {
@@ -1040,6 +1041,33 @@ class NotificationService {
         failedNotifications: [],
         scheduledNotifications: []
       };
+    }
+  }
+
+  /**
+   * Create an in-app notification
+   * @param {Object} notificationData - Notification data
+   * @param {string} notificationData.user - User ID
+   * @param {string} notificationData.type - Notification type
+   * @param {string} notificationData.title - Notification title
+   * @param {string} notificationData.message - Notification message
+   * @param {string} notificationData.link - Optional link
+   * @returns {Promise<Object>} - Created notification
+   */
+  async createNotification(notificationData) {
+    try {
+      const notification = await Notification.createNotification({
+        userId: notificationData.user,
+        type: notificationData.type || 'system',
+        title: notificationData.title,
+        message: notificationData.message,
+        link: notificationData.link,
+        read: false
+      });
+      return notification;
+    } catch (error) {
+      console.error('Error creating notification:', error);
+      throw error;
     }
   }
 }

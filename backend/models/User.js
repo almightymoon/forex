@@ -173,6 +173,64 @@ const userSchema = new mongoose.Schema({
       type: String,
       default: 'UTC'
     }
+  },
+  // Badge system for purchased packages
+  badges: [{
+    packageName: {
+      type: String,
+      required: true,
+      enum: ['FX Launch', 'FX Scale', 'FX Legacy']
+    },
+    purchasedAt: {
+      type: Date,
+      default: Date.now
+    },
+    packagePrice: Number
+  }],
+  // Referral system
+  referralCode: {
+    type: String,
+    unique: true,
+    sparse: true,
+    uppercase: true,
+    trim: true
+  },
+  parentReferralCode: {
+    type: String,
+    ref: 'User',
+    sparse: true,
+    uppercase: true,
+    trim: true
+  },
+  referralStats: {
+    totalReferrals: {
+      type: Number,
+      default: 0
+    },
+    totalEarnings: {
+      type: Number,
+      default: 0
+    },
+    level1Count: { type: Number, default: 0 },
+    level2Count: { type: Number, default: 0 },
+    level3Count: { type: Number, default: 0 },
+    level4Count: { type: Number, default: 0 },
+    level5Count: { type: Number, default: 0 }
+  },
+  // Balance for withdrawals
+  balance: {
+    type: Number,
+    default: 0,
+    min: [0, 'Balance cannot be negative']
+  },
+  // Selected package during registration
+  selectedPackage: {
+    packageName: {
+      type: String,
+      enum: ['FX Launch', 'FX Scale', 'FX Legacy']
+    },
+    price: Number,
+    selectedAt: Date
   }
 }, {
   timestamps: true,
@@ -195,6 +253,8 @@ userSchema.virtual('isSubscribed').get(function() {
 // Index for better query performance
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
+userSchema.index({ referralCode: 1 });
+userSchema.index({ parentReferralCode: 1 });
 
 // Pre-save middleware to hash password
 userSchema.pre('save', async function(next) {
@@ -230,6 +290,81 @@ userSchema.statics.findByEmail = function(email) {
 // Static method to find active users
 userSchema.statics.findActive = function() {
   return this.find({ isActive: true });
+};
+
+// Static method to generate unique referral code
+userSchema.statics.generateReferralCode = async function() {
+  const generateCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = '';
+    for (let i = 0; i < 8; i++) {
+      code += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return code;
+  };
+
+  let code;
+  let isUnique = false;
+  let attempts = 0;
+  const maxAttempts = 10;
+
+  while (!isUnique && attempts < maxAttempts) {
+    code = generateCode();
+    const existing = await this.findOne({ referralCode: code });
+    if (!existing) {
+      isUnique = true;
+    }
+    attempts++;
+  }
+
+  if (!isUnique) {
+    throw new Error('Failed to generate unique referral code');
+  }
+
+  return code;
+};
+
+// Method to add badge
+userSchema.methods.addBadge = function(packageName, packagePrice) {
+  // Check if badge already exists
+  const existingBadge = this.badges.find(b => b.packageName === packageName);
+  if (!existingBadge) {
+    this.badges.push({
+      packageName,
+      purchasedAt: new Date(),
+      packagePrice
+    });
+    return this.save();
+  }
+  return Promise.resolve(this);
+};
+
+// Method to get referral tree (up to 5 levels)
+userSchema.methods.getReferralTree = async function() {
+  const User = this.constructor;
+  const tree = [];
+  let currentUser = this;
+  let level = 0;
+  const maxLevel = 5;
+
+  while (currentUser && level < maxLevel) {
+    tree.push({
+      userId: currentUser._id,
+      email: currentUser.email,
+      name: `${currentUser.firstName} ${currentUser.lastName}`,
+      level: level + 1,
+      referralCode: currentUser.referralCode
+    });
+
+    if (currentUser.parentReferralCode) {
+      currentUser = await User.findOne({ referralCode: currentUser.parentReferralCode });
+      level++;
+    } else {
+      break;
+    }
+  }
+
+  return tree;
 };
 
 module.exports = mongoose.model('User', userSchema);

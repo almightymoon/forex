@@ -24,7 +24,7 @@ const paymentSchema = new mongoose.Schema({
   paymentMethod: {
     type: String,
     required: [true, 'Payment method is required'],
-    enum: ['stripe', 'paypal', 'jazzcash', 'easypaisa', 'bank_transfer', 'cash', 'promo_code', 'credit_card']
+    enum: ['stripe', 'paypal', 'jazzcash', 'easypaisa', 'bank_transfer', 'cash', 'promo_code', 'credit_card', 'binance_wallet']
   },
   status: {
     type: String,
@@ -47,8 +47,15 @@ const paymentSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['signup', 'course', 'session', 'subscription', 'signal'],
+    enum: ['signup', 'course', 'session', 'subscription', 'signal', 'package'],
     default: 'signup'
+  },
+  package: {
+    name: {
+      type: String,
+      enum: ['FX Launch', 'FX Scale', 'FX Legacy']
+    },
+    price: Number
   },
   paymentDetails: {
     cardLast4: String,
@@ -119,7 +126,26 @@ const paymentSchema = new mongoose.Schema({
   nextBillingDate: Date,
   subscriptionId: String,
   invoiceUrl: String,
-  receiptUrl: String
+  receiptUrl: String,
+  // Binance wallet payment details
+  binanceWallet: {
+    walletAddress: String,
+    network: {
+      type: String,
+      enum: ['TRC20', 'ERC20', 'BEP20']
+    },
+    transactionHash: String
+  },
+  // Admin confirmation for manual payments
+  adminConfirmed: {
+    type: Boolean,
+    default: false
+  },
+  confirmedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  confirmedAt: Date
 }, {
   timestamps: true
 });
@@ -268,6 +294,41 @@ paymentSchema.pre('save', function(next) {
   }
   
   next();
+});
+
+// Post-save middleware to handle badges and referral commissions
+let processingPayments = new Set(); // Track payments being processed to avoid duplicates
+
+paymentSchema.post('save', async function(doc) {
+  // Only process if payment was just completed and not already processing
+  if (doc.status === 'completed' && !processingPayments.has(doc._id.toString())) {
+    processingPayments.add(doc._id.toString());
+    
+    try {
+      const User = require('./User');
+      const referralService = require('../services/referralService');
+      
+      const user = await User.findById(doc.user);
+      if (!user) {
+        processingPayments.delete(doc._id.toString());
+        return;
+      }
+
+      // Assign badge if package purchase
+      if (doc.type === 'package' && doc.package && doc.package.name) {
+        await user.addBadge(doc.package.name, doc.package.price || doc.finalAmount);
+      }
+
+      // Calculate and distribute referral commissions
+      await referralService.calculateAndDistributeCommissions(doc);
+      
+      processingPayments.delete(doc._id.toString());
+    } catch (error) {
+      console.error('Error processing payment completion actions:', error);
+      processingPayments.delete(doc._id.toString());
+      // Don't throw error to prevent payment save from failing
+    }
+  }
 });
 
 // Ensure virtuals are included when converting to JSON

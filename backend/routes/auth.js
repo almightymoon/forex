@@ -12,8 +12,10 @@ const { generateTokenWithTimeout } = require('../middleware/sessionTimeout');
 const { refreshToken } = require('../middleware/sessionTimeout');
 const TwoFactorAuthService = require('../services/twoFactorAuth');
 const notificationService = require('../services/notificationService');
+const referralService = require('../services/referralService');
 const cloudinary = require('../config/cloudinary');
-const stripe = require('../config/stripe');
+// Stripe imports removed - payments disabled
+// const { stripe, createPaymentIntent } = require('../config/stripe');
 
 const router = express.Router();
 
@@ -23,7 +25,7 @@ const generateToken = (userId, role) => {
 };
 
 // @route   POST /api/auth/register
-// @desc    Register a new user with payment
+// @desc    Register a new user (payments disabled)
 // @access  Public
 router.post('/register', [
   body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
@@ -32,10 +34,14 @@ router.post('/register', [
   body('lastName').trim().notEmpty().withMessage('Last name is required'),
   body('phone').optional().trim(),
   body('country').optional().trim(),
-  body('paymentMethod').isIn(['credit_card', 'easypaisa', 'jazz_cash']).withMessage('Invalid payment method'),
-  body('promoCode').optional().trim().toUpperCase()
+  body('paymentMethod').optional().isIn(['credit_card', 'easypaisa', 'jazz_cash', 'binance_wallet']).withMessage('Invalid payment method'),
+  body('promoCode').optional().trim().toUpperCase(),
+  body('referralCode').optional().trim().toUpperCase(),
+  body('selectedPackage').optional().isObject().withMessage('Package selection is required')
 ], passwordPolicyMiddleware, async (req, res) => {
   try {
+    console.log('Registration request received - Payments disabled');
+    
     // Check validation errors
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -45,9 +51,10 @@ router.post('/register', [
       });
     }
 
-    const { email, password, firstName, lastName, phone, country, paymentMethod, promoCode } = req.body;
+    const { email, password, firstName, lastName, phone, country, paymentMethod, promoCode, referralCode, selectedPackage } = req.body;
+    console.log(`Registering user: ${email}, promoCode: ${promoCode || 'none'}`);
 
-    // Check if user already exists
+    // STEP 1: Check if user already exists (BEFORE creating anything)
     const existingUser = await User.findByEmail(email);
     if (existingUser) {
       return res.status(400).json({
@@ -56,44 +63,90 @@ router.post('/register', [
       });
     }
 
-    // Validate promo code if provided
-    let discount = 0;
+    // STEP 2: Validate promo code if provided (BEFORE creating user)
+    // IMPORTANT: This validation MUST complete successfully before user creation
     let promoCodeData = null;
+    if (promoCode && promoCode.trim()) {
+      const promoCodeUpper = promoCode.trim().toUpperCase();
     
-    if (promoCode) {
+      // Find promo code in database
       promoCodeData = await PromoCode.findOne({ 
-        code: promoCode.toUpperCase(),
+        code: promoCodeUpper,
         isActive: true,
         validUntil: { $gt: new Date() }
       });
 
+      // If promo code was provided but not found, return error immediately
+      // DO NOT create user if promo code validation fails
       if (!promoCodeData) {
+        console.log(`❌ Invalid promo code attempted: ${promoCodeUpper}`);
         return res.status(400).json({
           error: 'Invalid promo code',
-          message: 'The provided promo code is invalid or expired'
+          message: 'The promo code you entered is invalid or has expired. Please check and try again.'
         });
       }
 
       // Check if promo code is applicable to signup
       if (!promoCodeData.applicableTo.includes('signup') && !promoCodeData.applicableTo.includes('all')) {
+        console.log(`❌ Promo code ${promoCodeUpper} not applicable to signup`);
         return res.status(400).json({
           error: 'Promo code not applicable',
           message: 'This promo code cannot be used for signup'
         });
       }
 
-      // Apply discount
-      if (promoCodeData.discountType === 'percentage') {
-        discount = (30 * promoCodeData.discountValue) / 100; // 30 is signup fee
-      } else {
-        discount = promoCodeData.discountValue;
+      // Check if promo code has reached max uses
+      if (promoCodeData.maxUses && promoCodeData.currentUses >= promoCodeData.maxUses) {
+        console.log(`❌ Promo code ${promoCodeUpper} has reached max uses`);
+        return res.status(400).json({
+          error: 'Promo code limit reached',
+          message: 'This promo code has reached its maximum usage limit'
+        });
+      }
+      
+      console.log(`✅ Promo code ${promoCodeUpper} validated successfully`);
+    } else if (promoCode && !promoCode.trim()) {
+      // Empty or whitespace-only promo code
+      return res.status(400).json({
+        error: 'Invalid promo code',
+        message: 'Please enter a valid promo code or leave it blank'
+      });
+    }
+
+    // STEP 3: Validate referral code if provided (BEFORE creating user)
+    if (referralCode && referralCode.trim()) {
+      const referrer = await User.findOne({ referralCode: referralCode.trim().toUpperCase() });
+      if (!referrer) {
+        return res.status(400).json({
+          error: 'Invalid referral code',
+          message: 'The referral code you entered is invalid'
+        });
       }
     }
 
-    const signupFee = 300;
-    const finalAmount = Math.max(0, signupFee - discount);
+    // STEP 4: All validations passed - NOW create user
+    // IMPORTANT: Only reach this point if ALL validations above passed
+    console.log('✅ All validations passed. Creating user...');
+    
+    // Validate package selection if Binance wallet payment
+    let packagePrice = 0;
+    if (paymentMethod === 'binance_wallet' || !paymentMethod) {
+      if (!selectedPackage || !selectedPackage.packageName) {
+        return res.status(400).json({
+          error: 'Package selection required',
+          message: 'Please select a package to continue'
+        });
+      }
+      const validPackages = ['FX Launch', 'FX Scale', 'FX Legacy'];
+      if (!validPackages.includes(selectedPackage.packageName)) {
+        return res.status(400).json({
+          error: 'Invalid package',
+          message: 'Please select a valid package'
+        });
+      }
+      packagePrice = selectedPackage.price || 0;
+    }
 
-    // Create user object
     const userData = {
       email,
       password,
@@ -101,148 +154,162 @@ router.post('/register', [
       lastName,
       phone,
       country: country || 'Pakistan',
-      paymentMethod,
-      promoCode: promoCodeData ? {
-        code: promoCodeData.code,
-        appliedAt: new Date(),
-        discount: discount
+      isVerified: false, // User must pay first before verification
+      isActive: true,
+      selectedPackage: selectedPackage ? {
+        packageName: selectedPackage.packageName,
+        price: packagePrice,
+        selectedAt: new Date()
       } : undefined
     };
 
-    // If promo code makes signup free, create user immediately
-    if (finalAmount === 0) {
+    // Create user (only after all validations pass)
+    console.log(`Creating user for ${email}...`);
       const user = new User(userData);
       await user.save();
+    console.log(`✅ User ${email} created successfully in database`);
 
-      // Record the free signup
-      const payment = new Payment({
-        user: user._id,
-        amount: signupFee,
-        currency: 'USD',
-        paymentMethod: 'promo_code',
-        status: 'completed',
-        description: 'Signup fee - Promo code applied',
-        type: 'signup',
-        promoCode: promoCodeData ? promoCodeData._id : null,
-        discountAmount: discount,
-        finalAmount: finalAmount,
-        transactionId: `FREE_${Date.now()}`
-      });
-
-      await payment.save();
-
-      // Update promo code usage
-      if (promoCodeData) {
-        promoCodeData.recordUsage(user._id, signupFee, discount, finalAmount);
-        await promoCodeData.save();
-      }
-
-      // Send welcome notification
-      try {
-        await notificationService.sendNotificationToUser(user._id, 'user_registration', {
-          promoCode: promoCode || null,
-          signupBonus: discount > 0 ? discount : null
-        });
-      } catch (notificationError) {
-        console.error('Failed to send welcome notification:', notificationError);
-        // Don't fail registration if notification fails
-      }
-
-      // Generate token
-      const token = generateToken(user._id, user.role);
-
-      return res.status(201).json({
-        message: 'User registered successfully with promo code',
-        user: user.getPublicProfile(),
-        token,
-        payment: {
-          amount: signupFee,
-          discount: discount,
-          finalAmount: finalAmount
-        }
-      });
+    // Generate referral code for new user (non-blocking)
+    try {
+      await referralService.generateReferralCode(user);
+    } catch (refCodeError) {
+      console.error('Error generating referral code:', refCodeError);
+      // Don't fail registration if referral code generation fails
     }
 
-    // Create user with pending payment status
-    const user = new User({
-      ...userData,
-      isVerified: false
-    });
-    await user.save();
+    // Create referral relationship if referral code provided (non-blocking)
+    if (referralCode) {
+      try {
+        await referralService.createReferralRelationship(user, referralCode);
+      } catch (refError) {
+        console.error('Error creating referral relationship:', refError);
+        // Don't fail registration if referral fails
+      }
+    }
 
-    // Send welcome notification (for users with pending payment)
+    // Record promo code usage if valid (non-blocking, for tracking only)
+    if (promoCodeData) {
+      try {
+        // Just log the usage, don't create payment record
+        console.log(`Promo code ${promoCode} used by user ${user._id} (payment disabled)`);
+        // Optionally update promo code usage count
+        if (promoCodeData.currentUses !== undefined) {
+          promoCodeData.currentUses = (promoCodeData.currentUses || 0) + 1;
+          await promoCodeData.save();
+        }
+      } catch (promoUsageError) {
+        console.error('Error recording promo code usage:', promoUsageError);
+        // Don't fail registration
+      }
+    }
+
+    // Create pending payment if package is selected
+    if (selectedPackage && packagePrice > 0) {
+      try {
+        const Payment = require('../models/Payment');
+        const discountAmount = promoCodeData ? (promoCodeData.discount || 0) : 0;
+        const finalAmount = packagePrice - discountAmount;
+
+        const payment = new Payment({
+          user: user._id,
+          amount: packagePrice,
+          currency: 'USD',
+          paymentMethod: 'binance_wallet',
+          status: 'pending',
+          type: 'package',
+          package: {
+            name: selectedPackage.packageName,
+            price: packagePrice
+          },
+          description: `Package purchase: ${selectedPackage.packageName}`,
+          discountAmount: discountAmount,
+          finalAmount: finalAmount > 0 ? finalAmount : packagePrice,
+          promoCode: promoCodeData ? promoCodeData._id : undefined,
+          binanceWallet: {
+            walletAddress: 'TApaMK8BcN67GDRqVs45qnzbb4oQGt2Pna', // Binance wallet address
+            network: 'TRC20'
+          }
+        });
+
+        await payment.save();
+        console.log(`✅ Payment record created for user ${user._id} - Package: ${selectedPackage.packageName}`);
+      } catch (paymentError) {
+        console.error('Error creating payment record:', paymentError);
+        // Don't fail registration if payment record creation fails
+      }
+    }
+
+    // Send welcome notification (non-blocking)
     try {
-      await notificationService.sendNotificationToUser(user._id, 'user_registration', {
+      await notificationService.sendNotificationToUser(user._id, 'system', {
         promoCode: promoCode || null,
-        signupBonus: discount > 0 ? discount : null,
-        pendingPayment: true
+        promoCodeValid: !!promoCodeData
       });
     } catch (notificationError) {
       console.error('Failed to send welcome notification:', notificationError);
       // Don't fail registration if notification fails
     }
 
-    // Create pending payment record
-    const payment = new Payment({
-      user: user._id,
-      amount: signupFee,
-      currency: 'USD',
-      paymentMethod,
-      status: 'pending',
-      description: 'Signup fee payment',
-      type: 'signup',
-      promoCode: promoCodeData ? promoCodeData._id : null,
-      discountAmount: discount,
-      finalAmount: finalAmount
-    });
+    // Generate token
+    const token = generateToken(user._id, user.role);
 
-    await payment.save();
-
-    // Process payment based on method
-    let paymentResult;
-    
-    if (paymentMethod === 'credit_card') {
-      // Stripe payment
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(finalAmount * 100), // Convert to cents
-        currency: 'usd',
-        metadata: {
-          userId: user._id.toString(),
-          paymentId: payment._id.toString(),
-          type: 'signup'
-        }
-      });
-
-      paymentResult = {
-        clientSecret: paymentIntent.client_secret,
-        paymentIntentId: paymentIntent.id
+    // Get user profile safely
+    let userProfile;
+    try {
+      userProfile = user.getPublicProfile ? user.getPublicProfile() : {
+        _id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role
       };
-    } else {
-      // Local payment methods (Easypaisa, Jazz Cash)
-      paymentResult = {
-        paymentUrl: `/api/payments/local/${payment._id}`,
-        paymentId: payment._id
+    } catch (profileError) {
+      console.error('Error getting user profile:', profileError);
+      userProfile = {
+        _id: user._id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role
       };
     }
 
-    res.status(201).json({
-      message: 'User registered successfully. Payment required.',
-      user: user.getPublicProfile(),
-      payment: {
-        amount: signupFee,
-        discount: discount,
-        finalAmount: finalAmount,
-        method: paymentMethod,
-        status: 'pending'
-      },
-      paymentDetails: paymentResult
+    console.log(`User ${email} registered successfully`);
+    
+    return res.status(201).json({
+      message: selectedPackage ? 'User registered successfully. Please complete payment to access your account.' : 'User registered successfully',
+      user: userProfile,
+      token,
+      promoCodeApplied: !!promoCodeData,
+      requiresPayment: !!selectedPackage,
+      selectedPackage: selectedPackage || null
     });
 
   } catch (error) {
     console.error('Registration error:', error);
+    console.error('Registration error stack:', error.stack);
+    
+    // If user was created during error, try to clean it up
+    try {
+      const createdUser = await User.findByEmail(req.body?.email);
+      if (createdUser) {
+        console.log('⚠️ User was created but error occurred. Attempting cleanup...');
+        // Optionally delete the user if created less than 5 seconds ago
+        // This prevents orphaned users from validation errors
+        const userAge = Date.now() - new Date(createdUser.createdAt).getTime();
+        if (userAge < 5000) { // Created less than 5 seconds ago
+          await User.findByIdAndDelete(createdUser._id);
+          console.log('⚠️ Cleaned up user created during failed registration');
+        }
+      }
+    } catch (cleanupError) {
+      console.error('Error during cleanup:', cleanupError);
+    }
+    
     res.status(500).json({
       error: 'Registration failed',
-      message: 'An error occurred during registration'
+      message: error.message || 'An error occurred during registration',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
@@ -307,22 +374,11 @@ router.post('/login', [
       req.loginSecurity.clearFailedAttempts();
     }
 
-    // Check if user has completed payment
+    // Payment check disabled - users are auto-verified during registration
+    // If user is not verified, verify them automatically (for backward compatibility)
     if (!user.isVerified) {
-      const pendingPayment = await Payment.findOne({
-        user: user._id,
-        type: 'signup',
-        status: 'pending'
-      });
-
-      if (pendingPayment) {
-        return res.status(402).json({
-          error: 'Payment required',
-          message: 'Please complete your signup payment to access your account',
-          paymentId: pendingPayment._id,
-          amount: pendingPayment.finalAmount
-        });
-      }
+      user.isVerified = true;
+      await user.save();
     }
 
     // Check if 2FA is required
@@ -373,8 +429,17 @@ router.post('/login', [
 // @access  Private
 router.get('/me', authenticateToken, async (req, res) => {
   try {
+    // Ensure user has referral code
+    const user = await User.findById(req.user._id);
+    if (!user.referralCode) {
+      await referralService.generateReferralCode(user);
+    }
+    
+    // Refresh user from database to get updated referral code
+    const updatedUser = await User.findById(req.user._id);
+    
     res.json({
-      user: req.user.getPublicProfile()
+      user: updatedUser.getPublicProfile()
     });
   } catch (error) {
     console.error('Get profile error:', error);

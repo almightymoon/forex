@@ -125,9 +125,11 @@ export default function PaymentManagement({
                   <td className="py-4 px-4 text-sm text-gray-600 dark:text-gray-400">{payment.paymentMethod}</td>
                   <td className="py-4 px-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      payment.status === 'completed' ? 'bg-green-100 text-green-800' :
-                      payment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                      'bg-red-100 text-red-800'
+                      payment.status === 'completed' 
+                        ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
+                        : payment.status === 'pending' 
+                        ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                        : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                     }`}>
                       {payment.status.charAt(0).toUpperCase() + payment.status.slice(1)}
                     </span>
@@ -188,15 +190,17 @@ export default function PaymentManagement({
             <div className="space-y-6">
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Payment ID</label>
-                  <p className="text-gray-900">{selectedPayment._id}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Payment ID</label>
+                  <p className="text-gray-900 dark:text-white">{selectedPayment._id}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Status</label>
                   <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                    selectedPayment.status === 'completed' ? 'bg-green-100 text-green-800' :
-                    selectedPayment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                    'bg-red-100 text-red-800'
+                    selectedPayment.status === 'completed' 
+                      ? 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300' 
+                      : selectedPayment.status === 'pending' 
+                      ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300'
+                      : 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                   }`}>
                     {selectedPayment.status.charAt(0).toUpperCase() + selectedPayment.status.slice(1)}
                   </span>
@@ -205,33 +209,33 @@ export default function PaymentManagement({
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">User</label>
-                  <p className="text-gray-900">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">User</label>
+                  <p className="text-gray-900 dark:text-white">
                     {selectedPayment.user?.firstName || 'Unknown'} {selectedPayment.user?.lastName || ''}
                   </p>
-                  <p className="text-sm text-gray-500">{selectedPayment.user?.email || 'No email'}</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">{selectedPayment.user?.email || 'No email'}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
-                  <p className="text-gray-900 font-semibold">${selectedPayment.amount} {selectedPayment.currency}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Amount</label>
+                  <p className="text-gray-900 dark:text-white font-semibold">${selectedPayment.amount} {selectedPayment.currency}</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
-                  <p className="text-gray-900 capitalize">{selectedPayment.paymentMethod}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Payment Method</label>
+                  <p className="text-gray-900 dark:text-white capitalize">{selectedPayment.paymentMethod}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                  <p className="text-gray-900">{new Date(selectedPayment.createdAt).toLocaleString()}</p>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Date</label>
+                  <p className="text-gray-900 dark:text-white">{new Date(selectedPayment.createdAt).toLocaleString()}</p>
                 </div>
               </div>
 
               <div className="flex space-x-3">
                 <button
                   onClick={() => setShowPaymentModal(false)}
-                  className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium"
                 >
                   Close
                 </button>

@@ -16,7 +16,7 @@ const notificationTrackingSchema = new mongoose.Schema({
   // Type of notification
   type: {
     type: String,
-    enum: ['assignment', 'course', 'message', 'system', 'payment', 'security', 'bulk'],
+    enum: ['assignment', 'course', 'message', 'system', 'payment', 'security', 'bulk', 'user_registration', 'referral', 'commission'],
     required: true
   },
   // Channel used for delivery

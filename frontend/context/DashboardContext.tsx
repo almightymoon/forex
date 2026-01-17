@@ -13,6 +13,7 @@ interface User {
   profileImage?: string;
   isVerified?: boolean;
   isActive?: boolean;
+  balance?: number;
   subscription: {
     plan: string;
     isActive: boolean;

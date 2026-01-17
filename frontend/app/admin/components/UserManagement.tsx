@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Users, Plus, Search, Filter, Edit, Trash2, Eye, 
-  CheckCircle, X, AlertTriangle
+  CheckCircle, X, AlertTriangle, Loader2
 } from 'lucide-react';
 import { User, UserForm } from './types';
 
@@ -12,7 +12,7 @@ interface UserManagementProps {
   users: User[];
   onUserCreate: (userData: UserForm) => void;
   onUserUpdate: (userId: string, userData: Partial<UserForm>) => void;
-  onUserDelete: (userId: string) => void;
+  onUserDelete: (userId: string) => Promise<void>;
   onUserToggleStatus: (user: User) => void;
 }
 
@@ -31,6 +31,10 @@ export default function UserManagement({
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [isLoading, setIsLoading] = useState(false);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [isDeletingBulk, setIsDeletingBulk] = useState(false);
   
   const [userForm, setUserForm] = useState<UserForm>({
     firstName: '',
@@ -97,11 +101,77 @@ export default function UserManagement({
     setShowDeleteModal(true);
   };
 
-  const handleDeleteUser = () => {
+  const handleDeleteUser = async () => {
     if (selectedUser) {
-      onUserDelete(selectedUser._id);
+      setDeletingUserId(selectedUser._id);
       setShowDeleteModal(false);
-      setSelectedUser(null);
+      // Remove from selected users if it was selected
+      setSelectedUsers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(selectedUser._id);
+        return newSet;
+      });
+      try {
+        await onUserDelete(selectedUser._id);
+      } catch (error) {
+        // Error handling is done in parent component
+      } finally {
+        setDeletingUserId(null);
+        setSelectedUser(null);
+      }
+    }
+  };
+
+  const handleSelectUser = (userId: string) => {
+    setSelectedUsers(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(userId)) {
+        newSet.delete(userId);
+      } else {
+        newSet.add(userId);
+      }
+      return newSet;
+    });
+  };
+
+  const handleSelectAll = () => {
+    if (selectedUsers.size === filteredUsers.length) {
+      setSelectedUsers(new Set());
+    } else {
+      setSelectedUsers(new Set(filteredUsers.map(user => user._id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedUsers.size === 0) return;
+    
+    setIsDeletingBulk(true);
+    setShowBulkDeleteModal(false);
+    
+    try {
+      // Delete users one by one
+      const userIds = Array.from(selectedUsers);
+      const deletedIds = new Set<string>();
+      
+      for (const userId of userIds) {
+        try {
+          await onUserDelete(userId);
+          deletedIds.add(userId);
+        } catch (error) {
+          console.error(`Failed to delete user ${userId}:`, error);
+        }
+      }
+      
+      // Clear selection after deletion
+      setSelectedUsers(prev => {
+        const newSet = new Set(prev);
+        deletedIds.forEach(id => newSet.delete(id));
+        return newSet;
+      });
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+    } finally {
+      setIsDeletingBulk(false);
     }
   };
 
@@ -131,13 +201,34 @@ export default function UserManagement({
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
         <div className="flex items-center justify-between mb-6">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">User Management</h3>
-          <button 
-            onClick={openAddUserModal}
-            className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
-          >
-            <Plus className="w-4 h-4 inline mr-2" />
-            Add User
-          </button>
+          <div className="flex items-center gap-3">
+            {selectedUsers.size > 0 && (
+              <button
+                onClick={() => setShowBulkDeleteModal(true)}
+                disabled={isDeletingBulk}
+                className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+              >
+                {isDeletingBulk ? (
+                  <>
+                    <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 inline mr-2" />
+                    Delete Selected ({selectedUsers.size})
+                  </>
+                )}
+              </button>
+            )}
+            <button 
+              onClick={openAddUserModal}
+              className="px-4 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200"
+            >
+              <Plus className="w-4 h-4 inline mr-2" />
+              Add User
+            </button>
+          </div>
         </div>
         
         {/* Search and Filter Controls */}
@@ -183,6 +274,14 @@ export default function UserManagement({
           <table className="w-full">
             <thead>
               <tr className="border-b border-gray-200 dark:border-gray-700">
+                <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white w-12">
+                  <input
+                    type="checkbox"
+                    checked={filteredUsers.length > 0 && selectedUsers.size === filteredUsers.length}
+                    onChange={handleSelectAll}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer"
+                  />
+                </th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">User</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Role</th>
                 <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Status</th>
@@ -192,7 +291,21 @@ export default function UserManagement({
             </thead>
             <tbody>
               {filteredUsers.map((user) => (
-                <tr key={user._id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                <tr 
+                  key={user._id} 
+                  className={`border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition-opacity ${
+                    deletingUserId === user._id || selectedUsers.has(user._id) && isDeletingBulk ? 'opacity-50' : ''
+                  } ${selectedUsers.has(user._id) ? 'bg-blue-50 dark:bg-blue-900/20' : ''}`}
+                >
+                  <td className="py-4 px-4">
+                    <input
+                      type="checkbox"
+                      checked={selectedUsers.has(user._id)}
+                      onChange={() => handleSelectUser(user._id)}
+                      disabled={deletingUserId === user._id || isDeletingBulk}
+                      className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    />
+                  </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center space-x-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
@@ -233,38 +346,47 @@ export default function UserManagement({
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setShowEditModal(true);
-                        }}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                        title="Edit User"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
-                      
-                      <button
-                        onClick={() => onUserToggleStatus(user)}
-                        className={`p-2 rounded-lg transition-colors ${
-                          user.isActive 
-                            ? 'text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20' 
-                            : 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20'
-                        }`}
-                        title={user.isActive ? 'Deactivate User' : 'Activate User'}
-                      >
-                        {user.isActive ? <X className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
-                      </button>
-                      <button 
-                        onClick={() => {
-                          setSelectedUser(user);
-                          setShowDeleteModal(true);
-                        }}
-                        className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        title="Delete User"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {deletingUserId === user._id ? (
+                        <div className="flex items-center space-x-2 text-blue-600 dark:text-blue-400">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="text-sm">Deleting...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <button
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowEditModal(true);
+                            }}
+                            className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                            title="Edit User"
+                          >
+                            <Edit className="w-4 h-4" />
+                          </button>
+                          
+                          <button
+                            onClick={() => onUserToggleStatus(user)}
+                            className={`p-2 rounded-lg transition-colors ${
+                              user.isActive 
+                                ? 'text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20' 
+                                : 'text-green-600 dark:text-green-400 hover:text-green-700 dark:hover:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/20'
+                            }`}
+                            title={user.isActive ? 'Deactivate User' : 'Activate User'}
+                          >
+                            {user.isActive ? <X className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                          </button>
+                          <button 
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowDeleteModal(true);
+                            }}
+                            className="p-2 text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                            title="Delete User"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -426,31 +548,76 @@ export default function UserManagement({
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm">
             <div className="text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                <AlertTriangle className="w-8 h-8 text-red-600" />
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Delete User</h3>
-              <p className="text-gray-600 mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete User</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
                 Are you sure you want to delete <strong>{selectedUser.firstName} {selectedUser.lastName}</strong>? 
                 This action cannot be undone.
               </p>
               <div className="flex space-x-3">
                 <button
                   onClick={() => setShowDeleteModal(false)}
-                  className="flex-1 px-4 py-2 text-gray-700 border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
-                  onClick={() => {
-                    onUserDelete(selectedUser._id);
-                    setShowDeleteModal(false);
-                  }}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200"
+                  onClick={handleDeleteUser}
+                  disabled={deletingUserId === selectedUser._id}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
-                  Delete
+                  {deletingUserId === selectedUser._id ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {showBulkDeleteModal && selectedUsers.size > 0 && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete Users</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                Are you sure you want to delete <strong>{selectedUsers.size}</strong> selected user{selectedUsers.size > 1 ? 's' : ''}? 
+                This action cannot be undone.
+              </p>
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowBulkDeleteModal(false)}
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  disabled={isDeletingBulk}
+                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                >
+                  {isDeletingBulk ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete All'
+                  )}
                 </button>
               </div>
             </div>

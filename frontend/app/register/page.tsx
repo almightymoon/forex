@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Eye, 
@@ -14,16 +14,26 @@ import {
   CreditCard, 
   Gift,
   CheckCircle,
-  AlertCircle
+  AlertCircle,
+  Share2
 } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { buildApiUrl } from '@/utils/api';
 import { useSettings } from '../../context/SettingsContext';
 import DarkModeToggle from '../../components/DarkModeToggle';
 import PaymentModal from '../../components/PaymentModal';
+import BinancePaymentInstructions from '../../components/BinancePaymentInstructions';
+
+const packages = [
+  { name: 'FX Launch', price: 100, badge: 'Starter' },
+  { name: 'FX Scale', price: 250, badge: 'Most Popular' },
+  { name: 'FX Legacy', price: 1000, badge: 'Elite Program' }
+];
 
 export default function RegisterPage() {
+  const searchParams = useSearchParams();
+  const [selectedPackage, setSelectedPackage] = useState<{ name: string; price: number } | null>(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -32,9 +42,10 @@ export default function RegisterPage() {
     confirmPassword: '',
     phone: '',
     country: 'Pakistan',
-    paymentMethod: 'credit_card',
+    paymentMethod: 'binance_wallet',
   });
   const [promoCode, setPromoCode] = useState('');
+  const [referralCode, setReferralCode] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -43,12 +54,20 @@ export default function RegisterPage() {
   const [isPromoValid, setIsPromoValid] = useState(false);
   const [promoDiscount, setPromoDiscount] = useState(0);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showBinanceInstructions, setShowBinanceInstructions] = useState(false);
   const [paymentData, setPaymentData] = useState<any>(null);
   const router = useRouter();
   const { settings, loading: settingsLoading } = useSettings();
 
-  const signupFee = 300;
-  const finalFee = signupFee - promoDiscount;
+  // Check for referral code in URL
+  useEffect(() => {
+    const refCode = searchParams?.get('ref');
+    if (refCode) {
+      setReferralCode(refCode.toUpperCase());
+    }
+  }, [searchParams]);
+
+  const finalFee = selectedPackage ? selectedPackage.price - promoDiscount : 0;
 
   // Prevent hydration mismatch by showing loading state
   if (settingsLoading) {
@@ -91,9 +110,9 @@ export default function RegisterPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
+          body: JSON.stringify({
           code: promoCode,
-          orderAmount: signupFee,
+          orderAmount: selectedPackage?.price || 0,
           orderType: 'signup'
         }),
       });
@@ -139,11 +158,21 @@ export default function RegisterPage() {
       // Prepare request body - exclude confirmPassword and signupFee as backend doesn't expect them
       const { confirmPassword, ...registrationData } = formData;
       
+      if (!selectedPackage) {
+        setError('Please select a package to continue');
+        setIsLoading(false);
+        return;
+      }
+
       const requestBody = {
         ...registrationData,
-        paymentMethod: registrationData.paymentMethod || 'credit_card', // Ensure paymentMethod is always set
+        paymentMethod: 'binance_wallet',
+        selectedPackage: {
+          packageName: selectedPackage.name,
+          price: selectedPackage.price
+        },
         promoCode: promoCode || undefined,
-        // Don't send signupFee - backend calculates it internally
+        referralCode: referralCode || undefined,
       };
       
       // Remove undefined values to avoid sending them
@@ -167,34 +196,17 @@ export default function RegisterPage() {
       const registerData = await registerResponse.json();
 
       if (registerResponse.ok) {
-        if (finalFee > 0) {
-          // User needs to pay, show payment modal
-          setSuccess('Registration successful! Please complete payment to continue.');
-          
-          // Store token for payment processing
-          localStorage.setItem('token', registerData.token);
-          localStorage.setItem('user', JSON.stringify(registerData.user));
-          
-          // Set token in httpOnly cookie for middleware access
-          document.cookie = `token=${registerData.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
-          
-          // Prepare payment data for modal
-          setPaymentData({
-            amount: finalFee,
-            currency: formData.paymentMethod === 'credit_card' ? 'USD' : 'PKR',
-            paymentMethod: formData.paymentMethod === 'credit_card' ? 'stripe' : formData.paymentMethod,
-            description: 'Registration Fee',
-            type: 'signup',
-            promoCode: promoCode || undefined,
-            customerEmail: formData.email,
-            customerPhone: formData.phone,
-            customerName: `${formData.firstName} ${formData.lastName}`
-          });
-          
-          // Show payment modal
-          setShowPaymentModal(true);
+        // Store token
+        localStorage.setItem('token', registerData.token);
+        localStorage.setItem('user', JSON.stringify(registerData.user));
+        document.cookie = `token=${registerData.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+        
+        if (registerData.requiresPayment && selectedPackage) {
+          // Show Binance payment instructions
+          setSuccess('Registration successful! Please complete payment to activate your account.');
+          setShowBinanceInstructions(true);
         } else {
-          // Free registration with promo code
+          // Free registration (shouldn't happen with packages, but handle it)
           setSuccess('Registration successful! Redirecting to login...');
           setTimeout(() => {
             router.push('/login');
@@ -333,6 +345,70 @@ export default function RegisterPage() {
             >
               <AlertCircle className="w-5 h-5 mr-2" />
               {error}
+            </motion.div>
+          )}
+
+          {/* Package Selection */}
+          {!selectedPackage && (
+            <div className="mb-6">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                Select a Package
+              </h2>
+              <div className="grid grid-cols-1 gap-4">
+                {packages.map((pkg) => (
+                  <motion.button
+                    key={pkg.name}
+                    onClick={() => setSelectedPackage(pkg)}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    className="text-left p-4 border-2 border-gray-300 dark:border-gray-600 rounded-xl hover:border-blue-500 dark:hover:border-blue-400 transition-all bg-white dark:bg-gray-700"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                            {pkg.badge}
+                          </span>
+                        </div>
+                        <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                          {pkg.name}
+                        </h3>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white mt-2">
+                          ${pkg.price}
+                        </p>
+                      </div>
+                      <TrendingUp className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                    </div>
+                  </motion.button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Selected Package Display */}
+          {selectedPackage && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Selected Package:</p>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">{selectedPackage.name}</p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">${selectedPackage.price} USDT</p>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedPackage(null);
+                    setPromoDiscount(0);
+                    setIsPromoValid(false);
+                  }}
+                  className="text-red-600 hover:text-red-700 dark:text-red-400"
+                >
+                  Change
+                </button>
+              </div>
             </motion.div>
           )}
 
@@ -490,6 +566,24 @@ export default function RegisterPage() {
                   <option value="Other">Other</option>
                 </select>
               </div>
+            </div>
+
+            {/* Referral Code Section */}
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 p-4 rounded-xl border border-purple-200 dark:border-purple-800">
+              <div className="flex items-center mb-3">
+                <Share2 className="w-5 h-5 text-purple-600 dark:text-purple-400 mr-2" />
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Have a Referral Code? (Optional)</h3>
+              </div>
+              <input
+                type="text"
+                value={referralCode}
+                onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                placeholder="Enter referral code"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white uppercase"
+              />
+              <p className="mt-2 text-xs text-gray-600 dark:text-gray-400">
+                Enter a referral code to support the person who referred you
+              </p>
             </div>
 
             {/* Promo Code Section */}
@@ -664,6 +758,24 @@ export default function RegisterPage() {
           paymentData={paymentData}
           onPaymentSuccess={handlePaymentSuccess}
           onPaymentError={handlePaymentError}
+        />
+      )}
+
+      {/* Binance Payment Instructions */}
+      {showBinanceInstructions && selectedPackage && (
+        <BinancePaymentInstructions
+          packageName={selectedPackage.name}
+          packagePrice={selectedPackage.price}
+          discount={promoDiscount}
+          onPaymentComplete={() => {
+            setShowBinanceInstructions(false);
+            setSuccess('Payment instructions sent! Please send payment and wait for admin confirmation. You will be notified once your account is activated.');
+            // Redirect to waiting page or dashboard with limited access
+            setTimeout(() => {
+              router.push('/dashboard');
+            }, 3000);
+          }}
+          onClose={() => setShowBinanceInstructions(false)}
         />
       )}
     </div>

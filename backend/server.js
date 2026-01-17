@@ -28,6 +28,8 @@ const certificateRoutes = require('./routes/certificates');
 const progressRoutes = require('./routes/progress');
 const uploadRoutes = require('./routes/upload');
 const mt5Routes = require('./routes/mt5');
+const referralRoutes = require('./routes/referrals');
+const withdrawalRoutes = require('./routes/withdrawals');
 const { initializeWebSocket } = require('./websocket');
 
 const app = express();
@@ -138,6 +140,8 @@ app.use('/api/promos', checkSessionTimeout, promoRoutes);
 app.use('/api/assignments', checkSessionTimeout, assignmentRoutes);
 app.use('/api/upload', checkSessionTimeout, uploadRoutes);
 app.use('/api/mt5', checkSessionTimeout, mt5Routes);
+app.use('/api/referrals', checkSessionTimeout, referralRoutes);
+app.use('/api/withdrawals', checkSessionTimeout, withdrawalRoutes);
 
 // Apply maintenance mode middleware to protected routes only (after all routes are registered)
 app.use('/api', maintenanceMiddleware);

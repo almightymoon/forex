@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Users, BookOpen, Target, FileText, Award, BarChart3, 
@@ -51,8 +51,84 @@ export default function AdminDashboard() {
   
   const { user, users, payments, analytics, promoCodes, settings: contextSettings } = data;
   
+  // Helper function to get deleted user IDs from localStorage
+  const getDeletedUserIds = (): Set<string> => {
+    try {
+      const stored = localStorage.getItem('deletedUserIds');
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch {
+      return new Set();
+    }
+  };
+  
   // Local settings state for immediate UI updates
   const [localSettings, setLocalSettings] = useState(contextSettings || {});
+  
+  // Local users state for optimistic updates during deletion
+  const [localUsers, setLocalUsers] = useState(() => {
+    // Filter out deleted users on initial load
+    const deletedIds = getDeletedUserIds();
+    return users ? users.filter(u => !deletedIds.has(u._id)) : [];
+  });
+  // Track users that are being deleted to prevent them from being restored
+  // Load from localStorage to persist across refreshes
+  const [deletingUserIds, setDeletingUserIds] = useState<Set<string>>(getDeletedUserIds());
+  // Use ref to track if we're currently processing a deletion (prevents useEffect from overwriting)
+  const isDeletingRef = useRef(false);
+  // Track if we have local changes to prevent sync from overwriting
+  const [hasLocalChanges, setHasLocalChanges] = useState(false);
+  
+  // Save deleted user IDs to localStorage whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem('deletedUserIds', JSON.stringify(Array.from(deletingUserIds)));
+    } catch (error) {
+      console.error('Failed to save deleted user IDs:', error);
+    }
+  }, [deletingUserIds]);
+  
+  // Update local users when context users change, but ALWAYS filter deleted users
+  useEffect(() => {
+    // ALWAYS filter out deleted users, no matter what
+    const currentDeletedIds = getDeletedUserIds();
+    const allDeletedIds = new Set([...deletingUserIds, ...currentDeletedIds]);
+    
+    // First, always clean current localUsers of any deleted users (run this every time)
+    setLocalUsers(prev => {
+      const cleaned = prev.filter(u => !allDeletedIds.has(u._id));
+      if (cleaned.length !== prev.length) {
+        console.log('Cleaned deleted users from localUsers:', prev.length - cleaned.length);
+      }
+      return cleaned;
+    });
+    
+    // Don't sync from context if we have local changes or are currently processing a deletion
+    if (hasLocalChanges || isDeletingRef.current) {
+      console.log('Skipping context sync - hasLocalChanges:', hasLocalChanges, 'isDeleting:', isDeletingRef.current);
+      return;
+    }
+    
+    // Only sync from context when we're not deleting and don't have local changes
+    // ALWAYS filter out any users that are in the deleting set (critical safety check)
+    if (users && users.length > 0) {
+      const filteredUsers = users.filter(user => !allDeletedIds.has(user._id));
+      console.log('Syncing from context - original:', users.length, 'filtered:', filteredUsers.length, 'deleted:', allDeletedIds.size);
+      // Use functional update to avoid dependency on localUsers
+      setLocalUsers(prevLocalUsers => {
+        // Double-check: also filter prevLocalUsers to remove any deleted users that might have snuck in
+        const cleanPrev = prevLocalUsers.filter(u => !allDeletedIds.has(u._id));
+        const currentIds = new Set(cleanPrev.map(u => u._id));
+        const newIds = new Set(filteredUsers.map(u => u._id));
+        // Only update if the lists are actually different
+        if (currentIds.size !== newIds.size || ![...currentIds].every(id => newIds.has(id))) {
+          return filteredUsers;
+        }
+        return cleanPrev; // Return cleaned version
+      });
+    } else if (users && users.length === 0) {
+      setLocalUsers([]);
+    }
+  }, [users, deletingUserIds, hasLocalChanges]);
   
   // Update local settings when context settings change
   useEffect(() => {
@@ -234,6 +310,26 @@ export default function AdminDashboard() {
   };
 
   const handleUserDelete = async (userId: string) => {
+    // Optimistically remove user from list immediately (before API call)
+    const userToDelete = localUsers.find(u => u._id === userId);
+    
+    // Set flags to prevent sync from overwriting - do this FIRST
+    isDeletingRef.current = true;
+    setHasLocalChanges(true);
+    // Add to deleting set to prevent it from being restored by refresh
+    setDeletingUserIds(prev => {
+      const newSet = new Set(prev);
+      newSet.add(userId);
+      console.log('Added to deletingUserIds, new size:', newSet.size);
+      return newSet;
+    });
+    // Remove user from local list immediately
+    setLocalUsers(prevUsers => {
+      const filtered = prevUsers.filter(u => u._id !== userId);
+      console.log('Removed from localUsers, new count:', filtered.length, 'old count:', prevUsers.length);
+      return filtered;
+    });
+    
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(buildApiUrl(`api/admin/users/${userId}`), {
@@ -244,15 +340,52 @@ export default function AdminDashboard() {
       });
 
       if (response.ok) {
-        await refreshData();
         showToast('User deleted successfully!', 'success');
+        console.log('User deleted successfully, keeping in deletedUserIds permanently');
+        // Keep the user in deletingUserIds - they should NEVER come back
+        // The user will stay in localStorage deletedUserIds until page refresh
+        // After a delay, clear the flags but keep the user ID in the set
+        setTimeout(() => {
+          console.log('Clearing deletion flags but keeping user in deleted set');
+          setHasLocalChanges(false);
+          isDeletingRef.current = false;
+          // Keep userId in deletingUserIds - don't remove it
+        }, 2000); // Wait 2 seconds before clearing flags
       } else {
         const error = await response.json();
+        // Remove from deleting set and restore user if deletion failed
+        setDeletingUserIds(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(userId);
+          return newSet;
+        });
+        setHasLocalChanges(false);
+        isDeletingRef.current = false;
+        if (userToDelete) {
+          setLocalUsers(prevUsers => [...prevUsers, userToDelete].sort((a, b) => 
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+          ));
+        }
         showToast(error.error || 'Failed to delete user', 'error');
+        throw new Error(error.error || 'Failed to delete user');
       }
     } catch (error) {
       console.error('Delete user error:', error);
+      // Remove from deleting set and restore user if deletion failed
+      setDeletingUserIds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(userId);
+        return newSet;
+      });
+      setHasLocalChanges(false);
+      isDeletingRef.current = false;
+      if (userToDelete) {
+        setLocalUsers(prevUsers => [...prevUsers, userToDelete].sort((a, b) => 
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        ));
+      }
       showToast('Failed to delete user', 'error');
+      throw error;
     }
   };
 
@@ -641,12 +774,12 @@ export default function AdminDashboard() {
 
         {/* Tab Content */}
         {activeTab === 'overview' && (
-          <Overview analytics={analytics} onTabChange={setActiveTab} />
+          <Overview analytics={analytics} onTabChange={setActiveTab} userCount={localUsers.length} />
         )}
 
         {activeTab === 'users' && (
           <UserManagement
-            users={users}
+            users={localUsers}
             onUserCreate={handleUserCreate}
             onUserUpdate={handleUserUpdate}
             onUserDelete={handleUserDelete}

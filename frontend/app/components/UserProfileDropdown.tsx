@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Settings, LogOut, ChevronDown, Bell } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, Bell, Share2, Wallet, ArrowUpRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../../context/LanguageContext';
 
@@ -12,6 +12,7 @@ interface UserProfileDropdownProps {
     email: string;
     role: string;
     profileImage?: string;
+    balance?: number;
   } | null;
   showNotifications?: boolean;
   showSettings?: boolean;
@@ -73,6 +74,12 @@ export default function UserProfileDropdown({
     router.push('/settings');
   };
 
+  const handleReferralsClick = () => {
+    // Navigate to referrals page
+    setIsOpen(false);
+    router.push('/referrals');
+  };
+
   if (!user) {
     return null;
   }
@@ -128,9 +135,21 @@ export default function UserProfileDropdown({
               {user.firstName} {user.lastName}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
-                              <p className="text-xs text-gray-400 dark:text-gray-500 capitalize mt-1">
-                    {user.role} {t('account')}
-                  </p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 capitalize mt-1">
+              {user.role} {t('account')}
+            </p>
+            {/* Balance Display - Always show */}
+            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Wallet className="w-4 h-4 text-green-600 dark:text-green-400" />
+                  <span className="text-xs text-gray-600 dark:text-gray-400">Balance:</span>
+                </div>
+                <span className="text-sm font-bold text-gray-900 dark:text-white">
+                  ${((user.balance !== undefined ? user.balance : 0)).toFixed(2)} USDT
+                </span>
+              </div>
+            </div>
           </div>
 
           {/* Menu Items */}
@@ -169,6 +188,27 @@ export default function UserProfileDropdown({
               </button>
             )}
 
+            {/* Referrals */}
+            <button
+              onClick={handleReferralsClick}
+              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
+            >
+              <Share2 className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
+              <span>Referrals</span>
+            </button>
+
+            {/* Withdrawal - Navigate to withdrawals page */}
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                router.push('/withdrawals');
+              }}
+              className="w-full flex items-center px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors duration-150"
+            >
+              <ArrowUpRight className="w-4 h-4 mr-3" />
+              <span>Withdraw</span>
+            </button>
+
             {/* Divider */}
             <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
 
@@ -183,6 +223,7 @@ export default function UserProfileDropdown({
           </div>
         </div>
       )}
+
     </div>
   );
 }

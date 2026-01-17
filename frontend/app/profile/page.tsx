@@ -15,7 +15,13 @@ import {
   Camera,
   Key,
   Bell,
-  Settings
+  Settings,
+  Award,
+  Copy,
+  Share2,
+  Wallet,
+  ArrowUpRight,
+  AlertCircle
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 import { useRouter } from 'next/navigation';
@@ -39,6 +45,13 @@ interface UserProfile {
   role: string;
   profileImage?: string;
   bio?: string;
+  balance?: number;
+  badges?: Array<{
+    packageName: string;
+    purchasedAt: string;
+    packagePrice: number;
+  }>;
+  referralCode?: string;
   preferences?: {
     emailNotifications: boolean;
     pushNotifications: boolean;
@@ -52,6 +65,11 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<UserProfile>>({});
   const [saving, setSaving] = useState(false);
+  const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
+  const [withdrawalAmount, setWithdrawalAmount] = useState('');
+  const [withdrawalWallet, setWithdrawalWallet] = useState('');
+  const [withdrawalNetwork, setWithdrawalNetwork] = useState('TRC20');
+  const [withdrawing, setWithdrawing] = useState(false);
 
   const [mounted, setMounted] = useState(false);
   const router = useRouter();
@@ -166,6 +184,25 @@ export default function ProfilePage() {
             marketingEmails: false
           }
         });
+
+        // If referral code is missing, fetch it
+        if (!userData.referralCode) {
+          try {
+            const referralRes = await fetch(buildApiUrl('/api/referrals/code'), {
+              headers: {
+                'Authorization': `Bearer ${token}`
+              }
+            });
+            if (referralRes.ok) {
+              const referralData = await referralRes.json();
+              if (referralData.success && referralData.referralCode) {
+                setUser(prev => prev ? { ...prev, referralCode: referralData.referralCode } : prev);
+              }
+            }
+          } catch (refError) {
+            console.error('Error fetching referral code:', refError);
+          }
+        }
       } else {
         showToast('Failed to fetch profile', 'error');
       }
@@ -463,6 +500,74 @@ export default function ProfilePage() {
                   </div>
                 )}
 
+                {/* Badges Section */}
+                {user.badges && user.badges.length > 0 && (
+                  <div className="mb-4">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                      <Award className="w-4 h-4 mr-1" />
+                      Package Badges
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {user.badges.map((badge, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1 bg-gradient-to-r from-emerald-500 to-blue-500 text-white text-xs font-semibold rounded-full"
+                        >
+                          {badge.packageName}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Referral Code Section */}
+                {user.referralCode && (
+                  <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Your Referral Code
+                    </h3>
+                    <div className="flex items-center space-x-2">
+                      <code className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono text-gray-900 dark:text-white">
+                        {user.referralCode}
+                      </code>
+                      <button
+                        onClick={async () => {
+                          const referralUrl = `${window.location.origin}/register?ref=${user.referralCode}`;
+                          await navigator.clipboard.writeText(referralUrl);
+                          showToast('Referral link copied!', 'success');
+                        }}
+                        className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+                        title="Copy referral link"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                      Share this code to earn commissions!
+                    </p>
+                  </div>
+                )}
+
+                {/* Balance Display */}
+                {(user.balance !== undefined && user.balance > 0) && (
+                  <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                      <Wallet className="w-4 h-4 mr-1" />
+                      Account Balance
+                    </h3>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                      ${(user.balance || 0).toFixed(2)} USDT
+                    </p>
+                    <button
+                      onClick={() => setShowWithdrawalForm(true)}
+                      className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 text-sm"
+                    >
+                      <ArrowUpRight className="w-4 h-4" />
+                      <span>Withdraw</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Quick Actions */}
                 <div className="space-y-2">
                   <button
@@ -479,6 +584,15 @@ export default function ProfilePage() {
                     <Settings className="w-4 h-4" />
                     <span>Settings</span>
                   </button>
+                  {user.referralCode && (
+                    <button
+                      onClick={() => router.push('/referrals')}
+                      className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors flex items-center justify-center space-x-2 text-sm"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      <span>My Referrals</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -710,6 +824,161 @@ export default function ProfilePage() {
                 </div>
               </div>
             </motion.div>
+
+            {/* Withdrawal Section */}
+            {(user.balance !== undefined && user.balance > 0) && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
+              >
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                  <Wallet className="w-5 h-5 mr-2 text-green-600" />
+                  Withdrawal
+                </h3>
+                
+                {showWithdrawalForm ? (
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Amount (USDT)
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        max={user.balance}
+                        value={withdrawalAmount}
+                        onChange={(e) => setWithdrawalAmount(e.target.value)}
+                        placeholder={`Max: $${(user.balance || 0).toFixed(2)}`}
+                        className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Wallet Address
+                      </label>
+                      <input
+                        type="text"
+                        value={withdrawalWallet}
+                        onChange={(e) => setWithdrawalWallet(e.target.value)}
+                        placeholder="Enter your USDT wallet address"
+                        className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                        Network
+                      </label>
+                      <select
+                        value={withdrawalNetwork}
+                        onChange={(e) => setWithdrawalNetwork(e.target.value)}
+                        className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      >
+                        <option value="TRC20">TRC20 (Tron) - Recommended</option>
+                        <option value="ERC20">ERC20 (Ethereum)</option>
+                        <option value="BEP20">BEP20 (Binance Smart Chain)</option>
+                      </select>
+                    </div>
+
+                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                      <div className="flex items-start">
+                        <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-2" />
+                        <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                          Admin will process your withdrawal request. You will be notified once it's completed.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => {
+                          setShowWithdrawalForm(false);
+                          setWithdrawalAmount('');
+                          setWithdrawalWallet('');
+                          setWithdrawalNetwork('TRC20');
+                        }}
+                        className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={async () => {
+                          const amount = parseFloat(withdrawalAmount);
+                          if (!amount || amount <= 0) {
+                            showToast('Please enter a valid amount', 'error');
+                            return;
+                          }
+                          if (amount > (user.balance || 0)) {
+                            showToast('Insufficient balance', 'error');
+                            return;
+                          }
+                          if (!withdrawalWallet.trim()) {
+                            showToast('Please enter wallet address', 'error');
+                            return;
+                          }
+
+                          try {
+                            setWithdrawing(true);
+                            const token = localStorage.getItem('token');
+                            const response = await fetch(buildApiUrl('api/withdrawals/request'), {
+                              method: 'POST',
+                              headers: {
+                                'Authorization': `Bearer ${token}`,
+                                'Content-Type': 'application/json'
+                              },
+                              body: JSON.stringify({
+                                amount,
+                                walletAddress: withdrawalWallet,
+                                network: withdrawalNetwork
+                              })
+                            });
+
+                            const data = await response.json();
+
+                            if (response.ok) {
+                              showToast('Withdrawal request submitted successfully!', 'success');
+                              setShowWithdrawalForm(false);
+                              setWithdrawalAmount('');
+                              setWithdrawalWallet('');
+                              setWithdrawalNetwork('TRC20');
+                              // Refresh user data to update balance
+                              fetchUserProfile();
+                            } else {
+                              showToast(data.message || 'Failed to submit withdrawal request', 'error');
+                            }
+                          } catch (error) {
+                            console.error('Withdrawal error:', error);
+                            showToast('Error submitting withdrawal request', 'error');
+                          } finally {
+                            setWithdrawing(false);
+                          }
+                        }}
+                        disabled={withdrawing}
+                        className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {withdrawing ? 'Submitting...' : 'Submit Request'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center py-4">
+                    <p className="text-gray-600 dark:text-gray-400 mb-4">
+                      Your balance: <span className="font-bold text-gray-900 dark:text-white">${(user.balance || 0).toFixed(2)} USDT</span>
+                    </p>
+                    <button
+                      onClick={() => setShowWithdrawalForm(true)}
+                      className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 mx-auto"
+                    >
+                      <ArrowUpRight className="w-5 h-5" />
+                      <span>Request Withdrawal</span>
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            )}
           </div>
         </div>
       </div>

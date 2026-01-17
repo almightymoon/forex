@@ -389,7 +389,11 @@ class PaymentProcessor {
       paymentMethod: data.paymentMethod,
       status: 'pending',
       description: data.description,
-      type: data.type,
+      type: data.type || 'signup',
+      package: data.package ? {
+        name: data.package.name,
+        price: data.package.price || data.amount
+      } : undefined,
       promoCode: data.promoCode,
       discountAmount: data.amount - data.finalAmount,
       finalAmount: data.finalAmount

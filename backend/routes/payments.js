@@ -119,7 +119,9 @@ router.post('/process', [
   body('promoCode').optional().trim(),
   body('customerEmail').optional().isEmail().withMessage('Invalid email'),
   body('customerPhone').optional().trim(),
-  body('customerName').optional().trim()
+  body('customerName').optional().trim(),
+  body('type').optional().isIn(['signup', 'course', 'session', 'subscription', 'signal', 'package']),
+  body('package').optional().isObject()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -315,6 +317,83 @@ router.get('/stats/summary', authenticateToken, requireAdmin, async (req, res) =
   } catch (error) {
     console.error('Get stats error:', error);
     res.status(500).json({ error: 'Failed to fetch statistics' });
+  }
+});
+
+// @route   POST /api/payments/admin/confirm
+// @desc    Admin confirms Binance wallet payment (admin only)
+// @access  Private/Admin
+router.post('/admin/confirm', [
+  authenticateToken,
+  requireAdmin,
+  body('paymentId').isMongoId().withMessage('Payment ID is required'),
+  body('transactionHash').optional().trim(),
+  body('notes').optional().trim()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { paymentId, transactionHash, notes } = req.body;
+    const User = require('../models/User');
+
+    const payment = await Payment.findById(paymentId).populate('user');
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    if (payment.status === 'completed') {
+      return res.status(400).json({ error: 'Payment already confirmed' });
+    }
+
+    // Update payment status
+    payment.status = 'completed';
+    payment.adminConfirmed = true;
+    payment.confirmedBy = req.user._id;
+    payment.confirmedAt = new Date();
+    if (transactionHash) {
+      payment.binanceWallet = payment.binanceWallet || {};
+      payment.binanceWallet.transactionHash = transactionHash;
+    }
+    await payment.save();
+
+    // Update user verification and balance if package purchase
+    const user = await User.findById(payment.user._id);
+    if (user) {
+      user.isVerified = true;
+      
+      // If it's a package purchase, add to user's balance (earnings/commissions)
+      if (payment.type === 'package' && payment.package) {
+        // Package purchase adds potential earnings to balance
+        // You can adjust this logic based on your business model
+        // For now, we'll just verify the user
+      }
+      
+      await user.save();
+    }
+
+    // Send notification to user
+    const notificationService = require('../services/notificationService');
+    await notificationService.sendNotificationToUser(payment.user._id, 'payment', {
+      title: 'Payment Confirmed',
+      message: `Your payment of $${payment.finalAmount} has been confirmed by admin`,
+      paymentId: payment._id
+    });
+
+    res.json({
+      success: true,
+      message: 'Payment confirmed successfully',
+      payment
+    });
+
+  } catch (error) {
+    console.error('Admin confirm payment error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message || 'Failed to confirm payment' 
+    });
   }
 });
 

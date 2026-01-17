@@ -21,7 +21,7 @@ import Community from './components/Community';
 import StudentCertificateAssignments from './components/StudentCertificateAssignments';
 import UserProfileDropdown from '../components/UserProfileDropdown';
 import ErrorBoundary from '../../components/ErrorBoundary';
-import MT5Dashboard from './components/MT5Dashboard';
+import TradingViewWidget from '../../components/TradingViewWidget';
 import { 
   BookOpen, 
   TrendingUp, 
@@ -58,7 +58,8 @@ import {
   MoreHorizontal,
   Copy,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Wallet
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -72,6 +73,8 @@ export default function Dashboard() {
   const [signalsViewMode, setSignalsViewMode] = useState<'card' | 'list'>('card');
   const [certificatesViewMode, setCertificatesViewMode] = useState<'card' | 'list'>('card');
   const [sessionsViewMode, setSessionsViewMode] = useState<'grid' | 'list'>('grid');
+  const [tradingViewSymbol, setTradingViewSymbol] = useState<string>('FX:EURUSD');
+  const [tradingViewInterval, setTradingViewInterval] = useState<'1' | '5' | '15' | '60' | '240' | 'D'>('60');
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -920,7 +923,7 @@ export default function Dashboard() {
                   { id: 'browse', label: t('browseCourses'), icon: TrendingUp },
                   { id: 'live-sessions', label: t('liveSessions'), icon: Play },
                   { id: 'signals', label: t('tradingSignals'), icon: Target },
-                  { id: 'mt5', label: 'MT5', icon: Zap },
+                  { id: 'tradingview', label: 'TradingView', icon: BarChart3 },
                   { id: 'assignments', label: t('assignments'), icon: FileText },
                   { id: 'community', label: 'Community', icon: Users },
                   { id: 'certificates', label: 'Certificates', icon: Award }
@@ -957,7 +960,7 @@ export default function Dashboard() {
                   { id: 'browse', label: t('browseCourses') },
                   { id: 'live-sessions', label: t('liveSessions') },
                   { id: 'signals', label: t('tradingSignals') },
-                  { id: 'mt5', label: 'MT5' },
+                  { id: 'tradingview', label: 'TradingView' },
                   { id: 'assignments', label: t('assignments') },
                   { id: 'community', label: 'Community' },
                   { id: 'certificates', label: 'Certificates' }
@@ -1505,38 +1508,21 @@ export default function Dashboard() {
                       {/* Copy Trade Button */}
                       <div className="flex justify-end">
                         <button
-                          onClick={async () => {
-                            try {
-                              const token = localStorage.getItem('token');
-                              const response = await fetch(buildApiUrl('/api/mt5/copy-trade'), {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                  'Authorization': `Bearer ${token}`
-                                },
-                                body: JSON.stringify({ signalId: signal._id })
-                              });
-
-                              const data = await response.json();
-
-                              if (!response.ok) {
-                                throw new Error(data.error || 'Failed to copy trade');
-                              }
-
-                              showToast('Copy trade executed successfully!', 'success');
-                            } catch (error: any) {
-                              if (error.message.includes('not found') || error.message.includes('not verified')) {
-                                showToast('Please connect your MT5 account first', 'error');
-                                router.push('/mt5');
-                              } else {
-                                showToast(error.message || 'Failed to copy trade', 'error');
-                              }
+                          onClick={() => {
+                            const rawSymbol = (signal.symbol || '').toString().trim().toUpperCase();
+                            if (!rawSymbol) {
+                              showToast('No symbol found for this signal', 'error');
+                              return;
                             }
+                            const tvSymbol = rawSymbol.includes(':') ? rawSymbol : `FX:${rawSymbol}`;
+                            setTradingViewSymbol(tvSymbol);
+                            setActiveTab('tradingview');
+                            showToast(`Opened TradingView chart for ${tvSymbol}`, 'success');
                           }}
                           className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center space-x-2 transition-colors"
                         >
-                          <Copy className="w-4 h-4" />
-                          <span>Copy Trade</span>
+                          <BarChart3 className="w-4 h-4" />
+                          <span>View Chart</span>
                         </button>
                       </div>
                     </div>
@@ -1631,13 +1617,58 @@ export default function Dashboard() {
           </motion.div>
         )}
 
-        {activeTab === 'mt5' && (
+        {activeTab === 'tradingview' && (
           <motion.div 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
             className="space-y-6"
           >
-            <MT5Dashboard embedded={true} />
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">TradingView</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
+                    Symbol: <span className="font-medium">{tradingViewSymbol}</span>
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 ">
+                  <select
+                    value={tradingViewSymbol}
+                    onChange={(e) => setTradingViewSymbol(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  >
+                    {['FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:USDCAD', 'FX:USDCHF', 'FX:NZDUSD', 'OANDA:XAUUSD', 'BINANCE:BTCUSDT'].map((sym) => (
+                      <option key={sym} value={sym}>
+                        {sym}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={tradingViewInterval}
+                    onChange={(e) => setTradingViewInterval(e.target.value as any)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  >
+                    <option value="1">1m</option>
+                    <option value="5">5m</option>
+                    <option value="15">15m</option>
+                    <option value="60">1h</option>
+                    <option value="240">4h</option>
+                    <option value="D">1D</option>
+                  </select>
+                </div>
+              </div>
+
+              <TradingViewWidget
+                symbol={tradingViewSymbol}
+                interval={tradingViewInterval}
+                theme="dark"
+                locale="en"
+                height={ 600}
+                // Fill remaining viewport height inside the dashboard layout
+                  
+                hideSideToolbar={false}
+              />
+            </div>
           </motion.div>
         )}
 

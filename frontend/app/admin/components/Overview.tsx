@@ -8,9 +8,10 @@ import { Analytics } from './types';
 interface OverviewProps {
   analytics: Analytics;
   onTabChange: (tab: string) => void;
+  userCount?: number; // Optional override for real-time user count
 }
 
-export default function Overview({ analytics, onTabChange }: OverviewProps) {
+export default function Overview({ analytics, onTabChange, userCount }: OverviewProps) {
   // Debug logging
   console.log('Overview component - analytics:', analytics);
   
@@ -27,6 +28,9 @@ export default function Overview({ analytics, onTabChange }: OverviewProps) {
     monthlyUserGrowth: [],
     paymentMethodStats: []
   };
+  
+  // Use userCount prop if provided, otherwise use analytics.totalUsers
+  const displayUserCount = userCount !== undefined ? userCount : safeAnalytics.totalUsers;
 
   // Helper function to safely format numbers
   const formatNumber = (value: any): string => {
@@ -51,7 +55,7 @@ export default function Overview({ analytics, onTabChange }: OverviewProps) {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-gray-500 dark:text-white text-sm font-medium">Total Users</p>
-              <p className="text-3xl font-bold dark:text-white text-gray-900">{formatNumber(safeAnalytics.totalUsers)}</p>
+              <p className="text-3xl font-bold dark:text-white text-gray-900">{formatNumber(displayUserCount)}</p>
               <p className="text-green-600 text-sm font-medium ">+{formatNumber(safeAnalytics.monthlyGrowth)}% this month</p>
             </div>
             <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
