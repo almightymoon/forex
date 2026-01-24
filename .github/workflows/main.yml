@@ -36,6 +36,16 @@ jobs:
             # Change directory to project directory
             cd /var/www/forex/
             
+            # Handle local changes that might block git pull
+            echo "Checking for local changes..."
+            if ! git diff --quiet || ! git diff --cached --quiet; then
+              echo "Local changes detected. Discarding changes to package files..."
+              # Discard changes to package files (these should come from repo)
+              git checkout -- frontend/package.json frontend/package-lock.json backend/package.json backend/package-lock.json backend/mt5-bridge/pm2.config.js 2>/dev/null || true
+              # Stash any other changes
+              git stash push -m "Pipeline auto-stash before pull" || true
+            fi
+            
             # Pull latest changes
             git pull origin main
             
