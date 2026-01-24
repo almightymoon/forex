@@ -134,6 +134,78 @@ app.use('/api/auth', authRoutes);
 // Payment routes - allow access without package so users can purchase packages
 app.use('/api/payments', checkSessionTimeout, paymentRoutes);
 
+// Public course routes - allow viewing available courses without package subscription
+const Course = require('./models/Course');
+app.get('/api/courses', async (req, res) => {
+  try {
+    const { category, level, search, sort = 'createdAt', order = 'desc' } = req.query;
+    
+    let query = { 
+      $or: [
+        { isPublished: true },
+        { status: 'published' }
+      ]
+    };
+    
+    if (category) query.category = category;
+    if (level) query.level = level;
+    if (search) {
+      query.$text = { $search: search };
+    }
+    
+    const sortObj = {};
+    sortObj[sort] = order === 'desc' ? -1 : 1;
+    
+    const courses = await Course.find(query)
+      .populate('teacher', 'firstName lastName profileImage')
+      .sort(sortObj)
+      .limit(20);
+    
+    res.json(courses);
+  } catch (error) {
+    console.error('Get courses error:', error);
+    res.status(500).json({ error: 'Failed to fetch courses' });
+  }
+});
+
+// Public route to get a single course by ID (for viewing course details)
+app.get('/api/courses/:id', async (req, res) => {
+  try {
+    const course = await Course.findOne({
+      _id: req.params.id,
+      $or: [
+        { isPublished: true },
+        { status: 'published' }
+      ]
+    })
+      .populate('teacher', 'firstName lastName profileImage email')
+      .populate('enrolledStudents.student', 'firstName lastName profileImage');
+    
+    if (!course) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+    
+    // Calculate video count from content and videos arrays
+    const videoContent = (course.content || []).filter(item => item.type === 'video');
+    const totalVideos = videoContent.length + (course.videos?.length || 0);
+    
+    // Ensure content and videos arrays exist and are properly structured
+    const courseData = {
+      ...course.toObject(),
+      content: course.content || [],
+      videos: course.videos || [],
+      totalDuration: course.totalDuration || 0,
+      totalContent: (course.content?.length || 0) + (course.videos?.length || 0),
+      totalVideos: totalVideos
+    };
+    
+    res.json(courseData);
+  } catch (error) {
+    console.error('Get course error:', error);
+    res.status(500).json({ error: 'Failed to fetch course' });
+  }
+});
+
 // All other protected routes require package subscription
 // These routes will check for package subscription after authentication
 app.use('/api/2fa', checkSessionTimeout, authenticateToken, requirePackageSubscription, twoFactorRoutes);
