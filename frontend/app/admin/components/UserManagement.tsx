@@ -7,6 +7,7 @@ import {
   CheckCircle, X, AlertTriangle, Loader2
 } from 'lucide-react';
 import { User, UserForm } from './types';
+import UserDetailsModal from './UserDetailsModal';
 
 interface UserManagementProps {
   users: User[];
@@ -26,6 +27,7 @@ export default function UserManagement({
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
@@ -356,9 +358,19 @@ export default function UserManagement({
                           <button
                             onClick={() => {
                               setSelectedUser(user);
-                              setShowEditModal(true);
+                              setShowDetailsModal(true);
                             }}
                             className="p-2 text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                            title="View Details"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setSelectedUser(user);
+                              setShowEditModal(true);
+                            }}
+                            className="p-2 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
                             title="Edit User"
                           >
                             <Edit className="w-4 h-4" />
@@ -583,6 +595,17 @@ export default function UserManagement({
             </div>
           </div>
         </div>
+      )}
+
+      {/* User Details Modal */}
+      {showDetailsModal && selectedUser && (
+        <UserDetailsModal
+          user={selectedUser}
+          onClose={() => {
+            setShowDetailsModal(false);
+            setSelectedUser(null);
+          }}
+        />
       )}
 
       {/* Bulk Delete Confirmation Modal */}

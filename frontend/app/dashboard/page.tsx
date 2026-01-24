@@ -15,13 +15,18 @@ import DarkModeToggle from '../../components/DarkModeToggle';
 import CoolLoader from '../../components/CoolLoader';
 import { isDevelopment } from '../../lib/env';
 import MaintenancePage from '../../components/MaintenancePage';
+import { usePackageSubscription } from '../../hooks/usePackageSubscription';
 import StudentAssignments from './components/StudentAssignments';
 import NotificationDropdown from './components/NotificationDropdown';
 import Community from './components/Community';
 import StudentCertificateAssignments from './components/StudentCertificateAssignments';
 import UserProfileDropdown from '../components/UserProfileDropdown';
+import ReferralBadge from '../components/ReferralBadge';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import TradingViewWidget from '../../components/TradingViewWidget';
+import TradingPanel from '../../components/TradingPanel';
+import OpenPositions from '../../components/OpenPositions';
+import TradeHistory from './components/TradeHistory';
 import { 
   BookOpen, 
   TrendingUp, 
@@ -75,6 +80,7 @@ export default function Dashboard() {
   const [sessionsViewMode, setSessionsViewMode] = useState<'grid' | 'list'>('grid');
   const [tradingViewSymbol, setTradingViewSymbol] = useState<string>('FX:EURUSD');
   const [tradingViewInterval, setTradingViewInterval] = useState<'1' | '5' | '15' | '60' | '240' | 'D'>('60');
+  const [tradesRefreshTrigger, setTradesRefreshTrigger] = useState(0);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -84,6 +90,15 @@ export default function Dashboard() {
   const { t } = useLanguage();
   const { isMaintenanceMode, maintenanceMessage } = useMaintenanceMode();
   const { showToast } = useToast();
+  
+  // Check package subscription - MUST be called before any conditional returns
+  const { hasPackage, isPending, isLoading: packageLoading } = usePackageSubscription();
+  
+  // All state hooks must be declared before any conditional returns
+  const [myCertificates, setMyCertificates] = useState([]);
+  const [certificatesLoading, setCertificatesLoading] = useState(false);
+  const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
+  const [showCertificateModal, setShowCertificateModal] = useState(false);
   
   // Safety check for t function
   const safeT = (key: string) => {
@@ -168,23 +183,6 @@ export default function Dashboard() {
       navRef.current.scrollBy({ left: 200, behavior: 'smooth' });
     }
   };
-
-  // Prevent hydration mismatch by showing loading state
-  if (settingsLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-  
-  const [myCertificates, setMyCertificates] = useState([]);
-  const [certificatesLoading, setCertificatesLoading] = useState(false);
-  const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
-  const [showCertificateModal, setShowCertificateModal] = useState(false);
 
   // Fetch certificates when certificates tab is active
   useEffect(() => {
@@ -363,6 +361,50 @@ export default function Dashboard() {
     
     console.log('Dashboard: Authentication check passed');
   }, [mounted]);
+
+  // Empty useEffect for data management (DashboardContext handles it)
+  useEffect(() => {
+    // Data is now managed by DashboardContext
+  }, []);
+
+  // Listen for language changes
+  useEffect(() => {
+    if (!mounted) return; // Don't run until mounted
+    
+    const handleLanguageChange = () => {
+      // Force re-render when language changes
+      window.location.reload();
+    };
+
+    // Listen for custom language change event
+    window.addEventListener('languagechange', handleLanguageChange);
+
+    return () => {
+      window.removeEventListener('languagechange', handleLanguageChange);
+    };
+  }, [mounted]);
+
+  // Prevent hydration mismatch by showing loading state - AFTER all hooks
+  if (settingsLoading) {
+    return (
+      <CoolLoader 
+        message="Loading settings..."
+        size="lg"
+        variant="student"
+      />
+    );
+  }
+
+  // Show loading while checking package subscription - AFTER all hooks
+  if (packageLoading || !hasPackage) {
+    return (
+      <CoolLoader 
+        message={packageLoading ? 'Checking subscription...' : 'Redirecting to package selection...'}
+        size="lg"
+        variant="student"
+      />
+    );
+  }
 
   const refreshNotifications = () => {
     // Refresh data from context
@@ -705,26 +747,6 @@ export default function Dashboard() {
     }
   };
 
-  useEffect(() => {
-    // Data is now managed by DashboardContext
-  }, []);
-
-  // Listen for language changes
-  useEffect(() => {
-    if (!mounted) return; // Don't run until mounted
-    
-    const handleLanguageChange = () => {
-      // Force re-render when language changes
-      window.location.reload();
-    };
-    
-    window.addEventListener('languageChanged', handleLanguageChange);
-    
-    return () => {
-      window.removeEventListener('languageChanged', handleLanguageChange);
-    };
-  }, [mounted]);
-
   // Show maintenance page if maintenance mode is enabled
   if (isMaintenanceMode) {
     return (
@@ -829,6 +851,9 @@ export default function Dashboard() {
               <div className="flex items-center space-x-2">
                 {/* Dark Mode Toggle */}
                 <DarkModeToggle size="sm" />
+                
+                {/* Referral Badge - Only for students */}
+                {user?.role === 'student' && <ReferralBadge />}
                 
                 {/* Refresh Button */}
                 <button 
@@ -1623,51 +1648,78 @@ export default function Dashboard() {
             animate={{ opacity: 1 }} 
             className="space-y-6"
           >
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">TradingView</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                    Symbol: <span className="font-medium">{tradingViewSymbol}</span>
-                  </p>
+            <div className="space-y-6">
+              {/* Chart and Trading Panel */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                {/* TradingView Chart */}
+                <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                    <div>
+                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Chart</h3>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                        <span className="font-medium">{tradingViewSymbol}</span>
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={tradingViewSymbol}
+                        onChange={(e) => setTradingViewSymbol(e.target.value)}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      >
+                        {['FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:USDCAD', 'FX:USDCHF', 'FX:NZDUSD', 'OANDA:XAUUSD', 'BINANCE:BTCUSDT'].map((sym) => (
+                          <option key={sym} value={sym}>
+                            {sym}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        value={tradingViewInterval}
+                        onChange={(e) => setTradingViewInterval(e.target.value as any)}
+                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      >
+                        <option value="1">1m</option>
+                        <option value="5">5m</option>
+                        <option value="15">15m</option>
+                        <option value="60">1h</option>
+                        <option value="240">4h</option>
+                        <option value="D">1D</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <TradingViewWidget
+                    symbol={tradingViewSymbol}
+                    interval={tradingViewInterval}
+                    theme="dark"
+                    locale="en"
+                    height={600}
+                    hideSideToolbar={false}
+                  />
                 </div>
-                <div className="flex items-center gap-2 ">
-                  <select
-                    value={tradingViewSymbol}
-                    onChange={(e) => setTradingViewSymbol(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                  >
-                    {['FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:USDCAD', 'FX:USDCHF', 'FX:NZDUSD', 'OANDA:XAUUSD', 'BINANCE:BTCUSDT'].map((sym) => (
-                      <option key={sym} value={sym}>
-                        {sym}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={tradingViewInterval}
-                    onChange={(e) => setTradingViewInterval(e.target.value as any)}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                  >
-                    <option value="1">1m</option>
-                    <option value="5">5m</option>
-                    <option value="15">15m</option>
-                    <option value="60">1h</option>
-                    <option value="240">4h</option>
-                    <option value="D">1D</option>
-                  </select>
+
+                {/* Trading Panel */}
+                <div className="lg:col-span-1">
+                  <TradingPanel 
+                    symbol={tradingViewSymbol}
+                    currentPrice={1.0850} // You can fetch real-time prices here
+                    onTradeExecuted={() => setTradesRefreshTrigger(prev => prev + 1)}
+                  />
                 </div>
               </div>
 
-              <TradingViewWidget
-                symbol={tradingViewSymbol}
-                interval={tradingViewInterval}
-                theme="dark"
-                locale="en"
-                height={ 600}
-                // Fill remaining viewport height inside the dashboard layout
-                  
-                hideSideToolbar={false}
+              {/* Open Positions */}
+              <OpenPositions 
+                refreshTrigger={tradesRefreshTrigger}
+                currentPrices={{
+                  'EURUSD': 1.0850,
+                  'GBPUSD': 1.2650,
+                  'USDJPY': 149.50,
+                  // Add more prices as needed
+                }}
               />
+
+              {/* Trade History */}
+              <TradeHistory />
             </div>
           </motion.div>
         )}

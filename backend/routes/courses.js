@@ -2,7 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Course = require('../models/Course');
 const User = require('../models/User');
-const { authenticateToken, requireTeacher, requireOwnership, requireEnrollment } = require('../middleware/auth');
+const { authenticateToken, requireTeacher, requireOwnership, requireEnrollment, requireVerifiedPayment } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -43,8 +43,8 @@ router.get('/', async (req, res) => {
 
 // @route   GET /api/courses/enrolled
 // @desc    Get enrolled courses for a student
-// @access  Private
-router.get('/enrolled', authenticateToken, async (req, res) => {
+// @access  Private (Requires verified payment)
+router.get('/enrolled', authenticateToken, requireVerifiedPayment, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -254,7 +254,10 @@ router.delete('/:id', authenticateToken, requireOwnership('Course'), async (req,
 // @route   POST /api/courses/:id/enroll
 // @desc    Enroll in course
 // @access  Private
-router.post('/:id/enroll', authenticateToken, async (req, res) => {
+// @route   POST /api/courses/:id/enroll
+// @desc    Enroll in a course
+// @access  Private (Requires verified payment)
+router.post('/:id/enroll', authenticateToken, requireVerifiedPayment, async (req, res) => {
   try {
     const course = await Course.findById(req.params.id);
     if (!course) {

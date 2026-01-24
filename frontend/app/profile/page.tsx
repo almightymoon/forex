@@ -21,7 +21,8 @@ import {
   Share2,
   Wallet,
   ArrowUpRight,
-  AlertCircle
+  AlertCircle,
+  Fingerprint
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 import { useRouter } from 'next/navigation';
@@ -32,10 +33,12 @@ import { useDashboard } from '../../context/DashboardContext';
 import { getDashboardRoute, getUserRole } from '../../utils/dashboardUtils';
 import UserProfileDropdown from '@/app/components/UserProfileDropdown';
 import DarkModeToggle from '../../components/DarkModeToggle';
+import ReferralBadge from '../components/ReferralBadge';
 import CoolLoader from '../../components/CoolLoader';
 
 interface UserProfile {
   _id: string;
+  userId?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -387,6 +390,10 @@ export default function ProfilePage() {
             <div className="flex items-center space-x-4">
               {/* Dark Mode Toggle */}
               <DarkModeToggle size="sm" />
+              
+              {/* Referral Badge - Only for students */}
+              {user?.role === 'student' && <ReferralBadge />}
+              
               {/* User Profile Dropdown */}
               <UserProfileDropdown user={user} />
             </div>
@@ -659,6 +666,32 @@ export default function ProfilePage() {
                     <span className="text-gray-900 dark:text-white">{user.email}</span>
                   </div>
                 </div>
+
+                {user.userId && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      User ID
+                    </label>
+                    <div className="px-3 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-700 flex items-center justify-between">
+                      <div className="flex items-center">
+                        <Fingerprint className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
+                        <span className="text-gray-900 dark:text-white font-mono font-semibold">{user.userId}</span>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          if (user.userId) {
+                            await navigator.clipboard.writeText(user.userId);
+                            showToast('User ID copied to clipboard!', 'success');
+                          }
+                        }}
+                        className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-800 rounded transition-colors"
+                        title="Copy User ID"
+                      >
+                        <Copy className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">

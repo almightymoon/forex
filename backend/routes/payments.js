@@ -38,6 +38,133 @@ router.get('/user', authenticateToken, async (req, res) => {
   }
 });
 
+// @route   POST /api/payments/create
+// @desc    Create a new payment for package purchase
+// @access  Private
+router.post('/create', [
+  authenticateToken,
+  body('packageName').notEmpty().withMessage('Package name is required'),
+  body('packagePrice').isNumeric().withMessage('Package price is required'),
+  body('paymentMethod').notEmpty().withMessage('Payment method is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { packageName, packagePrice, promoCode, discount = 0, paymentMethod } = req.body;
+    const User = require('../models/User');
+    const PromoCode = require('../models/PromoCode');
+    const notificationService = require('../services/notificationService');
+
+    // Check if user already has a pending payment for this package
+    const existingPayment = await Payment.findOne({
+      user: req.user._id,
+      status: 'pending',
+      'package.name': packageName
+    });
+
+    if (existingPayment) {
+      return res.status(400).json({ 
+        error: 'You already have a pending payment for this package',
+        payment: existingPayment
+      });
+    }
+
+    // Validate promo code if provided
+    let promoCodeData = null;
+    if (promoCode) {
+      try {
+        promoCodeData = await PromoCode.findOne({ 
+          code: promoCode.toUpperCase(),
+          isActive: true 
+        });
+
+        if (!promoCodeData) {
+          return res.status(400).json({ error: 'Invalid promo code' });
+        }
+
+        // Check if promo code is valid for this order
+        if (promoCodeData.minOrderAmount && packagePrice < promoCodeData.minOrderAmount) {
+          return res.status(400).json({ 
+            error: `Minimum order amount for this promo code is $${promoCodeData.minOrderAmount}` 
+          });
+        }
+      } catch (promoError) {
+        console.error('Error validating promo code:', promoError);
+      }
+    }
+
+    const finalAmount = packagePrice - discount;
+    if (finalAmount <= 0) {
+      return res.status(400).json({ error: 'Invalid amount after discount' });
+    }
+
+    // Create payment record
+    const payment = new Payment({
+      user: req.user._id,
+      amount: packagePrice,
+      currency: 'USD',
+      paymentMethod: paymentMethod || 'binance_wallet',
+      status: 'pending',
+      type: 'package',
+      package: {
+        name: packageName,
+        price: packagePrice
+      },
+      description: `Package purchase: ${packageName}`,
+      discountAmount: discount,
+      finalAmount: finalAmount,
+      promoCode: promoCodeData ? promoCodeData._id : undefined,
+      binanceWallet: {
+        walletAddress: 'TApaMK8BcN67GDRqVs45qnzbb4oQGt2Pna',
+        network: 'TRC20'
+      }
+    });
+
+    await payment.save();
+
+    // Send notification to admins
+    try {
+      const admins = await User.find({ role: 'admin' });
+      for (const admin of admins) {
+        await notificationService.sendNotificationToUser(admin._id, 'admin', {
+          type: 'payment_pending',
+          paymentId: payment._id,
+          userId: req.user._id,
+          userName: `${req.user.firstName} ${req.user.lastName}`,
+          packageName: packageName,
+          amount: finalAmount
+        });
+      }
+    } catch (notificationError) {
+      console.error('Error sending admin notification:', notificationError);
+    }
+
+    res.status(201).json({
+      message: 'Payment created successfully. Please complete the payment.',
+      payment: {
+        _id: payment._id,
+        amount: payment.amount,
+        finalAmount: payment.finalAmount,
+        currency: payment.currency,
+        status: payment.status,
+        package: payment.package,
+        binanceWallet: payment.binanceWallet,
+        createdAt: payment.createdAt
+      }
+    });
+
+  } catch (error) {
+    console.error('Create payment error:', error);
+    res.status(500).json({ 
+      error: 'Failed to create payment',
+      message: error.message 
+    });
+  }
+});
+
 // @route   GET /api/payments/:id
 // @desc    Get payment by ID
 // @access  Private
@@ -55,10 +182,87 @@ router.get('/:id', authenticateToken, async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
     
-    res.json(payment);
+    res.json({ payment });
   } catch (error) {
     console.error('Get payment error:', error);
     res.status(500).json({ error: 'Failed to fetch payment' });
+  }
+});
+
+// @route   PUT /api/payments/:id/transaction
+// @desc    Update payment with transaction ID (for Binance wallet payments)
+// @access  Private
+router.put('/:id/transaction', [
+  authenticateToken,
+  body('transactionId').notEmpty().trim().withMessage('Transaction ID is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { transactionId } = req.body;
+    const payment = await Payment.findById(req.params.id);
+
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    // Check if user owns the payment
+    if (payment.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Check if payment is already completed
+    if (payment.status === 'completed') {
+      return res.status(400).json({ error: 'Payment is already completed' });
+    }
+
+    // Update transaction ID and store in binanceWallet as well
+    payment.transactionId = transactionId;
+    if (payment.paymentMethod === 'binance_wallet') {
+      payment.binanceWallet = payment.binanceWallet || {};
+      payment.binanceWallet.transactionHash = transactionId;
+    }
+    
+    await payment.save();
+
+    // Notify admins about the new transaction ID
+    try {
+      const User = require('../models/User');
+      const notificationService = require('../services/notificationService');
+      const admins = await User.find({ role: 'admin' });
+      for (const admin of admins) {
+        await notificationService.sendNotificationToUser(admin._id, 'admin', {
+          type: 'transaction_submitted',
+          paymentId: payment._id,
+          transactionId: transactionId,
+          userId: req.user._id,
+          userName: `${req.user.firstName} ${req.user.lastName}`,
+          amount: payment.finalAmount
+        });
+      }
+    } catch (notificationError) {
+      console.error('Error sending admin notification:', notificationError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Transaction ID submitted successfully. Waiting for admin confirmation.',
+      payment: {
+        _id: payment._id,
+        status: payment.status,
+        transactionId: payment.transactionId
+      }
+    });
+
+  } catch (error) {
+    console.error('Update transaction ID error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message || 'Failed to update transaction ID' 
+    });
   }
 });
 
@@ -359,33 +563,110 @@ router.post('/admin/confirm', [
     }
     await payment.save();
 
-    // Update user verification and balance if package purchase
+    // Update user verification
     const user = await User.findById(payment.user._id);
     if (user) {
       user.isVerified = true;
-      
-      // If it's a package purchase, add to user's balance (earnings/commissions)
-      if (payment.type === 'package' && payment.package) {
-        // Package purchase adds potential earnings to balance
-        // You can adjust this logic based on your business model
-        // For now, we'll just verify the user
-      }
-      
       await user.save();
     }
 
-    // Send notification to user
+    // Automatically enroll user in all published courses when payment is confirmed
+    if (payment.type === 'package' && user) {
+      try {
+        const Course = require('../models/Course');
+        
+        // Find all published courses
+        const publishedCourses = await Course.find({
+          $or: [
+            { isPublished: true },
+            { status: 'published' }
+          ]
+        });
+
+        console.log(`[Payment Confirm] Auto-enrolling user ${user.email} in ${publishedCourses.length} published courses`);
+
+        // Enroll user in each published course
+        for (const course of publishedCourses) {
+          try {
+            // Check if user is already enrolled
+            const isEnrolled = course.enrolledStudents.some(
+              enrollment => enrollment.student.toString() === user._id.toString()
+            );
+
+            if (!isEnrolled) {
+              // Enroll user in course
+              course.enrollStudent(user._id);
+              await course.save({ validateBeforeSave: false });
+
+              // Also update user's enrolled courses array
+              const isUserEnrolled = user.enrolledCourses.some(
+                enrollment => enrollment.courseId.toString() === course._id.toString()
+              );
+
+              if (!isUserEnrolled) {
+                user.enrolledCourses.push({
+                  courseId: course._id,
+                  enrolledAt: new Date(),
+                  progress: 0,
+                  completedLessons: 0,
+                  totalLessons: course.content ? course.content.length : (course.videos ? course.videos.length : 0),
+                  lastAccessed: new Date()
+                });
+              }
+            }
+          } catch (enrollError) {
+            console.error(`[Payment Confirm] Error enrolling user in course ${course.title}:`, enrollError);
+            // Continue with other courses even if one fails
+          }
+        }
+
+        // Save user with updated enrolled courses
+        await user.save();
+        console.log(`[Payment Confirm] Successfully enrolled user ${user.email} in courses`);
+      } catch (enrollError) {
+        console.error('[Payment Confirm] Error during auto-enrollment:', enrollError);
+        // Don't fail payment confirmation if enrollment fails
+      }
+    }
+
+    // Distribute referral commissions if it's a package purchase
+    let commissionsDistributed = [];
+    if (payment.type === 'package') {
+      try {
+        const ReferralCommissionService = require('../services/referralCommissionService');
+        const commissionService = new ReferralCommissionService();
+        commissionsDistributed = await commissionService.distributeCommissions(payment);
+        console.log(`[Payment Confirm] Distributed ${commissionsDistributed.length} commissions`);
+      } catch (commissionError) {
+        console.error('[Payment Confirm] Error distributing commissions:', commissionError);
+        // Don't fail the payment confirmation if commission distribution fails
+      }
+    }
+
+    // Send notification and email to user
     const notificationService = require('../services/notificationService');
-    await notificationService.sendNotificationToUser(payment.user._id, 'payment', {
-      title: 'Payment Confirmed',
-      message: `Your payment of $${payment.finalAmount} has been confirmed by admin`,
-      paymentId: payment._id
-    });
+    try {
+      // Send in-app notification and email (sendNotificationToUser handles both)
+      await notificationService.sendNotificationToUser(payment.user._id, 'payment', {
+        title: 'Payment Confirmed - Account Activated!',
+        message: `Your payment of $${payment.finalAmount} for ${payment.package?.name || 'package'} has been confirmed by admin. Your account is now activated and you have full access to the application. Please check your email for details.`,
+        paymentId: payment._id,
+        amount: payment.finalAmount,
+        currency: payment.currency || 'USD',
+        packageName: payment.package?.name || 'Package',
+        transactionId: payment.transactionId || 'N/A'
+      });
+    } catch (emailError) {
+      console.error('Error sending payment confirmation notification:', emailError);
+      // Don't fail the request if notification fails
+    }
 
     res.json({
       success: true,
       message: 'Payment confirmed successfully',
-      payment
+      payment,
+      commissionsDistributed: commissionsDistributed.length,
+      commissionDetails: commissionsDistributed
     });
 
   } catch (error) {

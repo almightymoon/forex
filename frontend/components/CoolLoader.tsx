@@ -62,8 +62,8 @@ export default function CoolLoader({
   const colors = getVariantColors();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
-      <div className="text-center">
+    <div className="fixed inset-0 w-full h-full overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center z-50">
+      <div className="text-center px-4 py-8 max-w-md mx-auto">
         <div className="relative mx-auto mb-6">
           {/* Main loader container */}
           <div className={`${sizeClasses[size]} mx-auto relative`}>
@@ -222,7 +222,7 @@ export default function CoolLoader({
         </div>
         
         {/* Background animated elements */}
-        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none -z-10">
           <motion.div
             className={`absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br ${colors.secondary} rounded-full blur-3xl opacity-20`}
             animate={{

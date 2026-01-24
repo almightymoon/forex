@@ -1,0 +1,923 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { motion } from 'framer-motion';
+import { 
+  X, User as UserIcon, Mail, Phone, MapPin, Calendar, 
+  DollarSign, CreditCard, Users, Package, TrendingUp, 
+  Wallet, ArrowUpRight, CheckCircle, Clock, AlertCircle,
+  Shield, Activity, Loader2, Plus, Minus, Gift, History
+} from 'lucide-react';
+import { User } from './types';
+import { buildApiUrl } from '../../../utils/api';
+import { showToast } from '../../../utils/toast';
+
+interface UserDetailsModalProps {
+  user: User;
+  onClose: () => void;
+}
+
+interface UserDetails {
+  payments: any[];
+  withdrawals: any[];
+  referrals: any[];
+  transactions: any[];
+  referralTree: {
+    tree: any[];
+    stats: {
+      totalReferrals: number;
+      totalDescendants: number;
+      activeReferrals: number;
+      verifiedReferrals: number;
+    };
+    rootUser: {
+      _id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      referralCode: string;
+    };
+  } | null;
+  package: {
+    name: string;
+    price: number;
+    expiresAt?: string;
+  } | null;
+  totalEarnings: number;
+  pendingCommissions: number;
+  completedReferrals: number;
+}
+
+export default function UserDetailsModal({ user, onClose }: UserDetailsModalProps) {
+  const [loading, setLoading] = useState(true);
+  const [details, setDetails] = useState<UserDetails | null>(null);
+  const [currentUser, setCurrentUser] = useState(user);
+  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'withdrawals' | 'referrals' | 'transactions'>('overview');
+  const [showBalanceModal, setShowBalanceModal] = useState(false);
+  const [balanceAction, setBalanceAction] = useState<'credit' | 'debit' | 'bonus'>('credit');
+  const [balanceForm, setBalanceForm] = useState({ amount: '', description: '', notes: '' });
+  const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    fetchUserDetails();
+  }, [user._id]);
+
+  const fetchUserDetails = async () => {
+    setLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      
+      console.log('[UserDetails] Fetching details for user:', user._id);
+      
+      // Fetch user details from multiple endpoints
+      const [paymentsRes, withdrawalsRes, referralsRes, transactionsRes, treeRes] = await Promise.all([
+        fetch(buildApiUrl(`api/admin/users/${user._id}/payments`), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(buildApiUrl(`api/admin/users/${user._id}/withdrawals`), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(buildApiUrl(`api/admin/users/${user._id}/referrals`), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(buildApiUrl(`api/admin/users/${user._id}/transactions`), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(buildApiUrl(`api/admin/users/${user._id}/referral-tree`), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+      ]);
+
+      console.log('[UserDetails] Responses:', {
+        payments: paymentsRes.status,
+        withdrawals: withdrawalsRes.status,
+        referrals: referralsRes.status,
+        transactions: transactionsRes.status,
+        tree: treeRes.status
+      });
+
+      const payments = paymentsRes.ok ? await paymentsRes.json() : [];
+      const withdrawals = withdrawalsRes.ok ? await withdrawalsRes.json() : [];
+      const referrals = referralsRes.ok ? await referralsRes.json() : [];
+      const transactions = transactionsRes.ok ? await transactionsRes.json() : [];
+      let referralTree = null;
+      if (treeRes.ok) {
+        try {
+          referralTree = await treeRes.json();
+          console.log('[UserDetails] Referral tree data:', referralTree);
+        } catch (parseError) {
+          console.error('[UserDetails] Failed to parse referral tree:', parseError);
+        }
+      } else {
+        console.error('[UserDetails] Failed to fetch referral tree:', treeRes.status, await treeRes.text().catch(() => ''));
+      }
+
+      console.log('[UserDetails] Fetched data:', {
+        paymentsCount: payments.length,
+        withdrawalsCount: withdrawals.length,
+        referralsCount: referrals.length,
+        transactionsCount: transactions.length,
+        referralTree: referralTree ? {
+          hasTree: !!referralTree.tree,
+          treeLength: referralTree.tree?.length || 0,
+          hasStats: !!referralTree.stats,
+          hasRootUser: !!referralTree.rootUser
+        } : null
+      });
+
+      // Calculate totals
+      const completedPayments = Array.isArray(payments) ? payments.filter((p: any) => p.status === 'completed') : [];
+      const packagePayment = completedPayments.find((p: any) => p.type === 'package');
+      
+      const totalEarnings = completedPayments.reduce((sum: number, p: any) => sum + (p.finalAmount || p.amount || 0), 0);
+      const completedWithdrawals = Array.isArray(withdrawals) ? withdrawals.filter((w: any) => w.status === 'completed') : [];
+
+      setDetails({
+        payments: Array.isArray(payments) ? payments : [],
+        withdrawals: Array.isArray(withdrawals) ? withdrawals : [],
+        referrals: Array.isArray(referrals) ? referrals : [],
+        transactions: Array.isArray(transactions) ? transactions : [],
+        referralTree: referralTree || null,
+        package: packagePayment ? {
+          name: packagePayment.package?.name || 'Unknown',
+          price: packagePayment.package?.price || 0,
+          expiresAt: packagePayment.expiresAt
+        } : null,
+        totalEarnings,
+        pendingCommissions: (user as any).balance || 0,
+        completedReferrals: Array.isArray(referrals) ? referrals.filter((r: any) => r.isActive).length : 0
+      });
+    } catch (error) {
+      console.error('Error fetching user details:', error);
+      // Set empty details on error
+      setDetails({
+        payments: [],
+        withdrawals: [],
+        referrals: [],
+        transactions: [],
+        referralTree: null,
+        package: null,
+        totalEarnings: 0,
+        pendingCommissions: (user as any).balance || 0,
+        completedReferrals: 0
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBalanceAction = async () => {
+    if (!balanceForm.amount || !balanceForm.description) {
+      showToast('Please fill in all required fields', 'error');
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(buildApiUrl(`api/admin/users/${user._id}/${balanceAction}`), {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(balanceForm)
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        showToast(`Balance ${balanceAction} successful!`, 'success');
+        setShowBalanceModal(false);
+        setBalanceForm({ amount: '', description: '', notes: '' });
+        
+        // Fetch fresh user data
+        const userResponse = await fetch(buildApiUrl(`api/admin/users/${user._id}`), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        
+        if (userResponse.ok) {
+          const freshUserData = await userResponse.json();
+          setCurrentUser(freshUserData);
+        }
+        
+        // Refresh all details including transactions
+        await fetchUserDetails();
+      } else {
+        showToast(data.error || `Failed to ${balanceAction} balance`, 'error');
+      }
+    } catch (error) {
+      console.error(`${balanceAction} balance error:`, error);
+      showToast(`Error ${balanceAction}ing balance`, 'error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const openBalanceModal = (action: 'credit' | 'debit' | 'bonus') => {
+    setBalanceAction(action);
+    setBalanceForm({ amount: '', description: '', notes: '' });
+    setShowBalanceModal(true);
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getTransactionIcon = (type: string) => {
+    switch (type) {
+      case 'credit':
+      case 'bonus':
+      case 'referral_commission':
+      case 'payment':
+        return <Plus className="w-4 h-4 text-green-600 dark:text-green-400" />;
+      case 'debit':
+      case 'withdrawal':
+        return <Minus className="w-4 h-4 text-red-600 dark:text-red-400" />;
+      default:
+        return <Activity className="w-4 h-4 text-gray-600 dark:text-gray-400" />;
+    }
+  };
+
+  const ReferralTreeNode = ({ node, isLast = false }: { node: any; isLast?: boolean }) => {
+    const [isExpanded, setIsExpanded] = useState(true);
+    const hasChildren = node.children && node.children.length > 0;
+
+    return (
+      <div className="relative">
+        <div className={`flex items-start space-x-3 ${!isLast ? 'mb-4' : ''}`}>
+          {/* Connector Line */}
+          {node.level > 1 && (
+            <div className="absolute left-0 top-0 w-6 h-6 border-l-2 border-b-2 border-gray-300 dark:border-gray-600 rounded-bl-lg -ml-6" />
+          )}
+          
+          {/* Expand/Collapse Button */}
+          {hasChildren && (
+            <button
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex-shrink-0 w-6 h-6 bg-purple-100 dark:bg-purple-900/20 rounded-full flex items-center justify-center hover:bg-purple-200 dark:hover:bg-purple-800/30 transition-colors"
+            >
+              <motion.div
+                animate={{ rotate: isExpanded ? 90 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                <ArrowUpRight className="w-3 h-3 text-purple-600 dark:text-purple-400" />
+              </motion.div>
+            </button>
+          )}
+          
+          {/* User Card */}
+          <div className={`flex-1 bg-gray-50 dark:bg-gray-700/50 rounded-lg p-3 ${hasChildren && !isExpanded ? 'opacity-70' : ''}`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-blue-500 rounded-full flex items-center justify-center">
+                  <span className="text-white font-semibold text-sm">
+                    {node.firstName?.charAt(0) || 'U'}{node.lastName?.charAt(0) || ''}
+                  </span>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">
+                    {node.firstName} {node.lastName}
+                  </p>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">{node.email}</p>
+                  {hasChildren && (
+                    <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                      {node.childrenCount} direct • {node.totalDescendants} total
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col items-end space-y-1">
+                <div className="flex items-center space-x-2">
+                  <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(node.isActive ? 'active' : 'inactive')}`}>
+                    {node.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                  {node.isVerified && (
+                    <span title="Verified">
+                      <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    </span>
+                  )}
+                </div>
+                {node.balance > 0 && (
+                  <span className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                    ${node.balance.toFixed(2)}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Children */}
+        {hasChildren && isExpanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="ml-9 pl-6 border-l-2 border-gray-300 dark:border-gray-600"
+          >
+            {node.children.map((child: any, index: number) => (
+              <ReferralTreeNode 
+                key={child._id} 
+                node={child} 
+                isLast={index === node.children.length - 1}
+              />
+            ))}
+          </motion.div>
+        )}
+      </div>
+    );
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'completed':
+      case 'active':
+        return 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400';
+      case 'pending':
+      case 'processing':
+        return 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400';
+      case 'failed':
+      case 'rejected':
+      case 'cancelled':
+        return 'bg-red-100 text-red-800 dark:bg-red-900/20 dark:text-red-400';
+      default:
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-400';
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col"
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600">
+          <div className="flex items-center space-x-4">
+            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center">
+              {user.profileImage ? (
+                <img src={user.profileImage} alt="Profile" className="w-16 h-16 rounded-full object-cover" />
+              ) : (
+                <span className="text-2xl font-bold text-blue-600">{(user.firstName || user.email || 'U').charAt(0).toUpperCase()}</span>
+              )}
+            </div>
+            <div>
+              <h3 className="text-2xl font-bold text-white">
+                {user.firstName} {user.lastName}
+              </h3>
+              <p className="text-blue-100">{user.email}</p>
+            </div>
+          </div>
+          <button 
+            onClick={onClose}
+            className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
+          >
+            <X className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-6">
+          {loading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+              <span className="ml-3 text-gray-600 dark:text-gray-300">Loading user details...</span>
+            </div>
+          ) : details ? (
+            <>
+              {/* Balance Actions */}
+              <div className="flex gap-3 mb-6">
+                <button
+                  onClick={() => openBalanceModal('credit')}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 font-semibold"
+                >
+                  <Plus className="w-5 h-5" />
+                  Credit Balance
+                </button>
+                <button
+                  onClick={() => openBalanceModal('debit')}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 font-semibold"
+                >
+                  <Minus className="w-5 h-5" />
+                  Debit Balance
+                </button>
+                <button
+                  onClick={() => openBalanceModal('bonus')}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all duration-200 font-semibold"
+                >
+                  <Gift className="w-5 h-5" />
+                  Send Bonus
+                </button>
+              </div>
+
+              {/* Stats Overview */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <DollarSign className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">BALANCE</span>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    ${(() => {
+                      if (details.transactions && details.transactions.length > 0) {
+                        return details.transactions[0].balanceAfter.toFixed(2);
+                      }
+                      return ((currentUser as any).balance || 0).toFixed(2);
+                    })()}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Available USDT</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <Users className="w-8 h-8 text-purple-600 dark:text-purple-400" />
+                    <span className="text-xs font-medium text-purple-600 dark:text-purple-400">REFERRALS</span>
+                  </div>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{details.completedReferrals}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Active Referrals</p>
+                </div>
+
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <Package className="w-8 h-8 text-orange-600 dark:text-orange-400" />
+                    <span className="text-xs font-medium text-orange-600 dark:text-orange-400">PACKAGE</span>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">{details.package?.name || 'None'}</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    {details.package ? `$${details.package.price}` : 'No active package'}
+                  </p>
+                </div>
+              </div>
+
+              {/* User Info */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">User Information</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div className="flex items-center space-x-3">
+                    <Mail className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Email</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{user.email || 'N/A'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Phone className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Phone</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{user.phone || 'N/A'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <MapPin className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Country</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{user.country || 'N/A'}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Calendar className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Joined</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(user.createdAt)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Shield className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Role</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">{user.role}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center space-x-3">
+                    <Activity className="w-5 h-5 text-gray-400" />
+                    <div>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
+                      <p className="text-sm font-medium text-gray-900 dark:text-white">{user.isActive ? 'Active' : 'Inactive'}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tabs */}
+              <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
+                <div className="flex space-x-1 overflow-x-auto">
+                  {[
+                    { id: 'overview', label: 'Overview', icon: Activity },
+                    { id: 'transactions', label: 'Transactions', icon: History },
+                    { id: 'payments', label: 'Payments', icon: CreditCard },
+                    { id: 'withdrawals', label: 'Withdrawals', icon: ArrowUpRight },
+                    { id: 'referrals', label: 'Referrals', icon: Users }
+                  ].map((tab) => {
+                    const Icon = tab.icon;
+                    return (
+                      <button
+                        key={tab.id}
+                        onClick={() => setActiveTab(tab.id as any)}
+                        className={`flex items-center space-x-2 px-4 py-3 font-medium transition-colors border-b-2 ${
+                          activeTab === tab.id
+                            ? 'border-blue-600 text-blue-600 dark:text-blue-400'
+                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                        }`}
+                      >
+                        <Icon className="w-4 h-4" />
+                        <span>{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Tab Content */}
+              {activeTab === 'overview' && (
+                <div className="space-y-6">
+                  <div>
+                    <h5 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
+                      <Activity className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
+                      Recent Activity
+                    </h5>
+                    <div className="space-y-3">
+                      {details.transactions.slice(0, 8).map((transaction) => (
+                        <div key={transaction._id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
+                          <div className="flex items-center space-x-3">
+                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                              transaction.amount > 0 
+                                ? 'bg-green-100 dark:bg-green-900/20' 
+                                : 'bg-red-100 dark:bg-red-900/20'
+                            }`}>
+                              {getTransactionIcon(transaction.type)}
+                            </div>
+                            <div>
+                              <p className="font-medium text-gray-900 dark:text-white capitalize">
+                                {transaction.type.replace('_', ' ')}
+                              </p>
+                              <p className="text-sm text-gray-500 dark:text-gray-400">{transaction.description}</p>
+                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{formatDate(transaction.createdAt)}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className={`text-lg font-bold ${
+                              transaction.amount > 0 
+                                ? 'text-green-600 dark:text-green-400' 
+                                : 'text-red-600 dark:text-red-400'
+                            }`}>
+                              {transaction.amount > 0 ? '+' : ''} ${Math.abs(transaction.amount).toFixed(2)}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Balance: ${transaction.balanceAfter.toFixed(2)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      {details.transactions.length === 0 && (
+                        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                          No recent activity
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'payments' && (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Type</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Amount</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Method</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Status</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {details.payments.map((payment) => (
+                        <tr key={payment._id} className="border-b border-gray-100 dark:border-gray-700">
+                          <td className="py-3 px-4 text-sm text-gray-900 dark:text-white capitalize">{payment.type}</td>
+                          <td className="py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">${payment.amount}</td>
+                          <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400 capitalize">{payment.paymentMethod}</td>
+                          <td className="py-3 px-4">
+                            <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(payment.status)}`}>
+                              {payment.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{formatDate(payment.createdAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {details.payments.length === 0 && (
+                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                      No payments found
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'withdrawals' && (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Amount</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Network</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Status</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {details.withdrawals.map((withdrawal) => (
+                        <tr key={withdrawal._id} className="border-b border-gray-100 dark:border-gray-700">
+                          <td className="py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">${withdrawal.amount}</td>
+                          <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{withdrawal.network}</td>
+                          <td className="py-3 px-4">
+                            <span className={`text-xs px-2 py-1 rounded-full ${getStatusColor(withdrawal.status)}`}>
+                              {withdrawal.status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{formatDate(withdrawal.createdAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {details.withdrawals.length === 0 && (
+                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                      No withdrawals found
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'referrals' && (
+                <div className="space-y-6">
+                  {/* Referral Stats */}
+                  {details.referralTree && details.referralTree.stats && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                        <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-1">TOTAL NETWORK</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{details.referralTree.stats.totalDescendants}</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">DIRECT REFERRALS</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{details.referralTree.stats.totalReferrals}</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                        <p className="text-xs text-green-600 dark:text-green-400 font-medium mb-1">ACTIVE</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{details.referralTree.stats.activeReferrals}</p>
+                      </div>
+                      <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
+                        <p className="text-xs text-orange-600 dark:text-orange-400 font-medium mb-1">VERIFIED</p>
+                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{details.referralTree.stats.verifiedReferrals}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Referral Tree */}
+                  <div>
+                    <h5 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
+                      <Users className="w-5 h-5 mr-2 text-purple-600 dark:text-purple-400" />
+                      Referral Network Tree
+                    </h5>
+                    
+                    {details.referralTree && details.referralTree.tree && Array.isArray(details.referralTree.tree) ? (
+                      <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        {/* Root User */}
+                        {details.referralTree.rootUser && (
+                          <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                                <span className="text-white font-bold">
+                                  {user.firstName?.charAt(0) || 'U'}{user.lastName?.charAt(0) || ''}
+                                </span>
+                              </div>
+                              <div>
+                                <p className="font-semibold text-gray-900 dark:text-white">
+                                  {user.firstName} {user.lastName}
+                                </p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400">{user.email}</p>
+                                <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                                  Referral Code: {details.referralTree.rootUser.referralCode || (user as any).referralCode || 'N/A'}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Tree */}
+                        {details.referralTree.tree.length > 0 ? (
+                          <div className="space-y-2">
+                            {details.referralTree.tree.map((node: any, index: number) => (
+                              <ReferralTreeNode 
+                                key={node._id || index} 
+                                node={node} 
+                                isLast={index === details.referralTree.tree.length - 1}
+                              />
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                            <Users className="w-10 h-10 text-gray-400 mx-auto mb-2" />
+                            <p className="text-gray-500 dark:text-gray-400 text-sm">No referrals yet</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-12 bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                        <Users className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                        <p className="text-gray-500 dark:text-gray-400">Loading referral tree...</p>
+                        {!details.referralTree && (
+                          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Unable to load referral data</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'transactions' && (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700">
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Type</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Amount</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Balance</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Description</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">By</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Date</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {details.transactions.map((transaction) => (
+                        <tr key={transaction._id} className="border-b border-gray-100 dark:border-gray-700">
+                          <td className="py-3 px-4">
+                            <div className="flex items-center space-x-2">
+                              {getTransactionIcon(transaction.type)}
+                              <span className="text-sm capitalize text-gray-900 dark:text-white">{transaction.type.replace('_', ' ')}</span>
+                            </div>
+                          </td>
+                          <td className="py-3 px-4">
+                            <span className={`text-sm font-semibold ${
+                              transaction.amount > 0 
+                                ? 'text-green-600 dark:text-green-400' 
+                                : 'text-red-600 dark:text-red-400'
+                            }`}>
+                              {transaction.amount > 0 ? '+' : ''} ${Math.abs(transaction.amount).toFixed(2)}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+                            ${transaction.balanceAfter.toFixed(2)}
+                          </td>
+                          <td className="py-3 px-4">
+                            <p className="text-sm text-gray-900 dark:text-white">{transaction.description}</p>
+                            {transaction.notes && (
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">{transaction.notes}</p>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">
+                            {transaction.performedBy ? 
+                              `${transaction.performedBy.firstName || ''} ${transaction.performedBy.lastName || ''}`.trim() || 'Admin' 
+                              : 'System'}
+                          </td>
+                          <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{formatDate(transaction.createdAt)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {details.transactions.length === 0 && (
+                    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                      No transactions found
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : null}
+        </div>
+      </motion.div>
+
+      {/* Balance Action Modal */}
+      {showBalanceModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md"
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white capitalize">
+                {balanceAction === 'bonus' ? 'Send Bonus' : `${balanceAction} Balance`}
+              </h3>
+              <button 
+                onClick={() => setShowBalanceModal(false)}
+                disabled={isProcessing}
+                className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <p className="text-sm text-blue-900 dark:text-blue-200">
+                  <strong>Current Balance:</strong> ${(() => {
+                    // Use the most recent transaction balance if available
+                    if (details && details.transactions && details.transactions.length > 0) {
+                      return details.transactions[0].balanceAfter.toFixed(2);
+                    }
+                    return ((currentUser as any).balance || 0).toFixed(2);
+                  })()} USDT
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Amount (USDT) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={balanceForm.amount}
+                  onChange={(e) => setBalanceForm({ ...balanceForm, amount: e.target.value })}
+                  placeholder="Enter amount"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  disabled={isProcessing}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Description *
+                </label>
+                <input
+                  type="text"
+                  value={balanceForm.description}
+                  onChange={(e) => setBalanceForm({ ...balanceForm, description: e.target.value })}
+                  placeholder="Reason for this transaction"
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  disabled={isProcessing}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Notes (Optional)
+                </label>
+                <textarea
+                  value={balanceForm.notes}
+                  onChange={(e) => setBalanceForm({ ...balanceForm, notes: e.target.value })}
+                  placeholder="Additional notes"
+                  rows={3}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  disabled={isProcessing}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={() => setShowBalanceModal(false)}
+                  disabled={isProcessing}
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBalanceAction}
+                  disabled={isProcessing}
+                  className={`flex-1 px-4 py-2 text-white rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                    balanceAction === 'credit' ? 'bg-green-600 hover:bg-green-700' :
+                    balanceAction === 'debit' ? 'bg-red-600 hover:bg-red-700' :
+                    'bg-purple-600 hover:bg-purple-700'
+                  }`}
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      {balanceAction === 'credit' && <Plus className="w-4 h-4" />}
+                      {balanceAction === 'debit' && <Minus className="w-4 h-4" />}
+                      {balanceAction === 'bonus' && <Gift className="w-4 h-4" />}
+                      {balanceAction === 'bonus' ? 'Send Bonus' : `${balanceAction.charAt(0).toUpperCase() + balanceAction.slice(1)} Balance`}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+    </div>
+  );
+}

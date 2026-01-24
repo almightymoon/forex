@@ -4,37 +4,42 @@ const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> | { path: string[] } }
 ) {
-  return handleRequest(request, params, 'GET');
+  const resolvedParams = await Promise.resolve(params);
+  return handleRequest(request, resolvedParams, 'GET');
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> | { path: string[] } }
 ) {
-  return handleRequest(request, params, 'POST');
+  const resolvedParams = await Promise.resolve(params);
+  return handleRequest(request, resolvedParams, 'POST');
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> | { path: string[] } }
 ) {
-  return handleRequest(request, params, 'PUT');
+  const resolvedParams = await Promise.resolve(params);
+  return handleRequest(request, resolvedParams, 'PUT');
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> | { path: string[] } }
 ) {
-  return handleRequest(request, params, 'DELETE');
+  const resolvedParams = await Promise.resolve(params);
+  return handleRequest(request, resolvedParams, 'DELETE');
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> | { path: string[] } }
 ) {
-  return handleRequest(request, params, 'PATCH');
+  const resolvedParams = await Promise.resolve(params);
+  return handleRequest(request, resolvedParams, 'PATCH');
 }
 
 async function handleRequest(
@@ -44,6 +49,8 @@ async function handleRequest(
 ) {
   try {
     let path = params.path.join('/');
+    console.log(`[API Proxy] Received ${method} request for path:`, path);
+    console.log(`[API Proxy] Params:`, params);
     
     // Strip 'api/' prefix if it exists to prevent duplication
     if (path.startsWith('api/')) {
@@ -52,11 +59,13 @@ async function handleRequest(
     
     // Skip community routes - they have dedicated handlers
     if (path.startsWith('community/')) {
+      console.log(`[API Proxy] Community route skipped`);
       return NextResponse.json({ error: 'Route not found' }, { status: 404 });
     }
     
     // Skip certificate routes - they have dedicated handlers
     if (path.startsWith('certificates/')) {
+      console.log(`[API Proxy] Certificate route skipped`);
       return NextResponse.json({ error: 'Route not found' }, { status: 404 });
     }
     
@@ -66,7 +75,7 @@ async function handleRequest(
       ? `${BACKEND_URL}/${path}${url.search}`
       : `${BACKEND_URL}/api/${path}${url.search}`;
     
-    console.log(`Catch-all API proxy: ${method} ${path} -> ${backendUrl}`);
+    console.log(`[API Proxy] ${method} ${path} -> ${backendUrl}`);
 
     // Get the request body if it exists
     let body = null;
@@ -92,7 +101,7 @@ async function handleRequest(
       }
     });
     
-    // Ensure Content-Type is set for POST/PUT/PATCH requests with body
+    // Ensure Content-Type is set for POST/PUT/PATCH/DELETE requests with body
     if (body && !headers.has('Content-Type')) {
       headers.set('Content-Type', 'application/json');
     }

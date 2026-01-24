@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const TradingSignal = require('../models/TradingSignal');
-const { authenticateToken, requireTeacher, requireOwnership } = require('../middleware/auth');
+const { authenticateToken, requireTeacher, requireOwnership, requireVerifiedPayment } = require('../middleware/auth');
 
 const router = express.Router();
 

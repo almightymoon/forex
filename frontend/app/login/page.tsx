@@ -105,60 +105,85 @@ export default function LoginPage() {
           document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
           console.log('Token set successfully');
           
-          // Check for redirect parameter first
-          const redirectParam = searchParams.get('redirect');
-          if (redirectParam) {
-            // Verify user has access to the redirect URL
-            if (redirectParam.startsWith('/teacher') && (data.user.role === 'teacher' || data.user.role === 'admin')) {
-              router.push(redirectParam);
-              return;
-            } else if (redirectParam.startsWith('/admin') && data.user.role === 'admin') {
-              router.push(redirectParam);
-              return;
-            } else if (redirectParam.startsWith('/dashboard') && data.user.role === 'student') {
-              router.push(redirectParam);
-              return;
-            }
-          }
-          
-          // Route based on user role if no valid redirect
-          console.log('Login - User role:', data.user.role);
-          console.log('Login - User data:', data.user);
-          
-          // Determine redirect URL based on role
-          let redirectUrl = '/dashboard'; // default
-          if (data.user.role === 'teacher') {
-            redirectUrl = '/teacher';
-          } else if (data.user.role === 'admin') {
-            redirectUrl = '/admin';
-          }
-          
-          console.log(`Login - Redirecting to: ${redirectUrl}`);
-          console.log('Current location before redirect:', window.location.pathname);
-          
-          // Add a small delay to ensure token is properly set
-          setTimeout(() => {
-            console.log('Starting redirect after token setup delay...');
-            console.log('Token in localStorage:', localStorage.getItem('token') ? 'EXISTS' : 'MISSING');
-            console.log('Redirect URL:', redirectUrl);
-            
-            // Try multiple redirect methods
+          // For students, check package subscription status
+          if (data.user.role === 'student') {
             try {
-              // Method 1: Next.js router with force refresh
-              console.log('Attempting router.push...');
-              router.push(redirectUrl);
-              console.log('Router.push completed');
-              
-              // Method 2: Force redirect with window.location.href immediately
-              console.log('Using window.location.href as primary method');
-              window.location.href = redirectUrl;
-              
+              // Check if user has completed package payment
+              const paymentsResponse = await fetch(buildApiUrl('api/payments/user'), {
+                headers: {
+                  'Authorization': `Bearer ${data.token}`
+                }
+              });
+
+              if (paymentsResponse.ok) {
+                const payments = await paymentsResponse.json();
+                
+                // Check for completed package payment
+                const completedPayment = payments.find((p: any) => 
+                  p.type === 'package' && p.status === 'completed'
+                );
+
+                if (completedPayment) {
+                  // User has package, proceed to dashboard
+                  const redirectParam = searchParams.get('redirect');
+                  if (redirectParam && redirectParam.startsWith('/dashboard')) {
+                    router.push(redirectParam);
+                    return;
+                  }
+                  router.push('/dashboard');
+                  return;
+                }
+
+                // Check for pending payment
+                const pendingPayment = payments.find((p: any) => 
+                  p.type === 'package' && p.status === 'pending'
+                );
+
+                if (pendingPayment) {
+                  // Redirect to payment pending page
+                  router.push('/payment-pending');
+                  return;
+                }
+
+                // No package found - redirect to package selection
+                router.push('/select-package');
+                return;
+              }
             } catch (error) {
-              console.error('All redirect methods failed:', error);
-              // Last resort: direct window.location
-              window.location.href = redirectUrl;
+              console.error('Error checking package status:', error);
+              // On error, redirect to package selection to be safe
+              router.push('/select-package');
+              return;
             }
-          }, 100); // Small delay to ensure token is set
+          } else {
+            // Admin or teacher - route normally
+            // Check for redirect parameter first
+            const redirectParam = searchParams.get('redirect');
+            if (redirectParam) {
+              // Verify user has access to the redirect URL
+              if (redirectParam.startsWith('/teacher') && (data.user.role === 'teacher' || data.user.role === 'admin')) {
+                router.push(redirectParam);
+                return;
+              } else if (redirectParam.startsWith('/admin') && data.user.role === 'admin') {
+                router.push(redirectParam);
+                return;
+              }
+            }
+            
+            // Route based on user role if no valid redirect
+            console.log('Login - User role:', data.user.role);
+            
+            // Determine redirect URL based on role
+            let redirectUrl = '/dashboard'; // default
+            if (data.user.role === 'teacher') {
+              redirectUrl = '/teacher';
+            } else if (data.user.role === 'admin') {
+              redirectUrl = '/admin';
+            }
+            
+            console.log(`Login - Redirecting to: ${redirectUrl}`);
+            router.push(redirectUrl);
+          }
         }
       } else {
         setError(data.message || 'Login failed. Please try again.');

@@ -19,15 +19,19 @@ export default function AdminLayout({
 }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
 
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (!mounted) return;
+
     const checkAuthentication = async () => {
       try {
-        // Check if we're on the client side
-        if (typeof window === 'undefined') return;
-
         console.log('AdminLayout - Checking authentication...');
         const token = localStorage.getItem('token');
         const userData = localStorage.getItem('user');
@@ -80,10 +84,10 @@ export default function AdminLayout({
     };
 
     checkAuthentication();
-  }, [router]);
+  }, [router, mounted]);
 
-  // Show loading spinner while checking authentication
-  if (isLoading) {
+  // Prevent hydration mismatch by showing consistent loading state
+  if (!mounted || isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">

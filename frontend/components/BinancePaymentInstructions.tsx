@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Copy, Check, AlertCircle, ExternalLink } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface BinancePaymentInstructionsProps {
   packageName: string;
@@ -72,15 +73,17 @@ export default function BinancePaymentInstructions({
             </p>
           </div>
 
-          {/* QR Code Placeholder - You can generate a real QR code using a library */}
+          {/* QR Code */}
           <div className="flex justify-center mb-6">
             <div className="bg-white dark:bg-gray-700 p-4 rounded-xl border-2 border-gray-200 dark:border-gray-600">
-              <div className="w-64 h-64 bg-gray-100 dark:bg-gray-600 rounded-lg flex items-center justify-center">
-                <div className="text-center">
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">QR Code</p>
-                  <p className="text-xs text-gray-400 dark:text-gray-500">Generate with wallet address</p>
-                </div>
-              </div>
+              <QRCodeSVG
+                value={BINANCE_WALLET_ADDRESS}
+                size={256}
+                level="H"
+                includeMargin={true}
+                fgColor="#000000"
+                bgColor="#ffffff"
+              />
             </div>
           </div>
 

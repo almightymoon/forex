@@ -309,6 +309,140 @@ const requireSubscription = async (req, res, next) => {
   }
 };
 
+// Middleware to check if user has verified payment
+const requireVerifiedPayment = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        message: 'Please login to access this resource'
+      });
+    }
+
+    // Admin and teachers can access everything
+    if (req.user.role === 'admin' || req.user.role === 'teacher') {
+      return next();
+    }
+
+    // Check if user is verified
+    if (!req.user.isVerified) {
+      const Payment = require('../models/Payment');
+      
+      // Check if user has any pending payments
+      const pendingPayment = await Payment.findOne({
+        user: req.user._id,
+        status: 'pending',
+        type: 'package'
+      }).sort({ createdAt: -1 });
+
+      if (pendingPayment) {
+        return res.status(403).json({ 
+          error: 'Payment verification pending',
+          message: 'Your payment is pending admin verification. You will be notified once your account is activated.',
+          code: 'PAYMENT_PENDING',
+          redirectTo: '/payment',
+          paymentId: pendingPayment._id
+        });
+      }
+
+      // Check if user has completed payment but not verified yet
+      const completedPayment = await Payment.findOne({
+        user: req.user._id,
+        status: 'completed',
+        type: 'package'
+      }).sort({ createdAt: -1 });
+
+      if (!completedPayment) {
+        return res.status(403).json({ 
+          error: 'Payment required',
+          message: 'Please select a package and complete payment to access this resource.',
+          code: 'PAYMENT_REQUIRED',
+          redirectTo: '/select-package'
+        });
+      }
+
+      // Payment completed but user not verified - this shouldn't happen normally
+      return res.status(403).json({ 
+        error: 'Account verification pending',
+        message: 'Your payment has been received but your account is still being verified. Please contact support if this takes longer than expected.',
+        code: 'VERIFICATION_PENDING'
+      });
+    }
+
+    next();
+
+  } catch (error) {
+    console.error('Payment verification check error:', error);
+    return res.status(500).json({ 
+      error: 'Authorization error',
+      message: 'Internal server error during payment verification check'
+    });
+  }
+};
+
+// Middleware to check if user has an active package subscription
+// This is required for ALL users (except admin/teacher) to access the application
+const requirePackageSubscription = async (req, res, next) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        message: 'Please login to access this resource'
+      });
+    }
+
+    // Admin and teachers can access everything without package
+    if (req.user.role === 'admin' || req.user.role === 'teacher' || req.user.role === 'instructor') {
+      return next();
+    }
+
+    const Payment = require('../models/Payment');
+    
+    // Check if user has a completed package payment
+    const completedPackagePayment = await Payment.findOne({
+      user: req.user._id,
+      status: 'completed',
+      type: 'package'
+    }).sort({ createdAt: -1 });
+
+    if (completedPackagePayment) {
+      // User has completed payment, allow access
+      return next();
+    }
+
+    // Check if user has pending payment
+    const pendingPayment = await Payment.findOne({
+      user: req.user._id,
+      status: 'pending',
+      type: 'package'
+    }).sort({ createdAt: -1 });
+
+    if (pendingPayment) {
+      return res.status(403).json({ 
+        error: 'Payment verification pending',
+        message: 'Your payment is pending admin verification. Please check your email for updates once your account is activated.',
+        code: 'PAYMENT_PENDING',
+        redirectTo: '/payment-pending'
+      });
+    }
+
+    // No package payment found - redirect to package selection
+    return res.status(403).json({ 
+      error: 'Package subscription required',
+      message: 'You must subscribe to a package to access the application. Please select and purchase a package.',
+      code: 'PACKAGE_REQUIRED',
+      redirectTo: '/select-package'
+    });
+
+  } catch (error) {
+    console.error('Package subscription check error:', error);
+    return res.status(500).json({ 
+      error: 'Authorization error',
+      message: 'Internal server error during package subscription check'
+    });
+  }
+};
+
 // Add role validation middleware to prevent incorrect role assignments
 const validateUserRole = (req, res, next) => {
   // Only validate on user creation/update
@@ -336,5 +470,7 @@ module.exports = {
   requireEnrollment,
   requireSignalSubscription,
   requireSubscription,
+  requireVerifiedPayment,
+  requirePackageSubscription,
   validateUserRole
 };

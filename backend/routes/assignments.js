@@ -1,12 +1,12 @@
 const express = require('express');
 const router = express.Router();
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, requireVerifiedPayment } = require('../middleware/auth');
 const Assignment = require('../models/Assignment');
 const Course = require('../models/Course');
 const User = require('../models/User');
 
 // Get all assignments for a student
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', authenticateToken, requireVerifiedPayment, async (req, res) => {
   try {
     const userId = req.user.userId || req.user._id;
     console.log('=== FETCHING ASSIGNMENTS ===');

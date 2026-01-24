@@ -4,7 +4,70 @@ const ReferralCommission = require('../models/ReferralCommission');
 const Payment = require('../models/Payment');
 const notificationService = require('./notificationService');
 
+/** Ranks based on total referrals (all levels). Verified = has purchased a package. */
+const REFERRAL_RANKS = [
+  { minReferrals: 0, name: 'Starter', icon: '🌱', color: '#94a3b8', description: 'Just getting started' },
+  { minReferrals: 5, name: 'Bronze', icon: '🥉', color: '#cd7f32', description: '5+ referrals' },
+  { minReferrals: 10, name: 'Silver', icon: '🥈', color: '#c0c0c0', description: '10+ referrals' },
+  { minReferrals: 25, name: 'Gold', icon: '🥇', color: '#ffd700', description: '25+ referrals' },
+  { minReferrals: 50, name: 'Platinum', icon: '💎', color: '#e5e4e2', description: '50+ referrals' },
+  { minReferrals: 100, name: 'Diamond', icon: '👑', color: '#b9f2ff', description: '100+ referrals' }
+];
+
 class ReferralService {
+  /**
+   * Get Set of user IDs who have at least one completed package payment (verified referrals).
+   * @returns {Promise<Set<string>>}
+   */
+  async getVerifiedReferralUserIds() {
+    const ids = await Payment.distinct('user', {
+      type: 'package',
+      status: 'completed'
+    });
+    return new Set(ids.map((id) => id.toString()));
+  }
+
+  /**
+   * Get rank info for a given total referral count.
+   * @param {number} totalReferrals
+   * @returns {{ current: object, next: object | null, progressToNext: number }}
+   */
+  getReferralRank(totalReferrals) {
+    const n = Math.max(0, totalReferrals);
+    let current = REFERRAL_RANKS[0];
+    let next = null;
+    for (let i = REFERRAL_RANKS.length - 1; i >= 0; i--) {
+      if (n >= REFERRAL_RANKS[i].minReferrals) {
+        current = REFERRAL_RANKS[i];
+        next = REFERRAL_RANKS[i + 1] || null;
+        break;
+      }
+    }
+    let progressToNext = 1;
+    if (next) {
+      const range = next.minReferrals - current.minReferrals;
+      const progress = n - current.minReferrals;
+      progressToNext = range > 0 ? Math.min(1, Math.max(0, progress / range)) : 1;
+    }
+    return { current, next, progressToNext };
+  }
+
+  /**
+   * Flatten tree into array of nodes (each with level, user, verified, etc.).
+   * @param {Array} nodes
+   * @returns {Array}
+   */
+  flattenTree(nodes) {
+    if (!nodes || !Array.isArray(nodes)) return [];
+    const out = [];
+    for (const node of nodes) {
+      out.push(node);
+      if (node.children && node.children.length) {
+        out.push(...this.flattenTree(node.children));
+      }
+    }
+    return out;
+  }
   /**
    * Generate unique referral code for a user
    * @param {Object} user - User object
@@ -124,12 +187,16 @@ class ReferralService {
       referrer.referralStats = {
         totalReferrals: 0,
         totalEarnings: 0,
+        verifiedReferrals: 0,
         level1Count: 0,
         level2Count: 0,
         level3Count: 0,
         level4Count: 0,
         level5Count: 0
       };
+    }
+    if (typeof referrer.referralStats.verifiedReferrals !== 'number') {
+      referrer.referralStats.verifiedReferrals = 0;
     }
 
     referrer.referralStats.totalReferrals += 1;
@@ -233,61 +300,120 @@ class ReferralService {
       throw new Error('User not found');
     }
 
-    // Get direct referrals (Level 1)
-    const directReferrals = await Referral.find({ 
-      referrer: userId, 
-      level: 1 
-    }).populate('user', 'firstName lastName email referralCode createdAt');
+    const verifiedSet = await this.getVerifiedReferralUserIds();
 
-    // Build tree recursively
-    const buildTree = async (referrals, currentLevel = 1) => {
-      if (currentLevel > 5 || referrals.length === 0) {
-        return [];
+    async function buildReferralTree(userCode, level = 0, maxLevel = 5) {
+      if (level >= maxLevel || !userCode) return [];
+      const normalizedCode = String(userCode).toUpperCase().trim();
+
+      const allUsersWithParent = await User.find({}).select('firstName lastName parentReferralCode referralCode').lean();
+      const matchingUsers = allUsersWithParent.filter(u =>
+        u.parentReferralCode && String(u.parentReferralCode).toUpperCase().trim() === normalizedCode
+      );
+
+      let directReferrals = await User.find({ parentReferralCode: normalizedCode })
+        .select('firstName lastName email referralCode isActive isVerified balance createdAt parentReferralCode')
+        .sort({ createdAt: -1 })
+        .lean();
+
+      if (directReferrals.length === 0 && matchingUsers.length > 0) {
+        const regexCode = new RegExp(`^${normalizedCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
+        directReferrals = await User.find({ parentReferralCode: { $regex: regexCode } })
+          .select('firstName lastName email referralCode isActive isVerified balance createdAt parentReferralCode')
+          .sort({ createdAt: -1 })
+          .lean();
       }
 
-      const tree = [];
-      for (const referral of referrals) {
-        const userData = referral.user;
-        const childReferrals = await Referral.find({ 
-          referrer: userData._id, 
-          level: 1 
-        }).populate('user', 'firstName lastName email referralCode createdAt');
+      const referralsWithChildren = await Promise.all(
+        directReferrals.map(async (referral) => {
+          const children = await buildReferralTree(referral.referralCode, level + 1, maxLevel);
+          const verified = verifiedSet.has(referral._id.toString());
+          return {
+            ...referral,
+            verified,
+            level: level + 1,
+            children,
+            childrenCount: children.length,
+            totalDescendants: children.reduce((sum, child) => sum + (child.totalDescendants || 0) + 1, children.length),
+            user: {
+              id: referral._id.toString(),
+              name: `${referral.firstName} ${referral.lastName}`,
+              email: referral.email,
+              referralCode: referral.referralCode,
+              joinedAt: referral.createdAt,
+              verified
+            }
+          };
+        })
+      );
 
-        tree.push({
-          user: {
-            id: userData._id,
-            name: `${userData.firstName} ${userData.lastName}`,
-            email: userData.email,
-            referralCode: userData.referralCode,
-            joinedAt: userData.createdAt
-          },
-          level: currentLevel,
-          children: await buildTree(childReferrals, currentLevel + 1)
-        });
-      }
+      return referralsWithChildren;
+    }
 
-      return tree;
+    if (!user.referralCode) {
+      const rank = this.getReferralRank(0);
+      return {
+        user: {
+          id: user._id.toString(),
+          name: `${user.firstName} ${user.lastName}`,
+          referralCode: ''
+        },
+        stats: {
+          totalReferrals: 0,
+          totalDescendants: 0,
+          activeReferrals: 0,
+          verifiedReferrals: 0,
+          unverifiedReferrals: 0,
+          rank: rank
+        },
+        tree: []
+      };
+    }
+
+    const tree = await buildReferralTree(user.referralCode);
+    const flat = this.flattenTree(tree);
+    const totalReferrals = flat.length;
+    const verifiedCount = flat.filter((n) => n.verified).length;
+    const unverifiedCount = totalReferrals - verifiedCount;
+    const totalDescendants = tree.reduce((sum, child) => sum + (child.totalDescendants || 0) + 1, tree.length);
+    const rank = this.getReferralRank(totalReferrals);
+
+    const stats = {
+      totalReferrals,
+      totalDescendants,
+      activeReferrals: flat.filter((r) => r.isActive).length,
+      verifiedReferrals: verifiedCount,
+      unverifiedReferrals: unverifiedCount,
+      rank
     };
-
-    const tree = await buildTree(directReferrals);
 
     return {
       user: {
-        id: user._id,
+        id: user._id.toString(),
         name: `${user.firstName} ${user.lastName}`,
         referralCode: user.referralCode
       },
-      stats: user.referralStats || {
-        totalReferrals: 0,
-        totalEarnings: 0,
-        level1Count: 0,
-        level2Count: 0,
-        level3Count: 0,
-        level4Count: 0,
-        level5Count: 0
-      },
-      tree: tree
+      stats,
+      tree
     };
+  }
+
+  /**
+   * Get flattened referral list, optionally filtered by verified status.
+   * @param {String} userId
+   * @param {String} filter - 'all' | 'verified' | 'unverified'
+   * @returns {Promise<{ list: Array, stats: object }>}
+   */
+  async getReferralList(userId, filter = 'all') {
+    const { tree, stats } = await this.getReferralTree(userId);
+    const flat = this.flattenTree(tree || []);
+    let list = flat;
+    if (filter === 'verified') {
+      list = flat.filter((n) => n.verified);
+    } else if (filter === 'unverified') {
+      list = flat.filter((n) => !n.verified);
+    }
+    return { list, stats };
   }
 
   /**
@@ -327,6 +453,11 @@ class ReferralService {
       }
     ]);
 
+    const pendingEarningsAgg = await ReferralCommission.aggregate([
+      { $match: { referrer: userId, status: 'pending' } },
+      { $group: { _id: null, total: { $sum: '$commissionAmount' } } }
+    ]);
+
     return {
       commissions: commissions,
       totalEarnings: totalEarnings[0]?.total || 0,
@@ -337,10 +468,7 @@ class ReferralService {
         };
         return acc;
       }, {}),
-      pendingEarnings: await ReferralCommission.countDocuments({ 
-        referrer: userId, 
-        status: 'pending' 
-      })
+      pendingEarnings: pendingEarningsAgg[0]?.total || 0
     };
   }
 

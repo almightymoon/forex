@@ -2,11 +2,11 @@ const express = require('express');
 const router = express.Router();
 const Channel = require('../models/Channel');
 const Message = require('../models/Message');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireVerifiedPayment } = require('../middleware/auth');
 const { broadcastMessage, broadcastToAll } = require('../websocket');
 
 // Get all public channels
-router.get('/channels', authenticateToken, async (req, res) => {
+router.get('/channels', authenticateToken, requireVerifiedPayment, async (req, res) => {
   try {
     const channels = await Channel.findPublic();
     res.json({ success: true, channels });
@@ -17,7 +17,7 @@ router.get('/channels', authenticateToken, async (req, res) => {
 });
 
 // Get channels by user membership
-router.get('/channels/my', authenticateToken, async (req, res) => {
+router.get('/channels/my', authenticateToken, requireVerifiedPayment, async (req, res) => {
   try {
     const channels = await Channel.findByUserMembership(req.user.id);
     res.json({ success: true, channels });

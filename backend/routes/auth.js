@@ -203,41 +203,8 @@ router.post('/register', [
       }
     }
 
-    // Create pending payment if package is selected
-    if (selectedPackage && packagePrice > 0) {
-      try {
-        const Payment = require('../models/Payment');
-        const discountAmount = promoCodeData ? (promoCodeData.discount || 0) : 0;
-        const finalAmount = packagePrice - discountAmount;
-
-        const payment = new Payment({
-          user: user._id,
-          amount: packagePrice,
-          currency: 'USD',
-          paymentMethod: 'binance_wallet',
-          status: 'pending',
-          type: 'package',
-          package: {
-            name: selectedPackage.packageName,
-            price: packagePrice
-          },
-          description: `Package purchase: ${selectedPackage.packageName}`,
-          discountAmount: discountAmount,
-          finalAmount: finalAmount > 0 ? finalAmount : packagePrice,
-          promoCode: promoCodeData ? promoCodeData._id : undefined,
-          binanceWallet: {
-            walletAddress: 'TApaMK8BcN67GDRqVs45qnzbb4oQGt2Pna', // Binance wallet address
-            network: 'TRC20'
-          }
-        });
-
-        await payment.save();
-        console.log(`✅ Payment record created for user ${user._id} - Package: ${selectedPackage.packageName}`);
-      } catch (paymentError) {
-        console.error('Error creating payment record:', paymentError);
-        // Don't fail registration if payment record creation fails
-      }
-    }
+    // Note: Package selection and payment creation is now handled separately
+    // after registration via the /api/payments/create endpoint
 
     // Send welcome notification (non-blocking)
     try {
@@ -277,12 +244,11 @@ router.post('/register', [
     console.log(`User ${email} registered successfully`);
     
     return res.status(201).json({
-      message: selectedPackage ? 'User registered successfully. Please complete payment to access your account.' : 'User registered successfully',
+      message: 'User registered successfully. Please select a package to continue.',
       user: userProfile,
       token,
       promoCodeApplied: !!promoCodeData,
-      requiresPayment: !!selectedPackage,
-      selectedPackage: selectedPackage || null
+      requiresPayment: true // Always require payment after registration
     });
 
   } catch (error) {

@@ -26,9 +26,15 @@ export interface Payment {
   };
   amount: number;
   currency: string;
-  status: 'pending' | 'completed' | 'failed';
+  status: 'pending' | 'completed' | 'failed' | 'processing' | 'cancelled' | 'refunded';
   paymentMethod: string;
   createdAt: string;
+  binanceWallet?: {
+    walletAddress?: string;
+    network?: string;
+    transactionHash?: string;
+  };
+  adminConfirmed?: boolean;
 }
 
 export interface Analytics {

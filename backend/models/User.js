@@ -2,6 +2,13 @@ const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
 const userSchema = new mongoose.Schema({
+  userId: {
+    type: String,
+    unique: true,
+    sparse: true,
+    trim: true,
+    uppercase: true
+  },
   email: {
     type: String,
     required: [true, 'Email is required'],
@@ -211,6 +218,10 @@ const userSchema = new mongoose.Schema({
       type: Number,
       default: 0
     },
+    verifiedReferrals: {
+      type: Number,
+      default: 0
+    },
     level1Count: { type: Number, default: 0 },
     level2Count: { type: Number, default: 0 },
     level3Count: { type: Number, default: 0 },
@@ -255,6 +266,53 @@ userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
 userSchema.index({ referralCode: 1 });
 userSchema.index({ parentReferralCode: 1 });
+userSchema.index({ userId: 1 });
+
+// Static method to generate unique user ID
+userSchema.statics.generateUserId = async function() {
+  const generateId = () => {
+    // Format: USER-XXXXXX where XXXXXX is 6 alphanumeric characters
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let id = '';
+    for (let i = 0; i < 6; i++) {
+      id += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `USER-${id}`;
+  };
+
+  let userId;
+  let isUnique = false;
+  let attempts = 0;
+  const maxAttempts = 10;
+
+  while (!isUnique && attempts < maxAttempts) {
+    userId = generateId();
+    const existing = await this.findOne({ userId: userId });
+    if (!existing) {
+      isUnique = true;
+    }
+    attempts++;
+  }
+
+  if (!isUnique) {
+    throw new Error('Failed to generate unique user ID');
+  }
+
+  return userId;
+};
+
+// Pre-save middleware to generate userId for new users
+userSchema.pre('save', async function(next) {
+  // Generate userId if it doesn't exist (for new users)
+  if (this.isNew && !this.userId) {
+    try {
+      this.userId = await this.constructor.generateUserId();
+    } catch (error) {
+      return next(error);
+    }
+  }
+  next();
+});
 
 // Pre-save middleware to hash password
 userSchema.pre('save', async function(next) {

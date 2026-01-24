@@ -11,21 +11,38 @@ import {
   Award,
   ChevronRight,
   ExternalLink,
-  CheckCircle
+  CheckCircle,
+  ArrowLeft,
+  ShieldCheck,
+  ShieldOff,
+  Target,
+  Sparkles
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { buildApiUrl } from '../../utils/api';
 import { showToast } from '@/utils/toast';
 import UserProfileDropdown from '../components/UserProfileDropdown';
 import DarkModeToggle from '../../components/DarkModeToggle';
 import { useSettings } from '../../context/SettingsContext';
+import { useDashboard } from '../../context/DashboardContext';
+import ReferralBadge from '../components/ReferralBadge';
 // @ts-ignore - react-d3-tree types
 import Tree from 'react-d3-tree';
+
+interface ReferralRank {
+  current: { name: string; icon: string; color: string; description: string; minReferrals: number };
+  next: { name: string; icon: string; color: string; minReferrals: number } | null;
+  progressToNext: number;
+}
 
 interface ReferralStats {
   totalReferrals: number;
   totalEarnings: number;
   pendingEarnings: number;
+  verifiedReferrals?: number;
+  unverifiedReferrals?: number;
+  rank?: ReferralRank;
   level1Count: number;
   level2Count: number;
   level3Count: number;
@@ -40,7 +57,7 @@ interface ReferralTree {
     name: string;
     referralCode: string;
   };
-  stats: ReferralStats;
+  stats: ReferralStats & { verifiedReferrals?: number; unverifiedReferrals?: number; rank?: ReferralRank };
   tree: Array<{
     user: {
       id: string;
@@ -48,7 +65,9 @@ interface ReferralTree {
       email: string;
       referralCode: string;
       joinedAt: string;
+      verified?: boolean;
     };
+    verified?: boolean;
     level: number;
     children: any[];
   }>;
@@ -77,6 +96,8 @@ interface Commission {
 export default function ReferralsPage() {
   const router = useRouter();
   const { settings } = useSettings();
+  const { data: dashboardData } = useDashboard();
+  const user = dashboardData.user;
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'overview' | 'tree' | 'earnings'>('overview');
   const [stats, setStats] = useState<ReferralStats | null>(null);
@@ -90,6 +111,7 @@ export default function ReferralsPage() {
     pendingEarnings: number;
   } | null>(null);
   const [treeView, setTreeView] = useState<'list' | 'tree'>('tree');
+  const [referralFilter, setReferralFilter] = useState<'all' | 'verified' | 'unverified'>('all');
 
   useEffect(() => {
     fetchReferralData();
@@ -150,9 +172,52 @@ export default function ReferralsPage() {
           'Authorization': `Bearer ${token}`
         }
       });
+      
       if (treeRes.ok) {
         const treeData = await treeRes.json();
-        setTree(treeData.data);
+        console.log('[Referrals] Tree API response:', treeData);
+        
+        if (treeData.success && treeData.data) {
+          const treeStructure = treeData.data;
+          console.log('[Referrals] Tree structure:', {
+            hasTree: !!treeStructure.tree,
+            treeLength: Array.isArray(treeStructure.tree) ? treeStructure.tree.length : 0,
+            hasUser: !!treeStructure.user,
+            treeType: typeof treeStructure.tree,
+            treeIsArray: Array.isArray(treeStructure.tree)
+          });
+          
+          // Ensure tree is an array
+          if (treeStructure.tree && Array.isArray(treeStructure.tree)) {
+            setTree(treeStructure);
+            console.log('[Referrals] Tree successfully set with', treeStructure.tree.length, 'referrals');
+          } else {
+            console.error('[Referrals] Tree is not an array:', treeStructure.tree);
+            const empty = {
+              user: { id: '', name: 'You', referralCode: (treeStructure.user as any)?.referralCode ?? '' },
+              stats: (treeStructure.stats as any) || { totalReferrals: 0, totalEarnings: 0, pendingEarnings: 0, level1Count: 0, level2Count: 0, level3Count: 0, level4Count: 0, level5Count: 0, referralCode: '' },
+              tree: [] as any[]
+            };
+            setTree(empty as ReferralTree);
+          }
+        } else {
+          console.error('[Referrals] Invalid response structure:', treeData);
+          const empty = {
+            user: { id: '', name: 'You', referralCode: '' },
+            stats: { totalReferrals: 0, totalEarnings: 0, pendingEarnings: 0, level1Count: 0, level2Count: 0, level3Count: 0, level4Count: 0, level5Count: 0, referralCode: '' },
+            tree: [] as any[]
+          };
+          setTree(empty as ReferralTree);
+        }
+      } else {
+        const errorText = await treeRes.text();
+        console.error('[Referrals] Failed to fetch tree:', treeRes.status, errorText);
+        const empty = {
+          user: { id: '', name: 'You', referralCode: '' },
+          stats: { totalReferrals: 0, totalEarnings: 0, pendingEarnings: 0, level1Count: 0, level2Count: 0, level3Count: 0, level4Count: 0, level5Count: 0, referralCode: '' },
+          tree: [] as any[]
+        };
+        setTree(empty as ReferralTree);
       }
 
       // Fetch earnings
@@ -190,37 +255,79 @@ export default function ReferralsPage() {
     }
   };
 
-  // Render tree as list view (old view)
-  const renderTreeList = (nodes: any[], level: number = 1): JSX.Element[] => {
-    if (!nodes || nodes.length === 0) return [];
+  const flattenTree = (nodes: any[]): any[] => {
+    if (!nodes || !Array.isArray(nodes)) return [];
+    const out: any[] = [];
+    for (const node of nodes) {
+      out.push(node);
+      if (node.children?.length) out.push(...flattenTree(node.children));
+    }
+    return out;
+  };
 
-    return nodes.map((node, idx) => (
-      <div key={node.user.id} className="ml-8 mt-4">
-        <div className="flex items-center space-x-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-          <div className="flex-1">
-            <div className="flex items-center space-x-2">
-              <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-semibold rounded">
-                Level {node.level}
-              </span>
-              <span className="font-semibold text-gray-900 dark:text-white">
-                {node.user.name}
-              </span>
+  const filteredReferralList = (() => {
+    if (!tree?.tree?.length) return [];
+    const flat = flattenTree(tree.tree);
+    if (referralFilter === 'verified') return flat.filter((n) => n.verified === true);
+    if (referralFilter === 'unverified') return flat.filter((n) => !n.verified);
+    return flat;
+  })();
+
+  // Render tree as list view (optionally filtered, flat)
+  const renderTreeList = (nodes: any[], level: number = 1, flatFiltered?: boolean): JSX.Element[] => {
+    const list = flatFiltered ? nodes : (nodes || []);
+    if (!list.length) return [];
+
+    return list.map((node, idx) => {
+      const userName = node.user?.name || `${node.firstName || ''} ${node.lastName || ''}`.trim() || 'Unknown';
+      const userEmail = node.user?.email || node.email || '';
+      const userId = node.user?.id || node._id?.toString() || `n-${idx}`;
+      const joinedAt = node.user?.joinedAt || node.createdAt || new Date();
+      const nodeLevel = node.level || level;
+      const verified = node.verified === true || node.user?.verified === true;
+
+      return (
+        <div key={userId} className={flatFiltered ? 'mt-3' : 'ml-8 mt-4'}>
+          <div className="flex items-center space-x-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+            <div className="flex-1">
+              <div className="flex items-center flex-wrap gap-2">
+                <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-semibold rounded">
+                  Level {nodeLevel}
+                </span>
+                {verified ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 text-xs font-semibold rounded">
+                    <ShieldCheck className="w-3 h-3" /> Verified
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 text-xs font-semibold rounded">
+                    <ShieldOff className="w-3 h-3" /> Unverified
+                  </span>
+                )}
+                <span className="font-semibold text-gray-900 dark:text-white">
+                  {userName}
+                </span>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                {userEmail}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                Joined: {new Date(joinedAt).toLocaleDateString()}
+              </p>
+              {(node.childrenCount !== undefined || node.totalDescendants !== undefined) && !flatFiltered && (
+                <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
+                  {node.childrenCount || 0} direct • {node.totalDescendants || 0} total
+                </p>
+              )}
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-              {node.user.email}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-              Joined: {new Date(node.user.joinedAt).toLocaleDateString()}
-            </p>
           </div>
+          {!flatFiltered && node.children?.length > 0 && (
+            <div className="ml-4 border-l-2 border-gray-300 dark:border-gray-600">
+              {renderTreeList(node.children, level + 1)}
+            </div>
+          )}
         </div>
-        {node.children && node.children.length > 0 && (
-          <div className="ml-4 border-l-2 border-gray-300 dark:border-gray-600">
-            {renderTreeList(node.children, level + 1)}
-          </div>
-        )}
-      </div>
-    ));
+      );
+    });
   };
 
   // Transform tree data to react-d3-tree format (binary tree - max 2 children)
@@ -231,13 +338,20 @@ export default function ReferralsPage() {
     // Take only first 2 children for binary tree
     const binaryChildren = children.slice(0, 2).map((child: any) => transformToD3Tree(child)).filter(Boolean);
     
+    // Handle both data structures
+    const userName = node.user?.name || `${node.firstName || ''} ${node.lastName || ''}`.trim() || 'Unknown';
+    const userEmail = node.user?.email || node.email || '';
+    const userReferralCode = node.user?.referralCode || node.referralCode || '';
+    const userJoinedAt = node.user?.joinedAt || node.createdAt || new Date();
+    const nodeLevel = node.level || 1;
+    
     return {
-      name: `${node.user.name} (Level ${node.level})`,
+      name: `${userName} (Level ${nodeLevel})`,
       attributes: {
-        level: node.level,
-        email: node.user.email,
-        referralCode: node.user.referralCode,
-        joinedAt: node.user.joinedAt,
+        level: nodeLevel,
+        email: userEmail,
+        referralCode: userReferralCode,
+        joinedAt: userJoinedAt,
         remainingCount: children.length > 2 ? children.length - 2 : 0
       },
       children: binaryChildren.length > 0 ? binaryChildren : undefined
@@ -528,39 +642,56 @@ export default function ReferralsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Header - Same as Dashboard */}
+      <header className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
-            <div className="flex items-center space-x-4">
-              <img 
-                src="/all-07.svg" 
-                alt={`${settings.platformName} Logo`} 
-                className="w-14 h-14 object-contain dark:invert"
-              />
+            <div className="flex items-center space-x-4 group cursor-pointer" onClick={() => router.push('/dashboard')}>
+              <div className="relative">
+                <img 
+                  src="/all-07.svg" 
+                  alt={`${settings.platformName} Logo`} 
+                  className="w-14 h-14 object-contain dark:invert group-hover:scale-105 transition-transform duration-200"
+                />
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
+              </div>
               <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent group-hover:from-blue-700 group-hover:to-purple-700 transition-all duration-200">
                   {settings.platformName}
                 </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Referral Program</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors duration-200">Referral Program</p>
               </div>
             </div>
             
             <div className="flex items-center space-x-4">
+              {/* Dark Mode Toggle */}
               <DarkModeToggle size="sm" />
-              <button
-                onClick={() => router.push('/profile')}
-                className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
-              >
-                Back to Profile
-              </button>
+              
+              {/* Referral Badge - Only for students */}
+              {user?.role === 'student' && <ReferralBadge />}
+              
+              {/* User Profile Dropdown */}
+              <div className="border-l border-gray-200 dark:border-gray-700 pl-4">
+                <UserProfileDropdown user={user} />
+              </div>
             </div>
           </div>
         </div>
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Back Button */}
+        <div className="mb-6">
+          <button
+            onClick={() => router.push('/dashboard')}
+            className="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors group"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
+            <span className="font-medium">Back to Dashboard</span>
+          </button>
+        </div>
+
         {/* Tabs */}
         <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
           <nav className="flex space-x-8">
@@ -634,8 +765,66 @@ export default function ReferralsPage() {
               )}
             </motion.div>
 
+            {/* Rank & Progress */}
+            {stats?.rank && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.05 }}
+                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
+              >
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-amber-500" />
+                  Your Referral Rank
+                </h3>
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div
+                    className="inline-flex items-center gap-3 px-4 py-3 rounded-xl border-2"
+                    style={{ borderColor: stats.rank.current?.color || '#94a3b8', backgroundColor: `${stats.rank.current?.color || '#94a3b8'}15` }}
+                  >
+                    <span className="text-2xl" role="img" aria-hidden>{stats.rank.current?.icon || '🌱'}</span>
+                    <div>
+                      <p className="font-bold text-gray-900 dark:text-white">{stats.rank.current?.name || 'Starter'}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">{stats.rank.current?.description || 'Just getting started'}</p>
+                    </div>
+                  </div>
+                  {stats.rank.next && (
+                    <div className="flex-1 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 dark:text-gray-400">Progress to {stats.rank.next.name}</span>
+                        <span className="font-medium text-gray-900 dark:text-white">
+                          {stats?.totalReferrals || 0} / {stats.rank.next.minReferrals} referrals
+                        </span>
+                      </div>
+                      <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <motion.div
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(stats.rank.progressToNext ?? 0) * 100}%` }}
+                          transition={{ duration: 0.6 }}
+                          className="h-full rounded-full"
+                          style={{ backgroundColor: stats.rank.next?.color || '#3b82f6' }}
+                        />
+                      </div>
+                      <p className="text-sm text-gray-600 dark:text-gray-400">
+                        <Target className="w-4 h-4 inline mr-1" />
+                        <strong className="text-gray-900 dark:text-white">
+                          {Math.max(0, (stats.rank.next?.minReferrals ?? 0) - (stats?.totalReferrals || 0))}
+                        </strong>{' '}
+                        more referrals to reach {stats.rank.next?.name}
+                      </p>
+                    </div>
+                  )}
+                  {!stats.rank.next && (
+                    <p className="text-sm text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
+                      <Award className="w-4 h-4" /> You&apos;ve reached the top rank! Keep referring to maximize earnings.
+                    </p>
+                  )}
+                </div>
+              </motion.div>
+            )}
+
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -656,7 +845,43 @@ export default function ReferralsPage() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.15 }}
+                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Verified</p>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
+                      {stats?.verifiedReferrals ?? 0}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500">Purchased a package</p>
+                  </div>
+                  <ShieldCheck className="w-8 h-8 text-green-600" />
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
+                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Unverified</p>
+                    <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
+                      {stats?.unverifiedReferrals ?? 0}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500">No package yet</p>
+                  </div>
+                  <ShieldOff className="w-8 h-8 text-amber-600" />
+                </div>
+              </motion.div>
+
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
                 className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
               >
                 <div className="flex items-center justify-between">
@@ -690,12 +915,12 @@ export default function ReferralsPage() {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
+                transition={{ delay: 0.35 }}
                 className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Level 1 Referrals</p>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Level 1</p>
                     <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
                       {stats?.level1Count || 0}
                     </p>
@@ -725,6 +950,10 @@ export default function ReferralsPage() {
                   </div>
                 ))}
               </div>
+              <p className="mt-4 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                Verified referrals are those who purchased a package—they earn you commissions. Share your link and encourage sign-ups to buy!
+              </p>
             </motion.div>
           </div>
         )}
@@ -736,12 +965,31 @@ export default function ReferralsPage() {
             animate={{ opacity: 1, y: 0 }}
             className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
           >
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
                 Your Referral Tree
               </h2>
-              <div className="flex items-center space-x-4">
-                {/* View Toggle */}
+              <div className="flex flex-wrap items-center gap-3">
+                {treeView === 'list' && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Show:</span>
+                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                      {(['all', 'verified', 'unverified'] as const).map((f) => (
+                        <button
+                          key={f}
+                          onClick={() => setReferralFilter(f)}
+                          className={`px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
+                            referralFilter === f
+                              ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
+                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                          }`}
+                        >
+                          {f === 'all' ? 'All' : f === 'verified' ? 'Verified' : 'Unverified'}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
                   <button
                     onClick={() => setTreeView('list')}
@@ -766,17 +1014,34 @@ export default function ReferralsPage() {
                 </div>
               </div>
             </div>
-            {tree && tree.tree && tree.tree.length > 0 ? (
+            
+            {tree && Array.isArray(tree.tree) && tree.tree.length > 0 ? (
               <div className="mt-4">
                 {treeView === 'list' ? (
-                  // List View (old view)
                   <div>
-                    {renderTreeList(tree.tree)}
+                    {filteredReferralList.length > 0 ? (
+                      <>
+                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
+                          Showing {filteredReferralList.length} referral{filteredReferralList.length !== 1 ? 's' : ''}
+                          {referralFilter !== 'all' && ` (${referralFilter})`}
+                        </p>
+                        {renderTreeList(filteredReferralList, 1, true)}
+                      </>
+                    ) : (
+                      <div className="text-center py-12">
+                        <Users className="w-14 h-14 text-gray-400 mx-auto mb-3" />
+                        <p className="text-gray-600 dark:text-gray-400">
+                          No {referralFilter} referrals yet.
+                        </p>
+                        <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
+                          Try &quot;All&quot; to see everyone, or refer more people who purchase packages for &quot;Verified&quot;.
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  // Tree View (binary tree visualization)
                   <>
-                    {/* Root node (current user) */}
+                    {/* Root node */}
                     <div className="text-center mb-12">
                       <div className="inline-block">
                         <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-1 shadow-xl">
@@ -786,45 +1051,30 @@ export default function ReferralsPage() {
                                 ROOT
                               </span>
                               <span className="font-bold text-lg text-gray-900 dark:text-white">
-                                {tree.user.name}
+                                {(tree.user as { name?: string; firstName?: string; lastName?: string })?.name || (`${(tree.user as any)?.firstName ?? ''} ${(tree.user as any)?.lastName ?? ''}`.trim()) || 'You'}
                               </span>
                             </div>
                             <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
-                              {tree.user.referralCode}
+                              {tree.user?.referralCode || 'N/A'}
                             </p>
                           </div>
                         </div>
                       </div>
                     </div>
                     
-                    {/* Binary tree visualization using React D3 Tree */}
+                    {/* D3 Tree */}
                     {(() => {
-                      if (tree.tree.length === 0) {
-                        return (
-                          <div className="text-center py-12">
-                            <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-600 dark:text-gray-400">
-                              No referrals yet. Start sharing your referral code!
-                            </p>
-                          </div>
-                        );
-                      }
-                      
-                      // Transform tree data to D3 format
                       let d3TreeData;
-                      
                       if (tree.tree.length === 1) {
-                        // Single root node
                         d3TreeData = transformToD3Tree(tree.tree[0]);
                       } else {
-                        // Multiple root nodes - create virtual root
                         const children = tree.tree.slice(0, 2).map(node => transformToD3Tree(node)).filter(Boolean);
                         d3TreeData = {
-                          name: `${tree.user.name} (You)`,
+                          name: `${tree.user?.name || 'You'} (You)`,
                           attributes: {
                             level: 0,
                             email: '',
-                            referralCode: tree.user.referralCode,
+                            referralCode: tree.user?.referralCode || '',
                             remainingCount: tree.tree.length > 2 ? tree.tree.length - 2 : 0
                           },
                           children: children.length > 0 ? children : undefined
@@ -832,13 +1082,7 @@ export default function ReferralsPage() {
                       }
                       
                       if (!d3TreeData) {
-                        return (
-                          <div className="text-center py-12">
-                            <p className="text-gray-600 dark:text-gray-400">
-                              Error transforming tree data.
-                            </p>
-                          </div>
-                        );
+                        return <div className="text-center py-12 text-gray-600 dark:text-gray-400">Error transforming tree data.</div>;
                       }
                       
                       return (
@@ -850,90 +1094,27 @@ export default function ReferralsPage() {
                             separation={{ siblings: 1.5, nonSiblings: 2 }}
                             translate={{ x: 400, y: 50 }}
                             nodeSize={{ x: 200, y: 150 }}
-                            rootNodeClassName="node__root"
-                            branchNodeClassName="node__branch"
-                            leafNodeClassName="node__leaf"
                             styles={{
                               nodes: {
                                 node: {
-                                  circle: {
-                                    fill: '#3b82f6',
-                                    stroke: '#1e40af',
-                                    strokeWidth: 2
-                                  },
-                                  name: {
-                                    fill: '#1f2937',
-                                    fontSize: '13px',
-                                    fontWeight: 'normal',
-                                    fontFamily: 'system-ui, -apple-system, sans-serif'
-                                  },
-                                  attributes: {
-                                    fill: '#6b7280',
-                                    fontSize: '11px',
-                                    fontWeight: 'normal',
-                                    fontFamily: 'system-ui, -apple-system, sans-serif'
-                                  }
+                                  circle: { fill: '#3b82f6', stroke: '#1e40af', strokeWidth: 2 },
+                                  name: { fill: '#1f2937', fontSize: '13px', fontFamily: 'system-ui' },
+                                  attributes: { fill: '#6b7280', fontSize: '11px' }
                                 },
                                 leafNode: {
-                                  circle: {
-                                    fill: '#10b981',
-                                    stroke: '#059669',
-                                    strokeWidth: 2
-                                  }
+                                  circle: { fill: '#10b981', stroke: '#059669', strokeWidth: 2 }
                                 }
                               },
-                              links: {
-                                stroke: '#94a3b8',
-                                strokeWidth: 2,
-                                fill: 'none'
-                              }
+                              links: { stroke: '#94a3b8', strokeWidth: 2, fill: 'none' }
                             }}
                             renderCustomNodeElement={(rd3tProps) => {
                               const { nodeDatum, toggleNode } = rd3tProps;
                               return (
                                 <g>
-                                  <circle
-                                    r={15}
-                                    fill={nodeDatum.children ? '#3b82f6' : '#10b981'}
-                                    stroke={nodeDatum.children ? '#1e40af' : '#059669'}
-                                    strokeWidth={2}
-                                    onClick={toggleNode}
-                                    style={{ cursor: 'pointer' }}
-                                  />
-                                  <text
-                                    x={20}
-                                    y={5}
-                                    fill="#1f2937"
-                                    className="dark:fill-white font-normal"
-                                    fontSize="13"
-                                    fontFamily="system-ui, -apple-system, sans-serif"
-                                  >
-                                    {nodeDatum.name}
-                                  </text>
-                                  {nodeDatum.attributes?.email && (
-                                    <text
-                                      x={20}
-                                      y={22}
-                                      fill="#6b7280"
-                                      className="dark:fill-gray-400 font-normal"
-                                      fontSize="11"
-                                      fontFamily="system-ui, -apple-system, sans-serif"
-                                    >
-                                      {nodeDatum.attributes.email}
-                                    </text>
-                                  )}
-                                  {nodeDatum.attributes?.remainingCount > 0 && (
-                                    <text
-                                      x={20}
-                                      y={38}
-                                      fill="#ef4444"
-                                      className="font-normal"
-                                      fontSize="10"
-                                      fontFamily="system-ui, -apple-system, sans-serif"
-                                    >
-                                      +{nodeDatum.attributes.remainingCount} more
-                                    </text>
-                                  )}
+                                  <circle r={15} fill={nodeDatum.children ? '#3b82f6' : '#10b981'} stroke={nodeDatum.children ? '#1e40af' : '#059669'} strokeWidth={2} onClick={toggleNode} style={{ cursor: 'pointer' }} />
+                                  <text x={20} y={5} fill="#1f2937" className="dark:fill-white" fontSize="13" fontFamily="system-ui">{nodeDatum.name}</text>
+                                  {nodeDatum.attributes?.email && <text x={20} y={22} fill="#6b7280" className="dark:fill-gray-400" fontSize="11">{nodeDatum.attributes.email}</text>}
+                                  {nodeDatum.attributes?.remainingCount > 0 && <text x={20} y={38} fill="#ef4444" fontSize="10">+{nodeDatum.attributes.remainingCount} more</text>}
                                 </g>
                               );
                             }}
@@ -947,9 +1128,42 @@ export default function ReferralsPage() {
             ) : (
               <div className="text-center py-12">
                 <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 dark:text-gray-400">
-                  No referrals yet. Start sharing your referral code!
-                </p>
+                {loading ? (
+                  <>
+                    <p className="text-gray-600 dark:text-gray-400 mb-2">Loading referral tree...</p>
+                    <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mt-4"></div>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-gray-600 dark:text-gray-400 mb-2">
+                      {tree && tree.tree && tree.tree.length === 0 
+                        ? 'No referrals in tree structure.' 
+                        : tree 
+                          ? 'Tree data loaded but empty.' 
+                          : 'Failed to load referral tree.'}
+                    </p>
+                    {stats && stats.totalReferrals > 0 && (
+                      <p className="text-sm text-gray-500 dark:text-gray-500 mt-2 mb-4">
+                        You have {stats.totalReferrals} total referrals. Click refresh to reload the tree.
+                      </p>
+                    )}
+                    <button
+                      onClick={() => {
+                        setLoading(true);
+                        fetchReferralData();
+                      }}
+                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                    >
+                      Refresh Tree
+                    </button>
+                    {tree && (
+                      <div className="mt-4 text-xs text-gray-400 dark:text-gray-500">
+                        Debug: Tree exists: {tree ? 'Yes' : 'No'}, 
+                        Tree array: {tree?.tree ? (Array.isArray(tree.tree) ? `Yes (${tree.tree.length} items)` : 'Not an array') : 'No tree property'}
+                      </div>
+                    )}
+                  </>
+                )}
               </div>
             )}
           </motion.div>
@@ -1051,6 +1265,98 @@ export default function ReferralsPage() {
           </motion.div>
         )}
       </div>
+
+      {/* Footer */}
+      <footer className="bg-gradient-to-br from-gray-100 via-blue-50 to-indigo-50 dark:bg-gray-800 text-gray-900 dark:text-white py-16 relative">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-600/5 to-purple-600/5 dark:bg-gray-800" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div>
+              <motion.div 
+                className="flex items-center mb-6"
+                initial={{ opacity: 0, x: -20 }}
+                whileInView={{ opacity: 1, x: 0 }}
+                transition={{ duration: 0.6 }}
+              >
+                <div className="relative">
+                  <img 
+                    src="/all-07.svg" 
+                    alt={`${settings.platformName} Logo`} 
+                    className="w-8 h-8 object-contain dark:invert"
+                  />
+                  <motion.div
+                    className="absolute inset-0 bg-blue-400 rounded-full opacity-20"
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 2, repeat: Infinity }}
+                  />
+                </div>
+                <span className="ml-2 text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+                  {settings.platformName}
+                </span>
+              </motion.div>
+              <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                Empowering traders with comprehensive education and real-time insights to achieve financial success.
+              </p>
+            </div>
+            
+            {[
+              {
+                title: 'Platform',
+                links: [
+                  { name: 'Live Sessions', href: '/dashboard' },
+                  { name: 'Trading Signals', href: '/dashboard' },
+                  { name: 'Community', href: '/dashboard' }
+                ]
+              },
+              {
+                title: 'Support',
+                links: [
+                  { name: 'Help Center', href: '/contact' },
+                  { name: 'Contact Us', href: '/contact' },
+                  { name: 'FAQ', href: '/faq' },
+                  { name: 'Terms of Service', href: '/terms' }
+                ]
+              },
+              {
+                title: 'Connect',
+                links: [
+                  { name: 'Twitter', href: '#' },
+                  { name: 'LinkedIn', href: '#' },
+                  { name: 'YouTube', href: '#' },
+                  { name: 'Discord', href: '#' }
+                ]
+              }
+            ].map((section, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: index * 0.1 }}
+              >
+                <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-white">{section.title}</h3>
+                <ul className="space-y-3">
+                  {section.links.map((link, linkIndex) => (
+                    <li key={linkIndex}>
+                      <Link href={link.href} className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200">
+                        {link.name}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            ))}
+          </div>
+          
+          <motion.div 
+            className="border-t border-gray-300 dark:border-gray-700 mt-12 pt-8 text-center text-gray-600 dark:text-gray-300"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
+            <p>&copy; 2026 {settings.platformName}. All rights reserved. | Built with ❤️ for forex traders worldwide</p>
+          </motion.div>
+        </div>
+      </footer>
     </div>
   );
 }

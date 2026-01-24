@@ -13,6 +13,7 @@ interface AdminData {
   } | null;
   users: any[];
   payments: any[];
+  withdrawals: any[];
   analytics: any;
   promoCodes: any[];
   settings: any;
@@ -93,6 +94,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     user: null,
     users: [],
     payments: [],
+    withdrawals: [],
     analytics: {},
     promoCodes: [],
     settings: getDefaultSettings(),
@@ -143,7 +145,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     try {
       const endpoints = [
         'api/admin/users',
-        'api/admin/payments', 
+        'api/admin/payments',
+        'api/admin/withdrawals',
         'api/admin/analytics',
         'api/admin/promocodes',
         'api/admin/settings',
@@ -154,7 +157,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         endpoints.map(endpoint => apiRequest(endpoint))
       );
       
-      const [usersRes, paymentsRes, analyticsRes, promoCodesRes, settingsRes, notificationRes] = responses;
+      const [usersRes, paymentsRes, withdrawalsRes, analyticsRes, promoCodesRes, settingsRes, notificationRes] = responses;
       
       // Handle each response with proper error handling
       const users = usersRes.status === 'fulfilled' && usersRes.value.ok 
@@ -163,6 +166,10 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         
       const payments = paymentsRes.status === 'fulfilled' && paymentsRes.value.ok 
         ? await paymentsRes.value.json() 
+        : [];
+        
+      const withdrawals = withdrawalsRes.status === 'fulfilled' && withdrawalsRes.value.ok 
+        ? await withdrawalsRes.value.json() 
         : [];
         
       const analytics = analyticsRes.status === 'fulfilled' && analyticsRes.value.ok 
@@ -202,13 +209,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        return { users, payments, analytics, promoCodes, settings, notificationCount };
+        return { users, payments, withdrawals, analytics, promoCodes, settings, notificationCount };
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
       // Return default data instead of throwing
       return {
         users: [],
         payments: [],
+        withdrawals: [],
         analytics: {
           totalUsers: 0,
           totalRevenue: 0,
@@ -259,12 +267,13 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
       // Fetch fresh data
       console.log('AdminContext - Fetching fresh admin data...');
-      const { users, payments, analytics, promoCodes, settings, notificationCount } = await fetchAdminData(token);
+      const { users, payments, withdrawals, analytics, promoCodes, settings, notificationCount } = await fetchAdminData(token);
 
       setData({
         user,
         users,
         payments,
+        withdrawals,
         analytics,
         promoCodes,
         settings,
@@ -282,6 +291,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           user: null,
           users: [],
           payments: [],
+          withdrawals: [],
           analytics: {},
           promoCodes: [],
           settings: getDefaultSettings(),
@@ -308,13 +318,14 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       // Always verify admin role on refresh
       const user = await checkAdminRole(token);
       
-      const { users, payments, analytics, promoCodes, settings, notificationCount } = await fetchAdminData(token);
+      const { users, payments, withdrawals, analytics, promoCodes, settings, notificationCount } = await fetchAdminData(token);
       
       setData(prev => ({
         ...prev,
         user,
         users,
         payments,
+        withdrawals,
         analytics,
         promoCodes,
         settings,
@@ -330,6 +341,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           user: null,
           users: [],
           payments: [],
+          withdrawals: [],
           analytics: {},
           promoCodes: [],
           settings: getDefaultSettings(),
@@ -358,6 +370,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         user: null,
         users: [],
         payments: [],
+        withdrawals: [],
         analytics: {},
         promoCodes: [],
         settings: getDefaultSettings(),

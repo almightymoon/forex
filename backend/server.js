@@ -30,7 +30,9 @@ const uploadRoutes = require('./routes/upload');
 const mt5Routes = require('./routes/mt5');
 const referralRoutes = require('./routes/referrals');
 const withdrawalRoutes = require('./routes/withdrawals');
+const tradeRoutes = require('./routes/trades');
 const { initializeWebSocket } = require('./websocket');
+const { authenticateToken, requirePackageSubscription } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -119,29 +121,41 @@ app.use('/api/auth', authRoutes);
 app.use('/api/settings/public', require('./routes/settings'));
 
 // Routes with session timeout check
+// Admin and teacher routes don't require package subscription
 app.use('/api/admin', checkSessionTimeout, adminRoutes);
 app.use('/api/teacher', checkSessionTimeout, teacherRoutes);
+
+// Settings routes (public settings don't need package, but protected ones do)
 app.use('/api/settings', checkSessionTimeout, settingsRoutes);
-app.use('/api/2fa', checkSessionTimeout, twoFactorRoutes);
-app.use('/api/user2fa', checkSessionTimeout, require('./routes/user2fa'));
-app.use('/api/notifications', checkSessionTimeout, notificationRoutes);
-app.use('/api/community', checkSessionTimeout, communityRoutes);
-app.use('/api/certificates', checkSessionTimeout, certificateRoutes);
-app.use('/api/certificate-templates', checkSessionTimeout, require('./routes/certificateTemplates'));
-app.use('/api/teacher/certificates', checkSessionTimeout, require('./routes/teacherCertificates'));
-app.use('/api/certificate-assignments', checkSessionTimeout, require('./routes/certificateAssignments'));
-app.use('/api/progress', checkSessionTimeout, progressRoutes);
-app.use('/api/users', checkSessionTimeout, userRoutes);
-app.use('/api/courses', checkSessionTimeout, courseRoutes);
-app.use('/api/sessions', checkSessionTimeout, sessionRoutes);
-app.use('/api/signals', checkSessionTimeout, signalRoutes);
+
+// Auth routes don't require package subscription
+app.use('/api/auth', authRoutes);
+
+// Payment routes - allow access without package so users can purchase packages
 app.use('/api/payments', checkSessionTimeout, paymentRoutes);
-app.use('/api/promos', checkSessionTimeout, promoRoutes);
-app.use('/api/assignments', checkSessionTimeout, assignmentRoutes);
-app.use('/api/upload', checkSessionTimeout, uploadRoutes);
-app.use('/api/mt5', checkSessionTimeout, mt5Routes);
-app.use('/api/referrals', checkSessionTimeout, referralRoutes);
-app.use('/api/withdrawals', checkSessionTimeout, withdrawalRoutes);
+
+// All other protected routes require package subscription
+// These routes will check for package subscription after authentication
+app.use('/api/2fa', checkSessionTimeout, authenticateToken, requirePackageSubscription, twoFactorRoutes);
+app.use('/api/user2fa', checkSessionTimeout, authenticateToken, requirePackageSubscription, require('./routes/user2fa'));
+app.use('/api/notifications', checkSessionTimeout, authenticateToken, requirePackageSubscription, notificationRoutes);
+app.use('/api/community', checkSessionTimeout, authenticateToken, requirePackageSubscription, communityRoutes);
+app.use('/api/certificates', checkSessionTimeout, authenticateToken, requirePackageSubscription, certificateRoutes);
+app.use('/api/certificate-templates', checkSessionTimeout, authenticateToken, requirePackageSubscription, require('./routes/certificateTemplates'));
+app.use('/api/teacher/certificates', checkSessionTimeout, authenticateToken, requirePackageSubscription, require('./routes/teacherCertificates'));
+app.use('/api/certificate-assignments', checkSessionTimeout, authenticateToken, requirePackageSubscription, require('./routes/certificateAssignments'));
+app.use('/api/progress', checkSessionTimeout, authenticateToken, requirePackageSubscription, progressRoutes);
+app.use('/api/users', checkSessionTimeout, authenticateToken, requirePackageSubscription, userRoutes);
+app.use('/api/courses', checkSessionTimeout, authenticateToken, requirePackageSubscription, courseRoutes);
+app.use('/api/sessions', checkSessionTimeout, authenticateToken, requirePackageSubscription, sessionRoutes);
+app.use('/api/signals', checkSessionTimeout, authenticateToken, requirePackageSubscription, signalRoutes);
+app.use('/api/promos', checkSessionTimeout, authenticateToken, requirePackageSubscription, promoRoutes);
+app.use('/api/assignments', checkSessionTimeout, authenticateToken, requirePackageSubscription, assignmentRoutes);
+app.use('/api/upload', checkSessionTimeout, authenticateToken, requirePackageSubscription, uploadRoutes);
+app.use('/api/mt5', checkSessionTimeout, authenticateToken, requirePackageSubscription, mt5Routes);
+app.use('/api/referrals', checkSessionTimeout, authenticateToken, requirePackageSubscription, referralRoutes);
+app.use('/api/withdrawals', checkSessionTimeout, authenticateToken, requirePackageSubscription, withdrawalRoutes);
+app.use('/api/trades', checkSessionTimeout, authenticateToken, requirePackageSubscription, tradeRoutes);
 
 // Apply maintenance mode middleware to protected routes only (after all routes are registered)
 app.use('/api', maintenanceMiddleware);

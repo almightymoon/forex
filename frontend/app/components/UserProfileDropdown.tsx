@@ -1,9 +1,10 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Settings, LogOut, ChevronDown, Bell, Share2, Wallet, ArrowUpRight } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, Bell, Share2, Wallet, ArrowUpRight, Package } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../../context/LanguageContext';
+import { buildApiUrl } from '../../utils/api';
 
 interface UserProfileDropdownProps {
   user: {
@@ -26,9 +27,47 @@ export default function UserProfileDropdown({
   className = ''
 }: UserProfileDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [subscriptionPackage, setSubscriptionPackage] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { t } = useLanguage();
+
+  // Fetch user's subscription package
+  useEffect(() => {
+    const fetchSubscription = async () => {
+      if (!user || user.role === 'admin' || user.role === 'teacher') {
+        return; // Admin/teacher don't need packages
+      }
+
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const response = await fetch(buildApiUrl('api/payments/user'), {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const payments = await response.json();
+          const completedPayment = payments.find((p: any) => 
+            p.type === 'package' && p.status === 'completed'
+          );
+
+          if (completedPayment && completedPayment.package?.name) {
+            setSubscriptionPackage(completedPayment.package.name);
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching subscription:', error);
+      }
+    };
+
+    if (isOpen && user) {
+      fetchSubscription();
+    }
+  }, [isOpen, user]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -140,7 +179,7 @@ export default function UserProfileDropdown({
             </p>
             {/* Balance Display - Always show */}
             <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center space-x-2">
                   <Wallet className="w-4 h-4 text-green-600 dark:text-green-400" />
                   <span className="text-xs text-gray-600 dark:text-gray-400">Balance:</span>
@@ -154,6 +193,20 @@ export default function UserProfileDropdown({
 
           {/* Menu Items */}
           <div className="py-1">
+            {/* Subscription - Only for students with active subscription */}
+            {(user.role === 'student' || !user.role || user.role === '') && subscriptionPackage && (
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  router.push('/subscription');
+                }}
+                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
+              >
+                <Package className="w-4 h-4 mr-3 text-blue-600 dark:text-blue-400" />
+                <span>Subscription</span>
+              </button>
+            )}
+
             {/* Profile */}
             <button
               onClick={handleProfileClick}

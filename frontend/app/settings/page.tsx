@@ -11,6 +11,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { buildApiUrl } from '../../utils/api';
 import { useLanguage } from '../../context/LanguageContext';
 import DarkModeToggle from '../../components/DarkModeToggle';
+import ReferralBadge from '../components/ReferralBadge';
 
 interface UserSettings {
   emailNotifications: boolean;
@@ -181,6 +182,11 @@ export default function SettingsPage() {
               </div>
             </div>
             <div className="flex items-center space-x-4">
+              <DarkModeToggle size="sm" />
+              
+              {/* Referral Badge - Only for students */}
+              {user?.role === 'student' && <ReferralBadge />}
+              
               <UserProfileDropdown user={user} showSettings={false} />
             </div>
           </div>

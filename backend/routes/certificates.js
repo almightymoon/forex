@@ -7,7 +7,7 @@ const Course = require('../models/Course');
 const User = require('../models/User');
 const CourseProgress = require('../models/CourseProgress');
 const certificateService = require('../services/certificateService');
-const { authenticateToken, requireRole } = require('../middleware/auth');
+const { authenticateToken, requireRole, requireVerifiedPayment } = require('../middleware/auth');
 
 // Get all certificates for a teacher's courses (teacher only) - MOVED UP TO AVOID ROUTE CONFLICT
 router.get('/teacher/courses', authenticateToken, requireRole(['teacher']), async (req, res) => {
@@ -498,7 +498,7 @@ router.post('/regenerate/:certificateId', authenticateToken, requireRole(['teach
 });
 
 // Get student's certificates
-router.get('/my-certificates', authenticateToken, requireRole(['student']), async (req, res) => {
+router.get('/my-certificates', authenticateToken, requireVerifiedPayment, requireRole(['student']), async (req, res) => {
   try {
     const userId = req.user.userId || req.user._id;
     

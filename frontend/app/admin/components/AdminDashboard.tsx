@@ -9,7 +9,7 @@ import {
   Calendar, MessageSquare, Search, CreditCard, Globe, 
   Lock, Bell, Smartphone, Server, Database, Key, Zap,
   Save, RotateCcw, Palette, Monitor, Languages, MapPin,
-  RefreshCw, AlertCircle
+  RefreshCw, AlertCircle, Share2
 } from 'lucide-react';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../components/Toast';
@@ -20,6 +20,7 @@ import { getDashboardRoute, getUserRole } from '../../../utils/dashboardUtils';
 import Overview from './Overview';
 import UserManagement from './UserManagement';
 import PaymentManagement from './PaymentManagement';
+import CommissionManagement from './CommissionManagement';
 import PromoCodeManagement from './PromoCodeManagement';
 import Analytics from './Analytics';
 import Settings from './Settings';
@@ -49,7 +50,7 @@ export default function AdminDashboard() {
   console.log('AdminDashboard - Loading state:', loading);
   console.log('AdminDashboard - User data:', data.user);
   
-  const { user, users, payments, analytics, promoCodes, settings: contextSettings } = data;
+  const { user, users, payments, withdrawals, analytics, promoCodes, settings: contextSettings } = data;
   
   // Helper function to get deleted user IDs from localStorage
   const getDeletedUserIds = (): Set<string> => {
@@ -748,6 +749,7 @@ export default function AdminDashboard() {
               { id: 'overview', label: 'Overview', icon: BarChart3 },
               { id: 'users', label: 'Users', icon: Users },
               { id: 'payments', label: 'Payments', icon: DollarSign },
+              { id: 'commissions', label: 'Commissions', icon: Share2 },
               { id: 'analytics', label: 'Analytics', icon: TrendingUp },
               { id: 'promocodes', label: 'Promo Codes', icon: Target },
               { id: 'notifications', label: 'Notifications', icon: Mail },
@@ -790,9 +792,16 @@ export default function AdminDashboard() {
         {activeTab === 'payments' && (
           <PaymentManagement
             payments={payments}
+            withdrawals={withdrawals || []}
+            users={localUsers}
             onPaymentStatusUpdate={handlePaymentStatusUpdate}
             onExportPayments={handleExportPayments}
+            onRefresh={refreshData}
           />
+        )}
+
+        {activeTab === 'commissions' && (
+          <CommissionManagement />
         )}
 
         {activeTab === 'promocodes' && (

@@ -6,6 +6,7 @@ import { fetchWithMaintenanceCheck } from '../hooks/useMaintenanceMode';
 
 interface User {
   _id: string;
+  userId?: string;
   firstName: string;
   lastName: string;
   email: string;

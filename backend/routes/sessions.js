@@ -1,7 +1,7 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
 const LiveSession = require('../models/LiveSession');
-const { authenticateToken, requireTeacher, requireOwnership } = require('../middleware/auth');
+const { authenticateToken, requireTeacher, requireOwnership, requireVerifiedPayment } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -145,9 +145,10 @@ router.delete('/:id', authenticateToken, requireOwnership('LiveSession'), async 
 });
 
 // @route   POST /api/sessions/:id/book
+// @route   POST /api/sessions/:id/book
 // @desc    Book a session
-// @access  Private
-router.post('/:id/book', authenticateToken, async (req, res) => {
+// @access  Private (Requires verified payment)
+router.post('/:id/book', authenticateToken, requireVerifiedPayment, async (req, res) => {
   try {
     const session = await LiveSession.findById(req.params.id);
     if (!session) {
