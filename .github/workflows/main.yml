@@ -53,7 +53,7 @@ jobs:
             cd backend/
             npm ci --production
             cd ..
-            
+              
             # Build frontend
             cd frontend/
             # Clean node_modules if it exists to avoid ENOTEMPTY errors
