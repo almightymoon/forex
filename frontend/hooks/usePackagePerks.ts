@@ -22,6 +22,7 @@ export interface PackagePerksData {
   enabledPerks: string[];
   subscriptionDate?: string;
   isAdmin?: boolean;
+  message?: string;
 }
 
 export function usePackagePerks() {
