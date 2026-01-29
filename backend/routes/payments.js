@@ -142,6 +142,32 @@ router.post('/create', [
       console.error('Error sending admin notification:', notificationError);
     }
 
+    // Send beautiful email to user about payment pending using notification service
+    try {
+      console.log('[Payment Create] Sending payment_pending notification to user:', req.user._id);
+      console.log('[Payment Create] Payment data:', {
+        amount: finalAmount,
+        currency: payment.currency || 'USD',
+        packageName: packageName,
+        paymentId: payment._id
+      });
+      
+      const result = await notificationService.sendNotificationToUser(req.user._id, 'payment_pending', {
+        amount: finalAmount,
+        finalAmount: finalAmount,
+        currency: payment.currency || 'USD',
+        packageName: packageName,
+        paymentId: payment._id,
+        transactionId: payment._id.toString()
+      });
+      
+      console.log('[Payment Create] Notification result:', result);
+    } catch (emailError) {
+      console.error('[Payment Create] ❌ Error sending payment pending notification:', emailError);
+      console.error('[Payment Create] Error stack:', emailError.stack);
+      // Don't fail the request if notification fails
+    }
+
     res.status(201).json({
       message: 'Payment created successfully. Please complete the payment.',
       payment: {
@@ -186,6 +212,59 @@ router.get('/:id', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Get payment error:', error);
     res.status(500).json({ error: 'Failed to fetch payment' });
+  }
+});
+
+// @route   PUT /api/payments/:id
+// @desc    Update payment (e.g., add promo code)
+// @access  Private
+router.put('/:id', [
+  authenticateToken,
+  body('promoCode').optional().trim(),
+  body('discount').optional().isNumeric()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const { promoCode, discount } = req.body;
+    const payment = await Payment.findById(req.params.id);
+
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
+    // Check if user owns the payment or is admin
+    if (payment.user.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // Only allow updates if payment is pending
+    if (payment.status !== 'pending') {
+      return res.status(400).json({ error: 'Cannot update payment that is not pending' });
+    }
+
+    // Update promo code and discount if provided
+    if (promoCode !== undefined) {
+      payment.promoCode = promoCode || null;
+    }
+    if (discount !== undefined) {
+      payment.discount = discount || 0;
+      // Recalculate final amount
+      payment.finalAmount = payment.amount - (discount || 0);
+    }
+
+    await payment.save();
+
+    res.json({ 
+      message: 'Payment updated successfully',
+      payment 
+    });
+  } catch (error) {
+    console.error('Update payment error:', error);
+    res.status(500).json({ error: 'Failed to update payment' });
   }
 });
 
@@ -646,15 +725,20 @@ router.post('/admin/confirm', [
     // Send notification and email to user
     const notificationService = require('../services/notificationService');
     try {
-      // Send in-app notification and email (sendNotificationToUser handles both)
-      await notificationService.sendNotificationToUser(payment.user._id, 'payment', {
-        title: 'Payment Confirmed - Account Activated!',
-        message: `Your payment of $${payment.finalAmount} for ${payment.package?.name || 'package'} has been confirmed by admin. Your account is now activated and you have full access to the application. Please check your email for details.`,
-        paymentId: payment._id,
+      // Send payment confirmed email using notificationService (which uses templates)
+      await notificationService.sendNotificationToUser(user._id, 'payment_confirmed', {
         amount: payment.finalAmount,
+        finalAmount: payment.finalAmount,
         currency: payment.currency || 'USD',
-        packageName: payment.package?.name || 'Package',
-        transactionId: payment.transactionId || 'N/A'
+        packageName: payment.package?.name || 'Premium Package',
+        transactionId: payment.transactionId || payment._id.toString(),
+        date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+        paymentId: payment._id
+      });
+
+      // Also send account verified email
+      await notificationService.sendNotificationToUser(user._id, 'account_verified', {
+        packageName: payment.package?.name || 'Premium Package'
       });
     } catch (emailError) {
       console.error('Error sending payment confirmation notification:', emailError);

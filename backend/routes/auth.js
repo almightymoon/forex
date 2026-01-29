@@ -113,14 +113,41 @@ router.post('/register', [
       });
     }
 
-    // STEP 3: Validate referral code if provided (BEFORE creating user)
-    if (referralCode && referralCode.trim()) {
-      const referrer = await User.findOne({ referralCode: referralCode.trim().toUpperCase() });
+    // STEP 3: Validate referral code if provided, or use default referral code from settings
+    let finalReferralCode = referralCode ? referralCode.trim().toUpperCase() : null;
+    
+    // If no referral code provided, use default from database settings
+    if (!finalReferralCode) {
+      const Settings = require('../models/Settings');
+      const settings = await Settings.getSettings();
+      
+      if (settings.defaultReferralCode && settings.defaultReferralCode.trim()) {
+        finalReferralCode = settings.defaultReferralCode.trim().toUpperCase();
+        console.log(`No referral code provided, using default from settings: ${finalReferralCode}`);
+      }
+    }
+    
+    // Validate referral code (either provided or default)
+    if (finalReferralCode) {
+      const referrer = await User.findOne({ referralCode: finalReferralCode });
       if (!referrer) {
-        return res.status(400).json({
-          error: 'Invalid referral code',
-          message: 'The referral code you entered is invalid'
-        });
+        // If default referral code doesn't exist, log warning but don't fail registration
+        const Settings = require('../models/Settings');
+        const settings = await Settings.getSettings();
+        const isDefaultCode = !referralCode && settings.defaultReferralCode && 
+          settings.defaultReferralCode.toUpperCase() === finalReferralCode;
+        
+        if (isDefaultCode) {
+          console.warn(`⚠️  Default referral code ${finalReferralCode} does not exist in database. User will be created without referral.`);
+          finalReferralCode = null;
+        } else {
+          return res.status(400).json({
+            error: 'Invalid referral code',
+            message: 'The referral code you entered is invalid'
+          });
+        }
+      } else {
+        console.log(`✅ Referral code validated: ${finalReferralCode} (referrer: ${referrer.email})`);
       }
     }
 
@@ -128,23 +155,14 @@ router.post('/register', [
     // IMPORTANT: Only reach this point if ALL validations above passed
     console.log('✅ All validations passed. Creating user...');
     
-    // Validate package selection if Binance wallet payment
+    // Package selection is optional during registration
+    // Users will select package on the next screen after signup
     let packagePrice = 0;
-    if (paymentMethod === 'binance_wallet' || !paymentMethod) {
-      if (!selectedPackage || !selectedPackage.packageName) {
-        return res.status(400).json({
-          error: 'Package selection required',
-          message: 'Please select a package to continue'
-        });
-      }
+    if (selectedPackage && selectedPackage.packageName) {
       const validPackages = ['FX Launch', 'FX Scale', 'FX Legacy'];
-      if (!validPackages.includes(selectedPackage.packageName)) {
-        return res.status(400).json({
-          error: 'Invalid package',
-          message: 'Please select a valid package'
-        });
+      if (validPackages.includes(selectedPackage.packageName)) {
+        packagePrice = selectedPackage.price || 0;
       }
-      packagePrice = selectedPackage.price || 0;
     }
 
     const userData = {
@@ -156,7 +174,8 @@ router.post('/register', [
       country: country || 'Pakistan',
       isVerified: false, // User must pay first before verification
       isActive: true,
-      selectedPackage: selectedPackage ? {
+      // Store selected package if provided, but it's optional
+      selectedPackage: selectedPackage && selectedPackage.packageName ? {
         packageName: selectedPackage.packageName,
         price: packagePrice,
         selectedAt: new Date()
@@ -177,14 +196,17 @@ router.post('/register', [
       // Don't fail registration if referral code generation fails
     }
 
-    // Create referral relationship if referral code provided (non-blocking)
-    if (referralCode) {
+    // Create referral relationship if referral code provided (or default from env) (non-blocking)
+    if (finalReferralCode) {
       try {
-        await referralService.createReferralRelationship(user, referralCode);
+        await referralService.createReferralRelationship(user, finalReferralCode);
+        console.log(`✅ Referral relationship created for user ${user.email} with referrer ${finalReferralCode}`);
       } catch (refError) {
         console.error('Error creating referral relationship:', refError);
         // Don't fail registration if referral fails
       }
+    } else {
+      console.log(`ℹ️  No referral code used for user ${user.email}`);
     }
 
     // Record promo code usage if valid (non-blocking, for tracking only)
@@ -564,10 +586,38 @@ router.post('/forgot-password', [
       { expiresIn: '1h' }
     );
 
-    // TODO: Send email with reset link
-    // For now, just return success message
+    // Generate reset link
+    const frontendUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
+    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    // Send password reset email
+    try {
+      const emailTemplate = notificationService.getPasswordResetTemplate(user, {
+        resetLink: resetLink,
+        expiryTime: '1 hour'
+      });
+
+      const emailSent = await notificationService.sendEmail({
+        to: user.email,
+        subject: 'Password Reset Request - Forex Navigators',
+        html: emailTemplate,
+        text: `Hello ${user.firstName},\n\nWe received a request to reset your password. Click the link below to reset it:\n\n${resetLink}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email.\n\nBest regards,\nForex Navigators Team`,
+        userId: user._id.toString(),
+        type: 'password_reset'
+      });
+
+      if (!emailSent) {
+        console.error('Failed to send password reset email to:', user.email);
+        // Still return success to user (security best practice - don't reveal if email was sent)
+      }
+    } catch (emailError) {
+      console.error('Error sending password reset email:', emailError);
+      // Still return success to user (security best practice)
+    }
+
     res.json({
-      message: 'Password reset instructions sent to your email',
+      message: 'If an account with that email exists, a password reset link has been sent',
+      // Only include token in development for testing
       resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined
     });
 

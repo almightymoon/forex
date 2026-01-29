@@ -320,17 +320,28 @@ const requireVerifiedPayment = async (req, res, next) => {
     }
 
     // Admin and teachers can access everything
-    if (req.user.role === 'admin' || req.user.role === 'teacher') {
+    if (req.user.role === 'admin' || req.user.role === 'teacher' || req.user.role === 'instructor') {
       return next();
     }
 
+    // Fetch fresh user data from database to check current verification status
+    const User = require('../models/User');
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({ 
+        error: 'User not found',
+        message: 'User account not found'
+      });
+    }
+
     // Check if user is verified
-    if (!req.user.isVerified) {
+    if (!user.isVerified) {
       const Payment = require('../models/Payment');
       
       // Check if user has any pending payments
       const pendingPayment = await Payment.findOne({
-        user: req.user._id,
+        user: user._id,
         status: 'pending',
         type: 'package'
       }).sort({ createdAt: -1 });
@@ -347,7 +358,7 @@ const requireVerifiedPayment = async (req, res, next) => {
 
       // Check if user has completed payment but not verified yet
       const completedPayment = await Payment.findOne({
-        user: req.user._id,
+        user: user._id,
         status: 'completed',
         type: 'package'
       }).sort({ createdAt: -1 });
@@ -369,6 +380,8 @@ const requireVerifiedPayment = async (req, res, next) => {
       });
     }
 
+    // Update req.user with fresh data
+    req.user = user;
     next();
 
   } catch (error) {

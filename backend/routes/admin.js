@@ -211,12 +211,14 @@ router.post('/users/:id/credit', [
       notes
     });
 
-    // Send notification to user
+    // Send email to user about balance credit
     const notificationService = require('../services/notificationService');
-    await notificationService.sendNotificationToUser(req.params.id, 'balance', {
-      title: 'Balance Credited',
-      message: `$${amount} USDT has been credited to your account. ${description}`,
-      transactionId: transaction._id
+    await notificationService.sendNotificationToUser(req.params.id, 'balance_credited', {
+      amount: parseFloat(amount),
+      currency: 'USDT',
+      description: description,
+      transactionId: transaction._id.toString(),
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     });
 
     res.json({
@@ -968,6 +970,101 @@ router.get('/withdrawals', async (req, res) => {
   }
 });
 
+// @route   DELETE /api/admin/withdrawals
+// @desc    Bulk delete withdrawal requests (admin only)
+// @access  Private (Admin)
+router.delete('/withdrawals', async (req, res) => {
+  try {
+    const { withdrawalIds } = req.body;
+    
+    if (!withdrawalIds || !Array.isArray(withdrawalIds) || withdrawalIds.length === 0) {
+      return res.status(400).json({ error: 'Withdrawal IDs are required' });
+    }
+
+    let deletedCount = 0;
+    let refundedAmount = 0;
+
+    for (const withdrawalId of withdrawalIds) {
+      const withdrawal = await Withdrawal.findById(withdrawalId).populate('user');
+      
+      if (!withdrawal) {
+        console.log(`[Bulk Delete] Withdrawal ${withdrawalId} not found, skipping`);
+        continue;
+      }
+
+      // If withdrawal is pending, refund the balance to user
+      if (withdrawal.status === 'pending') {
+        const user = await User.findById(withdrawal.user._id);
+        if (user) {
+          user.balance += withdrawal.amount;
+          await user.save();
+          refundedAmount += withdrawal.amount;
+          console.log(`[Bulk Delete] Refunded $${withdrawal.amount} to user ${user.email}`);
+        }
+      }
+
+      // Delete the withdrawal
+      await Withdrawal.findByIdAndDelete(withdrawalId);
+      deletedCount++;
+      console.log(`[Bulk Delete] Deleted withdrawal ${withdrawalId}`);
+    }
+
+    res.json({
+      success: true,
+      message: `${deletedCount} withdrawal(s) deleted successfully`,
+      deletedCount,
+      refundedAmount
+    });
+
+  } catch (error) {
+    console.error('Bulk delete withdrawals error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message || 'Failed to delete withdrawals' 
+    });
+  }
+});
+
+// @route   DELETE /api/admin/withdrawals/:id
+// @desc    Delete withdrawal request (admin only)
+// @access  Private (Admin)
+// NOTE: This route must be registered AFTER /withdrawals (bulk delete) to avoid route conflicts
+router.delete('/withdrawals/:id', async (req, res) => {
+  try {
+    const withdrawal = await Withdrawal.findById(req.params.id).populate('user');
+    
+    if (!withdrawal) {
+      return res.status(404).json({ error: 'Withdrawal not found' });
+    }
+
+    // If withdrawal is pending, refund the balance to user
+    if (withdrawal.status === 'pending') {
+      const user = await User.findById(withdrawal.user._id);
+      if (user) {
+        user.balance += withdrawal.amount;
+        await user.save();
+        console.log(`[Delete Withdrawal] Refunded $${withdrawal.amount} to user ${user.email}`);
+      }
+    }
+
+    // Delete the withdrawal
+    await Withdrawal.findByIdAndDelete(req.params.id);
+    console.log(`[Delete Withdrawal] Deleted withdrawal ${req.params.id}`);
+
+    res.json({
+      success: true,
+      message: 'Withdrawal deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete withdrawal error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message || 'Failed to delete withdrawal' 
+    });
+  }
+});
+
 // @route   POST /api/admin/withdrawals/:id/complete
 // @desc    Complete withdrawal (admin only)
 // @access  Private (Admin)
@@ -998,13 +1095,14 @@ router.post('/withdrawals/:id/complete', [
     }
     await withdrawal.complete(transactionHash);
 
-    // Send notification to user
+    // Send email to user about withdrawal confirmation
     const notificationService = require('../services/notificationService');
-    await notificationService.sendNotificationToUser(withdrawal.user._id, 'withdrawal', {
-      title: 'Withdrawal Completed',
-      message: `Your withdrawal of $${withdrawal.amount} USDT has been processed successfully`,
-      withdrawalId: withdrawal._id,
-      transactionHash: transactionHash || 'N/A'
+    await notificationService.sendNotificationToUser(withdrawal.user._id, 'withdrawal_confirmed', {
+      amount: withdrawal.amount,
+      currency: withdrawal.currency || 'USDT',
+      transactionHash: transactionHash || 'N/A',
+      withdrawalId: withdrawal._id.toString(),
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     });
 
     res.json({
@@ -1224,6 +1322,180 @@ router.get('/commissions', async (req, res) => {
   } catch (error) {
     console.error('Get commissions error:', error);
     res.status(500).json({ error: 'Failed to fetch commissions' });
+  }
+});
+
+// @route   GET /api/admin/platform-commissions
+// @desc    Get platform commissions (company share from all payments)
+// @access  Private (Admin)
+router.get('/platform-commissions', async (req, res) => {
+  try {
+    const { 
+      limit = 50, 
+      page = 1, 
+      packageName, 
+      startDate, 
+      endDate
+    } = req.query;
+    
+    console.log('[Platform Commissions] Fetching platform commissions with filters:', {
+      limit, page, packageName, startDate, endDate
+    });
+    
+    // Query for completed package payments
+    // Note: Payments are marked as 'completed' when admin confirms them
+    const query = { 
+      type: 'package',
+      status: 'completed'
+    };
+    
+    // Also check if there are any package payments at all (for debugging)
+    const allPackagePayments = await Payment.find({ type: 'package' }).select('status package.name finalAmount amount adminConfirmed').lean();
+    console.log('[Platform Commissions] All package payments (any status):', allPackagePayments.length);
+    if (allPackagePayments.length > 0) {
+      console.log('[Platform Commissions] Sample payments:', allPackagePayments.slice(0, 5).map(p => ({
+        _id: p._id,
+        status: p.status,
+        adminConfirmed: p.adminConfirmed,
+        packageName: p.package?.name,
+        amount: p.finalAmount || p.amount
+      })));
+      
+      const completedPayments = allPackagePayments.filter(p => p.status === 'completed');
+      console.log('[Platform Commissions] Completed package payments:', completedPayments.length);
+    }
+    
+    // Filter by package name
+    if (packageName) {
+      query['package.name'] = packageName;
+    }
+    
+    // Filter by date range
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.createdAt.$lte = new Date(endDate);
+      }
+    }
+    
+    console.log('[Platform Commissions] Query:', JSON.stringify(query, null, 2));
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    // Get completed package payments
+    const payments = await Payment.find(query)
+      .populate('user', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip)
+      .lean();
+    
+    console.log(`[Platform Commissions] Found ${payments.length} payments`);
+    
+    // Calculate platform commission for each payment
+    const ReferralCommissionService = require('../services/referralCommissionService');
+    const commissionService = new ReferralCommissionService();
+    
+    const platformCommissions = payments.map(payment => {
+      const packageName = payment.package?.name || 'Unknown';
+      const packageAmount = payment.finalAmount || payment.amount || 0;
+      const referralPool = commissionService.getReferralPool(packageName, packageAmount);
+      const companyShare = commissionService.getCompanyShare(packageName, packageAmount);
+      
+      console.log(`[Platform Commissions] Payment ${payment._id}:`, {
+        packageName,
+        packageAmount,
+        referralPool,
+        companyShare
+      });
+      
+      return {
+        _id: payment._id,
+        paymentId: payment._id,
+        user: payment.user || { firstName: 'Unknown', lastName: '', email: '' },
+        package: payment.package || { name: 'Unknown', price: 0 },
+        packageAmount: packageAmount,
+        referralPool: referralPool,
+        platformCommission: companyShare,
+        referralPoolPercentage: commissionService.packageReferralPools[commissionService.normalizePackageName(packageName)] * 100 || 0,
+        platformCommissionPercentage: (1 - (commissionService.packageReferralPools[commissionService.normalizePackageName(packageName)] || 0)) * 100,
+        createdAt: payment.createdAt,
+        confirmedAt: payment.confirmedAt
+      };
+    });
+    
+    // Get total count for pagination
+    const total = await Payment.countDocuments(query);
+    console.log(`[Platform Commissions] Total payments: ${total}`);
+    
+    // Calculate summary statistics
+    const allPayments = await Payment.find({ 
+      type: 'package',
+      status: 'completed'
+    }).lean();
+    
+    console.log(`[Platform Commissions] All payments for stats: ${allPayments.length}`);
+    
+    let totalPlatformCommission = 0;
+    let totalReferralPool = 0;
+    let totalPackageAmount = 0;
+    const byPackage = {};
+    
+    allPayments.forEach(payment => {
+      const pkgName = payment.package?.name || 'Unknown';
+      const pkgAmount = payment.finalAmount || payment.amount || 0;
+      const refPool = commissionService.getReferralPool(pkgName, pkgAmount);
+      const companyShare = commissionService.getCompanyShare(pkgName, pkgAmount);
+      
+      totalPlatformCommission += companyShare;
+      totalReferralPool += refPool;
+      totalPackageAmount += pkgAmount;
+      
+      if (!byPackage[pkgName]) {
+        byPackage[pkgName] = { totalAmount: 0, platformCommission: 0, referralPool: 0, count: 0 };
+      }
+      byPackage[pkgName].totalAmount += pkgAmount;
+      byPackage[pkgName].platformCommission += companyShare;
+      byPackage[pkgName].referralPool += refPool;
+      byPackage[pkgName].count += 1;
+    });
+    
+    console.log(`[Platform Commissions] Returning ${platformCommissions.length} commissions`);
+    
+    res.json({
+      commissions: platformCommissions,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit))
+      },
+      stats: {
+        total: {
+          totalPlatformCommission: Math.round(totalPlatformCommission * 100) / 100,
+          totalReferralPool: Math.round(totalReferralPool * 100) / 100,
+          totalPackageAmount: Math.round(totalPackageAmount * 100) / 100,
+          totalCount: allPayments.length
+        },
+        byPackage: Object.entries(byPackage).map(([name, data]) => ({
+          packageName: name,
+          totalAmount: Math.round(data.totalAmount * 100) / 100,
+          platformCommission: Math.round(data.platformCommission * 100) / 100,
+          referralPool: Math.round(data.referralPool * 100) / 100,
+          count: data.count
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('[Platform Commissions] Error:', error);
+    console.error('[Platform Commissions] Error stack:', error.stack);
+    res.status(500).json({ 
+      error: 'Failed to fetch platform commissions',
+      message: error.message 
+    });
   }
 });
 

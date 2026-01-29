@@ -3,6 +3,23 @@ const Settings = require('../models/Settings');
 const User = require('../models/User');
 const NotificationTracking = require('../models/NotificationTracking');
 const Notification = require('../models/Notification');
+const emailTemplates = require('./emailTemplates');
+
+function escapeHtml(str) {
+  if (str == null || typeof str !== 'string') return '';
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+/** Strip any {{...}} placeholders so variables never appear in sent emails */
+function stripTemplatePlaceholders(str) {
+  if (str == null || typeof str !== 'string') return str;
+  return str.replace(/\{\{[^}]*\}\}/g, '');
+}
 
 class NotificationService {
   constructor() {
@@ -81,6 +98,8 @@ class NotificationService {
     let trackingRecord = null;
     
     try {
+      console.log(`[Email] Attempting to send email to ${to}, subject: ${subject}, type: ${type}`);
+      
       // Create tracking record
       if (userId) {
         trackingRecord = new NotificationTracking({
@@ -99,13 +118,18 @@ class NotificationService {
       const settings = await Settings.getSettings();
       const emailConfig = settings.email;
 
+      console.log(`[Email] SMTP Config - Host: ${emailConfig.smtpHost}, User: ${emailConfig.smtpUser}, Mock Mode: ${emailConfig.isMockMode}`);
+
       // Check if we're in mock mode
       if (emailConfig.isMockMode) {
+        const safeHtml = stripTemplatePlaceholders(html);
+        const safeText = stripTemplatePlaceholders(text || this.stripHtml(html));
+        const safeSubject = stripTemplatePlaceholders(subject);
         console.log('\n📧 MOCK EMAIL SENT:');
         console.log('To:', to);
-        console.log('Subject:', subject);
+        console.log('Subject:', safeSubject);
         console.log('From:', `${emailConfig.fromName} <${emailConfig.fromEmail}>`);
-        console.log('Content:', text || this.stripHtml(html));
+        console.log('Content:', safeText);
         console.log('---\n');
         
         if (trackingRecord) {
@@ -116,6 +140,11 @@ class NotificationService {
 
       // Check if we have valid configuration
       if (!emailConfig.smtpHost || !emailConfig.smtpUser || !emailConfig.smtpPassword) {
+        console.error('[Email] Missing SMTP configuration:', {
+          hasHost: !!emailConfig.smtpHost,
+          hasUser: !!emailConfig.smtpUser,
+          hasPassword: !!emailConfig.smtpPassword
+        });
         console.log('Email configuration incomplete, skipping email notification');
         if (trackingRecord) {
           await trackingRecord.markAsFailed('Email configuration incomplete');
@@ -137,16 +166,24 @@ class NotificationService {
         }
       });
 
+      // Strip any unreplaced {{...}} placeholders so variables never show in email
+      const safeHtml = stripTemplatePlaceholders(html);
+      const safeText = stripTemplatePlaceholders(text || this.stripHtml(html));
+      const safeSubject = stripTemplatePlaceholders(subject);
+
       const mailOptions = {
         from: `"${emailConfig.fromName}" <${emailConfig.fromEmail}>`,
         to,
-        subject,
-        html,
-        text: text || this.stripHtml(html)
+        subject: safeSubject,
+        html: safeHtml,
+        text: safeText
       };
 
+      console.log('[Email] Attempting to send email via SMTP...');
       const info = await transporter.sendMail(mailOptions);
-      console.log('Email sent successfully:', info.messageId);
+      console.log('[Email] ✅ Email sent successfully!');
+      console.log('[Email] Message ID:', info.messageId);
+      console.log('[Email] Response:', info.response);
       
       // Update tracking record
       if (trackingRecord) {
@@ -158,7 +195,11 @@ class NotificationService {
       
       return true;
     } catch (error) {
-      console.error('Failed to send email:', error.message);
+      console.error('[Email] ❌ Failed to send email:', error.message);
+      console.error('[Email] Error code:', error.code);
+      console.error('[Email] Error command:', error.command);
+      console.error('[Email] Error response:', error.response);
+      console.error('[Email] Error stack:', error.stack);
       
       // Update tracking record with error
       if (trackingRecord) {
@@ -237,10 +278,19 @@ class NotificationService {
       }
 
       // Generate notification content
+      console.log(`[Notification] Generating content for type: ${type}`);
       const content = this.generateNotificationContent(type, data, user);
+      console.log(`[Notification] Content generated - Subject: ${content.subject}`);
+      console.log(`[Notification] HTML length: ${content.html?.length || 0} chars`);
+      console.log(`[Notification] Text length: ${content.text?.length || 0} chars`);
 
       // Send email notification
-      if (settings.notifications.emailNotifications && user.preferences?.emailNotifications !== false) {
+      const emailEnabled = settings.notifications.emailNotifications;
+      const userEmailEnabled = user.preferences?.emailNotifications !== false;
+      console.log(`[Notification] Email enabled - Global: ${emailEnabled}, User: ${userEmailEnabled}`);
+      
+      if (emailEnabled && userEmailEnabled) {
+        console.log(`[Notification] Sending email to ${user.email}`);
         results.email = await this.sendEmail({
           to: user.email,
           subject: content.subject,
@@ -250,6 +300,9 @@ class NotificationService {
           type: type,
           bulkNotificationId: bulkNotificationId
         });
+        console.log(`[Notification] Email send result: ${results.email}`);
+      } else {
+        console.log(`[Notification] Email notifications disabled - skipping email`);
       }
 
       // Send SMS notification
@@ -327,6 +380,7 @@ class NotificationService {
     const typeMap = {
       'user_registration': 'newUserRegistration',
       'payment_received': 'paymentReceived',
+      'payment_pending': 'paymentReceived', // Use paymentReceived setting for payment_pending
       'course_enrollment': 'newUserRegistration',
       'system_alert': 'systemAlerts',
       'password_reset': 'systemAlerts',
@@ -336,7 +390,9 @@ class NotificationService {
     };
 
     const settingKey = typeMap[type];
-    return settingKey ? settings.notifications[settingKey] : true;
+    const isEnabled = settingKey ? settings.notifications[settingKey] : true;
+    console.log(`[Notification] Type ${type} enabled check - Setting key: ${settingKey}, Enabled: ${isEnabled}`);
+    return isEnabled;
   }
 
   /**
@@ -347,6 +403,8 @@ class NotificationService {
    * @returns {Object} - Generated content
    */
   generateNotificationContent(type, data, user) {
+    // emailTemplates is now loaded at the top of the file
+
     const templates = {
       user_registration: {
         subject: 'Welcome to Forex Navigators!',
@@ -398,14 +456,271 @@ class NotificationService {
       }
     };
 
-    return templates[type] || {
-      subject: 'Notification from Forex Navigators',
-      html: `<p>Hello ${user.firstName},</p><p>You have a new notification.</p>`,
-      text: `Hello ${user.firstName}, you have a new notification.`,
-      sms: 'You have a new notification from Forex Navigators.',
-      pushTitle: 'Notification',
-      pushBody: 'You have a new notification'
+    // Handle payment_pending dynamically since it needs user and data
+    if (type === 'payment_pending') {
+      try {
+        console.log('[Notification] Processing payment_pending notification');
+        console.log('[Notification] User:', user.firstName, user.lastName);
+        console.log('[Notification] Data:', JSON.stringify(data, null, 2));
+        
+        // Format payment ID - get first 8 characters if it's an ObjectId or long string
+        let paymentIdStr = 'N/A';
+        if (data.paymentId) {
+          const paymentId = data.paymentId.toString();
+          paymentIdStr = paymentId.length > 8 ? paymentId.substring(0, 8) : paymentId;
+        }
+        
+        const template = emailTemplates.renderTemplate('payment_pending', {
+          userName: `${user.firstName} ${user.lastName}`,
+          amount: data.amount || data.finalAmount || 0,
+          currency: data.currency || 'USD',
+          packageName: data.packageName || 'Premium Package',
+          paymentId: paymentIdStr,
+          loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+          companyName: 'Forex Navigators'
+        });
+        
+        console.log('[Notification] ✅ Template rendered successfully!');
+        console.log('[Notification] HTML length:', template.html?.length || 0);
+        console.log('[Notification] Subject:', template.subject);
+        console.log('[Notification] Template preview (first 200 chars):', template.html?.substring(0, 200));
+        
+        return {
+          subject: template.subject || 'Payment Received - Awaiting Admin Approval',
+          html: template.html,
+          text: template.text,
+          sms: `Payment of $${data.amount || data.finalAmount || 0} received. Awaiting admin approval.`,
+          pushTitle: 'Payment Received',
+          pushBody: `Your payment is being reviewed`
+        };
+      } catch (error) {
+        console.error('[Notification] ❌ Error rendering payment_pending template:', error);
+        console.error('[Notification] Error message:', error.message);
+        console.error('[Notification] Error stack:', error.stack);
+        // Fallback to simple template if rendering fails
+        return {
+          subject: 'Payment Received - Awaiting Admin Approval',
+          html: `<p>Hello ${user.firstName},</p><p>Your payment is being reviewed by our admin team.</p>`,
+          text: `Hello ${user.firstName}, your payment is being reviewed.`,
+          sms: `Payment received. Awaiting admin approval.`,
+          pushTitle: 'Payment Received',
+          pushBody: 'Your payment is being reviewed'
+        };
+      }
+    }
+
+    // Handle payment_confirmed dynamically
+    if (type === 'payment_confirmed') {
+      try {
+        console.log('[Notification] Processing payment_confirmed notification');
+        console.log('[Notification] User:', user.firstName, user.lastName);
+        console.log('[Notification] Data:', JSON.stringify(data, null, 2));
+        
+        const template = emailTemplates.renderTemplate('payment_confirmed', {
+          userName: `${user.firstName} ${user.lastName}`,
+          amount: data.amount || data.finalAmount || 0,
+          currency: data.currency || 'USD',
+          packageName: data.packageName || 'Premium Package',
+          transactionId: data.transactionId || data.paymentId?.toString() || 'N/A',
+          date: data.date || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+          companyName: 'Forex Navigators'
+        });
+        
+        console.log('[Notification] ✅ Payment confirmed template rendered successfully!');
+        console.log('[Notification] HTML length:', template.html?.length || 0);
+        console.log('[Notification] Subject:', template.subject);
+        
+        return {
+          subject: template.subject || 'Payment Confirmed - Your Account is Activated!',
+          html: template.html,
+          text: template.text,
+          sms: `Payment of $${data.amount || data.finalAmount || 0} confirmed. Your account is now activated!`,
+          pushTitle: 'Payment Confirmed',
+          pushBody: `Your payment has been confirmed!`
+        };
+      } catch (error) {
+        console.error('[Notification] ❌ Error rendering payment_confirmed template:', error);
+        return {
+          subject: 'Payment Confirmed - Your Account is Activated!',
+          html: `<p>Hello ${user.firstName},</p><p>Your payment has been confirmed. Your account is now activated!</p>`,
+          text: `Hello ${user.firstName}, your payment has been confirmed.`,
+          sms: `Payment confirmed. Account activated.`,
+          pushTitle: 'Payment Confirmed',
+          pushBody: 'Your payment has been confirmed!'
+        };
+      }
+    }
+
+    // Handle account_verified dynamically
+    if (type === 'account_verified') {
+      try {
+        console.log('[Notification] Processing account_verified notification');
+        const template = emailTemplates.renderTemplate('account_verified', {
+          userName: `${user.firstName} ${user.lastName}`,
+          packageName: data.packageName || 'Premium Package',
+          loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+          companyName: 'Forex Navigators'
+        });
+        
+        console.log('[Notification] ✅ Account verified template rendered successfully!');
+        
+        return {
+          subject: template.subject || 'Account Verified - Welcome!',
+          html: template.html,
+          text: template.text,
+          sms: `Your Forex Navigators account has been verified!`,
+          pushTitle: 'Account Verified',
+          pushBody: 'Your account is now active!'
+        };
+      } catch (error) {
+        console.error('[Notification] ❌ Error rendering account_verified template:', error);
+        return {
+          subject: 'Account Verified - Welcome!',
+          html: `<p>Hello ${user.firstName},</p><p>Your account has been verified.</p>`,
+          text: `Hello ${user.firstName}, your account has been verified.`,
+          sms: `Your account has been verified!`,
+          pushTitle: 'Account Verified',
+          pushBody: 'Your account is now active!'
+        };
+      }
+    }
+
+    // Handle withdrawal_request dynamically
+    if (type === 'withdrawal_request') {
+      try {
+        console.log('[Notification] Processing withdrawal_request notification');
+        const template = emailTemplates.renderTemplate('withdrawal_request', {
+          userName: `${user.firstName} ${user.lastName}`,
+          amount: data.amount || 0,
+          currency: data.currency || 'USDT',
+          walletAddress: data.walletAddress || 'N/A',
+          network: data.network || 'TRC20',
+          withdrawalId: data.withdrawalId ? data.withdrawalId.toString().substring(0, 8) : 'N/A',
+          loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+          companyName: 'Forex Navigators'
+        });
+        
+        console.log('[Notification] ✅ Withdrawal request template rendered successfully!');
+        
+        return {
+          subject: template.subject || 'Withdrawal Request Submitted - Awaiting Admin Approval',
+          html: template.html,
+          text: template.text,
+          sms: `Withdrawal request of $${data.amount || 0} submitted. Awaiting admin approval.`,
+          pushTitle: 'Withdrawal Request Submitted',
+          pushBody: `Your withdrawal request is being reviewed`
+        };
+      } catch (error) {
+        console.error('[Notification] ❌ Error rendering withdrawal_request template:', error);
+        return {
+          subject: 'Withdrawal Request Submitted',
+          html: `<p>Hello ${user.firstName},</p><p>Your withdrawal request has been submitted and is being reviewed.</p>`,
+          text: `Hello ${user.firstName}, your withdrawal request has been submitted.`,
+          sms: `Withdrawal request submitted.`,
+          pushTitle: 'Withdrawal Request Submitted',
+          pushBody: 'Your withdrawal request is being reviewed'
+        };
+      }
+    }
+
+    // Handle withdrawal_confirmed dynamically
+    if (type === 'withdrawal_confirmed') {
+      try {
+        console.log('[Notification] Processing withdrawal_confirmed notification');
+        const template = emailTemplates.renderTemplate('withdrawal_confirmed', {
+          userName: `${user.firstName} ${user.lastName}`,
+          amount: data.amount || 0,
+          currency: data.currency || 'USDT',
+          transactionHash: data.transactionHash || 'N/A',
+          withdrawalId: data.withdrawalId ? data.withdrawalId.toString().substring(0, 8) : 'N/A',
+          date: data.date || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+          companyName: 'Forex Navigators'
+        });
+        
+        console.log('[Notification] ✅ Withdrawal confirmed template rendered successfully!');
+        
+        return {
+          subject: template.subject || 'Withdrawal Confirmed - Funds Transferred!',
+          html: template.html,
+          text: template.text,
+          sms: `Withdrawal of $${data.amount || 0} confirmed. Funds transferred!`,
+          pushTitle: 'Withdrawal Confirmed',
+          pushBody: `Your withdrawal has been processed!`
+        };
+      } catch (error) {
+        console.error('[Notification] ❌ Error rendering withdrawal_confirmed template:', error);
+        return {
+          subject: 'Withdrawal Confirmed - Funds Transferred!',
+          html: `<p>Hello ${user.firstName},</p><p>Your withdrawal has been confirmed and funds have been transferred.</p>`,
+          text: `Hello ${user.firstName}, your withdrawal has been confirmed.`,
+          sms: `Withdrawal confirmed. Funds transferred.`,
+          pushTitle: 'Withdrawal Confirmed',
+          pushBody: 'Your withdrawal has been processed!'
+        };
+      }
+    }
+
+    // Handle balance_credited dynamically
+    if (type === 'balance_credited') {
+      try {
+        console.log('[Notification] Processing balance_credited notification');
+        const template = emailTemplates.renderTemplate('balance_credited', {
+          userName: `${user.firstName} ${user.lastName}`,
+          amount: data.amount || 0,
+          currency: data.currency || 'USDT',
+          description: data.description || 'Balance credited to your account',
+          transactionId: data.transactionId ? data.transactionId.toString().substring(0, 8) : 'N/A',
+          date: data.date || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
+          loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard`,
+          companyName: 'Forex Navigators'
+        });
+        
+        console.log('[Notification] ✅ Balance credited template rendered successfully!');
+        
+        return {
+          subject: template.subject || 'Balance Credited to Your Account',
+          html: template.html,
+          text: template.text,
+          sms: `$${data.amount || 0} USDT has been credited to your account.`,
+          pushTitle: 'Balance Credited',
+          pushBody: `$${data.amount || 0} USDT added to your account`
+        };
+      } catch (error) {
+        console.error('[Notification] ❌ Error rendering balance_credited template:', error);
+        return {
+          subject: 'Balance Credited to Your Account',
+          html: `<p>Hello ${user.firstName},</p><p>$${data.amount || 0} USDT has been credited to your account.</p><p>${data.description || ''}</p>`,
+          text: `Hello ${user.firstName}, $${data.amount || 0} USDT has been credited to your account.`,
+          sms: `$${data.amount || 0} USDT credited to your account.`,
+          pushTitle: 'Balance Credited',
+          pushBody: `$${data.amount || 0} USDT added to your account`
+        };
+      }
+    }
+
+    // Default: use actual values only (no template placeholders) so variables never show in email
+    const userName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'there';
+    const notifTitle = (data && data.title) ? String(data.title) : 'New notification';
+    const notifMessage = (data && data.message) ? String(data.message) : 'You have a new notification.';
+    const defaultTemplate = {
+      subject: (data && data.title) ? String(data.title) : 'Notification from Forex Navigators',
+      html: `<p>Hello ${userName},</p><p><strong>${escapeHtml(notifTitle)}</strong></p><p>${escapeHtml(notifMessage)}</p>`,
+      text: `Hello ${userName},\n\n${notifTitle}\n\n${notifMessage}`,
+      sms: notifMessage || 'You have a new notification from Forex Navigators.',
+      pushTitle: notifTitle,
+      pushBody: notifMessage || 'You have a new notification'
     };
+
+    if (!templates[type]) {
+      console.log(`[Notification] ⚠️ Template not found for type: ${type}, using default`);
+      console.log(`[Notification] Available templates: ${Object.keys(templates).join(', ')}`);
+      return defaultTemplate;
+    }
+
+    console.log(`[Notification] ✅ Using template for type: ${type}`);
+    return templates[type];
   }
 
   /**

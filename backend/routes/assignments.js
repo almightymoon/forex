@@ -8,9 +8,10 @@ const User = require('../models/User');
 // Get all assignments for a student
 router.get('/', authenticateToken, requireVerifiedPayment, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user._id;
+    // Use _id (MongoDB ObjectId) not userId (string like "USER-OS9758")
+    const userId = req.user._id;
     console.log('=== FETCHING ASSIGNMENTS ===');
-    console.log('User ID:', userId);
+    console.log('User ID (ObjectId):', userId);
     console.log('User object:', { id: req.user._id, userId: req.user.userId, email: req.user.email });
     
     // Get student's enrolled courses
@@ -140,9 +141,10 @@ router.get('/', authenticateToken, requireVerifiedPayment, async (req, res) => {
 // Get assignments for a specific course
 router.get('/course/:courseId', authenticateToken, async (req, res) => {
   try {
+    // Note: Assignment model doesn't have a direct 'student' field at root level
+    // Submissions are nested in submissions array, so this query might not work as expected
     const assignments = await Assignment.find({ 
-      course: req.params.courseId,
-      student: req.user.userId 
+      course: req.params.courseId
     }).populate('course', 'title');
     
     res.json(assignments);
@@ -155,7 +157,8 @@ router.get('/course/:courseId', authenticateToken, async (req, res) => {
 // Submit an assignment
 router.post('/:assignmentId/submit', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user._id;
+    // Use _id (MongoDB ObjectId) not userId (string like "USER-OS9758")
+    const userId = req.user._id;
     const { assignmentId } = req.params;
     
     // Handle FormData processed by multer
@@ -244,16 +247,27 @@ router.post('/:assignmentId/submit', authenticateToken, async (req, res) => {
 // Get assignment details
 router.get('/:assignmentId', authenticateToken, async (req, res) => {
   try {
+    // Use _id (ObjectId) not userId (string)
+    const userId = req.user._id;
     const assignment = await Assignment.findOne({
-      _id: req.params.assignmentId,
-      student: req.user.userId
+      _id: req.params.assignmentId
     }).populate('course', 'title description');
     
     if (!assignment) {
       return res.status(404).json({ error: 'Assignment not found' });
     }
     
-    res.json(assignment);
+    // Find user's submission if exists
+    const userSubmission = assignment.submissions?.find(
+      sub => sub.student?.toString() === userId.toString()
+    );
+    
+    const assignmentData = assignment.toObject();
+    if (userSubmission) {
+      assignmentData.submission = userSubmission;
+    }
+    
+    res.json(assignmentData);
   } catch (error) {
     console.error('Error fetching assignment:', error);
     res.status(500).json({ error: 'Failed to fetch assignment' });
@@ -269,11 +283,11 @@ router.post('/', authenticateToken, requireRole(['admin', 'teacher']), async (re
       title,
       description,
       course: courseId,
+      teacher: req.user._id, // Use _id (ObjectId) for teacher reference
       dueDate,
       type,
       questions,
-      totalPoints,
-      createdBy: req.user.userId
+      totalPoints
     });
     
     await assignment.save();
@@ -332,7 +346,7 @@ router.post('/:assignmentId/grade', authenticateToken, requireRole(['admin', 'te
     assignment.submissions[submissionIndex].grade = grade;
     assignment.submissions[submissionIndex].feedback = feedback;
     assignment.submissions[submissionIndex].gradedAt = new Date();
-    assignment.submissions[submissionIndex].gradedBy = req.user.userId;
+    assignment.submissions[submissionIndex].gradedBy = req.user._id; // Use _id (ObjectId) not userId (string)
     assignment.submissions[submissionIndex].status = 'graded';
     
     await assignment.save();

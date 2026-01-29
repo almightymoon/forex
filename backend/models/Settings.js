@@ -29,6 +29,13 @@ const settingsSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  defaultReferralCode: {
+    type: String,
+    default: '',
+    trim: true,
+    uppercase: true,
+    maxlength: [20, 'Referral code cannot exceed 20 characters']
+  },
 
   // Security Settings
   security: {
