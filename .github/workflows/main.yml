@@ -36,6 +36,9 @@ jobs:
             # Change directory to project directory
             cd /var/www/forex/
             
+            # Configure git to handle divergent branches
+            git config pull.rebase false  # Use merge strategy
+            
             # Handle local changes that might block git pull
             echo "Checking for local changes..."
             if ! git diff --quiet || ! git diff --cached --quiet; then
@@ -46,8 +49,22 @@ jobs:
               git stash push -m "Pipeline auto-stash before pull" || true
             fi
             
-            # Pull latest changes
-            git pull origin main
+            # Fetch latest changes first
+            git fetch origin main
+            
+            # Reset to match remote if branches have diverged (force update local to match remote)
+            echo "Checking for divergent branches..."
+            LOCAL=$(git rev-parse @)
+            REMOTE=$(git rev-parse @{u})
+            BASE=$(git merge-base @ @{u})
+            
+            if [ "$LOCAL" != "$REMOTE" ] && [ "$LOCAL" != "$BASE" ] && [ "$REMOTE" != "$BASE" ]; then
+              echo "Branches have diverged. Resetting local branch to match remote..."
+              git reset --hard origin/main
+            else
+              # Pull latest changes normally
+              git pull origin main
+            fi
             
             # Install backend dependencies
             cd backend/
