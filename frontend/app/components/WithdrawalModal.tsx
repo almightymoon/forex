@@ -30,9 +30,15 @@ export default function WithdrawalModal({
     e.preventDefault();
 
     const withdrawalAmount = parseFloat(amount);
+    const MIN_WITHDRAWAL_AMOUNT = 30;
     
     if (!withdrawalAmount || withdrawalAmount <= 0) {
       showToast('Please enter a valid amount', 'error');
+      return;
+    }
+
+    if (withdrawalAmount < MIN_WITHDRAWAL_AMOUNT) {
+      showToast(`Minimum withdrawal amount is $${MIN_WITHDRAWAL_AMOUNT}`, 'error');
       return;
     }
 

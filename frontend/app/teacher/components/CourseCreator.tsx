@@ -62,6 +62,7 @@ interface Course {
   content?: any[];
   quizzes?: any[];
   assignments?: any[];
+  allowedPackages?: number[] | null; // null means for all packages, array of [100, 250, 1000]
   instructor?: string;
 }
 
@@ -134,6 +135,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
     learningOutcomes: editingCourse?.learningOutcomes || initialData?.learningOutcomes || [],
     content: editingCourse?.content || initialData?.content || [],
     quizzes: editingCourse?.quizzes || initialData?.quizzes || [],
+    allowedPackages: editingCourse?.allowedPackages || initialData?.allowedPackages || null, // null means for all packages
     settings: {
       allowPreview: true,
       requireEnrollment: true,
@@ -173,6 +175,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         learningOutcomes: editingCourse.learningOutcomes || [],
         content: editingCourse.content || [],
         quizzes: editingCourse.quizzes || [],
+        allowedPackages: editingCourse.allowedPackages || null,
         settings: {
           allowPreview: true,
           requireEnrollment: true,
@@ -883,6 +886,70 @@ function BasicInfoTab({
               min="0"
               step="0.01"
             />
+          </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Available for Packages
+            </label>
+            <div className="space-y-2">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={courseData.allowedPackages === null || courseData.allowedPackages === undefined}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      // Set to null to mean "for all packages"
+                      setCourseData({ ...courseData, allowedPackages: null });
+                    } else {
+                      // Unchecking "for all" - initialize with empty array so user can select specific packages
+                      setCourseData({ ...courseData, allowedPackages: [] });
+                    }
+                  }}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="text-gray-700 dark:text-gray-300 font-medium">For All Packages (Visible to everyone)</span>
+              </label>
+              <div className="ml-6 space-y-2">
+                {[100, 250, 1000].map((pkgPrice) => {
+                  const packageNames: { [key: number]: string } = {
+                    100: 'FX Launch ($100)',
+                    250: 'FX Scale ($250)',
+                    1000: 'FX Legacy ($1000)'
+                  };
+                  // Only disable if explicitly null/undefined (for all), not if it's an empty array (selecting specific)
+                  const isForAll = courseData.allowedPackages === null || courseData.allowedPackages === undefined;
+                  const isChecked = Array.isArray(courseData.allowedPackages) && courseData.allowedPackages.includes(pkgPrice);
+                  return (
+                    <label key={pkgPrice} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const currentPackages = Array.isArray(courseData.allowedPackages) ? courseData.allowedPackages : [];
+                          if (e.target.checked) {
+                            // Add package
+                            const newPackages = [...currentPackages, pkgPrice];
+                            setCourseData({ ...courseData, allowedPackages: newPackages });
+                          } else {
+                            // Remove package
+                            const newPackages = currentPackages.filter(p => p !== pkgPrice);
+                            // If no packages selected, set to null (for all)
+                            setCourseData({ ...courseData, allowedPackages: newPackages.length > 0 ? newPackages : null });
+                          }
+                        }}
+                        disabled={isForAll}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <span className={`text-gray-700 dark:text-gray-300 ${isForAll ? 'opacity-50' : ''}`}>{packageNames[pkgPrice]}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Uncheck "For All Packages" to select specific packages. Select specific packages to restrict access, or leave "For All Packages" checked to make it visible to all students.
+              </p>
+            </div>
           </div>
         </div>
 

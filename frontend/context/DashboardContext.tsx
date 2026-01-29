@@ -223,7 +223,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           certificatesResult,
           notificationResult
         ] = await Promise.all([
-          fetchWithMaintenanceCheck('/api/courses/enrolled', {
+          fetchWithMaintenanceCheck(buildApiUrl('api/courses/enrolled'), {
             headers: { 'Authorization': `Bearer ${token}` }
           }),
           apiRequest('api/signals'),
@@ -234,11 +234,20 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         ]);
 
         // Parse responses that need JSON parsing
+        let coursesData = [];
         let liveSessionsData = [];
         let notificationCountData = 0;
         let signalsData = [];
         let assignmentsData = [];
         let certificatesData = [];
+
+        // Parse courses result
+        if (coursesResult.data) {
+          coursesData = Array.isArray(coursesResult.data) ? coursesResult.data : [];
+        } else if (coursesResult.error) {
+          console.error('Error fetching enrolled courses:', coursesResult.error);
+          coursesData = [];
+        }
 
         if (liveSessionsResult.ok) {
           try {
@@ -284,7 +293,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // Update state with fetched data
         setData(prev => ({
           ...prev,
-          courses: coursesResult.data || [],
+          courses: coursesData,
           signals: signalsData,
           assignments: assignmentsData,
           liveSessions: liveSessionsData,
@@ -349,7 +358,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // Fetch essential data in background
         const [liveSessionsResult, coursesResult] = await Promise.all([
           apiRequest(`api/sessions?t=${Date.now()}`),
-          fetchWithMaintenanceCheck('/api/courses/enrolled', {
+          fetchWithMaintenanceCheck(buildApiUrl('api/courses/enrolled'), {
             headers: { 'Authorization': `Bearer ${token}` }
           })
         ]);

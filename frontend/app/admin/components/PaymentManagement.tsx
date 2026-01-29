@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { 
   Download, Search, Eye, CheckCircle, X, CreditCard, Wallet, 
   ArrowUpRight, Clock, AlertCircle, Edit, Save, XCircle, 
-  RefreshCw, Filter, DollarSign, User as UserIcon, Trash2
+  RefreshCw, Filter, DollarSign, User as UserIcon, Trash2, Loader2
 } from 'lucide-react';
 import { Payment } from './types';
 import { buildApiUrl } from '../../../utils/api';
@@ -81,9 +81,13 @@ export default function PaymentManagement({
   const [withdrawalNotes, setWithdrawalNotes] = useState('');
   const [rejectionReason, setRejectionReason] = useState('');
   const [selectedPayments, setSelectedPayments] = useState<Set<string>>(new Set());
+  const [selectedWithdrawals, setSelectedWithdrawals] = useState<Set<string>>(new Set());
+  const [deletedWithdrawalIds, setDeletedWithdrawalIds] = useState<Set<string>>(new Set());
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'single' | 'bulk'; id?: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
+
 
   const openPaymentModal = (payment: Payment) => {
     setSelectedPayment(payment);
@@ -118,8 +122,13 @@ export default function PaymentManagement({
     return matchesSearch && matchesStatus && matchesMethod;
   });
 
-  // Filter withdrawals
+  // Filter withdrawals (exclude deleted ones immediately)
   const filteredWithdrawals = withdrawals.filter(withdrawal => {
+    // Exclude deleted withdrawals immediately
+    if (deletedWithdrawalIds.has(withdrawal._id)) {
+      return false;
+    }
+    
     const matchesSearch = 
       (withdrawal.user?.firstName?.toLowerCase().includes(withdrawalSearchTerm.toLowerCase()) || false) ||
       (withdrawal.user?.lastName?.toLowerCase().includes(withdrawalSearchTerm.toLowerCase()) || false) ||
@@ -140,6 +149,15 @@ export default function PaymentManagement({
       user.email?.toLowerCase().includes(searchLower)
     );
   });
+
+  // Clear deleted withdrawal IDs when withdrawals are refreshed
+  useEffect(() => {
+    // Only keep IDs that still exist in the withdrawals array
+    setDeletedWithdrawalIds(prev => {
+      const withdrawalIds = new Set(withdrawals.map(w => w._id));
+      return new Set(Array.from(prev).filter(id => !withdrawalIds.has(id)));
+    });
+  }, [withdrawals]);
 
   const handleCompleteWithdrawal = async () => {
     if (!selectedWithdrawal) return;
@@ -174,6 +192,119 @@ export default function PaymentManagement({
       showToast('Error completing withdrawal', 'error');
     } finally {
       setIsProcessingWithdrawal(false);
+    }
+  };
+
+  const handleSelectWithdrawal = (withdrawalId: string) => {
+    const newSelected = new Set(selectedWithdrawals);
+    if (newSelected.has(withdrawalId)) {
+      newSelected.delete(withdrawalId);
+    } else {
+      newSelected.add(withdrawalId);
+    }
+    setSelectedWithdrawals(newSelected);
+  };
+
+  const handleSelectAllWithdrawals = () => {
+    if (selectedWithdrawals.size === filteredWithdrawals.length) {
+      setSelectedWithdrawals(new Set());
+    } else {
+      setSelectedWithdrawals(new Set(filteredWithdrawals.map(w => w._id)));
+    }
+  };
+
+  const handleDeleteWithdrawal = async (withdrawalId: string) => {
+    if (!window.confirm('Are you sure you want to delete this withdrawal request? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      const token = localStorage.getItem('token');
+      
+      // Optimistic update: remove from UI immediately by filtering out the deleted withdrawal
+      // We'll update the parent component's withdrawals array through onRefresh after success
+      
+      const response = await fetch(buildApiUrl(`api/admin/withdrawals/${withdrawalId}`), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        // Immediately remove from UI
+        setDeletedWithdrawalIds(prev => new Set(prev).add(withdrawalId));
+        showToast('Withdrawal deleted successfully', 'success');
+        // Remove from selected withdrawals if it was selected
+        const newSelected = new Set(selectedWithdrawals);
+        newSelected.delete(withdrawalId);
+        setSelectedWithdrawals(newSelected);
+        // Refresh to sync with backend
+        if (onRefresh) onRefresh();
+      } else {
+        const data = await response.json();
+        showToast(data.error || 'Failed to delete withdrawal', 'error');
+        // Refresh to restore the withdrawal if deletion failed
+        if (onRefresh) onRefresh();
+      }
+    } catch (error) {
+      console.error('Delete withdrawal error:', error);
+      showToast('Error deleting withdrawal', 'error');
+      // Refresh to restore the withdrawal if deletion failed
+      if (onRefresh) onRefresh();
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleBulkDeleteWithdrawals = async () => {
+    if (selectedWithdrawals.size === 0) return;
+    
+    if (!window.confirm(`Are you sure you want to delete ${selectedWithdrawals.size} withdrawal request(s)? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setIsDeleting(true);
+      const token = localStorage.getItem('token');
+      const withdrawalIds = Array.from(selectedWithdrawals);
+      
+      const response = await fetch(buildApiUrl('api/admin/withdrawals'), {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ withdrawalIds })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Immediately remove from UI
+        setDeletedWithdrawalIds(prev => {
+          const newSet = new Set(prev);
+          withdrawalIds.forEach(id => newSet.add(id));
+          return newSet;
+        });
+        showToast(`${data.deletedCount || selectedWithdrawals.size} withdrawal(s) deleted successfully!`, 'success');
+        setSelectedWithdrawals(new Set());
+        // Refresh to sync with backend
+        if (onRefresh) onRefresh();
+      } else {
+        const data = await response.json();
+        showToast(data.error || 'Failed to delete withdrawals', 'error');
+        // Refresh to restore withdrawals if deletion failed
+        if (onRefresh) onRefresh();
+      }
+    } catch (error) {
+      console.error('Bulk delete withdrawals error:', error);
+      showToast('Error deleting withdrawals', 'error');
+      // Refresh to restore withdrawals if deletion failed
+      if (onRefresh) onRefresh();
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -591,6 +722,7 @@ export default function PaymentManagement({
                           <button 
                             onClick={async () => {
                               const token = localStorage.getItem('token');
+                              setConfirmingPaymentId(payment._id);
                               try {
                                 const response = await fetch(buildApiUrl(`api/payments/admin/confirm`), {
                                   method: 'POST',
@@ -610,12 +742,23 @@ export default function PaymentManagement({
                                 }
                               } catch (error) {
                                 showToast('Error confirming payment', 'error');
+                              } finally {
+                                setConfirmingPaymentId(null);
                               }
                             }}
-                            className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors"
-                            title="Confirm Payment"
+                            disabled={confirmingPaymentId === payment._id}
+                            className={`p-2 rounded-lg transition-colors ${
+                              confirmingPaymentId === payment._id
+                                ? 'text-green-400 dark:text-green-500 bg-green-50 dark:bg-green-900/20 cursor-not-allowed opacity-70'
+                                : 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
+                            }`}
+                            title={confirmingPaymentId === payment._id ? 'Confirming...' : 'Confirm Payment'}
                           >
-                            <CheckCircle className="w-4 h-4" />
+                            {confirmingPaymentId === payment._id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : (
+                              <CheckCircle className="w-4 h-4" />
+                            )}
                           </button>
                         )}
                         {payment.status === 'pending' && payment.paymentMethod !== 'binance_wallet' && (
@@ -695,10 +838,35 @@ export default function PaymentManagement({
             </select>
           </div>
 
+          {/* Bulk Actions */}
+          {selectedWithdrawals.size > 0 && (
+            <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center justify-between">
+              <span className="text-sm font-medium text-blue-900 dark:text-blue-200">
+                {selectedWithdrawals.size} withdrawal(s) selected
+              </span>
+              <button
+                onClick={handleBulkDeleteWithdrawals}
+                disabled={isDeleting}
+                className="px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="w-4 h-4" />
+                {isDeleting ? 'Deleting...' : 'Delete Selected'}
+              </button>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white w-12">
+                    <input
+                      type="checkbox"
+                      checked={filteredWithdrawals.length > 0 && selectedWithdrawals.size === filteredWithdrawals.length}
+                      onChange={handleSelectAllWithdrawals}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
+                  </th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">User</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Amount</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Network</th>
@@ -711,6 +879,14 @@ export default function PaymentManagement({
               <tbody>
                 {filteredWithdrawals.map((withdrawal) => (
                   <tr key={withdrawal._id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700">
+                    <td className="py-4 px-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedWithdrawals.has(withdrawal._id)}
+                        onChange={() => handleSelectWithdrawal(withdrawal._id)}
+                        className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                      />
+                    </td>
                     <td className="py-4 px-4">
                       <div>
                         <p className="font-medium text-gray-900 dark:text-white">
@@ -746,13 +922,22 @@ export default function PaymentManagement({
                       {formatDate(withdrawal.createdAt)}
                     </td>
                     <td className="py-4 px-4">
-                      <button
-                        onClick={() => openWithdrawalModal(withdrawal)}
-                        className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                        title="View Details"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => openWithdrawalModal(withdrawal)}
+                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+                          title="View Details"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteWithdrawal(withdrawal._id)}
+                          className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                          title="Delete Withdrawal"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

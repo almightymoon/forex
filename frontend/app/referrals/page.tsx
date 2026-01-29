@@ -1156,12 +1156,12 @@ export default function ReferralsPage() {
                     >
                       Refresh Tree
                     </button>
-                    {tree && (
+                    {/* {tree && (
                       <div className="mt-4 text-xs text-gray-400 dark:text-gray-500">
                         Debug: Tree exists: {tree ? 'Yes' : 'No'}, 
                         Tree array: {tree?.tree ? (Array.isArray(tree.tree) ? `Yes (${tree.tree.length} items)` : 'Not an array') : 'No tree property'}
                       </div>
-                    )}
+                    )} */}
                   </>
                 )}
               </div>

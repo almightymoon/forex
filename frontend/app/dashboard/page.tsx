@@ -24,6 +24,7 @@ import UserProfileDropdown from '../components/UserProfileDropdown';
 import ReferralBadge from '../components/ReferralBadge';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import TradingViewWidget from '../../components/TradingViewWidget';
+import TradingViewTerminal from '../../components/TradingViewTerminal';
 import TradingPanel from '../../components/TradingPanel';
 import OpenPositions from '../../components/OpenPositions';
 import TradeHistory from './components/TradeHistory';
@@ -80,6 +81,7 @@ export default function Dashboard() {
   const [sessionsViewMode, setSessionsViewMode] = useState<'grid' | 'list'>('grid');
   const [tradingViewSymbol, setTradingViewSymbol] = useState<string>('FX:EURUSD');
   const [tradingViewInterval, setTradingViewInterval] = useState<'1' | '5' | '15' | '60' | '240' | 'D'>('60');
+  const [tradingViewMode, setTradingViewMode] = useState<'terminal' | 'chart' | 'iframe'>('terminal');
   const [tradesRefreshTrigger, setTradesRefreshTrigger] = useState(0);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
@@ -99,6 +101,8 @@ export default function Dashboard() {
   const [certificatesLoading, setCertificatesLoading] = useState(false);
   const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
   
   // Safety check for t function
   const safeT = (key: string) => {
@@ -191,6 +195,13 @@ export default function Dashboard() {
     }
   }, [activeTab]);
 
+  // Fetch recent activity when overview tab is active
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchRecentActivity();
+    }
+  }, [activeTab]);
+
   const fetchMyCertificates = async () => {
     try {
       setCertificatesLoading(true);
@@ -215,6 +226,34 @@ export default function Dashboard() {
       setMyCertificates([]);
     } finally {
       setCertificatesLoading(false);
+    }
+  };
+
+  const fetchRecentActivity = async () => {
+    try {
+      setActivityLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(buildApiUrl('api/users/activity/recent?limit=10'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRecentActivity(data.activities || []);
+      } else {
+        console.error('Failed to fetch recent activity');
+        setRecentActivity([]);
+      }
+    } catch (error) {
+      console.error('Error fetching recent activity:', error);
+      setRecentActivity([]);
+    } finally {
+      setActivityLoading(false);
     }
   };
 
@@ -263,6 +302,94 @@ export default function Dashboard() {
     cancelSessionEnrollment,
     deleteSession
   } = useDashboard();
+
+  // Refresh activity when data changes (must be after useDashboard hook)
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchRecentActivity();
+    }
+  }, [courses, signals, liveSessions, assignments, activeTab]);
+
+  // Helper function to get activity icon component
+  const getActivityIcon = (iconName: string) => {
+    const iconMap: Record<string, any> = {
+      'BookOpen': BookOpen,
+      'Target': Target,
+      'Play': Play,
+      'FileText': FileText,
+      'Bell': Bell,
+      'MessageSquare': MessageSquare,
+      'CreditCard': Wallet,
+      'Shield': Shield,
+      'CheckCircle': CheckCircle,
+    };
+    return iconMap[iconName] || Bell;
+  };
+
+  // Helper function to get activity color classes
+  const getActivityColorClasses = (color: string) => {
+    const colorMap: Record<string, { bg: string; border: string; iconBg: string; iconText: string }> = {
+      'blue': {
+        bg: 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20',
+        border: 'border-blue-200 dark:border-blue-700',
+        iconBg: 'bg-gradient-to-br from-blue-500 to-blue-600',
+        iconText: 'text-white'
+      },
+      'green': {
+        bg: 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
+        border: 'border-green-200 dark:border-green-700',
+        iconBg: 'bg-gradient-to-br from-green-500 to-green-600',
+        iconText: 'text-white'
+      },
+      'purple': {
+        bg: 'bg-gradient-to-r from-purple-50 to-purple-50 dark:from-purple-900/20 dark:to-purple-900/20',
+        border: 'border-purple-200 dark:border-purple-700',
+        iconBg: 'bg-gradient-to-br from-purple-500 to-purple-600',
+        iconText: 'text-white'
+      },
+      'gray': {
+        bg: 'bg-gradient-to-r from-gray-50 to-gray-50 dark:from-gray-900/20 dark:to-gray-900/20',
+        border: 'border-gray-200 dark:border-gray-700',
+        iconBg: 'bg-gradient-to-br from-gray-500 to-gray-600',
+        iconText: 'text-white'
+      },
+      'indigo': {
+        bg: 'bg-gradient-to-r from-indigo-50 to-indigo-50 dark:from-indigo-900/20 dark:to-indigo-900/20',
+        border: 'border-indigo-200 dark:border-indigo-700',
+        iconBg: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
+        iconText: 'text-white'
+      },
+      'red': {
+        bg: 'bg-gradient-to-r from-red-50 to-red-50 dark:from-red-900/20 dark:to-red-900/20',
+        border: 'border-red-200 dark:border-red-700',
+        iconBg: 'bg-gradient-to-br from-red-500 to-red-600',
+        iconText: 'text-white'
+      },
+    };
+    return colorMap[color] || colorMap['gray'];
+  };
+
+  // Helper function to format time ago
+  const formatTimeAgo = (timestamp: string | Date) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) {
+      return 'Just now';
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } else if (diffInSeconds < 604800) {
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days} day${days > 1 ? 's' : ''} ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
 
   // Use session timeout hook
   useSessionTimeout({
@@ -1060,61 +1187,88 @@ export default function Dashboard() {
 
             {/* Recent Activity */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Recent Activity</h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Recent Activity</h3>
+                <button
+                  onClick={fetchRecentActivity}
+                  disabled={activityLoading}
+                  className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                  title="Refresh activity"
+                >
+                  <RefreshCw className={`w-5 h-5 ${activityLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+              {activityLoading ? (
               <div className="space-y-4">
-                <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                    <BookOpen className="w-5 h-5 text-white" />
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse flex items-center space-x-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-xl">
+                      <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>
+                        <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-1/2"></div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-gray-900 dark:text-white font-medium">Course Progress Updated</p>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm">You completed 3 lessons in Fundamentals of Forex Trading</p>
                   </div>
-                  <span className="text-gray-500 dark:text-gray-400 text-sm">2 hours ago</span>
+                  ))}
                 </div>
-                
-                {liveSessions.filter(s => s.status === 'scheduled').slice(0, 2).map((session) => (
-                  <div key={session._id} className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700">
-                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
-                      <Play className="w-5 h-5 text-white" />
+              ) : recentActivity.length === 0 ? (
+                <div className="text-center py-8">
+                  <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-500 dark:text-gray-400">No recent activity</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {recentActivity.map((activity) => {
+                    const IconComponent = getActivityIcon(activity.icon);
+                    const colorClasses = getActivityColorClasses(activity.color);
+                    const timeAgo = formatTimeAgo(activity.timestamp);
+
+                    return (
+                      <div
+                        key={activity.id}
+                        className={`flex items-center space-x-4 p-4 ${colorClasses.bg} rounded-xl border ${colorClasses.border}`}
+                      >
+                        <div className={`w-10 h-10 ${colorClasses.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
+                          <IconComponent className={`w-5 h-5 ${colorClasses.iconText}`} />
                     </div>
-                    <div className="flex-1">
-                      <p className="text-gray-900 dark:text-white font-medium">Live Session Available</p>
-                      <p className="text-gray-600 dark:text-gray-300 text-sm">{session.title} - {new Date(session.scheduledAt).toLocaleDateString()}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-900 dark:text-white font-medium">{activity.title}</p>
+                          <p className="text-gray-600 dark:text-gray-300 text-sm truncate">{activity.message}</p>
                     </div>
-                    <div className="flex space-x-2">
+                        <div className="flex items-center space-x-2 flex-shrink-0">
+                          <span className="text-gray-500 dark:text-gray-400 text-sm whitespace-nowrap">{timeAgo}</span>
+                          {activity.type === 'live_session' && activity.sessionId && (
                                                                     <button
-                        onClick={() => handleSignUpSession(session._id)}
-                        className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
+                              onClick={() => {
+                                const session = liveSessions.find(s => s._id === activity.sessionId);
+                                if (session) {
+                                  handleSignUpSession(session._id);
+                                }
+                              }}
+                              className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
                       >
                         Sign up
                       </button>
-                      {session.meetingLink && (
+                          )}
+                          {activity.type === 'live_session' && activity.meetingLink && (
                         <button
                           onClick={() => {
+                                const session = liveSessions.find(s => s._id === activity.sessionId);
+                                if (session) {
                             setSelectedSession(session);
                             setShowMeetingModal(true);
+                                }
                           }}
-                          className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
+                              className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
                         >
                           Meeting
                         </button>
                       )}
                     </div>
                   </div>
-                ))}
-                
-                <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700">
-                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
-                    <Target className="w-5 h-5 text-white" />
+                    );
+                  })}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-gray-900 dark:text-white font-medium">New Trading Signal</p>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm">EUR/USD buy signal posted by Captain Smith</p>
-                  </div>
-                  <span className="text-gray-500 dark:text-gray-400 text-sm">5 hours ago</span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Course Progress Tracking */}
@@ -1653,48 +1807,78 @@ export default function Dashboard() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* TradingView Chart */}
                 <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Chart</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">TradingView</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300">
                         <span className="font-medium">{tradingViewSymbol}</span>
-                      </p>
-                    </div>
+                  </p>
+                </div>
                     <div className="flex items-center gap-2">
                       <select
-                        value={tradingViewSymbol}
-                        onChange={(e) => setTradingViewSymbol(e.target.value)}
+                        value={tradingViewMode}
+                        onChange={(e) => setTradingViewMode(e.target.value as 'terminal' | 'chart' | 'iframe')}
                         className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                        title="Select TradingView mode"
                       >
-                        {['FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:USDCAD', 'FX:USDCHF', 'FX:NZDUSD', 'OANDA:XAUUSD', 'BINANCE:BTCUSDT'].map((sym) => (
-                          <option key={sym} value={sym}>
-                            {sym}
-                          </option>
-                        ))}
+                        <option value="terminal">Terminal (Login Enabled)</option>
+                        <option value="chart">Chart Only</option>
+                        <option value="iframe">Full Platform</option>
                       </select>
-                      <select
-                        value={tradingViewInterval}
-                        onChange={(e) => setTradingViewInterval(e.target.value as any)}
-                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                      >
-                        <option value="1">1m</option>
-                        <option value="5">5m</option>
-                        <option value="15">15m</option>
-                        <option value="60">1h</option>
-                        <option value="240">4h</option>
-                        <option value="D">1D</option>
-                      </select>
-                    </div>
-                  </div>
+                  <select
+                    value={tradingViewSymbol}
+                    onChange={(e) => setTradingViewSymbol(e.target.value)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  >
+                    {['FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:USDCAD', 'FX:USDCHF', 'FX:NZDUSD', 'OANDA:XAUUSD', 'BINANCE:BTCUSDT'].map((sym) => (
+                      <option key={sym} value={sym}>
+                        {sym}
+                      </option>
+                    ))}
+                  </select>
+                      {tradingViewMode !== 'iframe' && (
+                  <select
+                    value={tradingViewInterval}
+                    onChange={(e) => setTradingViewInterval(e.target.value as any)}
+                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  >
+                    <option value="1">1m</option>
+                    <option value="5">5m</option>
+                    <option value="15">15m</option>
+                    <option value="60">1h</option>
+                    <option value="240">4h</option>
+                    <option value="D">1D</option>
+                  </select>
+                      )}
+                </div>
+              </div>
 
-                  <TradingViewWidget
-                    symbol={tradingViewSymbol}
-                    interval={tradingViewInterval}
-                    theme="dark"
-                    locale="en"
-                    height={600}
-                    hideSideToolbar={false}
-                  />
+                  {tradingViewMode === 'iframe' ? (
+                    <TradingViewTerminal
+                      symbol={tradingViewSymbol}
+                      theme="dark"
+                      height={600}
+                      enableLogin={true}
+                      mode="iframe"
+                    />
+                  ) : tradingViewMode === 'terminal' ? (
+                    <TradingViewTerminal
+                      symbol={tradingViewSymbol}
+                      theme="dark"
+                      height={600}
+                      enableLogin={true}
+                      mode="terminal"
+                    />
+                  ) : (
+              <TradingViewWidget
+                symbol={tradingViewSymbol}
+                interval={tradingViewInterval}
+                theme="dark"
+                locale="en"
+                      height={600}
+                hideSideToolbar={false}
+              />
+                  )}
                 </div>
 
                 {/* Trading Panel */}

@@ -72,6 +72,7 @@ export interface AdminSettings {
     timezone: string;
     language: string;
     maintenanceMode: boolean;
+    defaultReferralCode: string;
   };
   security: {
     twoFactorAuth: boolean;

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Copy, Check, AlertCircle, ArrowLeft, Mail } from 'lucide-react';
+import { Copy, Check, AlertCircle, ArrowLeft, Mail, Gift, Sparkles } from 'lucide-react';
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import { buildApiUrl } from '@/utils/api';
@@ -20,10 +20,19 @@ export default function PaymentPage() {
   const [transactionId, setTransactionId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [promoCode, setPromoCode] = useState('');
+  const [isPromoValid, setIsPromoValid] = useState(false);
+  const [promoDiscount, setPromoDiscount] = useState(0);
+  const [isValidatingPromo, setIsValidatingPromo] = useState(false);
+  const [originalAmount, setOriginalAmount] = useState(0);
   
   const packageName = searchParams?.get('package') || '';
-  const amount = parseFloat(searchParams?.get('amount') || '0');
+  const amountParam = searchParams?.get('amount') || '0';
   const paymentId = searchParams?.get('paymentId') || '';
+  
+  // Calculate final amount (original - discount)
+  const finalAmount = (originalAmount || parseFloat(amountParam)) - promoDiscount;
+  const displayAmount = finalAmount > 0 ? finalAmount : parseFloat(amountParam);
 
   // Generate QR code data - format: wallet address
   const qrValue = BINANCE_WALLET_ADDRESS;
@@ -34,6 +43,12 @@ export default function PaymentPage() {
     if (!token) {
       router.push('/login?redirect=/payment');
       return;
+    }
+
+    // Store original amount
+    const parsedAmount = parseFloat(amountParam);
+    if (parsedAmount > 0 && originalAmount === 0) {
+      setOriginalAmount(parsedAmount);
     }
 
     // Check payment status periodically
@@ -83,6 +98,81 @@ export default function PaymentPage() {
     }
   };
 
+  const validatePromoCode = async () => {
+    if (!promoCode.trim() || !packageName || originalAmount === 0) return;
+
+    setIsValidatingPromo(true);
+    setError('');
+
+    try {
+      const response = await fetch(buildApiUrl('api/promos/validate'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          code: promoCode,
+          orderAmount: originalAmount,
+          orderType: 'signup'
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setIsPromoValid(true);
+        setPromoDiscount(data.promo.discount || 0);
+        setError('');
+        
+        // Update payment with promo code if paymentId exists
+        if (paymentId) {
+          await updatePaymentWithPromoCode(promoCode, data.promo.discount || 0);
+        }
+      } else {
+        setIsPromoValid(false);
+        setPromoDiscount(0);
+        setError(data.message || 'Invalid promo code');
+      }
+    } catch (err) {
+      setError('Error validating promo code');
+      setIsPromoValid(false);
+      setPromoDiscount(0);
+    } finally {
+      setIsValidatingPromo(false);
+    }
+  };
+
+  const updatePaymentWithPromoCode = async (code: string, discount: number) => {
+    if (!paymentId) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      // Update payment via the create endpoint with promo code
+      const response = await fetch(buildApiUrl(`api/payments/${paymentId}`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          promoCode: code,
+          discount: discount
+        }),
+      });
+
+      if (response.ok) {
+        // Update the amount in URL params for display
+        const newAmount = originalAmount - discount;
+        const newUrl = `/payment?package=${encodeURIComponent(packageName)}&amount=${newAmount}&paymentId=${paymentId}`;
+        router.replace(newUrl);
+      } else {
+        console.error('Failed to update payment with promo code');
+      }
+    } catch (err) {
+      console.error('Error updating payment:', err);
+    }
+  };
+
   const handlePaymentSent = async () => {
     if (!transactionId.trim()) {
       setError('Please enter your transaction ID');
@@ -119,7 +209,7 @@ export default function PaymentPage() {
       
       // Redirect to pending page after a brief delay
       setTimeout(() => {
-        router.push(`/payment-pending?package=${encodeURIComponent(packageName)}&amount=${amount}`);
+        router.push(`/payment-pending?package=${encodeURIComponent(packageName)}&amount=${displayAmount}`);
       }, 1500);
     } catch (err: any) {
       console.error('Error submitting transaction ID:', err);
@@ -177,15 +267,85 @@ export default function PaymentPage() {
           {/* Package Info */}
           {packageName && (
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-6 border border-gray-200 dark:border-gray-600">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-center mb-4">
                 <div>
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Package</p>
                   <p className="text-base font-medium text-gray-900 dark:text-white">{packageName}</p>
                 </div>
                 <div className="text-right">
                   <p className="text-xs text-gray-500 dark:text-gray-400 mb-1">Amount</p>
-                  <p className="text-base font-semibold text-gray-900 dark:text-white">${amount.toFixed(2)} USDT</p>
+                  <p className="text-base font-semibold text-gray-900 dark:text-white">${(originalAmount || parseFloat(amountParam)).toFixed(2)} USDT</p>
                 </div>
+              </div>
+              
+              {/* Promo Code Section */}
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
+                <div className="flex items-center gap-2 mb-3">
+                  <Gift className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                  <h3 className="text-sm font-semibold text-gray-900 dark:text-white">
+                    Have a Promo Code? (Optional)
+                  </h3>
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={promoCode}
+                      onChange={(e) => {
+                        setPromoCode(e.target.value.toUpperCase());
+                        setIsPromoValid(false);
+                        setPromoDiscount(0);
+                        setError('');
+                      }}
+                      placeholder="Enter promo code"
+                      className="w-full px-3 py-2 border-2 border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium"
+                      disabled={isValidatingPromo}
+                    />
+                    {promoCode && !isPromoValid && (
+                      <div className="absolute right-2 top-1/2 transform -translate-y-1/2">
+                        <Sparkles className="w-4 h-4 text-gray-400" />
+                      </div>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={validatePromoCode}
+                    disabled={isValidatingPromo || !promoCode.trim()}
+                    className="px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-lg hover:from-purple-700 hover:to-pink-700 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+                  >
+                    {isValidatingPromo ? (
+                      <div className="flex items-center gap-1">
+                        <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      </div>
+                    ) : (
+                      'Apply'
+                    )}
+                  </button>
+                </div>
+                {isPromoValid && (
+                  <div className="mt-2 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg flex items-center gap-2">
+                    <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
+                    <span className="text-xs font-semibold text-green-700 dark:text-green-400">
+                      Promo code applied! You save ${promoDiscount.toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {promoDiscount > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                    <div className="flex justify-between items-center text-sm">
+                      <span className="text-gray-600 dark:text-gray-400">Original Price:</span>
+                      <span className="text-gray-900 dark:text-white font-medium">${originalAmount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm mt-1">
+                      <span className="text-gray-600 dark:text-gray-400">Discount:</span>
+                      <span className="text-green-600 dark:text-green-400 font-medium">-${promoDiscount.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
+                      <span className="text-base font-semibold text-gray-900 dark:text-white">Total Amount:</span>
+                      <span className="text-lg font-bold text-blue-600 dark:text-blue-400">${(originalAmount - promoDiscount).toFixed(2)} USDT</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -236,7 +396,7 @@ export default function PaymentPage() {
                 <p className="font-medium mb-1">Important</p>
                 <ul className="space-y-1 text-xs">
                   <li>• Use <strong>TRC20</strong> network only</li>
-                  <li>• Send exactly <strong>${amount.toFixed(2)} USDT</strong></li>
+                  <li>• Send exactly <strong>${displayAmount.toFixed(2)} USDT</strong></li>
                   <li>• Your account will be activated after admin verification</li>
                 </ul>
               </div>

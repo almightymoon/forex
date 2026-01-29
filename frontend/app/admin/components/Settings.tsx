@@ -39,7 +39,8 @@ export default function Settings({
       defaultCurrency: 'USD',
       timezone: 'UTC',
       language: 'en',
-      maintenanceMode: false
+      maintenanceMode: false,
+      defaultReferralCode: ''
     },
     security: {
       twoFactorAuth: false,
@@ -188,6 +189,26 @@ export default function Settings({
                   <option value="Asia/Karachi">PKT</option>
                 </select>
               </div>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Default Referral Code
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">
+                Referral code to assign to users who sign up without a referral code
+              </p>
+              <input
+                type="text"
+                value={safeSettings.general.defaultReferralCode || ''}
+                onChange={(e) => onSettingsChange('general', 'defaultReferralCode', e.target.value.toUpperCase())}
+                placeholder="Enter referral code (e.g., DEFAULT)"
+                maxLength={20}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white uppercase"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Leave empty to disable default referral code assignment.
+              </p>
             </div>
             
             <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">

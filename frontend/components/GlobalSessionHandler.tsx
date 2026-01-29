@@ -68,7 +68,7 @@ export function GlobalSessionHandler() {
             if (errorData.redirectTo) {
               router.push(errorData.redirectTo);
             } else {
-              router.push('/select-package');
+            router.push('/select-package');
             }
             return response;
           }

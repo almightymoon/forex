@@ -15,10 +15,10 @@ import {
   BookOpen,
   BarChart3,
   Rocket,
-  Gift,
   Star,
   Shield,
-  Award
+  Award,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -98,12 +98,8 @@ type PackageType = typeof packages[0];
 export default function SelectPackagePage() {
   const router = useRouter();
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null);
-  const [promoCode, setPromoCode] = useState('');
-  const [isPromoValid, setIsPromoValid] = useState(false);
-  const [promoDiscount, setPromoDiscount] = useState(0);
   const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [isValidatingPromo, setIsValidatingPromo] = useState(false);
+  const [loadingPackageName, setLoadingPackageName] = useState<string | null>(null);
 
   useEffect(() => {
     // Check if user is authenticated
@@ -114,52 +110,13 @@ export default function SelectPackagePage() {
     }
   }, [router]);
 
-  const validatePromoCode = async () => {
-    if (!promoCode.trim() || !selectedPackage) return;
-
-    setIsValidatingPromo(true);
-    setError('');
-
-    try {
-      const response = await fetch(buildApiUrl('api/promos/validate'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code: promoCode,
-          orderAmount: selectedPackage.price,
-          orderType: 'signup'
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setIsPromoValid(true);
-        setPromoDiscount(data.promo.discount || 0);
-        setError('');
-      } else {
-        setIsPromoValid(false);
-        setPromoDiscount(0);
-        setError(data.message || 'Invalid promo code');
-      }
-    } catch (err) {
-      setError('Error validating promo code');
-      setIsPromoValid(false);
-      setPromoDiscount(0);
-    } finally {
-      setIsValidatingPromo(false);
-    }
-  };
-
-  const handleContinue = async () => {
-    if (!selectedPackage) {
+  const handlePackageSelect = async (pkg: PackageType) => {
+    if (!pkg) {
       setError('Please select a package to continue');
       return;
     }
 
-    setIsLoading(true);
+    setLoadingPackageName(pkg.name);
     setError('');
 
     try {
@@ -177,10 +134,8 @@ export default function SelectPackagePage() {
           'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
-          packageName: selectedPackage.name,
-          packagePrice: selectedPackage.price,
-          promoCode: promoCode || undefined,
-          discount: promoDiscount || 0,
+          packageName: pkg.name,
+          packagePrice: pkg.price,
           paymentMethod: 'binance_wallet'
         }),
       });
@@ -189,19 +144,16 @@ export default function SelectPackagePage() {
 
       if (response.ok) {
         // Redirect to payment page with package info
-        const finalAmount = selectedPackage.price - promoDiscount;
-        router.push(`/payment?package=${encodeURIComponent(selectedPackage.name)}&amount=${finalAmount}&paymentId=${data.payment._id}`);
+        router.push(`/payment?package=${encodeURIComponent(pkg.name)}&amount=${pkg.price}&paymentId=${data.payment._id}`);
       } else {
         setError(data.message || 'Failed to create payment. Please try again.');
+        setLoadingPackageName(null);
       }
     } catch (err) {
       setError('Network error. Please check your connection.');
-    } finally {
-      setIsLoading(false);
+      setLoadingPackageName(null);
     }
   };
-
-  const finalAmount = selectedPackage ? selectedPackage.price - promoDiscount : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 relative overflow-hidden">
@@ -344,9 +296,6 @@ export default function SelectPackagePage() {
                 }`}
                 onClick={() => {
                   setSelectedPackage(pkg);
-                  setPromoDiscount(0);
-                  setIsPromoValid(false);
-                  setPromoCode('');
                   setError('');
                 }}
               >
@@ -470,12 +419,19 @@ export default function SelectPackagePage() {
                     </ul>
 
                     {/* Select Button */}
-                    <motion.div
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
+                    <motion.button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handlePackageSelect(pkg);
+                      }}
+                      disabled={loadingPackageName !== null}
+                      whileHover={loadingPackageName === null ? { scale: 1.05 } : {}}
+                      whileTap={loadingPackageName === null ? { scale: 0.95 } : {}}
                       className={`
-                        w-full py-3 px-4 rounded-xl font-semibold text-center transition-all
-                        ${isSelected
+                        w-full py-3 px-4 rounded-xl font-semibold text-center transition-all inline-flex items-center justify-center gap-2
+                        ${loadingPackageName === pkg.name
+                          ? 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-400 cursor-wait'
+                          : isSelected
                           ? pkg.accent === 'emerald'
                             ? 'bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 text-white shadow-lg'
                             : pkg.accent === 'blue'
@@ -487,12 +443,21 @@ export default function SelectPackagePage() {
                               : pkg.accent === 'blue'
                               ? 'group-hover:bg-gradient-to-r group-hover:from-blue-500 group-hover:via-indigo-500 group-hover:to-purple-500 group-hover:text-white'
                               : 'group-hover:bg-gradient-to-r group-hover:from-purple-500 group-hover:via-pink-500 group-hover:to-rose-500 group-hover:text-white'
-                          }`
+                            }`
                         }
                       `}
                     >
-                      {isSelected ? 'Selected ✓' : 'Select Package'}
-                    </motion.div>
+                      {loadingPackageName === pkg.name ? (
+                        <>
+                          <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" aria-hidden />
+                          <span>Loading…</span>
+                        </>
+                      ) : isSelected ? (
+                        'Selected ✓'
+                      ) : (
+                        'Select Package'
+                      )}
+                    </motion.button>
                   </div>
                 </div>
               </motion.div>
@@ -500,162 +465,6 @@ export default function SelectPackagePage() {
           })}
         </div>
 
-        {/* Promo Code and Summary Section */}
-        <AnimatePresence>
-          {selectedPackage && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 20 }}
-              className="max-w-4xl mx-auto"
-            >
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/20 p-8">
-                {/* Selected Package Header */}
-                <div className="flex items-center justify-between mb-6 pb-6 border-b border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-16 h-16 rounded-2xl bg-gradient-to-br ${selectedPackage.gradient} flex items-center justify-center shadow-lg`}>
-                      {selectedPackage.icon && <selectedPackage.icon className="w-8 h-8 text-white" />}
-                    </div>
-                    <div>
-                      <h3 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedPackage.name}</h3>
-                      <p className="text-gray-600 dark:text-gray-400">{selectedPackage.subtitle}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setSelectedPackage(null);
-                      setPromoDiscount(0);
-                      setIsPromoValid(false);
-                      setPromoCode('');
-                    }}
-                    className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 transition-colors"
-                  >
-                    Change Package
-                  </button>
-                </div>
-
-                {/* Promo Code Section */}
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Gift className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                      Have a Promo Code? (Optional)
-                    </h3>
-                  </div>
-                  <div className="flex gap-3">
-                    <div className="flex-1 relative">
-                      <input
-                        type="text"
-                        value={promoCode}
-                        onChange={(e) => {
-                          setPromoCode(e.target.value.toUpperCase());
-                          setIsPromoValid(false);
-                          setPromoDiscount(0);
-                          setError('');
-                        }}
-                        placeholder="Enter promo code"
-                        className="w-full px-4 py-3 border-2 border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-medium"
-                      />
-                      {promoCode && !isPromoValid && (
-                        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
-                          <Sparkles className="w-5 h-5 text-gray-400" />
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={validatePromoCode}
-                      disabled={isValidatingPromo || !promoCode.trim()}
-                      className="px-6 py-3 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-xl hover:from-purple-700 hover:to-pink-700 transition-all text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed shadow-lg hover:shadow-xl"
-                    >
-                      {isValidatingPromo ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          Validating...
-                        </div>
-                      ) : (
-                        'Apply Code'
-                      )}
-                    </button>
-                  </div>
-                  {isPromoValid && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="mt-3 p-3 bg-green-50 dark:bg-green-900/20 border-2 border-green-200 dark:border-green-800 rounded-xl flex items-center gap-2"
-                    >
-                      <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                      <span className="text-sm font-semibold text-green-700 dark:text-green-400">
-                        Promo code applied! You save ${promoDiscount.toFixed(2)}
-                      </span>
-                    </motion.div>
-                  )}
-                </div>
-
-                {/* Price Summary */}
-                <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-700 dark:to-gray-800 rounded-2xl p-6 mb-6 border-2 border-gray-200 dark:border-gray-600">
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center text-base">
-                      <span className="text-gray-600 dark:text-gray-400 font-medium">Package Price:</span>
-                      <span className="font-bold text-gray-900 dark:text-white">${selectedPackage.price} USDT</span>
-                    </div>
-                    {promoDiscount > 0 && (
-                      <motion.div
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="flex justify-between items-center text-base"
-                      >
-                        <span className="text-gray-600 dark:text-gray-400 font-medium">Promo Discount:</span>
-                        <span className="font-bold text-green-600 dark:text-green-400">-${promoDiscount.toFixed(2)}</span>
-                      </motion.div>
-                    )}
-                    <div className="border-t-2 border-gray-300 dark:border-gray-600 pt-3 mt-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold text-gray-900 dark:text-white">Total Amount:</span>
-                        <span className="text-3xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                          ${finalAmount.toFixed(2)} USDT
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Continue Button */}
-                <motion.button
-                  onClick={handleContinue}
-                  disabled={!selectedPackage || isLoading}
-                  whileHover={{ scale: selectedPackage && !isLoading ? 1.02 : 1 }}
-                  whileTap={{ scale: selectedPackage && !isLoading ? 0.98 : 1 }}
-                  className={`
-                    w-full py-4 px-6 rounded-xl font-bold text-lg
-                    ${selectedPackage.accent === 'emerald'
-                      ? 'bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 hover:shadow-emerald-500/50'
-                      : selectedPackage.accent === 'blue'
-                      ? 'bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 hover:shadow-blue-500/50'
-                      : 'bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 hover:shadow-purple-500/50'
-                    }
-                    text-white shadow-2xl
-                    transition-all transform
-                    disabled:opacity-50 disabled:cursor-not-allowed
-                    flex items-center justify-center gap-3
-                  `}
-                >
-                  {isLoading ? (
-                    <>
-                      <div className="w-6 h-6 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
-                      <span>Processing...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Continue to Payment</span>
-                      <ArrowLeft className="w-5 h-5 rotate-180" />
-                    </>
-                  )}
-                </motion.button>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
   );
