@@ -15,6 +15,11 @@ export interface User {
   isVerified?: boolean;
   createdAt: string;
   lastLogin?: string;
+  security?: {
+    isLocked?: boolean;
+    lockedUntil?: string;
+    lockReason?: string;
+  };
 }
 
 export interface Payment {

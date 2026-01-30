@@ -415,6 +415,30 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleUserUnblock = async (user: User) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(buildApiUrl(`api/admin/users/${user._id}/unblock`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        await refreshData();
+        showToast('Account unblocked successfully', 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.error || error.message || 'Failed to unblock account', 'error');
+      }
+    } catch (error) {
+      console.error('Unblock user error:', error);
+      showToast('Failed to unblock account', 'error');
+    }
+  };
+
   // Payment management functions
   const handlePaymentStatusUpdate = async (paymentId: string, newStatus: string) => {
     try {
@@ -786,6 +810,7 @@ export default function AdminDashboard() {
             onUserUpdate={handleUserUpdate}
             onUserDelete={handleUserDelete}
             onUserToggleStatus={handleUserToggleStatus}
+            onUserUnblock={handleUserUnblock}
           />
         )}
 

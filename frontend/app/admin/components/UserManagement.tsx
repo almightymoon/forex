@@ -4,10 +4,17 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Users, Plus, Search, Filter, Edit, Trash2, Eye, 
-  CheckCircle, X, AlertTriangle, Loader2
+  CheckCircle, X, AlertTriangle, Loader2, Lock, Unlock
 } from 'lucide-react';
 import { User, UserForm } from './types';
 import UserDetailsModal from './UserDetailsModal';
+
+function isUserLocked(user: User): boolean {
+  if (user.security?.isLocked) return true;
+  const until = user.security?.lockedUntil;
+  if (until && new Date(until) > new Date()) return true;
+  return false;
+}
 
 interface UserManagementProps {
   users: User[];
@@ -15,6 +22,7 @@ interface UserManagementProps {
   onUserUpdate: (userId: string, userData: Partial<UserForm>) => void;
   onUserDelete: (userId: string) => Promise<void>;
   onUserToggleStatus: (user: User) => void;
+  onUserUnblock?: (user: User) => Promise<void>;
 }
 
 export default function UserManagement({ 
@@ -22,7 +30,8 @@ export default function UserManagement({
   onUserCreate, 
   onUserUpdate, 
   onUserDelete, 
-  onUserToggleStatus 
+  onUserToggleStatus,
+  onUserUnblock 
 }: UserManagementProps) {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
@@ -34,6 +43,7 @@ export default function UserManagement({
   const [filterStatus, setFilterStatus] = useState('all');
   const [isLoading, setIsLoading] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [unblockingUserId, setUnblockingUserId] = useState<string | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
@@ -193,7 +203,8 @@ export default function UserManagement({
     const matchesRole = filterRole === 'all' || user.role === filterRole;
     const matchesStatus = filterStatus === 'all' || 
       (filterStatus === 'active' && user.isActive) ||
-      (filterStatus === 'inactive' && !user.isActive);
+      (filterStatus === 'inactive' && !user.isActive) ||
+      (filterStatus === 'locked' && isUserLocked(user));
 
     return matchesSearch && matchesRole && matchesStatus;
   });
@@ -268,6 +279,7 @@ export default function UserManagement({
                     <option value="all">All Status</option>
                     <option value="active">Active</option>
                     <option value="inactive">Inactive</option>
+                    <option value="locked">Locked (login)</option>
                   </select>
           </div>
         </div>
@@ -337,11 +349,19 @@ export default function UserManagement({
                     </span>
                   </td>
                   <td className="py-4 px-4">
-                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {user.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        user.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
+                      }`}>
+                        {user.isActive ? 'Active' : 'Inactive'}
+                      </span>
+                      {isUserLocked(user) && (
+                        <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 flex items-center gap-1" title="Locked due to failed login attempts">
+                          <Lock className="w-3 h-3" />
+                          Locked
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className="py-4 px-4 text-sm text-gray-500 dark:text-gray-400">
                     {new Date(user.createdAt).toLocaleDateString()}
@@ -353,8 +373,29 @@ export default function UserManagement({
                           <Loader2 className="w-4 h-4 animate-spin" />
                           <span className="text-sm">Deleting...</span>
                         </div>
+                      ) : unblockingUserId === user._id ? (
+                        <div className="flex items-center space-x-2 text-amber-600 dark:text-amber-400">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          <span className="text-sm">Unblocking...</span>
+                        </div>
                       ) : (
                         <>
+                          {isUserLocked(user) && onUserUnblock && (
+                            <button
+                              onClick={async () => {
+                                setUnblockingUserId(user._id);
+                                try {
+                                  await onUserUnblock(user);
+                                } finally {
+                                  setUnblockingUserId(null);
+                                }
+                              }}
+                              className="p-2 text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-colors"
+                              title="Unblock account (failed login lock)"
+                            >
+                              <Unlock className="w-4 h-4" />
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               setSelectedUser(user);

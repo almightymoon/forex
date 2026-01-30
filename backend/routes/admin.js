@@ -1,5 +1,6 @@
 const express = require('express');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { clearFailedAttemptsByEmail } = require('../middleware/loginSecurity');
 const User = require('../models/User');
 const Course = require('../models/Course');
 const TradingSignal = require('../models/TradingSignal');
@@ -491,6 +492,44 @@ router.put('/users/:id', async (req, res) => {
       return res.status(400).json({ error: 'User with this email already exists' });
     }
     res.status(500).json({ error: 'Failed to update user' });
+  }
+});
+
+// @route   POST /api/admin/users/:id/unblock
+// @desc    Unblock a user locked due to failed login attempts (admin only)
+// @access  Private (Admin)
+router.post('/users/:id/unblock', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const wasLocked = user.security?.isLocked || (user.security?.lockedUntil && new Date(user.security.lockedUntil) > new Date());
+    if (!wasLocked) {
+      return res.status(400).json({ error: 'Account is not locked', message: 'This account is not currently locked.' });
+    }
+
+    // Clear lock in database
+    await User.findByIdAndUpdate(req.params.id, {
+      $unset: {
+        'security.isLocked': 1,
+        'security.lockedUntil': 1,
+        'security.lockReason': 1
+      },
+      $set: {
+        'security.failedLoginAttempts': 0
+      }
+    });
+
+    // Clear in-memory failed attempts for this email (all IPs)
+    clearFailedAttemptsByEmail(user.email);
+
+    const updatedUser = await User.findById(req.params.id).select('-password');
+    res.json({ message: 'Account unblocked successfully', user: updatedUser });
+  } catch (error) {
+    console.error('Unblock user error:', error);
+    res.status(500).json({ error: 'Failed to unblock user' });
   }
 });
 
