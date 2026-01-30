@@ -220,7 +220,7 @@ class ReferralCommissionService {
           const notificationService = require('./notificationService');
           await notificationService.sendNotificationToUser(referrer._id, 'commission', {
             title: `Level ${level} Commission Earned!`,
-            message: `You earned $${commissionAmount.toFixed(2)} USDT commission from ${buyer.firstName} ${buyer.lastName}'s ${packageName} purchase (${(commissionRate * 100).toFixed(0)}% of $${referralPool.toFixed(2)} referral pool)`,
+            message: `You earned $${commissionAmount.toFixed(2)} USDT commission from ${buyer.firstName} ${buyer.lastName}'s ${packageName} purchase`,
             amount: commissionAmount,
             level: level,
             buyerName: `${buyer.firstName} ${buyer.lastName}`,
