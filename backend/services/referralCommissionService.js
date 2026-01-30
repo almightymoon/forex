@@ -79,6 +79,18 @@ class ReferralCommissionService {
         return [];
       }
 
+      // Check if commissions already exist for this payment to prevent duplicates
+      const BalanceTransaction = require('../models/BalanceTransaction');
+      const existingCommissions = await BalanceTransaction.countDocuments({
+        relatedPayment: payment._id,
+        type: 'referral_commission'
+      });
+      
+      if (existingCommissions > 0) {
+        console.log(`[Commission] Commissions already exist for payment ${payment._id} (${existingCommissions} found). Skipping to prevent duplicates.`);
+        return [];
+      }
+
       const packageAmount = Number(payment.finalAmount ?? payment.amount) || 0;
       const packageNameRaw = payment.package?.name || 'Unknown';
       const packageName = this.normalizePackageName(packageNameRaw);

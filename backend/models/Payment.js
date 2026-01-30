@@ -306,7 +306,6 @@ paymentSchema.post('save', async function(doc) {
     
     try {
       const User = require('./User');
-      const referralService = require('../services/referralService');
       
       const user = await User.findById(doc.user);
       if (!user) {
@@ -319,8 +318,11 @@ paymentSchema.post('save', async function(doc) {
         await user.addBadge(doc.package.name, doc.package.price || doc.finalAmount);
       }
 
-      // Calculate and distribute referral commissions
-      await referralService.calculateAndDistributeCommissions(doc);
+      // Calculate and distribute referral commissions using referralCommissionService
+      // This service correctly calculates from referral pool, not full payment amount
+      const ReferralCommissionService = require('../services/referralCommissionService');
+      const commissionService = new ReferralCommissionService();
+      await commissionService.distributeCommissions(doc);
       
       processingPayments.delete(doc._id.toString());
     } catch (error) {
