@@ -10,6 +10,7 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
 const BalanceTransaction = require('../models/BalanceTransaction');
+const ReferralCommission = require('../models/ReferralCommission');
 const Payment = require('../models/Payment');
 const User = require('../models/User');
 const ReferralCommissionService = require('../services/referralCommissionService');
@@ -170,13 +171,22 @@ async function fixExistingCommissions() {
 
         console.log(`   User ${user.email}: Balance adjusted by $${adjustment.toFixed(2)} (${oldBalance.toFixed(2)} → ${user.balance.toFixed(2)})`);
 
-        // Recalculate total earnings from all transactions
-        const allCommissions = await BalanceTransaction.find({
+        // Recalculate total earnings from all BalanceTransactions AND ReferralCommissions
+        const allBalanceCommissions = await BalanceTransaction.find({
           user: userId,
           type: 'referral_commission'
         });
 
-        const totalEarnings = allCommissions.reduce((sum, t) => sum + (t.amount || 0), 0);
+        const allReferralCommissions = await ReferralCommission.find({
+          referrer: userId,
+          status: 'paid'
+        });
+
+        const totalEarningsFromBalance = allBalanceCommissions.reduce((sum, t) => sum + (t.amount || 0), 0);
+        const totalEarningsFromReferral = allReferralCommissions.reduce((sum, c) => sum + (c.commissionAmount || 0), 0);
+        
+        // Use the higher value (they should match, but use max to be safe)
+        const totalEarnings = Math.max(totalEarningsFromBalance, totalEarningsFromReferral);
 
         // Update referral stats
         if (!user.referralStats) {
@@ -206,13 +216,90 @@ async function fixExistingCommissions() {
       }
     }
 
+    // Now fix ReferralCommission model records (used by earnings page)
+    console.log('\n' + '='.repeat(60));
+    console.log('🔧 Fixing ReferralCommission model records...');
+    console.log('='.repeat(60));
+    
+    const referralCommissions = await ReferralCommission.find().populate('payment');
+    console.log(`Found ${referralCommissions.length} ReferralCommission records to check\n`);
+
+    let rcFixed = 0;
+    let rcSkipped = 0;
+    let rcErrors = 0;
+
+    for (const commission of referralCommissions) {
+      try {
+        if (!commission.payment) {
+          console.log(`⚠️  Commission ${commission._id}: No related payment, skipping`);
+          rcSkipped++;
+          continue;
+        }
+
+        const payment = commission.payment;
+        
+        // Only process package payments
+        if (payment.type !== 'package') {
+          console.log(`⚠️  Commission ${commission._id}: Not a package payment, skipping`);
+          rcSkipped++;
+          continue;
+        }
+
+        const packageAmount = Number(payment.finalAmount ?? payment.amount) || 0;
+        const packageNameRaw = payment.package?.name || 'Unknown';
+        const packageName = commissionService.normalizePackageName(packageNameRaw);
+        
+        // Get referral pool
+        const referralPool = commissionService.getReferralPool(packageNameRaw, packageAmount);
+        
+        // Get level from commission
+        const level = commission.level || 1;
+        
+        // Calculate correct commission from referral pool
+        const commissionRate = commissionService.commissionRates[level] || 0;
+        const correctCommission = Math.round((referralPool * commissionRate) * 100) / 100;
+        const oldCommission = commission.commissionAmount;
+        const difference = correctCommission - oldCommission;
+
+        // Check if commission needs fixing
+        const wrongIfFromPackage = Math.round((packageAmount * commissionRate) * 100) / 100;
+        const isWrong = Math.abs(oldCommission - wrongIfFromPackage) < 0.01 && referralPool < packageAmount - 0.01;
+
+        if (!isWrong && Math.abs(oldCommission - correctCommission) < 0.01) {
+          console.log(`✓ Commission ${commission._id}: Already correct ($${oldCommission.toFixed(2)})`);
+          rcSkipped++;
+          continue;
+        }
+
+        console.log(`\n🔧 Fixing ReferralCommission ${commission._id}:`);
+        console.log(`   Payment: ${packageNameRaw} - $${packageAmount}`);
+        console.log(`   Referral Pool: $${referralPool.toFixed(2)}`);
+        console.log(`   Level: ${level} (${(commissionRate * 100).toFixed(0)}%)`);
+        console.log(`   Old Commission: $${oldCommission.toFixed(2)}`);
+        console.log(`   Correct Commission: $${correctCommission.toFixed(2)}`);
+        console.log(`   Difference: $${difference.toFixed(2)}`);
+
+        // Update commission amount
+        commission.commissionAmount = correctCommission;
+        await commission.save();
+
+        rcFixed++;
+        console.log(`   ✅ Fixed!`);
+
+      } catch (error) {
+        console.error(`❌ Error fixing ReferralCommission ${commission._id}:`, error.message);
+        rcErrors++;
+      }
+    }
+
     // Print summary
     console.log('\n' + '='.repeat(60));
     console.log('📊 SUMMARY');
     console.log('='.repeat(60));
-    console.log(`✅ Fixed: ${fixed} commission(s)`);
-    console.log(`⚠️  Skipped: ${skipped} commission(s) (already correct or invalid)`);
-    console.log(`❌ Errors: ${errors} commission(s)`);
+    console.log(`✅ Fixed BalanceTransactions: ${fixed} commission(s)`);
+    console.log(`✅ Fixed ReferralCommissions: ${rcFixed} commission(s)`);
+    console.log(`⚠️  Skipped: ${skipped + rcSkipped} commission(s) (already correct or invalid)`);
+    console.log(`❌ Errors: ${errors + rcErrors} commission(s)`);
     console.log(`💰 Balance Updates: ${balanceUpdates} user(s)`);
     console.log(`📈 Stats Updates: ${statsUpdates} user(s)`);
     console.log('='.repeat(60));
