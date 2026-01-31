@@ -81,8 +81,14 @@ class ReferralCommissionService {
 
       // Check if commissions already exist for this payment to prevent duplicates
       const BalanceTransaction = require('../models/BalanceTransaction');
+      const mongoose = require('mongoose');
+      // Ensure payment._id is converted to ObjectId if it's a string
+      const paymentId = mongoose.Types.ObjectId.isValid(payment._id) 
+        ? (typeof payment._id === 'string' ? new mongoose.Types.ObjectId(payment._id) : payment._id)
+        : payment._id;
+      
       const existingCommissions = await BalanceTransaction.countDocuments({
-        relatedPayment: payment._id,
+        relatedPayment: paymentId,
         type: 'referral_commission'
       });
       

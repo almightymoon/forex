@@ -34,11 +34,13 @@ const paymentSchema = new mongoose.Schema({
   },
   transactionId: {
     type: String,
-    sparse: true
+    sparse: true,
+    index: false  // Index is defined separately below
   },
   externalPaymentId: {
     type: String, // ID from payment gateway
-    sparse: true
+    sparse: true,
+    index: false  // Index is defined separately below
   },
   description: {
     type: String,

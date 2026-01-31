@@ -12,6 +12,7 @@ const mt5AccountSchema = new mongoose.Schema({
     type: Number,
     required: [true, 'MT5 login is required'],
     unique: true
+    // Index is created automatically by unique: true, but we also define it explicitly below
   },
   mt5Password: {
     type: String,
@@ -150,7 +151,8 @@ const mt5AccountSchema = new mongoose.Schema({
 
 // Indexes
 mt5AccountSchema.index({ user: 1 });
-mt5AccountSchema.index({ mt5Login: 1 });
+// Index already created by unique: true on mt5Login field
+// mt5AccountSchema.index({ mt5Login: 1 });
 mt5AccountSchema.index({ isActive: 1 });
 mt5AccountSchema.index({ copyTradingEnabled: 1 });
 

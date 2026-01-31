@@ -7,7 +7,8 @@ const userSchema = new mongoose.Schema({
     unique: true,
     sparse: true,
     trim: true,
-    uppercase: true
+    uppercase: true,
+    index: false  // Index is defined separately below
   },
   email: {
     type: String,
@@ -200,14 +201,16 @@ const userSchema = new mongoose.Schema({
     unique: true,
     sparse: true,
     uppercase: true,
-    trim: true
+    trim: true,
+    index: false  // Index is defined separately below
   },
   parentReferralCode: {
     type: String,
     ref: 'User',
     sparse: true,
     uppercase: true,
-    trim: true
+    trim: true,
+    index: false  // Index is defined separately below
   },
   referralStats: {
     totalReferrals: {
