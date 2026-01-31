@@ -5,7 +5,6 @@ const balanceTransactionSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     required: true
-    // Index is defined separately below
   },
   type: {
     type: String,

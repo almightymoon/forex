@@ -7,8 +7,8 @@ const userSchema = new mongoose.Schema({
     unique: true,
     sparse: true,
     trim: true,
-    uppercase: true,
-    index: false  // Index is defined separately below
+    uppercase: true
+    // Index is automatically created by unique: true
   },
   email: {
     type: String,
@@ -201,16 +201,16 @@ const userSchema = new mongoose.Schema({
     unique: true,
     sparse: true,
     uppercase: true,
-    trim: true,
-    index: false  // Index is defined separately below
+    trim: true
+    // Index is automatically created by unique: true
   },
   parentReferralCode: {
     type: String,
     ref: 'User',
     sparse: true,
     uppercase: true,
-    trim: true,
-    index: false  // Index is defined separately below
+    trim: true
+    // Index is defined separately below (sparse doesn't auto-create index)
   },
   referralStats: {
     totalReferrals: {
@@ -267,9 +267,10 @@ userSchema.virtual('isSubscribed').get(function() {
 // Index for better query performance
 userSchema.index({ role: 1 });
 userSchema.index({ isActive: 1 });
-userSchema.index({ referralCode: 1 });
+// referralCode and userId indexes are automatically created by unique: true
+// userSchema.index({ referralCode: 1 });  // Duplicate - already created by unique: true
+// userSchema.index({ userId: 1 });  // Duplicate - already created by unique: true
 userSchema.index({ parentReferralCode: 1 });
-userSchema.index({ userId: 1 });
 
 // Static method to generate unique user ID
 userSchema.statics.generateUserId = async function() {
