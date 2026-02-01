@@ -869,16 +869,54 @@ router.put('/live-sessions/:sessionId', async (req, res) => {
     const teacherId = req.user._id;
     
     // Verify session belongs to teacher
-    const session = await LiveSession.findOne({ _id: sessionId, teacher: teacherId });
+    const session = await LiveSession.findOne({ _id: sessionId, teacher: teacherId })
+      .populate('teacher', 'firstName lastName');
     if (!session) {
       return res.status(404).json({ success: false, error: 'Session not found' });
     }
+    
+    // Check if meeting link is being updated from placeholder to actual link
+    const oldMeetingLink = session.meetingLink;
+    const newMeetingLink = req.body.meetingLink;
+    const meetingLinkUpdated = oldMeetingLink === 'https://meet.google.com/new' && 
+                               newMeetingLink && 
+                               newMeetingLink !== 'https://meet.google.com/new' &&
+                               newMeetingLink.includes('meet.google.com');
     
     const updatedSession = await LiveSession.findByIdAndUpdate(
       sessionId,
       { ...req.body, updatedAt: new Date() },
       { new: true, runValidators: true }
     );
+    
+    // If meeting link was updated and session is live, notify participants they can join
+    if (meetingLinkUpdated && session.status === 'live' && session.currentParticipants && session.currentParticipants.length > 0) {
+      const notificationService = require('../services/notificationService');
+      const teacherName = session.teacher ? `${session.teacher.firstName} ${session.teacher.lastName}` : 'Your teacher';
+      
+      // Create notification for each participant
+      const notificationPromises = session.currentParticipants.map(async (participant) => {
+        try {
+          const studentId = participant.student?._id || participant.student;
+          if (studentId) {
+            await notificationService.createNotification({
+              user: studentId.toString(),
+              type: 'live_session',
+              title: '✅ Meeting Room Ready!',
+              message: `The meeting room for "${session.title}" is now ready! You can join the live session now.`,
+              link: `/dashboard?tab=live-sessions`
+            });
+          }
+        } catch (notifError) {
+          console.error('Error sending notification to participant:', notifError);
+        }
+      });
+      
+      // Send notifications in background
+      Promise.all(notificationPromises).catch(err => {
+        console.error('Error sending meeting link update notifications:', err);
+      });
+    }
     
     res.json({ success: true, data: updatedSession });
   } catch (error) {
@@ -894,7 +932,8 @@ router.post('/live-sessions/:sessionId/start', async (req, res) => {
     const teacherId = req.user._id;
     
     // Verify session belongs to teacher
-    const session = await LiveSession.findOne({ _id: sessionId, teacher: teacherId });
+    const session = await LiveSession.findOne({ _id: sessionId, teacher: teacherId })
+      .populate('teacher', 'firstName lastName');
     if (!session) {
       return res.status(404).json({ success: false, error: 'Session not found' });
     }
@@ -906,6 +945,36 @@ router.post('/live-sessions/:sessionId/start', async (req, res) => {
     session.status = 'live';
     session.startedAt = new Date();
     await session.save();
+    
+    // Notify all enrolled participants that the session is now live
+    if (session.currentParticipants && session.currentParticipants.length > 0) {
+      const notificationService = require('../services/notificationService');
+      const teacherName = session.teacher ? `${session.teacher.firstName} ${session.teacher.lastName}` : 'Your teacher';
+      
+      // Create notification for each participant
+      const notificationPromises = session.currentParticipants.map(async (participant) => {
+        try {
+          const studentId = participant.student?._id || participant.student;
+          if (studentId) {
+            await notificationService.createNotification({
+              user: studentId.toString(),
+              type: 'live_session',
+              title: '🔴 Live Session Started!',
+              message: `"${session.title}" is now LIVE! ${teacherName} has started the session. Join now to participate.`,
+              link: `/dashboard?tab=live-sessions`
+            });
+          }
+        } catch (notifError) {
+          console.error('Error sending notification to participant:', notifError);
+          // Don't fail the whole request if one notification fails
+        }
+      });
+      
+      // Send notifications in background (don't wait)
+      Promise.all(notificationPromises).catch(err => {
+        console.error('Error sending live session notifications:', err);
+      });
+    }
     
     res.json({ success: true, data: session });
   } catch (error) {

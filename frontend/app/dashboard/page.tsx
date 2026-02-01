@@ -310,6 +310,17 @@ export default function Dashboard() {
     }
   }, [courses, signals, liveSessions, assignments, activeTab]);
 
+  // Sync selectedSession with fresh data when liveSessions updates (e.g. after "Check for Updates")
+  const selectedSessionId = selectedSession?._id;
+  useEffect(() => {
+    if (showMeetingModal && selectedSessionId && liveSessions?.length) {
+      const updated = liveSessions.find((s: any) => s._id === selectedSessionId);
+      if (updated) {
+        setSelectedSession(updated);
+      }
+    }
+  }, [liveSessions, showMeetingModal, selectedSessionId]);
+
   // Helper function to get activity icon component
   const getActivityIcon = (iconName: string) => {
     const iconMap: Record<string, any> = {
@@ -2109,8 +2120,8 @@ export default function Dashboard() {
                       
                       <div className={`relative z-10 ${sessionsViewMode === 'list' ? 'flex-1 p-6' : 'p-6'}`}>
                         {/* Header section */}
-                        <div className={`flex items-start justify-between mb-4 ${sessionsViewMode === 'list' ? 'flex-col' : ''}`}>
-                        <div className="flex-1">
+                        <div className={`flex items-start justify-between mb-5 ${sessionsViewMode === 'list' ? 'flex-col' : ''}`}>
+                        <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-3">
                               <div className={`w-3 h-3 rounded-full shadow-lg ${
                                 session.status === 'live' 
@@ -2121,7 +2132,7 @@ export default function Dashboard() {
                                 {session.title}
                               </h4>
                             </div>
-                            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-3 leading-relaxed">
+                            <p className="text-gray-600 dark:text-gray-300 text-sm mb-5 line-clamp-3 leading-relaxed">
                               {session.description}
                             </p>
                             
@@ -2148,74 +2159,78 @@ export default function Dashboard() {
                             </div>
                             </div>
                         
-                        {/* Information grid - responsive based on view mode */}
-                        <div className={`grid gap-3 mb-6 ${
+                        {/* Information grid - 2x2 layout for better breathing room */}
+                        <div className={`grid gap-4 mb-6 ${
                           sessionsViewMode === 'list' 
-                            ? 'grid-cols-4' 
-                            : 'grid-cols-2 xl:grid-cols-4'
+                            ? 'grid-cols-2 lg:grid-cols-4' 
+                            : 'grid-cols-2'
                         }`}>
-                          <div className="group/info bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-3 border border-blue-100 dark:border-blue-800 hover:shadow-lg transition-all duration-300 hover:scale-105">
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-md flex items-center justify-center flex-shrink-0">
-                                <Calendar className="w-3 h-3 text-white" />
+                          <div className="group/info bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-100 dark:border-blue-800 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Calendar className="w-3.5 h-3.5 text-white" />
+                              </div>
+                              <p className="text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wide whitespace-nowrap">{safeT('date')}</p>
                             </div>
-                              <p className="text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wide truncate">{safeT('date')}</p>
-                            </div>
-                            <p className="text-gray-900 dark:text-white font-bold text-sm truncate" title={new Date(session.scheduledAt).toLocaleDateString()}>{new Date(session.scheduledAt).toLocaleDateString()}</p>
+                            <p className="text-gray-900 dark:text-white font-semibold text-sm truncate" title={new Date(session.scheduledAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}>
+                              {new Date(session.scheduledAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </p>
                           </div>
 
-                          <div className="group/info bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-3 border border-green-100 dark:border-green-800 hover:shadow-lg transition-all duration-300 hover:scale-105">
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <div className="w-6 h-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-md flex items-center justify-center flex-shrink-0">
-                                <Clock className="w-3 h-3 text-white" />
+                          <div className="group/info bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-100 dark:border-green-800 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-7 h-7 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Clock className="w-3.5 h-3.5 text-white" />
                               </div>
-                              <p className="text-green-600 dark:text-green-400 text-xs font-bold uppercase tracking-wide truncate">{safeT('time')}</p>
+                              <p className="text-green-600 dark:text-green-400 text-xs font-bold uppercase tracking-wide whitespace-nowrap">{safeT('time')}</p>
                             </div>
-                            <p className="text-gray-900 dark:text-white font-bold text-sm truncate" title={new Date(session.scheduledAt).toLocaleTimeString()}>{new Date(session.scheduledAt).toLocaleTimeString()}</p>
+                            <p className="text-gray-900 dark:text-white font-semibold text-sm truncate" title={new Date(session.scheduledAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}>
+                              {new Date(session.scheduledAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                            </p>
                           </div>
                           
-                          <div className="group/info bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-lg p-3 border border-purple-100 dark:border-purple-800 hover:shadow-lg transition-all duration-300 hover:scale-105">
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-violet-600 rounded-md flex items-center justify-center flex-shrink-0">
-                                <Clock className="w-3 h-3 text-white" />
+                          <div className="group/info bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-7 h-7 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Clock className="w-3.5 h-3.5 text-white" />
                               </div>
-                              <p className="text-purple-600 dark:text-purple-400 text-xs font-bold uppercase tracking-wide truncate">Duration</p>
+                              <p className="text-purple-600 dark:text-purple-400 text-xs font-bold uppercase tracking-wide whitespace-nowrap">Duration</p>
                             </div>
-                            <p className="text-gray-900 dark:text-white font-bold text-sm">{session.duration} min</p>
+                            <p className="text-gray-900 dark:text-white font-semibold text-sm">{session.duration} min</p>
                           </div>
                           
-                          <div className="group/info bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-lg p-3 border border-orange-100 dark:border-orange-800 hover:shadow-lg transition-all duration-300 hover:scale-105">
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <div className="w-6 h-6 bg-gradient-to-br from-orange-500 to-amber-600 rounded-md flex items-center justify-center flex-shrink-0">
-                                <Users className="w-3 h-3 text-white" />
+                          <div className="group/info bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl p-4 border border-orange-100 dark:border-orange-800 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-7 h-7 bg-gradient-to-br from-orange-500 to-amber-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Users className="w-3.5 h-3.5 text-white" />
                               </div>
-                              <p className="text-orange-600 dark:text-orange-400 text-xs font-bold uppercase tracking-wide truncate">Spots</p>
+                              <p className="text-orange-600 dark:text-orange-400 text-xs font-bold uppercase tracking-wide whitespace-nowrap">Spots</p>
                             </div>
-                            <p className="text-gray-900 dark:text-white font-bold text-sm">{session.currentParticipants.length}/{session.maxParticipants}</p>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1.5 overflow-hidden">
+                            <p className="text-gray-900 dark:text-white font-semibold text-sm">{session.currentParticipants?.length || 0}/{session.maxParticipants}</p>
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2 overflow-hidden">
                               <div 
-                                className="bg-gradient-to-r from-orange-500 to-amber-500 h-1.5 rounded-full transition-all duration-500 shadow-lg" 
-                                style={{ width: `${(session.currentParticipants.length / session.maxParticipants) * 100}%` }}
+                                className="bg-gradient-to-r from-orange-500 to-amber-500 h-2 rounded-full transition-all duration-500 shadow-lg" 
+                                style={{ width: `${session.maxParticipants ? ((session.currentParticipants?.length || 0) / session.maxParticipants) * 100 : 0}%` }}
                               ></div>
                             </div>
                           </div>
                         </div>
 
                         {/* Enhanced tags and metadata */}
-                        <div className="flex flex-wrap items-center gap-2 mb-4">
-                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full shadow-sm">
+                        <div className="flex flex-wrap items-center gap-2.5 mb-5">
+                          <div className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full shadow-sm">
                             <Target className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 capitalize truncate">{session.category}</span>
+                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 capitalize" title={session.category}>{session.category}</span>
                           </div>
                           
-                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full shadow-sm">
+                          <div className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full shadow-sm">
                             <Star className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 capitalize truncate">{session.level}</span>
+                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 capitalize" title={session.level}>{session.level}</span>
                           </div>
                           
-                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full shadow-sm">
+                          <div className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full shadow-sm">
                             <Users className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate" title={`${session.teacher?.firstName} ${session.teacher?.lastName}`}>
+                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300" title={`${session.teacher?.firstName || ''} ${session.teacher?.lastName || ''}`}>
                               {session.teacher?.firstName} {session.teacher?.lastName}
                             </span>
                           </div>
@@ -2223,7 +2238,7 @@ export default function Dashboard() {
 
                         {/* Enhanced topics */}
                           {session.topics && session.topics.length > 0 && (
-                            <div className="mb-4">
+                            <div className="mb-5">
                             <p className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1.5">
                               <BookOpen className="w-3.5 h-3.5" />
                               Topics:
@@ -2246,7 +2261,7 @@ export default function Dashboard() {
                       
                       {/* Enhanced footer with price and actions */}
                       <div className={`relative z-10 ${sessionsViewMode === 'list' ? 'flex flex-col justify-center p-6 border-l border-gray-100 dark:border-gray-700' : 'px-6 pb-6'}`}>
-                        <div className={`${sessionsViewMode === 'list' ? 'space-y-4' : 'flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700'}`}>
+                        <div className={`${sessionsViewMode === 'list' ? 'space-y-4' : 'flex items-center justify-between gap-4 pt-5 border-t border-gray-100 dark:border-gray-700 flex-wrap'}`}>
                         <div className="flex items-center space-x-2">
                           {session.isFree ? (
                               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-full border border-green-200 dark:border-green-700 shadow-lg">
@@ -2281,15 +2296,29 @@ export default function Dashboard() {
                           {session.meetingLink && (
                             <button
                               onClick={() => {
-                                setSelectedSession(session);
-                                setShowMeetingModal(true);
+                                // Check if user is enrolled and session is live
+                                const isEnrolled = session.currentParticipants?.some(p => p.student === user?._id || p.student?._id === user?._id);
+                                const hasValidMeetingLink = session.meetingLink && session.meetingLink !== 'https://meet.google.com/new';
+                                
+                                if (session.status === 'live' && isEnrolled && hasValidMeetingLink) {
+                                  // Directly open the meeting link for enrolled users in live sessions
+                                  window.open(session.meetingLink, '_blank');
+                                } else {
+                                  // Show modal for other cases
+                                  setSelectedSession(session);
+                                  setShowMeetingModal(true);
+                                }
                               }}
-                                disabled={session.meetingLink === 'https://meet.google.com/new' || (session.meetingLink.includes('meet.google.com') && session.status !== 'live')}
+                                disabled={
+                                  // Only disable if session is not live AND (link is placeholder OR it's a Google Meet)
+                                  session.status !== 'live' && 
+                                  (session.meetingLink === 'https://meet.google.com/new' || session.meetingLink.includes('meet.google.com'))
+                                }
                                 className={`group/btn px-4 py-2 text-white rounded-lg font-semibold transition-all duration-300 transform shadow-lg flex items-center gap-1.5 text-xs ${
-                                  session.meetingLink === 'https://meet.google.com/new' || (session.meetingLink.includes('meet.google.com') && session.status !== 'live')
+                                  session.status !== 'live' && (session.meetingLink === 'https://meet.google.com/new' || session.meetingLink.includes('meet.google.com'))
                                     ? 'bg-gradient-to-r from-gray-400 to-gray-500 cursor-not-allowed'
-                                    : session.meetingLink.includes('meet.google.com') 
-                                      ? 'bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 hover:scale-105 hover:shadow-xl' 
+                                    : session.status === 'live'
+                                      ? 'bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 hover:scale-105 hover:shadow-xl animate-pulse' 
                                       : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 hover:scale-105 hover:shadow-xl'
                                 }`}
                               >
@@ -2298,14 +2327,15 @@ export default function Dashboard() {
                                     <Play className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
                                     Join Live
                                   </>
+                                ) : session.meetingLink === 'https://meet.google.com/new' ? (
+                                  <>
+                                    <Video className="w-3.5 h-3.5" />
+                                    Waiting for Teacher
+                                  </>
                                 ) : session.meetingLink.includes('meet.google.com') ? (
                                   <>
                                     <Video className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
-                                    {session.meetingLink === 'https://meet.google.com/new' 
-                                      ? 'Teacher Must Start First'
-                                      : session.status === 'live' 
-                                        ? 'Join as Participant' 
-                                        : 'Waiting for Teacher'}
+                                    Join Meeting
                                   </>
                                 ) : (
                                   <>
@@ -2372,52 +2402,108 @@ export default function Dashboard() {
               <div className="relative w-full h-[70vh] bg-gray-100 flex items-center justify-center">
                 {selectedSession.meetingLink ? (
                                       <div className="text-center space-y-6">
-                      <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                        <Video className="w-12 h-12 text-blue-600" />
+                      <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto ${
+                        selectedSession.status === 'live' && selectedSession.meetingLink !== 'https://meet.google.com/new'
+                          ? 'bg-green-100 animate-pulse'
+                          : selectedSession.meetingLink === 'https://meet.google.com/new'
+                            ? selectedSession.status === 'live'
+                              ? 'bg-amber-100'
+                              : 'bg-yellow-100'
+                            : 'bg-blue-100'
+                      }`}>
+                        <Video className={`w-12 h-12 ${
+                          selectedSession.status === 'live' && selectedSession.meetingLink !== 'https://meet.google.com/new'
+                            ? 'text-green-600'
+                            : selectedSession.meetingLink === 'https://meet.google.com/new'
+                              ? selectedSession.status === 'live'
+                                ? 'text-amber-600'
+                                : 'text-yellow-600'
+                              : 'text-blue-600'
+                        }`} />
                       </div>
-                      {/* Check if it's a Google Meet link or other external meeting */}
-                      {selectedSession.meetingLink.includes('meet.google.com') ? (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                          <p className="text-red-800 text-sm">
-                            <strong>Google Meet Ready!</strong> You can now join the Google Meet session or share the link with participants.
+                      
+                      {/* Status message based on meeting state */}
+                      {selectedSession.meetingLink === 'https://meet.google.com/new' ? (
+                        <div className={`rounded-lg p-4 mb-4 border ${
+                          selectedSession.status === 'live' 
+                            ? 'bg-amber-50 border-amber-200' 
+                            : 'bg-yellow-50 border-yellow-200'
+                        }`}>
+                          <p className={`text-sm ${
+                            selectedSession.status === 'live' 
+                              ? 'text-amber-800' 
+                              : 'text-yellow-800'
+                          }`}>
+                            {selectedSession.status === 'live' ? (
+                              <>
+                                <strong>Session Started!</strong> The teacher has gone live and is setting up the meeting room. They need to add the Google Meet link. Please wait or click &quot;Check for Updates&quot; shortly.
+                              </>
+                            ) : (
+                              <>
+                                <strong>Waiting for Teacher</strong> - The teacher needs to start the meeting first. Please wait or check back shortly.
+                              </>
+                            )}
+                          </p>
+                        </div>
+                      ) : selectedSession.status === 'live' ? (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                          <p className="text-green-800 text-sm">
+                            <strong>Session is LIVE!</strong> Click the button below to join now.
+                          </p>
+                        </div>
+                      ) : selectedSession.meetingLink.includes('meet.google.com') ? (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                          <p className="text-blue-800 text-sm">
+                            <strong>Google Meet</strong> - The session will start when the teacher goes live.
                           </p>
                         </div>
                       ) : (
                         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                           <p className="text-green-800 text-sm">
-                            <strong>External Meeting Link!</strong> This will open in a new tab to the external meeting service.
+                            <strong>External Meeting Link!</strong> This will open in a new tab.
                           </p>
                         </div>
                       )}
+                      
                     <div>
-                      <h4 className="text-xl font-semibold text-gray-800 mb-2">
-                        {selectedSession.meetingLink.includes('meet.google.com') 
-                          ? 'Ready to join Google Meet?' 
-                          : 'Ready to join the external meeting?'}
+                      <h4 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
+                        {selectedSession.meetingLink === 'https://meet.google.com/new'
+                          ? selectedSession.status === 'live'
+                            ? 'Session Started - Waiting for Meeting Link'
+                            : 'Waiting for Teacher to Start'
+                          : selectedSession.status === 'live'
+                            ? 'Join the Live Session'
+                            : 'Session Not Started Yet'}
                       </h4>
-                                          <p className="text-gray-600 mb-6 max-w-md">
-                      {selectedSession.meetingLink.includes('meet.google.com')
-                        ? selectedSession.meetingLink === 'https://meet.google.com/new'
-                          ? 'The teacher needs to start the session first. Once they create the meeting, you will be able to join as a participant.'
+                      <p className="text-gray-600 dark:text-gray-300 mb-6 max-w-md">
+                        {selectedSession.meetingLink === 'https://meet.google.com/new'
+                          ? selectedSession.status === 'live'
+                            ? 'The teacher has started the session! They\'re adding the meeting room link. Click "Check for Updates" in a moment to get the join link.'
+                            : 'The teacher hasn\'t started the meeting yet. Once they create the meeting room, the join button will become active.'
                           : selectedSession.status === 'live' 
-                            ? 'The teacher has started the session. Click the button below to join as a participant.'
-                            : 'The teacher will start the session and join first to become the host. You can join as a participant once the session is live.'
-                        : 'Click the button below to join the external meeting. This will open in a new tab.'}
-                    </p>
+                            ? 'The session is now live! Click the button below to join as a participant.'
+                            : selectedSession.meetingLink.includes('meet.google.com')
+                              ? 'The session is scheduled. You can join once the teacher starts the session and sets it to live.'
+                              : 'Click the button below to join the external meeting.'}
+                      </p>
                       <div className="flex flex-col sm:flex-row gap-3 justify-center">
                         <button
                           onClick={() => window.open(selectedSession.meetingLink, '_blank')}
-                          disabled={selectedSession.meetingLink === 'https://meet.google.com/new' || (selectedSession.meetingLink.includes('meet.google.com') && selectedSession.status !== 'live')}
+                          disabled={selectedSession.meetingLink === 'https://meet.google.com/new'}
                           className={`px-6 py-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2 ${
-                            selectedSession.meetingLink === 'https://meet.google.com/new' || (selectedSession.meetingLink.includes('meet.google.com') && selectedSession.status !== 'live')
+                            selectedSession.meetingLink === 'https://meet.google.com/new'
                               ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                              : 'bg-blue-600 text-white hover:bg-blue-700'
+                              : selectedSession.status === 'live'
+                                ? 'bg-green-600 text-white hover:bg-green-700 animate-pulse'
+                                : 'bg-blue-600 text-white hover:bg-blue-700'
                           }`}
                         >
                           <Video className="w-5 h-5" />
                           <span>
                             {selectedSession.meetingLink === 'https://meet.google.com/new'
-                              ? 'Teacher Must Start First'
+                              ? selectedSession.status === 'live'
+                                ? 'Waiting for Meeting Link'
+                                : 'Teacher Must Start First'
                               : selectedSession.meetingLink.includes('meet.google.com') 
                                 ? selectedSession.status === 'live' 
                                   ? 'Join as Participant' 
@@ -2425,19 +2511,34 @@ export default function Dashboard() {
                               : 'Join External Meeting'}
                           </span>
                         </button>
-                        <button
-                          onClick={async () => {
-                            try {
-                              await navigator.clipboard.writeText(selectedSession.meetingLink);
-                              // You can add a toast notification here if you have one
-                            } catch (error) {
-                              console.error('Failed to copy link');
-                            }
-                          }}
-                          className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center justify-center space-x-2"
-                        >
-                          <span>Copy Meeting Link</span>
-                        </button>
+                        {selectedSession.meetingLink !== 'https://meet.google.com/new' && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(selectedSession.meetingLink);
+                              } catch (error) {
+                                console.error('Failed to copy link');
+                              }
+                            }}
+                            className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                          >
+                            <span>Copy Meeting Link</span>
+                          </button>
+                        )}
+                        
+                        {/* Refresh button when waiting for teacher or meeting link */}
+                        {selectedSession.meetingLink === 'https://meet.google.com/new' && (
+                          <button
+                            onClick={async () => {
+                              await refreshData();
+                              // Modal stays open; useEffect will sync selectedSession with fresh data
+                            }}
+                            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                          >
+                            <RefreshCw className="w-5 h-5" />
+                            <span>Check for Updates</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
