@@ -4,6 +4,30 @@ const { authenticateToken } = require('../middleware/auth');
 const CourseProgress = require('../models/CourseProgress');
 const Course = require('../models/Course');
 const User = require('../models/User');
+const mongoose = require('mongoose');
+
+// Helper function to get user ObjectId from req.user
+async function getUserObjectId(req) {
+  // If _id is already an ObjectId, use it
+  if (req.user._id && mongoose.Types.ObjectId.isValid(req.user._id)) {
+    return req.user._id;
+  }
+  
+  // If userId is a string (like "USER-K1DWG7"), look up the user
+  if (req.user.userId && typeof req.user.userId === 'string') {
+    const user = await User.findOne({ userId: req.user.userId });
+    if (user && user._id) {
+      return user._id;
+    }
+  }
+  
+  // Fallback: try to use _id even if it's not valid ObjectId
+  if (req.user._id) {
+    return req.user._id;
+  }
+  
+  throw new Error('Unable to determine user ObjectId');
+}
 
 // @route   GET /api/progress/:courseId
 // @desc    Get student's progress for a specific course
@@ -11,7 +35,7 @@ const User = require('../models/User');
 router.get('/:courseId', authenticateToken, async (req, res) => {
   try {
     const { courseId } = req.params;
-    const userId = req.user.userId || req.user._id;
+    const userId = await getUserObjectId(req);
 
     // Verify student is enrolled in the course
     const course = await Course.findById(courseId);
@@ -59,10 +83,12 @@ router.get('/:courseId', authenticateToken, async (req, res) => {
 // @desc    Update video progress
 // @access  Private (enrolled students)
 router.put('/:courseId/video/:contentId', authenticateToken, async (req, res) => {
+  const { courseId, contentId } = req.params;
+  
   try {
     console.log('=== VIDEO PROGRESS UPDATE STARTED ===');
-    const { courseId, contentId } = req.params;
-    const userId = req.user.userId || req.user._id;
+    const userId = await getUserObjectId(req);
+    
     const { watchedDuration, totalDuration, watchedSegments } = req.body;
     
     console.log('Request data:', {
@@ -193,9 +219,9 @@ router.put('/:courseId/video/:contentId', authenticateToken, async (req, res) =>
     console.error('Error details:', {
       message: error.message,
       stack: error.stack,
-      courseId,
-      contentId,
-      userId,
+      courseId: courseId || 'undefined',
+      contentId: contentId || 'undefined',
+      userId: userId ? userId.toString() : 'undefined',
       watchedDuration,
       totalDuration
     });
@@ -213,7 +239,7 @@ router.delete('/:courseId/video/:contentId/reset', authenticateToken, async (req
   try {
     console.log('=== RESET VIDEO PROGRESS STARTED ===');
     const { courseId, contentId } = req.params;
-    const userId = req.user.userId || req.user._id;
+    const userId = await getUserObjectId(req);
     
     console.log('Reset request data:', {
       courseId,
@@ -285,7 +311,7 @@ router.delete('/:courseId/reset-all', authenticateToken, async (req, res) => {
   try {
     console.log('=== RESET ALL PROGRESS STARTED ===');
     const { courseId } = req.params;
-    const userId = req.user.userId || req.user._id;
+    const userId = await getUserObjectId(req);
     
     console.log('Reset all request data:', {
       courseId,
@@ -396,7 +422,7 @@ router.delete('/:courseId/reset-all', authenticateToken, async (req, res) => {
 router.put('/:courseId/quiz/:contentId', authenticateToken, async (req, res) => {
   try {
     const { courseId, contentId } = req.params;
-    const userId = req.user.userId || req.user._id;
+    const userId = await getUserObjectId(req);
     const { answers, timeSpent } = req.body;
 
     if (!answers || !Array.isArray(answers)) {
@@ -485,7 +511,7 @@ router.put('/:courseId/quiz/:contentId', authenticateToken, async (req, res) => 
 router.put('/:courseId/assignment/:contentId', authenticateToken, async (req, res) => {
   try {
     const { courseId, contentId } = req.params;
-    const userId = req.user.userId || req.user._id;
+    const userId = await getUserObjectId(req);
     const { submitted, grade, passed, feedback, gradedAt } = req.body;
 
     // Get or create progress record
@@ -531,7 +557,7 @@ router.put('/:courseId/assignment/:contentId', authenticateToken, async (req, re
 // @access  Private
 router.get('/student/overview', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.userId || req.user._id;
+    const userId = await getUserObjectId(req);
 
     // Get all progress records for the student
     const progressRecords = await CourseProgress.find({ student: userId })
@@ -616,7 +642,7 @@ router.get('/student/overview', authenticateToken, async (req, res) => {
 router.get('/:courseId/certificate-eligibility', authenticateToken, async (req, res) => {
   try {
     const { courseId } = req.params;
-    const userId = req.user.userId || req.user._id;
+    const userId = await getUserObjectId(req);
 
     // Get progress record
     const progress = await CourseProgress.findOne({ 
@@ -660,10 +686,11 @@ router.get('/:courseId/certificate-eligibility', authenticateToken, async (req, 
 // @desc    Update text content progress
 // @access  Private (enrolled students)
 router.put('/:courseId/text/:contentId', authenticateToken, async (req, res) => {
+  const { courseId, contentId } = req.params;
+  
   try {
     console.log('=== TEXT PROGRESS UPDATE STARTED ===');
-    const { courseId, contentId } = req.params;
-    const userId = req.user.userId || req.user._id;
+    const userId = await getUserObjectId(req);
     const { timeSpent, readingPercentage, isCompleted, lastReadAt } = req.body;
     
     console.log('Request data:', {
@@ -802,6 +829,12 @@ router.put('/:courseId/text/:contentId', authenticateToken, async (req, res) => 
 
   } catch (error) {
     console.error('Text progress update error:', error);
+    console.error('Error details:', {
+      message: error.message,
+      stack: error.stack,
+      courseId: courseId || 'undefined',
+      contentId: contentId || 'undefined'
+    });
     res.status(500).json({ error: 'Failed to update text progress' });
   }
 });
