@@ -318,6 +318,58 @@ router.get('/courses', async (req, res) => {
   }
 });
 
+// Get single course with full details (for editing)
+router.get('/courses/:courseId', async (req, res) => {
+  try {
+    const { courseId } = req.params;
+    
+    const course = await Course.findById(courseId)
+      .populate('teacher', 'firstName lastName email')
+      .populate('enrolledStudents.student', 'firstName lastName email');
+    
+    if (!course) {
+      return res.status(404).json({ success: false, error: 'Course not found' });
+    }
+    
+    // Return full course data with all fields
+    const fullCourseData = {
+      id: course._id,
+      title: course.title,
+      description: course.description || '',
+      category: course.category || 'forex',
+      level: course.level || 'beginner',
+      price: course.price || 0,
+      currency: course.currency || 'USD',
+      thumbnail: course.thumbnail || '',
+      requirements: course.requirements || [],
+      learningOutcomes: course.learningOutcomes || [],
+      content: course.content || [],
+      quizzes: course.quizzes || [],
+      assignments: course.assignments || [],
+      allowedPackages: course.allowedPackages || null,
+      status: course.status || 'draft',
+      createdAt: course.createdAt,
+      updatedAt: course.updatedAt,
+      teacher: course.teacher,
+      rating: course.rating || 0,
+      enrolledStudents: course.enrolledStudents?.length || 0,
+      totalLessons: course.content?.length || 0,
+      settings: course.settings || {
+        allowPreview: true,
+        requireEnrollment: true,
+        certificateOnCompletion: false,
+        maxAttempts: 3,
+        passingScore: 70
+      }
+    };
+    
+    res.json({ success: true, course: fullCourseData });
+  } catch (error) {
+    console.error('Error fetching course details:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch course details' });
+  }
+});
+
 // Create new course
 router.post('/courses', async (req, res) => {
   try {
@@ -389,25 +441,81 @@ router.put('/courses/:courseId', async (req, res) => {
 router.delete('/courses/:courseId', async (req, res) => {
   try {
     const { courseId } = req.params;
+    // Support forceDelete from query param or body
+    const forceDelete = req.query.forceDelete === 'true' || req.body?.forceDelete === true;
     const teacherId = req.user._id;
     
+    console.log(`Delete course request: courseId=${courseId}, forceDelete=${forceDelete}`);
+    
     // Verify course belongs to teacher
-    const course = await Course.findOne({ _id: courseId, teacher: teacherId });
+    const course = await Course.findOne({ _id: courseId, teacher: teacherId })
+      .populate('enrolledStudents.student', 'firstName lastName email role');
     if (!course) {
       return res.status(404).json({ success: false, error: 'Course not found' });
     }
     
-    // Check if course has enrolled students
-    if (course.enrolledStudents && course.enrolledStudents.length > 0) {
-      return res.status(400).json({ 
-        success: false, 
-        error: 'Cannot delete course with enrolled students' 
+    // Filter out any teachers/admins from enrolled students (they shouldn't be there)
+    // Only count actual students
+    const actualStudentEnrollments = (course.enrolledStudents || []).filter(enrollment => {
+      const studentRole = enrollment.student?.role;
+      return studentRole === 'student';
+    });
+    
+    // Also remove teachers/admins from enrolledStudents if any exist (cleanup)
+    const nonStudentIds = (course.enrolledStudents || [])
+      .filter(e => e.student?.role && e.student.role !== 'student')
+      .map(e => e.student?._id || e.student);
+    
+    if (nonStudentIds.length > 0) {
+      console.log(`Cleaning up ${nonStudentIds.length} non-student enrollments from course`);
+      await Course.findByIdAndUpdate(courseId, {
+        $pull: { enrolledStudents: { student: { $in: nonStudentIds } } }
       });
+    }
+    
+    // Check if course has actual student enrollments
+    if (actualStudentEnrollments.length > 0) {
+      // If forceDelete is not set, return the list of enrolled students
+      if (!forceDelete) {
+        const enrolledStudentsList = actualStudentEnrollments.map(enrollment => ({
+          id: enrollment.student?._id || enrollment.student,
+          firstName: enrollment.student?.firstName || 'Unknown',
+          lastName: enrollment.student?.lastName || 'Student',
+          email: enrollment.student?.email || 'N/A',
+          enrolledAt: enrollment.enrolledAt,
+          progress: enrollment.progress || 0
+        }));
+        
+        return res.status(400).json({ 
+          success: false, 
+          error: 'Course has enrolled students',
+          hasEnrolledStudents: true,
+          enrolledStudents: enrolledStudentsList,
+          enrolledCount: enrolledStudentsList.length,
+          message: `This course has ${enrolledStudentsList.length} enrolled student(s). Do you want to remove them and delete the course?`
+        });
+      }
+      
+      // Force delete: Remove students from course first
+      const studentIds = actualStudentEnrollments.map(e => e.student?._id || e.student);
+      
+      // Remove this course from all enrolled students' enrolledCourses array
+      await User.updateMany(
+        { _id: { $in: studentIds } },
+        { $pull: { enrolledCourses: { courseId: courseId } } }
+      );
+      
+      console.log(`Force delete: Removed ${studentIds.length} students from course ${course.title}`);
     }
     
     await Course.findByIdAndDelete(courseId);
     
-    res.json({ success: true, message: 'Course deleted successfully' });
+    res.json({ 
+      success: true, 
+      message: actualStudentEnrollments.length > 0 
+        ? `Course deleted successfully. ${actualStudentEnrollments.length} student(s) were unenrolled.`
+        : 'Course deleted successfully'
+    });
   } catch (error) {
     console.error('Error deleting course:', error);
     res.status(500).json({ success: false, error: 'Failed to delete course' });
@@ -496,6 +604,34 @@ router.get('/students', async (req, res) => {
       .skip(skip)
       .limit(parseInt(limit));
     
+    // IMPORTANT: Get enrollment data from BOTH User.enrolledCourses AND Course.enrolledStudents
+    // Some enrollments might only exist in one or the other due to data inconsistency
+    const studentIds = students.map(s => s._id);
+    
+    // Get all courses where these students are enrolled
+    const coursesWithStudents = await Course.find({
+      'enrolledStudents.student': { $in: studentIds }
+    }).select('_id title enrolledStudents');
+    
+    // Build a map of studentId -> enrolled courses from Course.enrolledStudents
+    const courseEnrollmentMap = new Map();
+    coursesWithStudents.forEach(course => {
+      course.enrolledStudents.forEach(enrollment => {
+        const studentIdStr = enrollment.student.toString();
+        if (!courseEnrollmentMap.has(studentIdStr)) {
+          courseEnrollmentMap.set(studentIdStr, []);
+        }
+        courseEnrollmentMap.get(studentIdStr).push({
+          courseId: course._id,
+          courseTitle: course.title,
+          enrolledAt: enrollment.enrolledAt,
+          progress: enrollment.progress || 0,
+          completedVideos: enrollment.completedVideos || [],
+          lastAccessed: enrollment.lastAccessed || enrollment.enrolledAt
+        });
+      });
+    });
+    
     
     
     // Get all unique course IDs from all students for batch fetching
@@ -517,8 +653,44 @@ router.get('/students', async (req, res) => {
     
     // Process student data with enrollment information
     const processedStudents = students.map(student => {
-      // Get ALL enrollments for this student (not just teacher's courses)
-      const allStudentEnrollments = student.enrolledCourses || [];
+      // Get enrollments from User.enrolledCourses
+      const userEnrollments = student.enrolledCourses || [];
+      
+      // Get enrollments from Course.enrolledStudents (via courseEnrollmentMap)
+      const courseEnrollments = courseEnrollmentMap.get(student._id.toString()) || [];
+      
+      // Merge both sources - prefer Course.enrolledStudents as it's more likely to be current
+      const enrollmentMap = new Map();
+      
+      // First add from User.enrolledCourses
+      userEnrollments.forEach(enrollment => {
+        const courseIdStr = enrollment.courseId.toString();
+        enrollmentMap.set(courseIdStr, {
+          courseId: enrollment.courseId,
+          enrolledAt: enrollment.enrolledAt,
+          progress: enrollment.progress || 0,
+          completedLessons: enrollment.completedLessons || 0,
+          totalLessons: enrollment.totalLessons || 0,
+          lastAccessed: enrollment.lastAccessed || enrollment.enrolledAt
+        });
+      });
+      
+      // Then override/add from Course.enrolledStudents (more authoritative)
+      courseEnrollments.forEach(enrollment => {
+        const courseIdStr = enrollment.courseId.toString();
+        enrollmentMap.set(courseIdStr, {
+          courseId: enrollment.courseId,
+          courseTitle: enrollment.courseTitle,
+          enrolledAt: enrollment.enrolledAt,
+          progress: enrollment.progress || 0,
+          completedLessons: enrollment.completedVideos?.length || 0,
+          totalLessons: 0, // Can be calculated if needed
+          lastAccessed: enrollment.lastAccessed || enrollment.enrolledAt
+        });
+      });
+      
+      // Convert map to array
+      const allStudentEnrollments = Array.from(enrollmentMap.values());
       
       // Get enrollments for this student that are in the teacher's courses (for metrics)
       const teacherCourseEnrollments = allStudentEnrollments.filter(enrollment => {
@@ -540,10 +712,10 @@ router.get('/students', async (req, res) => {
       // Get course titles for ALL enrolled courses using the pre-fetched course map
       const enrolledCoursesWithTitles = allStudentEnrollments.map(enrollment => {
         const courseIdStr = enrollment.courseId.toString();
-        const courseTitle = courseMap.get(courseIdStr);
+        const courseTitle = enrollment.courseTitle || courseMap.get(courseIdStr) || `Course ${courseIdStr.slice(-6)}`;
         return {
           courseId: enrollment.courseId,
-          courseTitle: courseTitle || `Course ${courseIdStr.slice(-6)}`,
+          courseTitle: courseTitle,
           enrolledAt: enrollment.enrolledAt,
           progress: enrollment.progress || 0,
           completedLessons: enrollment.completedLessons || 0,
@@ -565,7 +737,7 @@ router.get('/students', async (req, res) => {
         progress: Math.round(averageProgress),
         lastActive: allStudentEnrollments[0]?.lastAccessed || student.updatedAt || student.createdAt,
         completedCourses: allStudentEnrollments.filter(e => e.progress === 100).length,
-        totalCourses: allStudentEnrollments.length, // Show ALL courses, not just teacher's courses
+        totalCourses: allStudentEnrollments.length, // Total from BOTH sources
         enrolledCourses: enrolledCoursesWithTitles,
         averageProgress: Math.round(averageProgress),
         totalAssignments: 0, // TODO: Calculate from assignments

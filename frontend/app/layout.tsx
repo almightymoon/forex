@@ -6,6 +6,7 @@ import { DashboardProvider } from '../context/DashboardContext'
 import { AdminProvider } from '../context/AdminContext'
 import { WebSocketProvider } from '../context/WebSocketContext'
 import { GlobalSessionHandler } from '../components/GlobalSessionHandler'
+import { DevToolsProtection } from '../components/DevToolsProtection'
 
 export const metadata = {
   title: 'Forex Navigators - Master the Art of Forex Trading',
@@ -20,6 +21,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
+        <DevToolsProtection />
         <ToastProvider>
           <LanguageProvider>
             <SettingsProvider>

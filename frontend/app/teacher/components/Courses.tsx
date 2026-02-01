@@ -1,9 +1,26 @@
 import React, { useState } from 'react';
-import { Plus, Search, BookOpen } from 'lucide-react';
+import { Plus, Search, BookOpen, AlertTriangle, X, Loader2, Users } from 'lucide-react';
 import CourseCard from './CourseCard';
 import CourseCreator from './CourseCreator';
 import { Course } from '../types';
 import { useToast } from '../../../components/Toast';
+
+interface EnrolledStudent {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  enrolledAt: string;
+  progress: number;
+}
+
+interface DeleteConfirmation {
+  show: boolean;
+  courseId: string;
+  courseName: string;
+  enrolledStudents: EnrolledStudent[];
+  isDeleting: boolean;
+}
 
 interface CoursesProps {
   courses: Course[];
@@ -31,6 +48,13 @@ export default function Courses({
   const { showToast } = useToast();
   const [showCourseCreator, setShowCourseCreator] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [deleteConfirmation, setDeleteConfirmation] = useState<DeleteConfirmation>({
+    show: false,
+    courseId: '',
+    courseName: '',
+    enrolledStudents: [],
+    isDeleting: false
+  });
 
   const handleCreateCourse = async (courseData: any) => {
     try {
@@ -98,15 +122,41 @@ export default function Courses({
     setEditingCourse(null); // Reset editing state when canceling
   };
 
-  const handleEditCourse = (course: Course) => {
-    setEditingCourse(course);
-    setShowCourseCreator(true);
+  const handleEditCourse = async (course: Course) => {
+    try {
+      // Fetch full course details including all content, modules, etc.
+      const token = localStorage.getItem('token');
+      if (!token) {
+        showToast('Please log in to edit courses', 'warning');
+        return;
+      }
+
+      const response = await fetch(`/api/teacher/courses/${course.id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (response.ok) {
+        const fullCourseData = await response.json();
+        // The API might return { course: {...} } or just the course object
+        const courseData = fullCourseData.course || fullCourseData;
+        setEditingCourse(courseData);
+        setShowCourseCreator(true);
+      } else {
+        showToast('Failed to load course details', 'error');
+      }
+    } catch (error) {
+      console.error('Error loading course for edit:', error);
+      showToast('Error loading course. Please try again.', 'error');
+    }
   };
 
   const handleDeleteCourse = async (courseId: string) => {
-    if (!confirm('Are you sure you want to delete this course? This action cannot be undone.')) {
-      return;
-    }
+    // Find course name for display
+    const course = courses.find(c => c.id === courseId);
+    const courseName = course?.title || 'this course';
 
     try {
       const token = localStorage.getItem('token');
@@ -123,16 +173,81 @@ export default function Courses({
         }
       });
 
+      const result = await response.json();
+
       if (response.ok) {
-        showToast('Course deleted successfully!', 'success');
+        showToast(result.message || 'Course deleted successfully!', 'success');
         onRefresh(); // Refresh the courses list
+      } else if (result.hasEnrolledStudents) {
+        // Show confirmation modal with enrolled students
+        setDeleteConfirmation({
+          show: true,
+          courseId,
+          courseName,
+          enrolledStudents: result.enrolledStudents || [],
+          isDeleting: false
+        });
       } else {
-        const error = await response.json();
-        showToast(`Failed to delete course: ${error.error || 'Unknown error'}`, 'error');
+        showToast(`Failed to delete course: ${result.error || 'Unknown error'}`, 'error');
       }
     } catch (error) {
       console.error('Error deleting course:', error);
       showToast('Error deleting course. Please try again.', 'error');
+    }
+  };
+
+  const handleForceDeleteCourse = async () => {
+    if (!deleteConfirmation.courseId) return;
+
+    setDeleteConfirmation(prev => ({ ...prev, isDeleting: true }));
+
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        showToast('Please log in to delete courses', 'warning');
+        return;
+      }
+
+      const response = await fetch(`/api/teacher/courses/${deleteConfirmation.courseId}?forceDelete=true`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        showToast(result.message || 'Course deleted successfully!', 'success');
+        setDeleteConfirmation({
+          show: false,
+          courseId: '',
+          courseName: '',
+          enrolledStudents: [],
+          isDeleting: false
+        });
+        onRefresh(); // Refresh the courses list
+      } else {
+        showToast(`Failed to delete course: ${result.error || 'Unknown error'}`, 'error');
+      }
+    } catch (error) {
+      console.error('Error force deleting course:', error);
+      showToast('Error deleting course. Please try again.', 'error');
+    } finally {
+      setDeleteConfirmation(prev => ({ ...prev, isDeleting: false }));
+    }
+  };
+
+  const closeDeleteModal = () => {
+    if (!deleteConfirmation.isDeleting) {
+      setDeleteConfirmation({
+        show: false,
+        courseId: '',
+        courseName: '',
+        enrolledStudents: [],
+        isDeleting: false
+      });
     }
   };
 
@@ -255,6 +370,114 @@ export default function Courses({
             onView={handleViewCourse}
           />
           ))}
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal with Enrolled Students */}
+      {deleteConfirmation.show && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg">
+                  <AlertTriangle className="w-6 h-6 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Cannot Delete Course
+                </h3>
+              </div>
+              <button
+                onClick={closeDeleteModal}
+                disabled={deleteConfirmation.isDeleting}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors disabled:opacity-50"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto max-h-[50vh]">
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                The course "<span className="font-semibold text-gray-900 dark:text-white">{deleteConfirmation.courseName}</span>" has{' '}
+                <span className="font-semibold text-amber-600 dark:text-amber-400">
+                  {deleteConfirmation.enrolledStudents.length} enrolled student(s)
+                </span>.
+              </p>
+
+              {/* Enrolled Students List */}
+              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-4">
+                <div className="flex items-center space-x-2 mb-3">
+                  <Users className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Enrolled Students
+                  </span>
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {deleteConfirmation.enrolledStudents.map((student, index) => (
+                    <div
+                      key={student.id || index}
+                      className="flex items-center justify-between p-2 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-600"
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                          <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
+                            {student.firstName?.[0]}{student.lastName?.[0]}
+                          </span>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {student.firstName} {student.lastName}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            {student.email}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-medium text-gray-600 dark:text-gray-300">
+                          {student.progress}% complete
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  <strong>Warning:</strong> If you proceed, all {deleteConfirmation.enrolledStudents.length} student(s) will be unenrolled from this course and their progress will be lost. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end space-x-3 p-6 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30">
+              <button
+                onClick={closeDeleteModal}
+                disabled={deleteConfirmation.isDeleting}
+                className="px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleForceDeleteCourse}
+                disabled={deleteConfirmation.isDeleting}
+                className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center space-x-2"
+              >
+                {deleteConfirmation.isDeleting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Remove Students & Delete Course</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

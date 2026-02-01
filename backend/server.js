@@ -1,3 +1,9 @@
+require('dotenv').config();
+const disableConsoleInProduction = require('./utils/disableConsole');
+
+// Disable console logs in production (keeps error/warn)
+disableConsoleInProduction();
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -8,7 +14,6 @@ const maintenanceMiddleware = require('./middleware/maintenanceMode');
 const { checkSessionTimeout } = require('./middleware/sessionTimeout');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');

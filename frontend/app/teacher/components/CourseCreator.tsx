@@ -79,6 +79,7 @@ interface ContentBlock {
   metadata?: any;
   textContent?: string;
   videoUrl?: string;
+  imageUrl?: string;
   description?: string;
 }
 
@@ -422,9 +423,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         const baseBlock = {
           title: block.title,
           description: block.description || '',
-          type: block.type === 'text' ? 'text' : 
-                block.type === 'video' ? 'video' : 
-                block.type === 'image' ? 'text' : 'text', // Map image to text for now
+          type: block.type,
           order: block.order,
           isPreview: false,
           duration: 0,
@@ -432,16 +431,22 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         };
 
         // Add type-specific required fields
-        if (block.type === 'text' || block.type === 'image') {
+        if (block.type === 'text') {
           return {
             ...baseBlock,
-            textContent: block.textContent || block.content || 'Default text content',
+            textContent: block.content || block.textContent || 'Default text content',
             type: 'text'
+          };
+        } else if (block.type === 'image') {
+          return {
+            ...baseBlock,
+            imageUrl: block.content || block.imageUrl || '',
+            type: 'image'
           };
         } else if (block.type === 'video') {
           return {
             ...baseBlock,
-            videoUrl: block.videoUrl || block.content || 'https://example.com/video',
+            videoUrl: block.content || block.videoUrl || 'https://example.com/video',
             type: 'video'
           };
         } else if (block.type === 'file') {
@@ -454,7 +459,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
           // Default to text for unknown types
           return {
             ...baseBlock,
-            textContent: block.textContent || block.content || 'Default content',
+            textContent: block.content || block.textContent || 'Default content',
             type: 'text'
           };
         }
@@ -543,9 +548,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         const baseBlock = {
           title: block.title,
           description: block.description || '',
-          type: block.type === 'text' ? 'text' : 
-                block.type === 'video' ? 'video' : 
-                block.type === 'image' ? 'text' : 'text', // Map image to text for now
+          type: block.type,
           order: block.order,
           isPreview: false,
           duration: 0,
@@ -553,16 +556,22 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         };
 
         // Add type-specific required fields
-        if (block.type === 'text' || block.type === 'image') {
+        if (block.type === 'text') {
           return {
             ...baseBlock,
-            textContent: block.textContent || block.content || 'Default text content',
+            textContent: block.content || block.textContent || 'Default text content',
             type: 'text'
+          };
+        } else if (block.type === 'image') {
+          return {
+            ...baseBlock,
+            imageUrl: block.content || block.imageUrl || '',
+            type: 'image'
           };
         } else if (block.type === 'video') {
           return {
             ...baseBlock,
-            videoUrl: block.videoUrl || block.content || 'https://example.com/video',
+            videoUrl: block.content || block.videoUrl || 'https://example.com/video',
             type: 'video'
           };
         } else if (block.type === 'file') {
@@ -575,7 +584,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
           // Default to text for unknown types
           return {
             ...baseBlock,
-            textContent: block.textContent || block.content || 'Default content',
+            textContent: block.content || block.textContent || 'Default content',
             type: 'text'
           };
         }
@@ -1238,7 +1247,12 @@ function ContentBuilderTab({
         <ContentEditor
           block={editingBlock}
           onSave={(updates) => {
-            updateContentBlock(editingBlock.id, updates);
+            // Ensure textContent is synced with content for text blocks
+            const syncedUpdates = {
+              ...updates,
+              ...(updates.type === 'text' && updates.content ? { textContent: updates.content } : {})
+            };
+            updateContentBlock(editingBlock.id, syncedUpdates);
             setEditingBlock(null);
           }}
           onCancel={() => setEditingBlock(null)}

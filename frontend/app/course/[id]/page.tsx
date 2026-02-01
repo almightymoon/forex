@@ -588,7 +588,7 @@ interface Content {
   _id: string;
   title: string;
   description: string;
-  type: 'video' | 'text' | 'ppt' | 'quiz' | 'assignment';
+  type: 'video' | 'text' | 'ppt' | 'quiz' | 'assignment' | 'image';
   order: number;
   isPreview: boolean;
   views: number;
@@ -596,6 +596,7 @@ interface Content {
   videoUrl?: string;
   thumbnail?: string;
   textContent?: string;
+  imageUrl?: string;
   pptUrl?: string;
   pptSlides?: number;
   quizQuestions?: Array<{
@@ -857,10 +858,9 @@ export default function CourseDetail() {
   };
 
   const handleContentSelect = (content: Content) => {
-    const contentIndex = (course?.content || course?.videos || []).findIndex(c => c._id === content._id);
-    if (isContentUnlocked(content, contentIndex)) {
-      setSelectedContent(content);
-    }
+    // Always allow switching between content items
+    // If user can see the content list, they should be able to view it
+    setSelectedContent(content);
   };
 
   // Helper function to get content icon
@@ -870,6 +870,8 @@ export default function CourseDetail() {
         return <Play className="w-5 h-5 text-blue-600 dark:text-blue-400" />;
       case 'text':
         return <FileText className="w-5 h-5 text-green-600 dark:text-green-400" />;
+      case 'image':
+        return <BookOpen className="w-5 h-5 text-pink-600 dark:text-pink-400" />;
       case 'assignment':
         return <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />;
       case 'quiz':
@@ -886,6 +888,8 @@ export default function CourseDetail() {
         return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
       case 'text':
         return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300';
+      case 'image':
+        return 'bg-pink-100 dark:bg-pink-900/30 text-pink-700 dark:text-pink-300';
       case 'assignment':
         return 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300';
       case 'quiz':
@@ -1004,6 +1008,35 @@ export default function CourseDetail() {
             courseId={Array.isArray(courseId) ? courseId[0] : courseId}
             onProgressUpdate={refreshProgress}
           />
+        );
+
+      case 'image':
+        // Get image URL from various possible sources
+        const imageUrl = content.imageUrl || content.videoUrl || content.textContent;
+        return (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">{content.title}</h2>
+            <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-xl border border-gray-200 dark:border-gray-600 mb-4">
+              {imageUrl ? (
+                <img 
+                  src={imageUrl}
+                  alt={content.title}
+                  className="w-full max-h-[600px] object-contain rounded-lg mx-auto"
+                  onError={(e) => {
+                    console.error('Image failed to load:', imageUrl);
+                    (e.target as HTMLImageElement).src = '/placeholder-image.png';
+                  }}
+                />
+              ) : (
+                <div className="text-center py-12 text-gray-500 dark:text-gray-400">
+                  <p>No image available</p>
+                </div>
+              )}
+            </div>
+            {content.description && (
+              <p className="text-gray-700 dark:text-gray-300">{content.description}</p>
+            )}
+          </div>
         );
 
       case 'ppt':
@@ -1242,126 +1275,6 @@ export default function CourseDetail() {
                 {renderContent(selectedContent)}
               </motion.div>
             )}
-
-            {/* Course Content */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg"
-            >
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">Course Content</h2>
-              <div className="space-y-3">
-                {/* Course Content */}
-                {(course.content || course.videos || []).map((item, index) => {
-                  const { isCompleted } = getContentCompletionStatus(item);
-                  
-                  return (
-                    <div
-                      key={item._id}
-                      onClick={() => handleContentSelect(item)}
-                      className={`p-4 rounded-xl border transition-all duration-200 cursor-pointer ${
-                        selectedContent?._id === item._id
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-4">
-                        <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${
-                          isCompleted 
-                            ? 'bg-green-100 dark:bg-green-900/30' 
-                            : 'bg-blue-100 dark:bg-blue-900/30'
-                        }`}>
-                          {isCompleted ? (
-                            <CheckCircle className="w-5 h-5 text-green-600 dark:text-green-400" />
-                          ) : (
-                            getContentIcon(item.type)
-                          )}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2">
-                            <h3 className="font-medium text-gray-900 dark:text-white">
-                              {item.title}
-                            </h3>
-                            {item.isPreview && (
-                              <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs">
-                                Preview
-                              </span>
-                            )}
-                            <span className={`px-2 py-1 rounded-full text-xs ${
-                              getContentTypeStyle(item.type)
-                            }`}>
-                              {item.type.toUpperCase()}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600 dark:text-gray-300">
-                            {item.description}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          {item.type === 'video' && item.duration && (
-                            <p className="text-sm text-gray-500 dark:text-gray-400">
-                              {formatDuration(item.duration)}
-                            </p>
-                          )}
-                          {isCompleted && (
-                            <CheckCircle className="w-5 h-5 text-green-500 mt-1" />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                
-                {/* Course Assignments */}
-                {assignments.length > 0 && (
-                  <>
-                    <div className="pt-4 border-t border-gray-200 dark:border-gray-600">
-                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Course Assignments</h4>
-                    </div>
-                    {assignments.map((assignment, index) => (
-                      <div
-                        key={assignment._id}
-                        onClick={() => handleContentSelect({
-                          _id: assignment._id,
-                          title: assignment.title,
-                          description: assignment.description,
-                          type: 'assignment',
-                          order: assignment.order || index + 1000,
-                          isPreview: false,
-                          views: 0,
-                          assignmentType: assignment.assignmentType,
-                          maxPoints: assignment.maxPoints
-                        })}
-                        className={`p-4 rounded-xl border cursor-pointer transition-all duration-200 ${
-                          selectedContent?._id === assignment._id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                            : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-4">
-                          <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center">
-                            <FileText className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                          </div>
-                          <div className="flex-1">
-                            <div className="flex items-center space-x-2">
-                              <h3 className="font-medium text-gray-900 dark:text-white">{assignment.title}</h3>
-                              <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs">
-                                ASSIGNMENT
-                              </span>
-                            </div>
-                            <p className="text-sm text-gray-600 dark:text-gray-300">{assignment.description}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm text-gray-500 dark:text-gray-400">{assignment.maxPoints || 'N/A'} pts</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-            </motion.div>
           </div>
 
           {/* Sidebar */}
@@ -1497,6 +1410,106 @@ export default function CourseDetail() {
                 </div>
               </motion.div>
             )}
+
+            {/* Course Content - Sidebar */}
+            <motion.div 
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.38 }}
+              className="bg-white dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700 shadow-lg"
+            >
+              <div className="flex items-center space-x-2 mb-4">
+                <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                <h3 className="font-semibold text-gray-900 dark:text-white">Course Content</h3>
+              </div>
+              <div className="space-y-2">
+                {/* Course Content Items */}
+                {(course.content || course.videos || []).map((item, index) => {
+                  const { isCompleted } = getContentCompletionStatus(item);
+                  
+                  return (
+                    <div
+                      key={item._id}
+                      onClick={() => handleContentSelect(item)}
+                      className={`p-3 rounded-lg border transition-all duration-200 cursor-pointer ${
+                        selectedContent?._id === item._id
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                          : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                      }`}
+                    >
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                          isCompleted 
+                            ? 'bg-green-100 dark:bg-green-900/30' 
+                            : 'bg-blue-100 dark:bg-blue-900/30'
+                        }`}>
+                          {isCompleted ? (
+                            <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          ) : (
+                            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">{index + 1}</span>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-sm text-gray-900 dark:text-white truncate">
+                            {item.title}
+                          </h4>
+                          <div className="flex items-center space-x-2 mt-0.5">
+                            <span className={`px-1.5 py-0.5 rounded text-xs ${getContentTypeStyle(item.type)}`}>
+                              {item.type}
+                            </span>
+                            {item.type === 'video' && item.duration && (
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {formatDuration(item.duration)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {/* Course Assignments */}
+                {assignments.length > 0 && (
+                  <>
+                    <div className="pt-3 mt-2 border-t border-gray-200 dark:border-gray-600">
+                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Assignments</p>
+                    </div>
+                    {assignments.map((assignment, index) => (
+                      <div
+                        key={assignment._id}
+                        onClick={() => handleContentSelect({
+                          _id: assignment._id,
+                          title: assignment.title,
+                          description: assignment.description,
+                          type: 'assignment',
+                          order: assignment.order || index + 1000,
+                          isPreview: false,
+                          views: 0,
+                          assignmentType: assignment.assignmentType,
+                          maxPoints: assignment.maxPoints
+                        })}
+                        className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
+                          selectedContent?._id === assignment._id
+                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
+                            : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
+                            <FileText className="w-4 h-4 text-orange-600 dark:text-orange-400" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-sm text-gray-900 dark:text-white truncate">{assignment.title}</h4>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">{assignment.maxPoints || 'N/A'} pts</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            </motion.div>
 
             {/* Course Info */}
             <motion.div 

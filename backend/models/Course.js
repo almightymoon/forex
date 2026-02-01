@@ -15,7 +15,7 @@ const contentSchema = new mongoose.Schema({
   type: {
     type: String,
     required: [true, 'Content type is required'],
-    enum: ['video', 'text', 'ppt', 'quiz', 'assignment']
+    enum: ['video', 'text', 'ppt', 'quiz', 'assignment', 'image']
   },
   order: {
     type: Number,
@@ -46,6 +46,11 @@ const contentSchema = new mongoose.Schema({
   textContent: {
     type: String,
     required: function() { return this.type === 'text'; }
+  },
+  // Image fields
+  imageUrl: {
+    type: String,
+    required: function() { return this.type === 'image'; }
   },
   // PPT fields
   pptUrl: {
