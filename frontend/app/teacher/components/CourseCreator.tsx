@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useToast } from '../../../components/Toast';
+
+// Rich text editor (no SSR to avoid hydration issues)
+const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+import 'react-quill/dist/quill.snow.css';
 import { 
   Plus, 
   Save, 
@@ -184,7 +188,27 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
           passingScore: 70
         }
       });
-      setContentBlocks(editingCourse.content || []);
+      
+      // Transform content from database format to frontend format
+      // Database has textContent, videoUrl, etc. but frontend expects content field
+      const transformedContent = (editingCourse.content || []).map((item: any) => ({
+        ...item,
+        id: item._id || item.id || `block-${Date.now()}-${Math.random()}`,
+        // Map textContent to content for text blocks
+        content: item.type === 'text' 
+          ? (item.textContent || item.content || '')
+          : item.type === 'video'
+          ? (item.videoUrl || item.content || '')
+          : item.type === 'ppt'
+          ? (item.pptUrl || item.content || '')
+          : (item.content || ''),
+        // Keep original fields for reference
+        textContent: item.textContent,
+        videoUrl: item.videoUrl,
+        pptUrl: item.pptUrl
+      }));
+      
+      setContentBlocks(transformedContent);
       setQuizzes(editingCourse.quizzes || []);
       setAssignments(editingCourse.assignments || []);
     }
@@ -1312,58 +1336,49 @@ function ContentBlock({
 }
 
 // ========================================
-// SIMPLE TEXT EDITOR COMPONENT
+// RICH TEXT EDITOR COMPONENT (ReactQuill)
 // ========================================
-// A clean, simple text editor using textarea
-// Features:
-// - Basic text input with LTR direction
-// - No text direction issues
-// - Resizable textarea
-// - Dark mode support
-// - Simple and reliable
-// ========================================
-function SimpleTextEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const [text, setText] = useState(value);
+const QUILL_MODULES = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ color: [] }, { background: [] }],
+    [{ align: [] }],
+    ['link', 'image'],
+    ['clean'],
+  ],
+};
 
-  useEffect(() => {
-    setText(value);
-  }, [value]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    setText(newValue);
-    onChange(newValue);
-  };
-
+function RichTextEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
-    <div className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
-      <textarea
-        value={text}
-        onChange={handleChange}
-        className="w-full p-4 min-h-[300px] focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-vertical"
-        style={{ 
-          direction: 'ltr', 
-          textAlign: 'left',
-          unicodeBidi: 'normal',
-          writingMode: 'horizontal-tb'
-        }}
-        dir="ltr"
+    <div className="rich-text-editor-wrapper border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800 [&_.ql-toolbar]:bg-gray-50 dark:[&_.ql-toolbar]:bg-gray-700 [&_.ql-toolbar]:border-gray-300 dark:[&_.ql-toolbar]:border-gray-600 [&_.ql-container]:border-gray-300 dark:[&_.ql-container]:border-gray-600 [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-gray-900 dark:[&_.ql-editor]:text-white [&_.ql-editor.ql-blank::before]:text-gray-500 dark:[&_.ql-editor.ql-blank::before]:text-gray-400">
+      <ReactQuill
+        theme="snow"
+        value={value ?? ''}
+        onChange={onChange}
         placeholder="Enter your text content here..."
+        modules={QUILL_MODULES}
       />
     </div>
   );
 }
 // ========================================
-// END OF SIMPLE TEXT EDITOR COMPONENT
-// ========================================
-// This component provides a simple, reliable text editing experience
-// without the complexity of rich text formatting. Perfect for basic
-// text content that doesn't require advanced formatting features.
-// ========================================
 
 // Content Editor Component
 function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload, isUploading }: any) {
-  const [editingData, setEditingData] = useState(block);
+  // Initialize editingData with proper content field mapping
+  const [editingData, setEditingData] = useState({
+    ...block,
+    // Ensure content field is populated from textContent, videoUrl, or content
+    content: block.type === 'text' 
+      ? (block.textContent || block.content || '')
+      : block.type === 'video'
+      ? (block.videoUrl || block.content || '')
+      : block.type === 'ppt'
+      ? (block.pptUrl || block.content || '')
+      : (block.content || '')
+  });
 
   const handleSave = () => {
     onSave(editingData);
@@ -1402,11 +1417,11 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
 
             {block.type === 'text' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Content
                 </label>
-                <SimpleTextEditor
-                  value={editingData.content}
+                <RichTextEditor
+                  value={editingData.content ?? ''}
                   onChange={(value) => setEditingData({ ...editingData, content: value })}
                 />
               </div>
