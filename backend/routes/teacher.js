@@ -346,14 +346,35 @@ router.put('/courses/:courseId', async (req, res) => {
     const teacherId = req.user._id;
     
     // Verify course belongs to teacher
-    const course = await Course.findOne({ _id: courseId, teacher: teacherId });
-    if (!course) {
+    const existingCourse = await Course.findOne({ _id: courseId, teacher: teacherId });
+    if (!existingCourse) {
       return res.status(404).json({ success: false, error: 'Course not found' });
     }
     
+    // Fields that should be preserved if not provided in update
+    const fieldsToPreserve = [
+      'content', 'videos', 'requirements', 'learningOutcomes', 
+      'quizzes', 'tags', 'enrolledStudents', 'totalStudents',
+      'rating', 'totalRatings', 'isFeatured', 'language',
+      'certificate', 'status', 'allowedPackages'
+    ];
+    
+    // Build update object: only update fields that are provided in req.body
+    const updateData = { ...req.body };
+    
+    // Preserve existing fields if they're not in the update
+    fieldsToPreserve.forEach(field => {
+      if (!(field in updateData) && existingCourse[field] !== undefined) {
+        updateData[field] = existingCourse[field];
+      }
+    });
+    
+    // Always update the updatedAt timestamp
+    updateData.updatedAt = new Date();
+    
     const updatedCourse = await Course.findByIdAndUpdate(
       courseId,
-      { ...req.body, updatedAt: new Date() },
+      updateData,
       { new: true, runValidators: true }
     );
     

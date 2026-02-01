@@ -401,9 +401,33 @@ router.put('/:id', [
       return res.status(400).json({ errors: errors.array() });
     }
 
+    // Fetch existing course to preserve fields not in update
+    const existingCourse = await Course.findById(req.params.id);
+    if (!existingCourse) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
+    // Fields that should be preserved if not provided in update
+    const fieldsToPreserve = [
+      'content', 'videos', 'requirements', 'learningOutcomes', 
+      'quizzes', 'tags', 'enrolledStudents', 'totalStudents',
+      'rating', 'totalRatings', 'isFeatured', 'language',
+      'certificate', 'status', 'allowedPackages', 'teacher'
+    ];
+    
+    // Build update object: only update fields that are provided in req.body
+    const updateData = { ...req.body };
+    
+    // Preserve existing fields if they're not in the update
+    fieldsToPreserve.forEach(field => {
+      if (!(field in updateData) && existingCourse[field] !== undefined) {
+        updateData[field] = existingCourse[field];
+      }
+    });
+
     const course = await Course.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     ).populate('teacher', 'firstName lastName profileImage');
 
