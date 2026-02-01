@@ -676,10 +676,10 @@ router.put('/:courseId/text/:contentId', authenticateToken, async (req, res) => 
       lastReadAt
     });
 
-    if (timeSpent === undefined || timeSpent === null) {
+    if (timeSpent === undefined || timeSpent === null || typeof timeSpent !== 'number') {
       console.log('Validation failed:', { timeSpent });
       return res.status(400).json({ 
-        error: 'Time spent is required',
+        error: 'Time spent is required and must be a number',
         received: { timeSpent }
       });
     }
