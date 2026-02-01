@@ -84,10 +84,11 @@ router.get('/:courseId', authenticateToken, async (req, res) => {
 // @access  Private (enrolled students)
 router.put('/:courseId/video/:contentId', authenticateToken, async (req, res) => {
   const { courseId, contentId } = req.params;
+  let userId;
   
   try {
     console.log('=== VIDEO PROGRESS UPDATE STARTED ===');
-    const userId = await getUserObjectId(req);
+    userId = await getUserObjectId(req);
     
     const { watchedDuration, totalDuration, watchedSegments } = req.body;
     
