@@ -8,9 +8,24 @@
  * - 1 Student/User account
  */
 
-require('dotenv').config();
+require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const mongoose = require('mongoose');
 const User = require('../models/User');
+
+function getMongoUri() {
+  let uri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/forex-lms';
+  const dbName = process.env.DB_NAME;
+  if (dbName && uri) {
+    const match = uri.match(/^(mongodb(\+srv)?:\/\/[^/]+)(\/([^?]*))?(\?.*)?$/);
+    if (match) {
+      const pathPart = match[4];
+      if (pathPart === undefined || pathPart === '' || pathPart === '/') {
+        uri = match[1] + '/' + dbName + (match[5] || '');
+      }
+    }
+  }
+  return uri;
+}
 
 // Default account credentials
 const accounts = [
@@ -45,11 +60,11 @@ const accounts = [
 
 async function createAccounts() {
   try {
-    // Connect to MongoDB
-    const mongoUri = process.env.MONGODB_URI || process.env.MONGO_URI || 'mongodb+srv://moon:947131@cluster0.gvga3.mongodb.net/';
+    // Connect to MongoDB (uses DB_NAME from .env)
+    const mongoUri = getMongoUri();
     console.log('Connecting to MongoDB...');
     await mongoose.connect(mongoUri);
-    console.log('✅ Connected to MongoDB\n');
+    console.log('✅ Connected to MongoDB (db: ' + (process.env.DB_NAME || mongoose.connection.db?.databaseName || 'default') + ')\n');
 
     const results = {
       created: [],

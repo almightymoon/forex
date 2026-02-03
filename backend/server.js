@@ -111,7 +111,22 @@ app.use('/api/assignments/*/submit', upload.any());
 app.use(morgan('combined'));
 
 // Database connection with improved options
-const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/forex-lms';
+function getMongoUri() {
+  let uri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/forex-lms';
+  const dbName = process.env.DB_NAME;
+  if (dbName && uri) {
+    // If URI has no database path (e.g. ends with / or host only), append DB_NAME
+    const match = uri.match(/^(mongodb(\+srv)?:\/\/[^/]+)(\/([^?]*))?(\?.*)?$/);
+    if (match) {
+      const pathPart = match[4];
+      if (pathPart === undefined || pathPart === '' || pathPart === '/') {
+        uri = match[1] + '/' + dbName + (match[5] || '');
+      }
+    }
+  }
+  return uri;
+}
+const mongoUri = getMongoUri();
 
 // Connection options
 const mongooseOptions = {
