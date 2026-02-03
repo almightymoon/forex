@@ -84,47 +84,63 @@ export default function LoginPage() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(formData),
+        credentials: 'include',
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data: { token?: string; user?: any; message?: string; requiresTwoFactor?: boolean; tempToken?: string; error?: string } = {};
+      try {
+        data = text ? JSON.parse(text) : {};
+      } catch {
+        setError('Invalid response from server. Please try again.');
+        setIsLoading(false);
+        return;
+      }
       console.log('Login response:', { status: response.status, data });
+
+      if (response.status === 423) {
+        setError(data.message || 'Account temporarily locked. Try again later.');
+        setIsLoading(false);
+        return;
+      }
 
       if (response.ok) {
         if (data.requiresTwoFactor) {
           // 2FA required - show 2FA modal
-          setTempToken(data.tempToken);
+          setTempToken(data.tempToken || '');
           setShow2FA(true);
           setError('');
         } else {
-          // Regular login success
-          console.log('Setting token in localStorage and cookie');
-          localStorage.setItem('token', data.token);
-          localStorage.setItem('user', JSON.stringify(data.user));
-          
-          // Set token in httpOnly cookie for middleware access
-          document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
-          console.log('Token set successfully');
+          // Regular login success – persist token (Chrome may block if cookies/storage disabled)
+          try {
+            if (data.token) localStorage.setItem('token', data.token);
+            if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
+            const isSecure = typeof window !== 'undefined' && window.location?.protocol === 'https:';
+            const cookieOpts = `path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${isSecure ? '; Secure' : ''}`;
+            if (data.token) document.cookie = `token=${data.token}; ${cookieOpts}`;
+            console.log('Token set successfully');
+          } catch (storageErr) {
+            console.error('Token storage failed (e.g. Chrome blocking cookies/storage):', storageErr);
+            setError('Sign-in succeeded but session could not be saved. Allow cookies and site data for this site and try again.');
+            setIsLoading(false);
+            return;
+          }
           
           // For students, check package subscription status
-          if (data.user.role === 'student') {
+          if (data.user?.role === 'student') {
             try {
-              // Check if user has completed package payment
               const paymentsResponse = await fetch(buildApiUrl('api/payments/user'), {
                 headers: {
                   'Authorization': `Bearer ${data.token}`
-                }
+                },
+                credentials: 'include',
               });
 
               if (paymentsResponse.ok) {
-                const payments = await paymentsResponse.json();
-                
-                // Check for completed package payment
-                const completedPayment = payments.find((p: any) => 
-                  p.type === 'package' && p.status === 'completed'
-                );
-
+                const raw = await paymentsResponse.json();
+                const payments = Array.isArray(raw) ? raw : (raw?.data && Array.isArray(raw.data) ? raw.data : []);
+                const completedPayment = payments.find((p: any) => p.type === 'package' && p.status === 'completed');
                 if (completedPayment) {
-                  // User has package, proceed to dashboard
                   const redirectParam = searchParams.get('redirect');
                   if (redirectParam && redirectParam.startsWith('/dashboard')) {
                     router.push(redirectParam);
@@ -133,25 +149,19 @@ export default function LoginPage() {
                   router.push('/dashboard');
                   return;
                 }
-
-                // Check for pending payment
-                const pendingPayment = payments.find((p: any) => 
-                  p.type === 'package' && p.status === 'pending'
-                );
-
+                const pendingPayment = payments.find((p: any) => p.type === 'package' && p.status === 'pending');
                 if (pendingPayment) {
-                  // Redirect to payment pending page
                   router.push('/payment-pending');
                   return;
                 }
-
-                // No package found - redirect to package selection
                 router.push('/select-package');
                 return;
               }
+              // Payments API failed (e.g. 401) - still let user in
+              router.push('/select-package');
+              return;
             } catch (error) {
               console.error('Error checking package status:', error);
-              // On error, redirect to package selection to be safe
               router.push('/select-package');
               return;
             }
@@ -186,16 +196,11 @@ export default function LoginPage() {
           }
         }
       } else {
-        setError(data.message || 'Login failed. Please try again.');
+        setError(data.message || data.error || 'Login failed. Please try again.');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Login error:', err);
-      console.error('Error details:', {
-        message: err.message,
-        stack: err.stack,
-        name: err.name
-      });
-      setError('Network error. Please check your connection.');
+      setError(err?.message || 'Network error. Please check your connection.');
     } finally {
       setIsLoading(false);
     }
