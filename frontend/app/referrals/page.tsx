@@ -331,13 +331,12 @@ export default function ReferralsPage() {
     });
   };
 
-  // Transform tree data to react-d3-tree format (binary tree - max 2 children)
+  // Transform tree data to react-d3-tree format (all children included for complete tree)
   const transformToD3Tree = (node: any): any => {
     if (!node) return null;
     
     const children = node.children || [];
-    // Take only first 2 children for binary tree
-    const binaryChildren = children.slice(0, 2).map((child: any) => transformToD3Tree(child)).filter(Boolean);
+    const allChildren = children.map((child: any) => transformToD3Tree(child)).filter(Boolean);
     
     // Handle both data structures
     const userName = node.user?.name || `${node.firstName || ''} ${node.lastName || ''}`.trim() || 'Unknown';
@@ -352,10 +351,9 @@ export default function ReferralsPage() {
         level: nodeLevel,
         email: userEmail,
         referralCode: userReferralCode,
-        joinedAt: userJoinedAt,
-        remainingCount: children.length > 2 ? children.length - 2 : 0
+        joinedAt: userJoinedAt
       },
-      children: binaryChildren.length > 0 ? binaryChildren : undefined
+      children: allChildren.length > 0 ? allChildren : undefined
     };
   };
 
@@ -1074,14 +1072,13 @@ export default function ReferralsPage() {
                       if (tree.tree.length === 1) {
                         d3TreeData = transformToD3Tree(tree.tree[0]);
                       } else {
-                        const children = tree.tree.slice(0, 2).map(node => transformToD3Tree(node)).filter(Boolean);
+                        const children = tree.tree.map(node => transformToD3Tree(node)).filter(Boolean);
                         d3TreeData = {
                           name: `${tree.user?.name || 'You'} (You)`,
                           attributes: {
                             level: 0,
                             email: '',
-                            referralCode: tree.user?.referralCode || '',
-                            remainingCount: tree.tree.length > 2 ? tree.tree.length - 2 : 0
+                            referralCode: tree.user?.referralCode || ''
                           },
                           children: children.length > 0 ? children : undefined
                         };
@@ -1135,7 +1132,6 @@ export default function ReferralsPage() {
                                   <circle r={15} fill={nodeDatum.children ? '#3b82f6' : '#10b981'} stroke={nodeDatum.children ? '#1e40af' : '#059669'} strokeWidth={2} onClick={toggleNode} style={{ cursor: 'pointer' }} />
                                   <text x={20} y={6} fill="#1f2937" fontFamily="system-ui" style={{ fontWeight: 400, fontSize: '16px' }}>{nodeDatum.name}</text>
                                   {nodeDatum.attributes?.email && <text x={20} y={26} fill="#4b5563" style={{ fontSize: '13px' }}>{nodeDatum.attributes.email}</text>}
-                                  {nodeDatum.attributes?.remainingCount > 0 && <text x={20} y={44} fill="#ef4444" style={{ fontSize: '11px' }}>+{nodeDatum.attributes.remainingCount} more</text>}
                                 </g>
                               );
                             }}
