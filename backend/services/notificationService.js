@@ -708,7 +708,7 @@ class NotificationService {
           text: `Hello ${user.firstName}, $${data.amount || 0} USDT has been credited to your account.`,
           sms: `$${data.amount || 0} USDT credited to your account.`,
           pushTitle: 'Balance Credited',
-          pushBody: `$${data.amount || 0} USDT added to your account`
+          pushBody: `$${data.amount || 0} USDT added to your account`  
         };
       }
     }
