@@ -115,14 +115,16 @@ router.post('/register', [
 
     // STEP 3: Validate referral code if provided, or use default referral code from settings
     let finalReferralCode = referralCode ? referralCode.trim().toUpperCase() : null;
-    
+    let usedDefaultReferralCode = false;
+
     // If no referral code provided, use default from database settings
     if (!finalReferralCode) {
       const Settings = require('../models/Settings');
       const settings = await Settings.getSettings();
-      
+
       if (settings.defaultReferralCode && settings.defaultReferralCode.trim()) {
         finalReferralCode = settings.defaultReferralCode.trim().toUpperCase();
+        usedDefaultReferralCode = true;
         console.log(`No referral code provided, using default from settings: ${finalReferralCode}`);
       }
     }
@@ -201,6 +203,12 @@ router.post('/register', [
       try {
         await referralService.createReferralRelationship(user, finalReferralCode);
         console.log(`✅ Referral relationship created for user ${user.email} with referrer ${finalReferralCode}`);
+        // Mark when user came from default link only (no ref param) — no commission paid on their purchases
+        if (usedDefaultReferralCode) {
+          user.referredByDefaultCode = true;
+          await user.save();
+          console.log(`ℹ️  User ${user.email} referred via default link — no commission will be paid on their purchases`);
+        }
       } catch (refError) {
         console.error('Error creating referral relationship:', refError);
         // Don't fail registration if referral fails

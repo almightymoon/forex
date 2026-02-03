@@ -15,9 +15,9 @@ class ReferralCommissionService {
     // Package-specific referral pool percentages
     // Format: { packageName: referralPoolPercentage }
     this.packageReferralPools = {
-      'FX Launch': 0.70,   // 70% of $100 = $70 to referrals, 30% to company
+      'FX Launch': 1.0,    // 100% of $100 = $100 to referrals (L1 $20, L2 $15, etc.), 0% platform
       'FX Scale': 0.40,    // 40% of $250 = $100 to referrals, 60% to company
-      'FX Legacy': 0.25    // 25% of $1000 = $250 to referrals, 75% to company
+      'FX Legacy': 0.10    // 10% of $1000 = $100 to referrals, 90% ($900) platform commission
     };
   }
   
@@ -107,18 +107,15 @@ class ReferralCommissionService {
       const referralPool = this.getReferralPool(packageNameRaw, packageAmount);
       const companyShare = this.getCompanyShare(packageNameRaw, packageAmount);
 
-      // Double-check: we must NEVER use full package amount as pool for known packages.
+      // Double-check: pool must match configured percentage (100% pool allowed for FX Launch).
       if (packageName !== 'Unknown' && poolPct > 0) {
-        if (referralPool >= packageAmount - 0.01) {
-          throw new Error(`[Commission] BUG: Referral pool ($${referralPool}) must not equal package amount ($${packageAmount}). Commission must be from pool only.`);
-        }
         if (Math.abs(referralPool - packageAmount * poolPct) > 0.02) {
           throw new Error(`[Commission] BUG: Pool $${referralPool} inconsistent with ${(poolPct * 100)}% of $${packageAmount}.`);
         }
       }
       
       console.log('[Commission] Package:', packageNameRaw, '->', packageName, '| Amount: $' + packageAmount);
-      console.log('[Commission] Referral Pool: $' + referralPool.toFixed(2), `(${(poolPct * 100).toFixed(0)}% of package — NOT using full $${packageAmount})`);
+      console.log('[Commission] Referral Pool: $' + referralPool.toFixed(2), `(${(poolPct * 100).toFixed(0)}% of package)`);
       console.log('[Commission] Company Share: $' + companyShare.toFixed(2));
 
       // Get the buyer
@@ -133,6 +130,12 @@ class ReferralCommissionService {
       // If buyer has no referrer, no commissions to distribute
       if (!buyer.parentReferralCode) {
         console.log('[Commission] No referrer - ending distribution. Company keeps full share: $' + packageAmount.toFixed(2));
+        return [];
+      }
+
+      // Buyer came from default referral link only (no ref param) — do not pay commission
+      if (buyer.referredByDefaultCode === true) {
+        console.log('[Commission] Buyer referred via default link only — skipping commission distribution. Company keeps full share: $' + packageAmount.toFixed(2));
         return [];
       }
 

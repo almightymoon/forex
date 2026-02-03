@@ -90,8 +90,9 @@ router.get('/stats', authenticateToken, async (req, res) => {
 
     const verifiedReferrals = typeof stats.verifiedReferrals === 'number' ? stats.verifiedReferrals : 0;
     const totalReferrals = stats.totalReferrals || 0;
+    const directReferrals = stats.level1Count ?? stats.directReferrals ?? 0;
     const unverifiedReferrals = Math.max(0, totalReferrals - verifiedReferrals);
-    const rank = referralService.getReferralRank(totalReferrals);
+    const rank = referralService.getReferralRank(totalReferrals, directReferrals);
 
     // Get pending earnings
     const ReferralCommission = require('../models/ReferralCommission');

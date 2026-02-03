@@ -29,6 +29,10 @@ const settingsSchema = new mongoose.Schema({
     type: Boolean,
     default: false
   },
+  maintenanceAllowTeachers: {
+    type: Boolean,
+    default: false
+  },
   defaultReferralCode: {
     type: String,
     default: '',

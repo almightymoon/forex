@@ -212,6 +212,11 @@ const userSchema = new mongoose.Schema({
     trim: true
     // Index is defined separately below (sparse doesn't auto-create index)
   },
+  /** True when user was assigned a referrer only via default referral link (no ref param). No commission paid on their purchases. */
+  referredByDefaultCode: {
+    type: Boolean,
+    default: false
+  },
   referralStats: {
     totalReferrals: {
       type: Number,
@@ -245,6 +250,17 @@ const userSchema = new mongoose.Schema({
     },
     price: Number,
     selectedAt: Date
+  },
+  // Stop sending emails (e.g. bounce / unreachable)
+  emailUnreachable: {
+    type: Boolean,
+    default: false
+  },
+  emailUnreachableAt: Date,
+  emailUnreachableReason: {
+    type: String,
+    trim: true,
+    maxlength: [500, 'Reason cannot exceed 500 characters']
   }
 }, {
   timestamps: true,

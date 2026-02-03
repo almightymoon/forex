@@ -77,6 +77,7 @@ export interface AdminSettings {
     timezone: string;
     language: string;
     maintenanceMode: boolean;
+    maintenanceAllowTeachers: boolean;
     defaultReferralCode: string;
   };
   security: {

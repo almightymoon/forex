@@ -15,7 +15,8 @@ router.get('/public', async (req, res) => {
       platformName: settings.platformName,
       description: settings.description,
       defaultCurrency: settings.defaultCurrency,
-      maintenanceMode: settings.maintenanceMode
+      maintenanceMode: settings.maintenanceMode,
+      maintenanceAllowTeachers: settings.maintenanceAllowTeachers || false
     };
     
     res.json(publicSettings);

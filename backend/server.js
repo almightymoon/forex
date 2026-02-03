@@ -175,6 +175,9 @@ console.log('- JWT_SECRET length:', process.env.JWT_SECRET ? process.env.JWT_SEC
 console.log('- NODE_ENV:', process.env.NODE_ENV);
 console.log('- PORT:', process.env.PORT);
 
+// Maintenance mode: run first for all /api so only admin (and optionally teacher) can access during maintenance
+app.use('/api', maintenanceMiddleware);
+
 // Public routes (no middleware)
 app.use('/api/auth', authRoutes);
 app.use('/api/settings/public', require('./routes/settings'));
@@ -513,9 +516,6 @@ app.use('/api/referrals', checkSessionTimeout, authenticateToken, requirePackage
 // Withdrawals routes - admin routes don't need package subscription
 app.use('/api/withdrawals', checkSessionTimeout, authenticateToken, withdrawalRoutes);
 app.use('/api/trades', checkSessionTimeout, authenticateToken, requirePackageSubscription, tradeRoutes);
-
-// Apply maintenance mode middleware to protected routes only (after all routes are registered)
-app.use('/api', maintenanceMiddleware);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

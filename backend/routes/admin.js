@@ -9,12 +9,41 @@ const PromoCode = require('../models/PromoCode');
 const Settings = require('../models/Settings');
 const Withdrawal = require('../models/Withdrawal');
 const BalanceTransaction = require('../models/BalanceTransaction');
+const NotificationTracking = require('../models/NotificationTracking');
 const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
 
 // Apply admin middleware to all routes
 router.use(authenticateToken, requireAdmin);
+
+// @route   GET /api/admin/email-history
+// @desc    List emails sent to users (admin only). Query: userId, type, status, limit, skip
+// @access  Private (Admin)
+router.get('/email-history', async (req, res) => {
+  try {
+    const { userId, type, status, limit = 50, skip = 0 } = req.query;
+    const query = { channel: 'email' };
+    if (userId) query.userId = userId;
+    if (type) query.type = type;
+    if (status) query.status = status;
+
+    const [items, total] = await Promise.all([
+      NotificationTracking.find(query)
+        .populate('userId', 'email firstName lastName role')
+        .sort({ createdAt: -1 })
+        .skip(Number(skip))
+        .limit(Math.min(Number(limit), 200))
+        .lean(),
+      NotificationTracking.countDocuments(query)
+    ]);
+
+    res.json({ items, total });
+  } catch (error) {
+    console.error('Get email history error:', error);
+    res.status(500).json({ error: 'Failed to fetch email history' });
+  }
+});
 
 // @route   GET /api/admin/users
 // @desc    Get all users (admin only)
@@ -45,6 +74,37 @@ router.get('/users/:id', async (req, res) => {
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// @route   PUT /api/admin/users/:id/email-unreachable
+// @desc    Mark user's email as unreachable / stop sending emails (admin only)
+// @access  Private (Admin)
+router.put('/users/:id/email-unreachable', [
+  body('emailUnreachable').isBoolean().withMessage('emailUnreachable must be true or false'),
+  body('reason').optional().trim().isLength({ max: 500 }).withMessage('Reason max 500 chars')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+    }
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const { emailUnreachable, reason } = req.body;
+    user.emailUnreachable = !!emailUnreachable;
+    user.emailUnreachableAt = emailUnreachable ? new Date() : undefined;
+    user.emailUnreachableReason = emailUnreachable ? (reason || '') : undefined;
+    await user.save();
+    res.json({
+      message: emailUnreachable ? 'Email marked as unreachable. No further emails will be sent.' : 'Email marked as reachable again.',
+      user: { _id: user._id, email: user.email, emailUnreachable: user.emailUnreachable, emailUnreachableAt: user.emailUnreachableAt, emailUnreachableReason: user.emailUnreachableReason }
+    });
+  } catch (error) {
+    console.error('Update email unreachable error:', error);
+    res.status(500).json({ error: 'Failed to update email unreachable status' });
   }
 });
 
@@ -943,7 +1003,8 @@ router.get('/settings', async (req, res) => {
         defaultCurrency: settings.defaultCurrency,
         timezone: settings.timezone,
         language: settings.language,
-        maintenanceMode: settings.maintenanceMode
+        maintenanceMode: settings.maintenanceMode,
+        maintenanceAllowTeachers: settings.maintenanceAllowTeachers || false
       },
       security: settings.security,
       notifications: settings.notifications,

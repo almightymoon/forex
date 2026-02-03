@@ -100,6 +100,13 @@ class NotificationService {
     try {
       console.log(`[Email] Attempting to send email to ${to}, subject: ${subject}, type: ${type}`);
       
+      // Skip if recipient is marked as unreachable (by userId or by email lookup)
+      let recipientUser = userId ? await User.findById(userId) : await User.findOne({ email: (to || '').toLowerCase().trim() });
+      if (recipientUser && recipientUser.emailUnreachable === true) {
+        console.log(`[Email] Skipping - ${to} is marked as unreachable`);
+        return false;
+      }
+      
       // Create tracking record
       if (userId) {
         trackingRecord = new NotificationTracking({
@@ -284,10 +291,16 @@ class NotificationService {
       console.log(`[Notification] HTML length: ${content.html?.length || 0} chars`);
       console.log(`[Notification] Text length: ${content.text?.length || 0} chars`);
 
-      // Send email notification
+      // Send email notification (skip if user marked as unreachable)
       const emailEnabled = settings.notifications.emailNotifications;
       const userEmailEnabled = user.preferences?.emailNotifications !== false;
-      console.log(`[Notification] Email enabled - Global: ${emailEnabled}, User: ${userEmailEnabled}`);
+      const emailUnreachable = user.emailUnreachable === true;
+      console.log(`[Notification] Email enabled - Global: ${emailEnabled}, User: ${userEmailEnabled}, Unreachable: ${emailUnreachable}`);
+      
+      if (emailUnreachable) {
+        console.log(`[Notification] Skipping email to ${user.email} - marked as unreachable`);
+        return results;
+      }
       
       if (emailEnabled && userEmailEnabled) {
         console.log(`[Notification] Sending email to ${user.email}`);

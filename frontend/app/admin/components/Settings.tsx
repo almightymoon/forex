@@ -40,6 +40,7 @@ export default function Settings({
       timezone: 'UTC',
       language: 'en',
       maintenanceMode: false,
+      maintenanceAllowTeachers: false,
       defaultReferralCode: ''
     },
     security: {
@@ -221,6 +222,18 @@ export default function Settings({
                 className={`w-12 h-6 rounded-full relative transition-colors ${safeSettings.general.maintenanceMode ? 'bg-red-600' : 'bg-gray-200'}`}
               >
                 <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${safeSettings.general.maintenanceMode ? 'translate-x-6' : 'translate-x-0'}`}></div>
+              </button>
+            </div>
+            <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
+              <div>
+                <p className="font-medium text-gray-900 dark:text-white">Allow teachers during maintenance</p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Let teachers access the site while maintenance mode is on</p>
+              </div>
+              <button 
+                onClick={() => onSettingsChange('general', 'maintenanceAllowTeachers', !(safeSettings.general.maintenanceAllowTeachers ?? false))}
+                className={`w-12 h-6 rounded-full relative transition-colors ${safeSettings.general.maintenanceAllowTeachers ? 'bg-blue-600' : 'bg-gray-200'}`}
+              >
+                <div className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${safeSettings.general.maintenanceAllowTeachers ? 'translate-x-6' : 'translate-x-0'}`}></div>
               </button>
             </div>
           </div>

@@ -216,23 +216,33 @@ export default function UserManagement({
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">User Management</h3>
           <div className="flex items-center gap-3">
             {selectedUsers.size > 0 && (
-              <button
-                onClick={() => setShowBulkDeleteModal(true)}
-                disabled={isDeletingBulk}
-                className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
-              >
-                {isDeletingBulk ? (
-                  <>
-                    <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
-                    Deleting...
-                  </>
-                ) : (
-                  <>
-                    <Trash2 className="w-4 h-4 inline mr-2" />
-                    Delete Selected ({selectedUsers.size})
-                  </>
-                )}
-              </button>
+              <>
+                <button
+                  onClick={() => setSelectedUsers(new Set())}
+                  disabled={isDeletingBulk}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 flex items-center"
+                >
+                  <X className="w-4 h-4 inline mr-2" />
+                  Clear Selection
+                </button>
+                <button
+                  onClick={() => setShowBulkDeleteModal(true)}
+                  disabled={isDeletingBulk}
+                  className="px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+                >
+                  {isDeletingBulk ? (
+                    <>
+                      <Loader2 className="w-4 h-4 inline mr-2 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 inline mr-2" />
+                      Delete Selected ({selectedUsers.size})
+                    </>
+                  )}
+                </button>
+              </>
             )}
             <button 
               onClick={openAddUserModal}

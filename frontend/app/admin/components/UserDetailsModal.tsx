@@ -6,8 +6,10 @@ import {
   X, User as UserIcon, Mail, Phone, MapPin, Calendar, 
   DollarSign, CreditCard, Users, Package, TrendingUp, 
   Wallet, ArrowUpRight, CheckCircle, Clock, AlertCircle,
-  Shield, Activity, Loader2, Plus, Minus, Gift, History
+  Shield, Activity, Loader2, Plus, Minus, Gift, History,
+  MailX
 } from 'lucide-react';
+import EmailHistory from './EmailHistory';
 import { User } from './types';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
@@ -52,11 +54,14 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState<UserDetails | null>(null);
   const [currentUser, setCurrentUser] = useState(user);
-  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'withdrawals' | 'referrals' | 'transactions'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'withdrawals' | 'referrals' | 'transactions' | 'email'>('overview');
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [balanceAction, setBalanceAction] = useState<'credit' | 'debit' | 'bonus'>('credit');
   const [balanceForm, setBalanceForm] = useState({ amount: '', description: '', notes: '' });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showUnreachableModal, setShowUnreachableModal] = useState(false);
+  const [unreachableReason, setUnreachableReason] = useState('');
+  const [isUpdatingUnreachable, setIsUpdatingUnreachable] = useState(false);
 
   useEffect(() => {
     fetchUserDetails();
@@ -69,8 +74,11 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
       
       console.log('[UserDetails] Fetching details for user:', user._id);
       
-      // Fetch user details from multiple endpoints
-      const [paymentsRes, withdrawalsRes, referralsRes, transactionsRes, treeRes] = await Promise.all([
+      // Fetch user details from multiple endpoints (including full user for emailUnreachable etc.)
+      const [userRes, paymentsRes, withdrawalsRes, referralsRes, transactionsRes, treeRes] = await Promise.all([
+        fetch(buildApiUrl(`api/admin/users/${user._id}`), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
         fetch(buildApiUrl(`api/admin/users/${user._id}/payments`), {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
@@ -87,6 +95,11 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
+
+      if (userRes.ok) {
+        const fullUser = await userRes.json();
+        setCurrentUser(fullUser);
+      }
 
       console.log('[UserDetails] Responses:', {
         payments: paymentsRes.status,
@@ -218,6 +231,35 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
     setBalanceAction(action);
     setBalanceForm({ amount: '', description: '', notes: '' });
     setShowBalanceModal(true);
+  };
+
+  const handleEmailUnreachable = async (markUnreachable: boolean, reason?: string) => {
+    setIsUpdatingUnreachable(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`api/admin/users/${user._id}/email-unreachable`), {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ emailUnreachable: markUnreachable, reason: reason || undefined })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCurrentUser((prev: any) => ({ ...prev, ...data.user }));
+        showToast(data.message || (markUnreachable ? 'Email marked as unreachable' : 'Email marked as reachable'), 'success');
+        setShowUnreachableModal(false);
+        setUnreachableReason('');
+      } else {
+        showToast(data.error || 'Failed to update email status', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to update email status', 'error');
+    } finally {
+      setIsUpdatingUnreachable(false);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -465,7 +507,34 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                     <Mail className="w-5 h-5 text-gray-400" />
                     <div>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Email</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{user.email || 'N/A'}</p>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">{user.email || 'N/A'}</p>
+                        {(currentUser as any).emailUnreachable ? (
+                          <>
+                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
+                              <MailX className="w-3.5 h-3.5" /> Unreachable
+                            </span>
+                            <button
+                              onClick={() => handleEmailUnreachable(false)}
+                              disabled={isUpdatingUnreachable}
+                              className="text-xs px-2 py-1 rounded border border-green-600 text-green-600 dark:border-green-400 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50"
+                            >
+                              {isUpdatingUnreachable ? 'Updating...' : 'Mark reachable'}
+                            </button>
+                          </>
+                        ) : (
+                          <button
+                            onClick={() => setShowUnreachableModal(true)}
+                            disabled={isUpdatingUnreachable}
+                            className="text-xs px-2 py-1 rounded border border-amber-600 text-amber-600 dark:border-amber-400 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-50"
+                          >
+                            Mark unreachable
+                          </button>
+                        )}
+                      </div>
+                      {(currentUser as any).emailUnreachableReason && (
+                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Reason: {(currentUser as any).emailUnreachableReason}</p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
@@ -514,7 +583,8 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                     { id: 'transactions', label: 'Transactions', icon: History },
                     { id: 'payments', label: 'Payments', icon: CreditCard },
                     { id: 'withdrawals', label: 'Withdrawals', icon: ArrowUpRight },
-                    { id: 'referrals', label: 'Referrals', icon: Users }
+                    { id: 'referrals', label: 'Referrals', icon: Users },
+                    { id: 'email', label: 'Email', icon: Mail }
                   ].map((tab) => {
                     const Icon = tab.icon;
                     return (
@@ -742,6 +812,12 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                 </div>
               )}
 
+              {activeTab === 'email' && (
+                <div>
+                  <EmailHistory userIdFilter={user._id} hideUserIdFilter />
+                </div>
+              )}
+
               {activeTab === 'transactions' && (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -803,6 +879,62 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
           ) : null}
         </div>
       </motion.div>
+
+      {/* Email unreachable reason modal */}
+      {showUnreachableModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <MailX className="w-5 h-5 text-amber-500" />
+                Mark email unreachable
+              </h3>
+              <button
+                onClick={() => { setShowUnreachableModal(false); setUnreachableReason(''); }}
+                disabled={isUpdatingUnreachable}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              No further emails will be sent to this user until you mark the email as reachable again.
+            </p>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Reason (optional)</label>
+              <textarea
+                value={unreachableReason}
+                onChange={(e) => setUnreachableReason(e.target.value)}
+                placeholder="e.g. Bounce, invalid address"
+                rows={2}
+                className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                disabled={isUpdatingUnreachable}
+              />
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowUnreachableModal(false); setUnreachableReason(''); }}
+                disabled={isUpdatingUnreachable}
+                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleEmailUnreachable(true, unreachableReason)}
+                disabled={isUpdatingUnreachable}
+                className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-xl font-medium hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isUpdatingUnreachable ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Mark unreachable
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
 
       {/* Balance Action Modal */}
       {showBalanceModal && (

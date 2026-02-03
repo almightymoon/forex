@@ -40,7 +40,8 @@ const getDefaultSettings = () => ({
     defaultCurrency: 'USD',
     timezone: 'UTC',
     language: 'en',
-    maintenanceMode: false
+    maintenanceMode: false,
+    maintenanceAllowTeachers: false
   },
   security: {
     twoFactorAuth: false,
