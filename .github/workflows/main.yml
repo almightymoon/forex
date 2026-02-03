@@ -1,16 +1,31 @@
 
+name: Deploy to Server
+
 on:
   push:
-    branches: [main, master]
-  workflow_dispatch:  # Allows manual run from Actions tab
+    branches: ['main', 'master']
+  workflow_dispatch:
 
 jobs:
   build:
-    runs-on: ubuntu-latest  # Run the job on the ubuntu-latest runner
+    name: Build and deploy
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
+
+      - name: Verify workflow triggered
+        run: |
+          echo "Workflow triggered on branch ${{ github.ref_name }}"
+          echo "Event: ${{ github.event_name }}"
+
+      - name: Check required secrets
+        run: |
+          if [ -z "${{ secrets.IP }}" ]; then echo "::error::Secret IP is not set"; exit 1; fi
+          if [ -z "${{ secrets.USERNAME }}" ]; then echo "::error::Secret USERNAME is not set"; exit 1; fi
+          if [ -z "${{ secrets.SSH_PRIVATE_KEY }}" ]; then echo "::error::Secret SSH_PRIVATE_KEY is not set"; exit 1; fi
+          echo "All required secrets are present"
 
       - name: Use nvm with Node.js 20
         uses: actions/setup-node@v3
