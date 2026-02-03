@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { buildApiUrl } from '../utils/api';
 import CoolLoader from './CoolLoader';
+import { useMaintenanceContext } from '../context/MaintenanceContext';
 
 interface PackageGuardProps {
   children: React.ReactNode;
@@ -13,6 +14,7 @@ interface PackageGuardProps {
 export default function PackageGuard({ children, allowedPaths = [] }: PackageGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { setFromResponse } = useMaintenanceContext();
   const [isChecking, setIsChecking] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
 
@@ -45,6 +47,20 @@ export default function PackageGuard({ children, allowedPaths = [] }: PackageGua
             'Authorization': `Bearer ${token}`
           }
         });
+
+        if (response.status === 503) {
+          try {
+            const data = await response.json();
+            if (data.maintenanceMode) {
+              setFromResponse(true, data.message);
+              setHasAccess(true);
+              setIsChecking(false);
+              return;
+            }
+          } catch {
+            // ignore parse error
+          }
+        }
 
         if (response.status === 403) {
           const data = await response.json();

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { buildApiUrl } from '../utils/api';
+import { useMaintenanceContext } from '../context/MaintenanceContext';
 
 interface PackageSubscriptionStatus {
   hasPackage: boolean;
@@ -14,6 +15,7 @@ interface PackageSubscriptionStatus {
 
 export function usePackageSubscription() {
   const router = useRouter();
+  const { setFromResponse } = useMaintenanceContext();
   const [status, setStatus] = useState<PackageSubscriptionStatus>({
     hasPackage: false,
     isPending: false,
@@ -37,6 +39,19 @@ export function usePackageSubscription() {
         });
 
         if (!response.ok) {
+          // Maintenance mode: show maintenance page, do not redirect to select-package
+          if (response.status === 503) {
+            try {
+              const data = await response.json();
+              if (data.maintenanceMode) {
+                setFromResponse(true, data.message);
+                setStatus({ hasPackage: false, isPending: false, isLoading: false });
+                return;
+              }
+            } catch {
+              // ignore parse error
+            }
+          }
           // If we get a package required error, handle it
           if (response.status === 403) {
             const data = await response.json();

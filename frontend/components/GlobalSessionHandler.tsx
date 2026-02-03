@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { handleSessionExpiration } from '../utils/tokenUtils';
+import { useMaintenanceContext } from '../context/MaintenanceContext';
 
 /**
  * Global session expiration handler
@@ -11,13 +12,27 @@ import { handleSessionExpiration } from '../utils/tokenUtils';
  */
 export function GlobalSessionHandler() {
   const router = useRouter();
+  const { setFromResponse } = useMaintenanceContext();
 
   useEffect(() => {
-    // Set up global error handler for 401 and 403 responses
+    // Set up global error handler for 401, 403, and 503 (maintenance) responses
     const originalFetch = window.fetch;
     
     window.fetch = async (...args) => {
       const response = await originalFetch(...args);
+      
+      // Check for 503 maintenance mode: show maintenance page, do not redirect to select-package
+      if (response.status === 503) {
+        try {
+          const data = await response.clone().json();
+          if (data.maintenanceMode) {
+            setFromResponse(true, data.message);
+            return response;
+          }
+        } catch {
+          // ignore parse error
+        }
+      }
       
       // Check for 401 responses that indicate session expiration
       if (response.status === 401) {
@@ -104,7 +119,7 @@ export function GlobalSessionHandler() {
       window.fetch = originalFetch;
       window.removeEventListener('unhandledrejection', handleUnhandledRejection);
     };
-  }, [router]);
+  }, [router, setFromResponse]);
   
   return null; // This component doesn't render anything
 }
