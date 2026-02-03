@@ -1,7 +1,8 @@
 
 on:
   push:
-    branches: [main]
+    branches: [main, master]
+  workflow_dispatch:  # Allows manual run from Actions tab
 
 jobs:
   build:
