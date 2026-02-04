@@ -10,12 +10,56 @@ const Settings = require('../models/Settings');
 const Withdrawal = require('../models/Withdrawal');
 const BalanceTransaction = require('../models/BalanceTransaction');
 const NotificationTracking = require('../models/NotificationTracking');
+const notificationService = require('../services/notificationService');
 const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
 
 // Apply admin middleware to all routes
 router.use(authenticateToken, requireAdmin);
+
+// @route   POST /api/admin/email-history/:id/resend
+// @desc    Resend a failed email (admin only)
+// @access  Private (Admin)
+router.post('/email-history/:id/resend', async (req, res) => {
+  try {
+    const record = await NotificationTracking.findById(req.params.id)
+      .populate('userId', 'email firstName lastName');
+    if (!record) {
+      return res.status(404).json({ error: 'Email record not found' });
+    }
+    if (record.channel !== 'email') {
+      return res.status(400).json({ error: 'Only email records can be resent' });
+    }
+    if (!record.userId || !record.userId.email) {
+      return res.status(400).json({ error: 'Recipient not found' });
+    }
+
+    const to = record.userId.email;
+    const subject = record.title;
+    const message = record.message || '';
+    const isHtml = /<[a-z][\s\S]*>/i.test(message);
+    const html = isHtml ? message : null;
+    const text = isHtml ? message.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : message;
+
+    const sent = await notificationService.sendEmail({
+      to,
+      subject,
+      html: html || `<pre>${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
+      text: text || message,
+      userId: record.userId._id,
+      type: record.type
+    });
+
+    if (sent) {
+      return res.json({ success: true, message: 'Email resent successfully' });
+    }
+    return res.status(500).json({ error: 'Resend failed', message: 'Email could not be sent (check SMTP config or recipient)' });
+  } catch (error) {
+    console.error('Resend email error:', error);
+    return res.status(500).json({ error: 'Resend failed', message: error.message || 'Failed to resend email' });
+  }
+});
 
 // @route   GET /api/admin/email-history
 // @desc    List emails sent to users (admin only). Query: userId, type, status, limit, skip

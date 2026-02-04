@@ -15,6 +15,20 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+/** Merge DB email settings with .env fallback so .env SMTP works without re-entering in Admin */
+function getEffectiveEmailConfig(dbEmail) {
+  const env = process.env;
+  return {
+    smtpHost: dbEmail?.smtpHost || env.SMTP_HOST || '',
+    smtpPort: dbEmail?.smtpPort ?? (env.SMTP_PORT ? parseInt(env.SMTP_PORT, 10) : 587),
+    smtpUser: dbEmail?.smtpUser || env.SMTP_USER || '',
+    smtpPassword: dbEmail?.smtpPassword || env.SMTP_PASSWORD || '',
+    fromEmail: dbEmail?.fromEmail || env.SMTP_FROM_EMAIL || dbEmail?.fromEmail || 'noreply@forexnavigators.com',
+    fromName: dbEmail?.fromName || env.SMTP_FROM_NAME || dbEmail?.fromName || 'Forex Navigators',
+    isMockMode: dbEmail?.isMockMode ?? false
+  };
+}
+
 /** Strip any {{...}} placeholders so variables never appear in sent emails */
 function stripTemplatePlaceholders(str) {
   if (str == null || typeof str !== 'string') return str;
@@ -33,7 +47,7 @@ class NotificationService {
   async initializeEmailTransporter() {
     try {
       const settings = await Settings.getSettings();
-      const emailConfig = settings.email;
+      const emailConfig = getEffectiveEmailConfig(settings.email);
 
       // Check if we're in mock mode
       if (emailConfig.isMockMode) {
@@ -121,9 +135,9 @@ class NotificationService {
         await trackingRecord.save();
       }
 
-      // Always get fresh settings from database
+      // Always get fresh settings from database (with .env fallback)
       const settings = await Settings.getSettings();
-      const emailConfig = settings.email;
+      const emailConfig = getEffectiveEmailConfig(settings.email);
 
       console.log(`[Email] SMTP Config - Host: ${emailConfig.smtpHost}, User: ${emailConfig.smtpUser}, Mock Mode: ${emailConfig.isMockMode}`);
 
@@ -159,7 +173,7 @@ class NotificationService {
         return false;
       }
 
-      // Create fresh transporter for each email (ensures latest settings)
+      // Create fresh transporter for each email (ensures latest settings + .env fallback)
       const transporter = nodemailer.createTransport({
         host: emailConfig.smtpHost,
         port: emailConfig.smtpPort,
@@ -1127,11 +1141,10 @@ class NotificationService {
     try {
       console.log('Testing email configuration...');
       
-      // Always get fresh settings from database
       const settings = await Settings.getSettings();
-      const emailConfig = settings.email;
+      const emailConfig = getEffectiveEmailConfig(settings.email);
       
-      console.log('Email config from database:', {
+      console.log('Email config (DB + .env fallback):', {
         host: emailConfig.smtpHost,
         port: emailConfig.smtpPort,
         user: emailConfig.smtpUser,

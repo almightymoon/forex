@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Mail, RefreshCw, AlertCircle, CheckCircle, XCircle, Eye, X } from 'lucide-react';
+import { Mail, RefreshCw, AlertCircle, CheckCircle, XCircle, Eye, X, Send } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '@/utils/toast';
 
@@ -34,8 +34,32 @@ export default function EmailHistory({ userIdFilter: userIdFilterProp, hideUserI
   const [limit] = useState(50);
   const [skip, setSkip] = useState(0);
   const [viewingEmail, setViewingEmail] = useState<EmailRecord | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   const effectiveUserIdFilter = userIdFilterProp ?? userIdFilter;
+
+  const handleResend = async (id: string) => {
+    setResendingId(id);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`api/admin/email-history/${id}/resend`), {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        showToast('Email resent successfully', 'success');
+        fetchHistory();
+      } else {
+        showToast(data.message || data.error || 'Failed to resend email', 'error');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to resend email', 'error');
+    } finally {
+      setResendingId(null);
+    }
+  };
 
   const fetchHistory = async () => {
     setLoading(true);
@@ -186,14 +210,31 @@ export default function EmailHistory({ userIdFilter: userIdFilterProp, hideUserI
                   </td>
                   <td className="px-4 py-3 text-sm text-red-600 dark:text-red-400 max-w-xs truncate" title={row.errorMessage || ''}>{row.errorMessage || '—'}</td>
                   <td className="px-4 py-3 text-sm">
-                    <button
-                      type="button"
-                      onClick={() => setViewingEmail(row)}
-                      className="inline-flex items-center gap-1.5 px-2 py-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      <Eye className="w-4 h-4" />
-                      View
-                    </button>
+                    <div className="inline-flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setViewingEmail(row)}
+                        className="inline-flex items-center gap-1.5 px-2 py-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        <Eye className="w-4 h-4" />
+                        View
+                      </button>
+                      {row.status === 'failed' && (
+                        <button
+                          type="button"
+                          onClick={() => handleResend(row._id)}
+                          disabled={resendingId === row._id}
+                          className="inline-flex items-center gap-1.5 px-2 py-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                        >
+                          {resendingId === row._id ? (
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Send className="w-4 h-4" />
+                          )}
+                          {resendingId === row._id ? 'Sending…' : 'Resend'}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
