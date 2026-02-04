@@ -21,12 +21,19 @@ export function GlobalSessionHandler() {
     window.fetch = async (...args) => {
       const response = await originalFetch(...args);
       
-      // Check for 503 maintenance mode: show maintenance page, do not redirect to select-package
+      // Only set maintenance when an *authenticated* request gets 503 (so direct visit / login page never triggers it)
       if (response.status === 503) {
         try {
           const data = await response.clone().json();
           if (data.maintenanceMode) {
-            setFromResponse(true, data.message);
+            const opts = args[1];
+            const headers = opts?.headers;
+            const hasAuth = headers && (
+              typeof (headers as Headers)?.get === 'function'
+                ? (headers as Headers).get('Authorization')
+                : (headers as Record<string, string>)?.['Authorization'] ?? (headers as Record<string, string>)?.['authorization']
+            );
+            if (hasAuth) setFromResponse(true, data.message);
             return response;
           }
         } catch {

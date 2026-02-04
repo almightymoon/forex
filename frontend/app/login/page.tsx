@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { buildApiUrl } from '@/utils/api';
 import { useSettings } from '../../context/SettingsContext';
+import { useMaintenanceContext } from '../../context/MaintenanceContext';
 import DarkModeToggle from '../../components/DarkModeToggle';
 
 export default function LoginPage() {
@@ -23,6 +24,7 @@ export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { settings, loading: settingsLoading } = useSettings();
+  const { setFromResponse } = useMaintenanceContext();
 
   // Prevent hydration mismatch by showing loading state
   if (settingsLoading) {
@@ -166,7 +168,8 @@ export default function LoginPage() {
               return;
             }
           } else {
-            // Admin or teacher - route normally
+            // Admin or teacher - clear maintenance state so they can use the site
+            setFromResponse(false);
             // Check for redirect parameter first
             const redirectParam = searchParams.get('redirect');
             if (redirectParam) {
