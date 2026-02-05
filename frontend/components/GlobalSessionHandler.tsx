@@ -12,7 +12,6 @@ import { useMaintenanceContext } from '../context/MaintenanceContext';
  */
 export function GlobalSessionHandler() {
   const router = useRouter();
-  const pathname = usePathname();
   const { setFromResponse } = useMaintenanceContext();
 
   useEffect(() => {
