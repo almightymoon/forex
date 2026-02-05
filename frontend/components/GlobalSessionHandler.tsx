@@ -12,6 +12,7 @@ import { useMaintenanceContext } from '../context/MaintenanceContext';
  */
 export function GlobalSessionHandler() {
   const router = useRouter();
+  const pathname = usePathname();
   const { setFromResponse } = useMaintenanceContext();
 
   useEffect(() => {
@@ -59,11 +60,14 @@ export function GlobalSessionHandler() {
       if (response.status === 403) {
         try {
           const errorData = await response.clone().json();
+          // When user is on /payment they must stay to submit transaction ID – don't redirect (use current path at response time)
+          const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
+          const isOnPaymentPage = currentPath === '/payment' || (currentPath.startsWith('/payment/') && currentPath !== '/payment-pending');
           
           // Handle package subscription errors
           if (errorData.code === 'PACKAGE_REQUIRED') {
+            if (isOnPaymentPage) return response;
             console.log('Global session handler: Package subscription required detected');
-            // Redirect to package selection
             if (errorData.redirectTo) {
               router.push(errorData.redirectTo);
             } else {
@@ -74,8 +78,8 @@ export function GlobalSessionHandler() {
           
           // Handle payment verification errors
           if (errorData.code === 'PAYMENT_PENDING') {
+            if (isOnPaymentPage) return response;
             console.log('Global session handler: Payment pending detected');
-            // Redirect to payment pending page
             if (errorData.redirectTo) {
               router.push(errorData.redirectTo);
             } else {
@@ -85,8 +89,8 @@ export function GlobalSessionHandler() {
           }
           
           if (errorData.code === 'PAYMENT_REQUIRED') {
+            if (isOnPaymentPage) return response;
             console.log('Global session handler: Payment required detected');
-            // Redirect to package selection
             if (errorData.redirectTo) {
               router.push(errorData.redirectTo);
             } else {
@@ -96,8 +100,8 @@ export function GlobalSessionHandler() {
           }
           
           if (errorData.code === 'VERIFICATION_PENDING') {
+            if (isOnPaymentPage) return response;
             console.log('Global session handler: Verification pending detected');
-            // Redirect to payment pending page
             router.push('/payment-pending');
             return response;
           }
