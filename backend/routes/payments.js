@@ -273,7 +273,10 @@ router.put('/:id', [
 // @access  Private
 router.put('/:id/transaction', [
   authenticateToken,
-  body('transactionId').notEmpty().trim().withMessage('Transaction ID is required')
+  body('transactionId')
+    .trim()
+    .notEmpty().withMessage('Transaction ID is required')
+    .isLength({ min: 10 }).withMessage('Transaction ID / hash must be at least 10 characters')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);

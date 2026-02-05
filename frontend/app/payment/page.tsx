@@ -10,6 +10,7 @@ import DarkModeToggle from '../../components/DarkModeToggle';
 
 const BINANCE_WALLET_ADDRESS = 'TApaMK8BcN67GDRqVs45qnzbb4oQGt2Pna';
 const NETWORK = 'TRC20';
+const MIN_TRANSACTION_ID_LENGTH = 10;
 
 export default function PaymentPage() {
   const router = useRouter();
@@ -73,9 +74,10 @@ export default function PaymentPage() {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.payment?.status === 'completed') {
+        const payment = data.payment;
+        // Only redirect if payment is completed AND has a transaction ID (user submitted hash and admin verified)
+        if (payment?.status === 'completed' && payment?.transactionId) {
           setPaymentStatus('completed');
-          // Redirect to dashboard after a short delay
           setTimeout(() => {
             router.push('/dashboard');
           }, 2000);
@@ -174,8 +176,13 @@ export default function PaymentPage() {
   };
 
   const handlePaymentSent = async () => {
-    if (!transactionId.trim()) {
-      setError('Please enter your transaction ID');
+    const trimmed = transactionId.trim();
+    if (!trimmed) {
+      setError('Please enter your transaction ID / hash from your wallet.');
+      return;
+    }
+    if (trimmed.length < MIN_TRANSACTION_ID_LENGTH) {
+      setError('Transaction ID is too short. Copy the full hash from your wallet.');
       return;
     }
 
@@ -195,13 +202,14 @@ export default function PaymentPage() {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ transactionId: transactionId.trim() })
+        body: JSON.stringify({ transactionId: trimmed })
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to submit transaction ID');
+        const msg = data.errors?.[0]?.msg || data.error || data.message || 'Failed to submit transaction ID';
+        throw new Error(msg);
       }
 
       setPaymentStatus('pending');
@@ -432,7 +440,7 @@ export default function PaymentPage() {
           {/* Actions */}
           <button
             onClick={handlePaymentSent}
-            disabled={isSubmitting || paymentStatus === 'pending' || !transactionId.trim()}
+            disabled={isSubmitting || paymentStatus === 'pending' || !transactionId.trim() || transactionId.trim().length < MIN_TRANSACTION_ID_LENGTH}
             className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isSubmitting ? 'Submitting...' : 'Submit Transaction ID'}
