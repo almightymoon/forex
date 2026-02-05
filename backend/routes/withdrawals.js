@@ -26,7 +26,7 @@ router.post('/request', [
 
     // Minimum withdrawal limit
     const MIN_WITHDRAWAL_AMOUNT = 30;
-    if (amount < MIN_WITHDRAWAL_AMOUNT) {
+    if (amount < MIN_WITHDRAWAL_AMOUNT) {  
       return res.status(400).json({ 
         error: 'Minimum withdrawal limit',
         message: `Minimum withdrawal amount is $${MIN_WITHDRAWAL_AMOUNT}. You cannot withdraw $${amount.toFixed(2)}`
