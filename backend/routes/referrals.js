@@ -94,7 +94,16 @@ router.get('/stats', authenticateToken, async (req, res) => {
     const unverifiedReferrals = Math.max(0, totalReferrals - verifiedReferrals);
     const rank = referralService.getReferralRank(totalReferrals, directReferrals);
 
-    // Get pending earnings
+    // Total earnings: sum from BalanceTransaction (referralCommissionService flow) – source of truth
+    const BalanceTransaction = require('../models/BalanceTransaction');
+    const totalEarningsAgg = await BalanceTransaction.aggregate([
+      { $match: { user: user._id, type: 'referral_commission' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalEarningsFromTx = totalEarningsAgg[0]?.total || 0;
+    const totalEarnings = totalEarningsFromTx > 0 ? totalEarningsFromTx : (stats.totalEarnings || 0);
+
+    // Pending earnings: ReferralCommission records with status 'pending' (legacy/secondary flow)
     const ReferralCommission = require('../models/ReferralCommission');
     const pendingEarnings = await ReferralCommission.aggregate([
       { $match: { referrer: user._id, status: 'pending' } },
@@ -105,6 +114,7 @@ router.get('/stats', authenticateToken, async (req, res) => {
       success: true,
       data: {
         ...stats,
+        totalEarnings,
         verifiedReferrals,
         unverifiedReferrals,
         rank,

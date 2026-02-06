@@ -205,7 +205,7 @@ class ReferralCommissionService {
 
         console.log(`[Commission] Level ${level}: Transaction created, new balance: $${transaction.balanceAfter.toFixed(2)}`);
 
-        // Increment verified referrals (downline purchaser) for this referrer
+        // Update referrer stats: verified count and total earnings
         if (!referrer.referralStats) {
           referrer.referralStats = {
             totalReferrals: 0,
@@ -222,6 +222,7 @@ class ReferralCommissionService {
           referrer.referralStats.verifiedReferrals = 0;
         }
         referrer.referralStats.verifiedReferrals += 1;
+        referrer.referralStats.totalEarnings = (referrer.referralStats.totalEarnings || 0) + commissionAmount;
         await referrer.save();
 
         // Send notification to referrer

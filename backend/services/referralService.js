@@ -446,10 +446,19 @@ class ReferralService {
       .limit(limit)
       .skip(offset);
 
-    const totalEarnings = await ReferralCommission.aggregate([
+    const totalEarningsFromRC = await ReferralCommission.aggregate([
       { $match: { referrer: userId, status: 'paid' } },
       { $group: { _id: null, total: { $sum: '$commissionAmount' } } }
     ]);
+    const rcTotal = totalEarningsFromRC[0]?.total || 0;
+
+    const BalanceTransaction = require('../models/BalanceTransaction');
+    const totalEarningsFromBT = await BalanceTransaction.aggregate([
+      { $match: { user: userId, type: 'referral_commission' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const btTotal = totalEarningsFromBT[0]?.total || 0;
+    const totalEarnings = btTotal > 0 ? btTotal : rcTotal;
 
     const earningsByLevel = await ReferralCommission.aggregate([
       { $match: { referrer: userId, status: 'paid' } },
@@ -469,7 +478,7 @@ class ReferralService {
 
     return {
       commissions: commissions,
-      totalEarnings: totalEarnings[0]?.total || 0,
+      totalEarnings,
       earningsByLevel: earningsByLevel.reduce((acc, item) => {
         acc[`level${item._id}`] = {
           total: item.total,
