@@ -66,7 +66,13 @@ export function usePackageSubscription() {
                 isLoading: false,
                 paymentId: data.paymentId
               });
-              router.push('/payment-pending');
+              if (data.redirectTo === '/payment' && data.paymentId) {
+                const pkg = data.packageName ?? '';
+                const amt = data.amount ?? 0;
+                router.push(`/payment?package=${encodeURIComponent(pkg)}&amount=${amt}&paymentId=${data.paymentId}`);
+              } else {
+                router.push(data.redirectTo || '/payment-pending');
+              }
               return;
             }
           }
@@ -104,7 +110,14 @@ export function usePackageSubscription() {
             paymentId: pendingPayment._id,
             packageName: pendingPayment.package?.name
           });
-          router.push('/payment-pending');
+          const hasTransactionId = !!(pendingPayment.transactionId && String(pendingPayment.transactionId).trim());
+          if (!hasTransactionId) {
+            const pkg = pendingPayment.package?.name || '';
+            const amt = pendingPayment.finalAmount ?? pendingPayment.amount ?? 0;
+            router.push(`/payment?package=${encodeURIComponent(pkg)}&amount=${amt}&paymentId=${pendingPayment._id}`);
+          } else {
+            router.push('/payment-pending');
+          }
           return;
         }
 

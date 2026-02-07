@@ -11,6 +11,15 @@
   display: none;  /* Safari and Chrome */
 }
 
+/* Market ticker marquee */
+@keyframes ticker-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-ticker-marquee {
+  animation: ticker-marquee 45s linear infinite;
+}
+
 /* Fix text direction issues - ensure LTR by default */
 input[type="text"],
 input[type="email"],

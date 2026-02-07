@@ -153,7 +153,14 @@ export default function LoginPage() {
                 }
                 const pendingPayment = payments.find((p: any) => p.type === 'package' && p.status === 'pending');
                 if (pendingPayment) {
-                  router.push('/payment-pending');
+                  const hasTransactionId = !!(pendingPayment.transactionId && String(pendingPayment.transactionId).trim());
+                  if (!hasTransactionId) {
+                    const pkg = pendingPayment.package?.name || '';
+                    const amt = pendingPayment.finalAmount ?? pendingPayment.amount ?? 0;
+                    router.push(`/payment?package=${encodeURIComponent(pkg)}&amount=${amt}&paymentId=${pendingPayment._id}`);
+                  } else {
+                    router.push('/payment-pending');
+                  }
                   return;
                 }
                 router.push('/select-package');

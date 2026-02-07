@@ -26,6 +26,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import Packages from './packages/packages';
+import MarketTicker from '../components/MarketTicker';
 
 export default function LandingPage() {
   const [isVisible, setIsVisible] = useState(false);
@@ -142,6 +143,8 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 overflow-hidden">
+      {/* Live prices marquee */}
+      <MarketTicker />
       {/* Animated Background Elements */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
         <motion.div
@@ -170,8 +173,8 @@ export default function LandingPage() {
         />
       </div>
 
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-50 border-b border-gray-200/50 dark:border-gray-700/50 shadow-sm">
+      {/* Navigation - below ticker */}
+      <nav className="fixed top-10 left-0 right-0 w-full bg-white/80 dark:bg-gray-900/80 backdrop-blur-md z-50 border-b border-gray-200/50 dark:border-gray-700/50 shadow-sm">
         <div className="max-w-7xl mx-auto px-3 sm:px-4 md:px-6 lg:px-8">
           <div className="flex justify-between items-center h-14 sm:h-16">
             <motion.div 
@@ -317,8 +320,8 @@ export default function LandingPage() {
         </div>
       </nav>
 
-      {/* Hero Section */}
-      <section className="pt-20 sm:pt-24 pb-16 px-4 sm:px-6 lg:px-8 relative bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+      {/* Hero Section - extra top padding for fixed ticker + nav */}
+      <section className="pt-28 sm:pt-32 pb-16 px-4 sm:px-6 lg:px-8 relative bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <div className="max-w-7xl mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 30 }}

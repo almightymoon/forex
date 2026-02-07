@@ -69,7 +69,13 @@ export default function PackageGuard({ children, allowedPaths = [] }: PackageGua
             router.push('/select-package');
             return;
           } else if (data.code === 'PAYMENT_PENDING') {
-            router.push('/payment-pending');
+            if (data.redirectTo === '/payment' && data.paymentId) {
+              const pkg = data.packageName ?? '';
+              const amt = data.amount ?? 0;
+              router.push(`/payment?package=${encodeURIComponent(pkg)}&amount=${amt}&paymentId=${data.paymentId}`);
+            } else {
+              router.push(data.redirectTo || '/payment-pending');
+            }
             return;
           }
         }

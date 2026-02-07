@@ -79,7 +79,11 @@ export function GlobalSessionHandler() {
           if (errorData.code === 'PAYMENT_PENDING') {
             if (isOnPaymentPage) return response;
             console.log('Global session handler: Payment pending detected');
-            if (errorData.redirectTo) {
+            if (errorData.redirectTo === '/payment' && errorData.paymentId) {
+              const pkg = errorData.packageName ?? '';
+              const amt = errorData.amount ?? 0;
+              router.push(`/payment?package=${encodeURIComponent(pkg)}&amount=${amt}&paymentId=${errorData.paymentId}`);
+            } else if (errorData.redirectTo) {
               router.push(errorData.redirectTo);
             } else {
               router.push('/payment-pending');

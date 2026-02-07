@@ -347,12 +347,19 @@ const requireVerifiedPayment = async (req, res, next) => {
       }).sort({ createdAt: -1 });
 
       if (pendingPayment) {
-        return res.status(403).json({ 
-          error: 'Payment verification pending',
-          message: 'Your payment is pending admin verification. You will be notified once your account is activated.',
+        const hasTransactionId = !!(pendingPayment.transactionId && String(pendingPayment.transactionId).trim());
+        const packageName = pendingPayment.package?.name || '';
+        const amount = pendingPayment.finalAmount ?? pendingPayment.amount ?? 0;
+        return res.status(403).json({
+          error: hasTransactionId ? 'Payment verification pending' : 'Complete your payment',
+          message: hasTransactionId
+            ? 'Your payment is pending admin verification. You will be notified once your account is activated.'
+            : 'Please complete your payment by entering your transaction ID.',
           code: 'PAYMENT_PENDING',
-          redirectTo: '/payment',
-          paymentId: pendingPayment._id
+          redirectTo: hasTransactionId ? '/payment-pending' : '/payment',
+          paymentId: pendingPayment._id,
+          packageName,
+          amount
         });
       }
 
@@ -431,11 +438,19 @@ const requirePackageSubscription = async (req, res, next) => {
     }).sort({ createdAt: -1 });
 
     if (pendingPayment) {
-      return res.status(403).json({ 
-        error: 'Payment verification pending',
-        message: 'Your payment is pending admin verification. Please check your email for updates once your account is activated.',
+      const hasTransactionId = !!(pendingPayment.transactionId && String(pendingPayment.transactionId).trim());
+      const packageName = pendingPayment.package?.name || '';
+      const amount = pendingPayment.finalAmount ?? pendingPayment.amount ?? 0;
+      return res.status(403).json({
+        error: hasTransactionId ? 'Payment verification pending' : 'Complete your payment',
+        message: hasTransactionId
+          ? 'Your payment is pending admin verification. Please check your email for updates once your account is activated.'
+          : 'Please complete your payment by entering your transaction ID.',
         code: 'PAYMENT_PENDING',
-        redirectTo: '/payment-pending'
+        redirectTo: hasTransactionId ? '/payment-pending' : '/payment',
+        paymentId: pendingPayment._id,
+        packageName,
+        amount
       });
     }
 
