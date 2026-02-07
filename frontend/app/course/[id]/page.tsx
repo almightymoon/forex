@@ -28,6 +28,9 @@ import {
   CheckCircle, 
   Lock,
   ArrowLeft,
+  ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   BarChart3,
   Target,
   Award,
@@ -540,7 +543,7 @@ const VideoPlayer = ({
               {isCompleted && (
                 <CheckCircle className="w-4 h-4 text-green-400" />
               )}
-              {/* Manual completion button for external videos */}
+              {/* Mark as complete button removed
               {isExternalVideo && !isCompleted && watchPercentage === 0 && (
                 <button
                   onClick={async () => {
@@ -557,6 +560,7 @@ const VideoPlayer = ({
                   Mark Complete
                 </button>
               )}
+              */}
             </div>
             
           </div>
@@ -1273,6 +1277,38 @@ export default function CourseDetail() {
                 className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg"
               >
                 {renderContent(selectedContent)}
+                {/* Previous / Next module navigation */}
+                {(() => {
+                  const contentList = course?.content || course?.videos || [];
+                  const currentIndex = contentList.findIndex((c: Content) => c._id === selectedContent?._id);
+                  const hasPrev = currentIndex > 0;
+                  const hasNext = currentIndex >= 0 && currentIndex < contentList.length - 1;
+                  const prevContent = hasPrev ? contentList[currentIndex - 1] : null;
+                  const nextContent = hasNext ? contentList[currentIndex + 1] : null;
+                  if (contentList.length <= 1) return null;
+                  return (
+                    <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-600 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+                      <button
+                        type="button"
+                        onClick={() => prevContent && setSelectedContent(prevContent)}
+                        disabled={!hasPrev}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 dark:hover:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:text-gray-700 dark:disabled:hover:border-gray-600 dark:disabled:hover:text-gray-300"
+                      >
+                        <ChevronLeft className="w-5 h-5 shrink-0" />
+                        <span>Previous module</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => nextContent && setSelectedContent(nextContent)}
+                        disabled={!hasNext}
+                        className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-blue-500 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium hover:bg-blue-500/20 dark:hover:bg-blue-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-transparent disabled:text-gray-500 dark:disabled:border-gray-600 dark:disabled:text-gray-400"
+                      >
+                        <span>Next module</span>
+                        <ChevronRight className="w-5 h-5 shrink-0" />
+                      </button>
+                    </div>
+                  );
+                })()}
               </motion.div>
             )}
           </div>

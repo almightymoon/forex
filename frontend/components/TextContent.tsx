@@ -152,6 +152,7 @@ const TextContent: React.FC<TextContentProps> = ({
                   <span className="text-sm">Scrolled to end</span>
                 </div>
               ) : (
+                /* Mark as complete button removed
                 <button
                   onClick={handleMarkComplete}
                   disabled={progressLoading}
@@ -160,6 +161,8 @@ const TextContent: React.FC<TextContentProps> = ({
                   <CheckCircle className="w-4 h-4" />
                   <span>Mark Complete</span>
                 </button>
+                */
+                null
               )}
             </div>
           )}
