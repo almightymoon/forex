@@ -981,7 +981,7 @@ export default function Dashboard() {
                     <span className="hidden sm:inline">Telegram</span>
                   </a>
                   <a
-                    href="https://whatsapp.com/channel/0029VbBfTBX002T10jodXM1w"
+                    href="https://chat.whatsapp.com/CyxWPYGEBa9AyEsym4hGp6?mode=gi_t"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-[#25D366]/10 dark:bg-[#25D366]/20 text-[#25D366] dark:text-[#34e077] hover:bg-[#25D366]/20 dark:hover:bg-[#25D366]/30 transition-colors text-sm font-medium"
