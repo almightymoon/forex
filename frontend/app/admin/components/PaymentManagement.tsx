@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { 
   Download, Search, Eye, CheckCircle, X, CreditCard, Wallet, 
   ArrowUpRight, Clock, AlertCircle, Edit, Save, XCircle, 
-  RefreshCw, Filter, DollarSign, User as UserIcon, Trash2, Loader2
+  RefreshCw, Filter, DollarSign, User as UserIcon, Trash2, Loader2, ImageIcon
 } from 'lucide-react';
 import { Payment } from './types';
 import { buildApiUrl } from '../../../utils/api';
@@ -111,10 +111,15 @@ export default function PaymentManagement({
 
   // Filter payments
   const filteredPayments = (payments || []).filter(payment => {
-    const matchesSearch = 
-      (payment.user?.firstName?.toLowerCase().includes(paymentSearchTerm.toLowerCase()) || false) ||
-      (payment.user?.lastName?.toLowerCase().includes(paymentSearchTerm.toLowerCase()) || false) ||
-      payment._id.toLowerCase().includes(paymentSearchTerm.toLowerCase());
+    const term = paymentSearchTerm.toLowerCase().trim();
+    const matchesSearch = !term || (
+      (payment.user?.firstName?.toLowerCase().includes(term) || false) ||
+      (payment.user?.lastName?.toLowerCase().includes(term) || false) ||
+      (payment.user?.email?.toLowerCase().includes(term) || false) ||
+      payment._id.toLowerCase().includes(term) ||
+      (payment.transactionId?.toLowerCase().includes(term) || false) ||
+      (payment.binanceWallet?.transactionHash?.toLowerCase().includes(term) || false)
+    );
     
     const matchesStatus = paymentStatusFilter === 'all' || payment.status === paymentStatusFilter;
     const matchesMethod = paymentMethodFilter === 'all' || payment.paymentMethod === paymentMethodFilter;
@@ -694,7 +699,15 @@ export default function PaymentManagement({
                     <td className="py-4 px-4">
                       <p className="font-semibold text-gray-900 dark:text-white">${payment.amount} {payment.currency}</p>
                     </td>
-                    <td className="py-4 px-4 text-sm text-gray-600 dark:text-gray-400 capitalize">{payment.paymentMethod}</td>
+                    <td className="py-4 px-4">
+                      <span className="text-sm text-gray-600 dark:text-gray-400 capitalize">{payment.paymentMethod}</span>
+                      {payment.paymentScreenshotUrl && (
+                        <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs" title="Has screenshot">
+                          <ImageIcon className="w-3.5 h-3.5" />
+                          Screenshot
+                        </span>
+                      )}
+                    </td>
                     <td className="py-4 px-4">
                       <span className={`px-3 py-1 rounded-full text-xs font-medium ${
                         payment.status === 'completed' 
@@ -1074,6 +1087,34 @@ export default function PaymentManagement({
                   <p className="text-gray-900 dark:text-white">{new Date(selectedPayment.createdAt).toLocaleString()}</p>
                 </div>
               </div>
+
+              {/* Payment submission details (name, email, screenshot) - shown for signup payments */}
+              {(selectedPayment.payerName || selectedPayment.payerEmail || selectedPayment.paymentScreenshotUrl) && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Payment submission details</label>
+                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 space-y-3">
+                    {(selectedPayment.payerName || selectedPayment.payerEmail) && (
+                      <div className="grid grid-cols-2 gap-3">
+                        {selectedPayment.payerName && (
+                          <p className="text-sm"><span className="font-medium text-gray-500 dark:text-gray-400">Payer name:</span><br /><span className="text-gray-900 dark:text-white">{selectedPayment.payerName}</span></p>
+                        )}
+                        {selectedPayment.payerEmail && (
+                          <p className="text-sm"><span className="font-medium text-gray-500 dark:text-gray-400">Payer email:</span><br /><span className="text-gray-900 dark:text-white">{selectedPayment.payerEmail}</span></p>
+                        )}
+                      </div>
+                    )}
+                    {selectedPayment.paymentScreenshotUrl && (
+                      <div className="pt-2 border-t border-gray-200 dark:border-gray-600">
+                        <span className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-2">Payment screenshot</span>
+                        <a href={selectedPayment.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" className="inline-block rounded-lg overflow-hidden border-2 border-gray-200 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-500 transition-colors">
+                          <img src={selectedPayment.paymentScreenshotUrl} alt="Payment screenshot" className="max-h-56 w-auto object-contain block" />
+                        </a>
+                        <a href={selectedPayment.paymentScreenshotUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 dark:text-blue-400 mt-2 inline-block hover:underline">Open full size in new tab</a>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {selectedPayment.paymentMethod === 'binance_wallet' && (
                 <div>

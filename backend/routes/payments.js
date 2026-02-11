@@ -1,10 +1,32 @@
 const express = require('express');
+const path = require('path');
+const fs = require('fs');
+const multer = require('multer');
 const { body, validationResult } = require('express-validator');
 const Payment = require('../models/Payment');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const PaymentProcessor = require('../services/paymentProcessor');
+const { uploadImage } = require('../config/cloudinary');
 
 const router = express.Router();
+
+// Multer for payment screenshot upload (uses env Cloudinary in uploadImage)
+const paymentScreenshotDir = path.join(__dirname, '..', 'uploads', 'payment-screenshots');
+if (!fs.existsSync(paymentScreenshotDir)) {
+  fs.mkdirSync(paymentScreenshotDir, { recursive: true });
+}
+const paymentScreenshotUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, paymentScreenshotDir),
+    filename: (_req, file, cb) => cb(null, `screenshot-${Date.now()}-${(file.originalname || 'image').replace(/\s+/g, '-')}`)
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    cb(new Error('Only JPEG, PNG, GIF, or WebP images are allowed for the screenshot.'));
+  }
+});
 const paymentProcessor = new PaymentProcessor();
 
 // @route   GET /api/payments
@@ -188,6 +210,103 @@ router.post('/create', [
       error: 'Failed to create payment',
       message: error.message 
     });
+  }
+});
+
+// @route   POST /api/payments/:id/submit-payment (must be before GET/PUT /:id)
+// @desc    Submit payment with transaction ID, payer details, and screenshot (screenshot stored in env Cloudinary)
+// @access  Private
+router.post('/:id/submit-payment', authenticateToken, (req, res, next) => {
+  paymentScreenshotUpload.single('screenshot')(req, res, (err) => {
+    if (err) return res.status(400).json({ errors: [{ msg: err.message || 'Invalid screenshot file' }] });
+    next();
+  });
+}, async (req, res) => {
+  let tempFilePath = null;
+  try {
+    const transactionId = (req.body && req.body.transactionId) ? String(req.body.transactionId).trim() : '';
+    const payerName = (req.body && req.body.payerName) ? String(req.body.payerName).trim() : '';
+    const payerEmail = (req.body && req.body.payerEmail) ? String(req.body.payerEmail).trim() : '';
+    const errors = [];
+    if (!transactionId || transactionId.length < 10) errors.push({ msg: 'Transaction ID / hash is required (min 10 characters)', path: 'transactionId' });
+    if (!payerName) errors.push({ msg: 'Payer name is required', path: 'payerName' });
+    if (!payerEmail) errors.push({ msg: 'Payer email is required', path: 'payerEmail' });
+    if (!req.file) errors.push({ msg: 'Payment screenshot image is required', path: 'screenshot' });
+    if (errors.length) {
+      return res.status(400).json({ errors });
+    }
+
+    const payment = await Payment.findById(req.params.id);
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+    if (payment.user.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    if (payment.status === 'completed') {
+      return res.status(400).json({ error: 'Payment is already completed' });
+    }
+
+    tempFilePath = req.file.path;
+    const uploadResult = await uploadImage(tempFilePath, 'forex/payment-screenshots');
+    const paymentScreenshotUrl = uploadResult && uploadResult.url ? uploadResult.url : null;
+    if (!paymentScreenshotUrl) {
+      return res.status(500).json({ error: 'Failed to upload payment screenshot' });
+    }
+
+    payment.transactionId = transactionId;
+    payment.payerName = payerName;
+    payment.payerEmail = payerEmail;
+    payment.paymentScreenshotUrl = paymentScreenshotUrl;
+    if (payment.paymentMethod === 'binance_wallet') {
+      payment.binanceWallet = payment.binanceWallet || {};
+      payment.binanceWallet.transactionHash = transactionId;
+    }
+    await payment.save();
+
+    try {
+      const User = require('../models/User');
+      const notificationService = require('../services/notificationService');
+      const admins = await User.find({ role: 'admin' });
+      for (const admin of admins) {
+        await notificationService.sendNotificationToUser(admin._id, 'admin', {
+          type: 'transaction_submitted',
+          paymentId: payment._id,
+          transactionId,
+          userId: req.user._id,
+          userName: `${req.user.firstName} ${req.user.lastName}`,
+          amount: payment.finalAmount,
+          payerName,
+          payerEmail,
+          paymentScreenshotUrl
+        });
+      }
+    } catch (notificationError) {
+      console.error('Error sending admin notification:', notificationError);
+    }
+
+    res.json({
+      success: true,
+      message: 'Payment submitted successfully. Waiting for admin confirmation.',
+      payment: {
+        _id: payment._id,
+        status: payment.status,
+        transactionId: payment.transactionId,
+        payerName: payment.payerName,
+        payerEmail: payment.payerEmail,
+        paymentScreenshotUrl: payment.paymentScreenshotUrl
+      }
+    });
+  } catch (error) {
+    console.error('Submit payment error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to submit payment'
+    });
+  } finally {
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try { fs.unlinkSync(tempFilePath); } catch (e) { console.error('Cleanup temp file:', e); }
+    }
   }
 });
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Copy, Check, AlertCircle, ArrowLeft, Mail, Gift, Sparkles } from 'lucide-react';
+import { Copy, Check, AlertCircle, ArrowLeft, Mail, Gift, Sparkles, Upload } from 'lucide-react';
 import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import { buildApiUrl } from '@/utils/api';
@@ -19,6 +19,10 @@ export default function PaymentPage() {
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState<'pending' | 'completed' | null>(null);
   const [transactionId, setTransactionId] = useState('');
+  const [payerName, setPayerName] = useState('');
+  const [payerEmail, setPayerEmail] = useState('');
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [promoCode, setPromoCode] = useState('');
@@ -29,7 +33,7 @@ export default function PaymentPage() {
   
   const packageName = searchParams?.get('package') || '';
   const amountParam = searchParams?.get('amount') || '0';
-  const paymentId = searchParams?.get('paymentId') || '';
+  const paymentId = searchParams?.get('paymentId') || searchParams?.get('paymentid') || '';
   
   // Calculate final amount (original - discount)
   const finalAmount = (originalAmount || parseFloat(amountParam)) - promoDiscount;
@@ -51,6 +55,22 @@ export default function PaymentPage() {
     if (parsedAmount > 0 && originalAmount === 0) {
       setOriginalAmount(parsedAmount);
     }
+
+    // Pre-fill payer name and email from current user
+    const prefillPayer = async () => {
+      const t = localStorage.getItem('token');
+      if (!t) return;
+      try {
+        const res = await fetch(buildApiUrl('api/auth/me'), { headers: { Authorization: `Bearer ${t}` } });
+        if (res.ok) {
+          const data = await res.json();
+          const u = data.user || data;
+          if (u.firstName || u.lastName) setPayerName([u.firstName, u.lastName].filter(Boolean).join(' ').trim());
+          if (u.email) setPayerEmail(u.email);
+        }
+      } catch (_) {}
+    };
+    prefillPayer();
 
     // Check payment status periodically
     if (paymentId) {
@@ -185,6 +205,18 @@ export default function PaymentPage() {
       setError('Transaction ID is too short. Copy the full hash from your wallet.');
       return;
     }
+    if (!payerName.trim()) {
+      setError('Please enter your name.');
+      return;
+    }
+    if (!payerEmail.trim()) {
+      setError('Please enter your email.');
+      return;
+    }
+    if (!screenshotFile) {
+      setError('Please upload a screenshot of your payment.');
+      return;
+    }
 
     if (!paymentId) {
       setError('Payment ID is missing');
@@ -196,34 +228,63 @@ export default function PaymentPage() {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(buildApiUrl(`api/payments/${paymentId}/transaction`), {
-        method: 'PUT',
+      const formData = new FormData();
+      formData.append('transactionId', trimmed);
+      formData.append('payerName', payerName.trim());
+      formData.append('payerEmail', payerEmail.trim());
+      formData.append('screenshot', screenshotFile);
+
+      const response = await fetch(buildApiUrl(`api/payments/${paymentId}/submit-payment`), {
+        method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({ transactionId: trimmed })
+        body: formData
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        const msg = data.errors?.[0]?.msg || data.error || data.message || 'Failed to submit transaction ID';
+        const msg = data.errors?.[0]?.msg || data.error || data.message || 'Failed to submit payment';
         throw new Error(msg);
       }
 
       setPaymentStatus('pending');
-      setTransactionId(''); // Clear the input after successful submission
-      
-      // Redirect to pending page after a brief delay
+      setTransactionId('');
+      setPayerName('');
+      setPayerEmail('');
+      setScreenshotFile(null);
+      setScreenshotPreview(null);
+
       setTimeout(() => {
         router.push(`/payment-pending?package=${encodeURIComponent(packageName)}&amount=${displayAmount}`);
       }, 1500);
-    } catch (err: any) {
-      console.error('Error submitting transaction ID:', err);
-      setError(err.message || 'Failed to submit transaction ID. Please try again.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to submit payment. Please try again.';
+      setError(message);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleScreenshotChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setError('Please select an image file (JPEG, PNG, GIF, or WebP).');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Screenshot must be under 5MB.');
+        return;
+      }
+      setScreenshotFile(file);
+      setScreenshotPreview(URL.createObjectURL(file));
+      setError('');
+    } else {
+      setScreenshotFile(null);
+      if (screenshotPreview) URL.revokeObjectURL(screenshotPreview);
+      setScreenshotPreview(null);
     }
   };
 
@@ -429,21 +490,94 @@ export default function PaymentPage() {
               }`}
               disabled={paymentStatus === 'pending' || isSubmitting}
             />
-            {error && (
-              <p className="mt-2 text-sm text-red-600 dark:text-red-400">{error}</p>
-            )}
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
               After completing the transfer, copy your Transaction ID from your wallet and paste it here.
             </p>
           </div>
 
+          {/* Payer Name */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Your name <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={payerName}
+              onChange={(e) => { setPayerName(e.target.value); setError(''); }}
+              placeholder="Full name"
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+                error ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
+              }`}
+              disabled={paymentStatus === 'pending' || isSubmitting}
+            />
+          </div>
+
+          {/* Payer Email */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Your email <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="email"
+              value={payerEmail}
+              onChange={(e) => { setPayerEmail(e.target.value); setError(''); }}
+              placeholder="Email address"
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 ${
+                error ? 'border-red-500 dark:border-red-500' : 'border-gray-300 dark:border-gray-600'
+              }`}
+              disabled={paymentStatus === 'pending' || isSubmitting}
+            />
+          </div>
+
+          {/* Payment screenshot upload */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Payment screenshot <span className="text-red-500">*</span>
+            </label>
+            <div className="flex flex-col gap-3">
+              <label className="flex items-center justify-center gap-2 w-full px-4 py-3 border-2 border-dashed rounded-lg cursor-pointer border-gray-300 dark:border-gray-600 hover:border-blue-500 dark:hover:border-blue-500 bg-gray-50 dark:bg-gray-700/50 transition-colors">
+                <Upload className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                <span className="text-sm text-gray-600 dark:text-gray-300">
+                  {screenshotFile ? screenshotFile.name : 'Choose image (JPEG, PNG, GIF, WebP — max 5MB)'}
+                </span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="hidden"
+                  onChange={handleScreenshotChange}
+                  disabled={paymentStatus === 'pending' || isSubmitting}
+                />
+              </label>
+              {screenshotPreview && (
+                <div className="relative rounded-lg overflow-hidden border border-gray-200 dark:border-gray-600 max-h-40">
+                  <img src={screenshotPreview} alt="Preview" className="w-full h-auto object-contain max-h-40" />
+                  <button
+                    type="button"
+                    onClick={() => { setScreenshotFile(null); if (screenshotPreview) URL.revokeObjectURL(screenshotPreview); setScreenshotPreview(null); }}
+                    className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 text-xs"
+                    aria-label="Remove screenshot"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Upload a screenshot of your payment from your wallet for verification.
+            </p>
+          </div>
+
+          {error && (
+            <p className="mb-4 text-sm text-red-600 dark:text-red-400">{error}</p>
+          )}
+
           {/* Actions */}
           <button
             onClick={handlePaymentSent}
-            disabled={isSubmitting || paymentStatus === 'pending' || !transactionId.trim() || transactionId.trim().length < MIN_TRANSACTION_ID_LENGTH}
+            disabled={isSubmitting || paymentStatus === 'pending' || !transactionId.trim() || transactionId.trim().length < MIN_TRANSACTION_ID_LENGTH || !payerName.trim() || !payerEmail.trim() || !screenshotFile}
             className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmitting ? 'Submitting...' : 'Submit Transaction ID'}
+            {isSubmitting ? 'Submitting...' : 'Submit Payment'}
           </button>
 
           {/* Status Message */}

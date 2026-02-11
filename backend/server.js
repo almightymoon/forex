@@ -209,6 +209,11 @@ app.use('/api/settings', checkSessionTimeout, settingsRoutes);
 app.use('/api/auth', authRoutes);
 
 // Payment routes - allow access without package so users can purchase packages
+// Explicit POST submit-payment so it always matches (avoids router mount path issues)
+app.post('/api/payments/:id/submit-payment', checkSessionTimeout, (req, res, next) => {
+  req.url = '/' + req.params.id + '/submit-payment';
+  paymentRoutes(req, res, next);
+});
 app.use('/api/payments', checkSessionTimeout, paymentRoutes);
 
 // Package perks routes - allow access to check perks (requires auth but not package)

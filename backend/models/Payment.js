@@ -138,6 +138,10 @@ const paymentSchema = new mongoose.Schema({
     },
     transactionHash: String
   },
+  // Signup payment submission details (name, email, screenshot)
+  payerName: { type: String, trim: true },
+  payerEmail: { type: String, trim: true },
+  paymentScreenshotUrl: { type: String, trim: true },
   // Admin confirmation for manual payments
   adminConfirmed: {
     type: Boolean,

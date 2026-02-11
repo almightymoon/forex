@@ -34,11 +34,15 @@ export interface Payment {
   status: 'pending' | 'completed' | 'failed' | 'processing' | 'cancelled' | 'refunded';
   paymentMethod: string;
   createdAt: string;
+  transactionId?: string;
   binanceWallet?: {
     walletAddress?: string;
     network?: string;
     transactionHash?: string;
   };
+  payerName?: string;
+  payerEmail?: string;
+  paymentScreenshotUrl?: string;
   adminConfirmed?: boolean;
 }
 
