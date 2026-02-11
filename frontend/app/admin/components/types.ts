@@ -46,6 +46,18 @@ export interface Payment {
   adminConfirmed?: boolean;
 }
 
+export interface RecentActivityItem {
+  type: 'user_registration' | 'payment_received';
+  _id: string;
+  createdAt: string;
+  userName?: string;
+  email?: string;
+  role?: string;
+  amount?: number;
+  currency?: string;
+  packageName?: string;
+}
+
 export interface Analytics {
   totalUsers: number;
   totalRevenue: number;
@@ -57,6 +69,7 @@ export interface Analytics {
   monthlyRevenue: Array<{ month: string; revenue: number }>;
   monthlyUserGrowth: Array<{ month: string; users: number }>;
   paymentMethodStats: Array<{ method: string; count: number; totalAmount: number }>;
+  recentActivity?: RecentActivityItem[];
 }
 
 export interface PromoCode {

@@ -20,7 +20,7 @@ interface UserManagementProps {
   users: User[];
   onUserCreate: (userData: UserForm) => void;
   onUserUpdate: (userId: string, userData: Partial<UserForm>) => void;
-  onUserDelete: (userId: string) => Promise<void>;
+  onUserDelete: (userId: string, options?: { rollbackCommissions?: boolean }) => Promise<void>;
   onUserToggleStatus: (user: User) => void;
   onUserUnblock?: (user: User) => Promise<void>;
 }
@@ -113,18 +113,17 @@ export default function UserManagement({
     setShowDeleteModal(true);
   };
 
-  const handleDeleteUser = async () => {
+  const handleDeleteUser = async (rollbackCommissions: boolean) => {
     if (selectedUser) {
       setDeletingUserId(selectedUser._id);
       setShowDeleteModal(false);
-      // Remove from selected users if it was selected
       setSelectedUsers(prev => {
         const newSet = new Set(prev);
         newSet.delete(selectedUser._id);
         return newSet;
       });
       try {
-        await onUserDelete(selectedUser._id);
+        await onUserDelete(selectedUser._id, { rollbackCommissions });
       } catch (error) {
         // Error handling is done in parent component
       } finally {
@@ -611,36 +610,45 @@ export default function UserManagement({
       {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md">
             <div className="text-center">
               <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete User</h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">
-                Are you sure you want to delete <strong>{selectedUser.firstName} {selectedUser.lastName}</strong>? 
-                This action cannot be undone.
+              <p className="text-gray-600 dark:text-gray-300 mb-4">
+                Delete <strong>{selectedUser.firstName} {selectedUser.lastName}</strong>? This cannot be undone.
               </p>
-              <div className="flex space-x-3">
+              <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                If this user was added with wrong payment details, choose &quot;Rollback commissions and delete&quot; to reverse any referral commissions that were paid out from their payment, then delete the user.
+              </p>
+              <div className="flex flex-col gap-2">
                 <button
-                  onClick={() => setShowDeleteModal(false)}
-                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleDeleteUser}
+                  onClick={() => handleDeleteUser(true)}
                   disabled={deletingUserId === selectedUser._id}
-                  className="flex-1 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  className="w-full px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {deletingUserId === selectedUser._id ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                      Deleting...
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Processing...
                     </>
                   ) : (
-                    'Delete'
+                    'Rollback commissions and delete'
                   )}
+                </button>
+                <button
+                  onClick={() => handleDeleteUser(false)}
+                  disabled={deletingUserId === selectedUser._id}
+                  className="w-full px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                >
+                  Delete user only
+                </button>
+                <button
+                  onClick={() => setShowDeleteModal(false)}
+                  className="w-full px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
+                  Cancel
                 </button>
               </div>
             </div>

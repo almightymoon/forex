@@ -638,7 +638,8 @@ router.post('/users/:id/unblock', async (req, res) => {
 });
 
 // @route   DELETE /api/admin/users/:id
-// @desc    Delete user (admin only)
+// @desc    Delete user (admin only). Optionally roll back commissions distributed from this user's payments.
+// @body    { rollbackCommissions?: boolean } - If true, reverses all referral commissions paid out due to this user's completed payments, then deletes the user.
 // @access  Private (Admin)
 router.delete('/users/:id', async (req, res) => {
   try {
@@ -652,8 +653,20 @@ router.delete('/users/:id', async (req, res) => {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
 
+    const rollbackCommissions = !!(req.body && req.body.rollbackCommissions) || req.query.rollbackCommissions === 'true';
+
+    if (rollbackCommissions) {
+      const BalanceTransaction = require('../models/BalanceTransaction');
+      const { reversedCount, reversedDetails } = await BalanceTransaction.reverseCommissionsForUser(req.params.id);
+      console.log(`[Delete User] Rolled back ${reversedCount} commission(s) for user ${user.email}`, reversedDetails);
+      await User.findByIdAndDelete(req.params.id);
+      return res.json({
+        message: 'User deleted successfully. Commissions rolled back.',
+        rollback: { reversedCount, reversedDetails }
+      });
+    }
+
     await User.findByIdAndDelete(req.params.id);
-    
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Delete user error:', error);
@@ -860,7 +873,30 @@ router.get('/analytics', async (req, res) => {
         users: monthUsers
       });
     }
-    
+
+    // Recent activity: merge latest user registrations and completed payments, sort by date
+    const recentUsers = await User.find({}).sort({ createdAt: -1 }).limit(10).select('firstName lastName email role createdAt').lean();
+    const recentPayments = await Payment.find({ status: 'completed' }).sort({ updatedAt: -1 }).limit(10).populate('user', 'firstName lastName email').lean();
+    const activityItems = [
+      ...recentUsers.map(u => ({
+        type: 'user_registration',
+        _id: u._id.toString(),
+        createdAt: u.createdAt,
+        userName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown',
+        email: u.email,
+        role: u.role
+      })),
+      ...recentPayments.map(p => ({
+        type: 'payment_received',
+        _id: p._id.toString(),
+        createdAt: p.updatedAt || p.createdAt,
+        amount: p.amount || p.finalAmount,
+        currency: p.currency || 'USD',
+        userName: p.user ? `${p.user.firstName || ''} ${p.user.lastName || ''}`.trim() : 'Unknown',
+        packageName: p.package?.name || 'Signup'
+      }))
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 15);
+
     const analytics = {
       totalUsers,
       totalRevenue: completedPayments[0]?.total || 0,
@@ -875,7 +911,8 @@ router.get('/analytics', async (req, res) => {
         method: stat._id,
         count: stat.count,
         totalAmount: stat.totalAmount
-      }))
+      })),
+      recentActivity: activityItems
     };
     
     res.json(analytics);

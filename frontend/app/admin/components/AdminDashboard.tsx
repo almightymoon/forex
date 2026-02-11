@@ -310,7 +310,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleUserDelete = async (userId: string) => {
+  const handleUserDelete = async (userId: string, options?: { rollbackCommissions?: boolean }) => {
     // Optimistically remove user from list immediately (before API call)
     const userToDelete = localUsers.find(u => u._id === userId);
     
@@ -336,12 +336,18 @@ export default function AdminDashboard() {
       const response = await fetch(buildApiUrl(`api/admin/users/${userId}`), {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ rollbackCommissions: options?.rollbackCommissions === true })
       });
 
       if (response.ok) {
-        showToast('User deleted successfully!', 'success');
+        const data = await response.json().catch(() => ({}));
+        const message = data.rollback?.reversedCount != null
+          ? `User deleted. ${data.rollback.reversedCount} commission(s) rolled back.`
+          : 'User deleted successfully!';
+        showToast(message, 'success');
         console.log('User deleted successfully, keeping in deletedUserIds permanently');
         // Keep the user in deletingUserIds - they should NEVER come back
         // The user will stay in localStorage deletedUserIds until page refresh
