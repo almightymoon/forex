@@ -25,7 +25,6 @@ import ReferralBadge from '../components/ReferralBadge';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import TradingViewWidget from '../../components/TradingViewWidget';
 import TradingViewTerminal from '../../components/TradingViewTerminal';
-import TradingPanel from '../../components/TradingPanel';
 import OpenPositions from '../../components/OpenPositions';
 import TradeHistory from './components/TradeHistory';
 import { 
@@ -81,7 +80,7 @@ export default function Dashboard() {
   const [sessionsViewMode, setSessionsViewMode] = useState<'grid' | 'list'>('grid');
   const [tradingViewSymbol, setTradingViewSymbol] = useState<string>('FX:EURUSD');
   const [tradingViewInterval, setTradingViewInterval] = useState<'1' | '5' | '15' | '60' | '240' | 'D'>('60');
-  const [tradingViewMode, setTradingViewMode] = useState<'terminal' | 'chart' | 'iframe'>('terminal');
+  const [tradingViewMode, setTradingViewMode] = useState<'terminal' | 'chart'>('terminal');
   const [tradesRefreshTrigger, setTradesRefreshTrigger] = useState(0);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
@@ -1844,92 +1843,78 @@ export default function Dashboard() {
             className="space-y-6"
           >
             <div className="space-y-6">
-              {/* Chart and Trading Panel */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* TradingView Chart */}
-                <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                <div>
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">TradingView</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">
-                        <span className="font-medium">{tradingViewSymbol}</span>
-                  </p>
-                </div>
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={tradingViewMode}
-                        onChange={(e) => setTradingViewMode(e.target.value as 'terminal' | 'chart' | 'iframe')}
-                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                        title="Select TradingView mode"
-                      >
-                        <option value="terminal">Terminal (Login Enabled)</option>
-                        <option value="chart">Chart Only</option>
-                        <option value="iframe">Full Platform</option>
-                      </select>
-                  <select
-                    value={tradingViewSymbol}
-                    onChange={(e) => setTradingViewSymbol(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                  >
-                    {['FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:USDCAD', 'FX:USDCHF', 'FX:NZDUSD', 'OANDA:XAUUSD', 'BINANCE:BTCUSDT'].map((sym) => (
-                      <option key={sym} value={sym}>
-                        {sym}
-                      </option>
-                    ))}
-                  </select>
-                      {tradingViewMode !== 'iframe' && (
-                  <select
-                    value={tradingViewInterval}
-                    onChange={(e) => setTradingViewInterval(e.target.value as any)}
-                    className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                  >
-                    <option value="1">1m</option>
-                    <option value="5">5m</option>
-                    <option value="15">15m</option>
-                    <option value="60">1h</option>
-                    <option value="240">4h</option>
-                    <option value="D">1D</option>
-                  </select>
-                      )}
-                </div>
-              </div>
-
-                  {tradingViewMode === 'iframe' ? (
-                    <TradingViewTerminal
-                      symbol={tradingViewSymbol}
-                      theme="dark"
-                      height={600}
-                      enableLogin={true}
-                      mode="iframe"
-                    />
-                  ) : tradingViewMode === 'terminal' ? (
-                    <TradingViewTerminal
-                      symbol={tradingViewSymbol}
-                      theme="dark"
-                      height={600}
-                      enableLogin={true}
-                      mode="terminal"
-                    />
-                  ) : (
-              <TradingViewWidget
-                symbol={tradingViewSymbol}
-                interval={tradingViewInterval}
-                theme="dark"
-                locale="en"
-                      height={600}
-                hideSideToolbar={false}
-              />
-                  )}
+              {/* TradingView Chart only - full width */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">TradingView</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      <span className="font-medium">{tradingViewSymbol}</span>
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <select
+                      value={tradingViewMode}
+                      onChange={(e) => setTradingViewMode(e.target.value as 'terminal' | 'chart')}
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      title="Select TradingView mode"
+                    >
+                      <option value="terminal">Terminal</option>
+                      <option value="chart">Chart Only</option>
+                    </select>
+                    <select
+                      value={tradingViewSymbol}
+                      onChange={(e) => setTradingViewSymbol(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    >
+                      {['FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:USDCAD', 'FX:USDCHF', 'FX:NZDUSD', 'OANDA:XAUUSD', 'BINANCE:BTCUSDT'].map((sym) => (
+                        <option key={sym} value={sym}>
+                          {sym}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={tradingViewInterval}
+                      onChange={(e) => setTradingViewInterval(e.target.value as any)}
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    >
+                      <option value="1">1m</option>
+                      <option value="5">5m</option>
+                      <option value="15">15m</option>
+                      <option value="60">1h</option>
+                      <option value="240">4h</option>
+                      <option value="D">1D</option>
+                    </select>
+                    <a
+                      href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tradingViewSymbol)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Open in TradingView (login)
+                    </a>
+                  </div>
                 </div>
 
-                {/* Trading Panel */}
-                <div className="lg:col-span-1">
-                  <TradingPanel 
+                {tradingViewMode === 'terminal' ? (
+                  <TradingViewTerminal
                     symbol={tradingViewSymbol}
-                    currentPrice={1.0850} // You can fetch real-time prices here
-                    onTradeExecuted={() => setTradesRefreshTrigger(prev => prev + 1)}
+                    theme="dark"
+                    height="min(85vh, 900px)"
+                    enableLogin={true}
+                    mode="terminal"
                   />
-                </div>
+                ) : (
+                  <TradingViewWidget
+                    symbol={tradingViewSymbol}
+                    interval={tradingViewInterval}
+                    theme="dark"
+                    locale="en"
+                    height="min(85vh, 900px)"
+                    hideSideToolbar={false}
+                  />
+                )}
               </div>
 
               {/* Open Positions */}
