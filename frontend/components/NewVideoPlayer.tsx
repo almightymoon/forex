@@ -85,6 +85,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const ytPlayerRef = useRef<any>(null);
   const progressPollRef = useRef<number | null>(null);
+  const updateProgressRef = useRef<(watched: number, duration: number) => void>(() => {});
+  const saveProgressRef = useRef<() => Promise<boolean>>(async () => false);
 
   const { progressData, watchPercentage, isCompleted, loading, error, updateProgress, saveProgress } = useVideoProgress({
     courseId,
@@ -108,6 +110,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setIsYouTube(false);
     }
   }, [videoUrl]);
+
+  // Keep refs updated so YouTube init effect doesn't depend on callbacks (prevents player destroy/recreate on parent re-renders)
+  updateProgressRef.current = updateProgress;
+  saveProgressRef.current = saveProgress;
 
   // Local video handlers
   const handleLocalTimeUpdate = useCallback(() => {
@@ -212,7 +218,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                         if (playerState === 1) {
                           setCurrentTime(ct);
                           setDuration(dur || 0);
-                          updateProgress(ct, dur);
+                          updateProgressRef.current(ct, dur);
                         } else {
                           console.log('Video not playing, stopping progress tracking');
                           if (progressPollRef.current) {
@@ -241,8 +247,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 try {
                   if (ytPlayerRef.current && ytPlayerRef.current.getDuration) {
                     const dur = ytPlayerRef.current.getDuration();
-                    updateProgress(dur, dur);
-                    saveProgress();
+                    updateProgressRef.current(dur, dur);
+                    saveProgressRef.current();
                   }
                 } catch (err) {
                   console.error('Error marking as completed:', err);
@@ -280,7 +286,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         console.error('Error destroying YouTube player:', err);
       }
     };
-  }, [isYouTube, videoUrl, contentId, courseId, updateProgress, saveProgress]);
+  }, [isYouTube, videoUrl, contentId, courseId]);
 
   // External click toggles play via API
   const togglePlayExternal = useCallback(() => {
@@ -672,10 +678,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           {isExternal && isYouTube ? (
             <>
               <div className="absolute inset-0 yt-wrapper" />
-              {/* Transparent overlay to prevent direct iframe interaction and URL copying */}
+              {/* Transparent overlay: click-to-play when paused; when playing, pointer-events none so video keeps playing and controls work */}
               <div 
-                className="absolute inset-0 z-10 cursor-pointer"
-                onClick={() => togglePlayExternal()}
+                className={`absolute inset-0 z-10 ${isPlaying ? 'pointer-events-none' : 'cursor-pointer'}`}
+                onClick={() => !isPlaying && togglePlayExternal()}
                 onContextMenu={handleContextMenu}
                 style={{ background: 'transparent' }}
               />

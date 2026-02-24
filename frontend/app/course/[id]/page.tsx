@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { buildApiUrl } from '../../../utils/api';
 
 // YouTube Player API types
@@ -699,7 +699,7 @@ export default function CourseDetail() {
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
-      
+
       const response = await fetch(`/api/progress/${courseId}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -718,10 +718,13 @@ export default function CourseDetail() {
     }
   };
 
-  // Function to refresh progress after content completion
-  const refreshProgress = async () => {
-    await fetchCourseProgress();
-  };
+  const fetchCourseProgressRef = useRef(fetchCourseProgress);
+  fetchCourseProgressRef.current = fetchCourseProgress;
+
+  // Stable callback so video player doesn't re-init on every progress update (stops video from pausing)
+  const refreshProgress = useCallback(async () => {
+    await fetchCourseProgressRef.current();
+  }, []);
 
   const fetchCourseDetails = async () => {
     try {
