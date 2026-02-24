@@ -11,6 +11,7 @@ const Withdrawal = require('../models/Withdrawal');
 const BalanceTransaction = require('../models/BalanceTransaction');
 const NotificationTracking = require('../models/NotificationTracking');
 const notificationService = require('../services/notificationService');
+const referralService = require('../services/referralService');
 const { body, validationResult } = require('express-validator');
 
 const router = express.Router();
@@ -209,7 +210,7 @@ router.get('/users/:id/referrals', async (req, res) => {
 });
 
 // @route   GET /api/admin/users/:id/referral-tree
-// @desc    Get user's complete referral tree (admin only)
+// @desc    Get user's complete referral tree & rank stats (admin only)
 // @access  Private (Admin)
 router.get('/users/:id/referral-tree', async (req, res) => {
   try {
@@ -218,46 +219,13 @@ router.get('/users/:id/referral-tree', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Recursive function to build referral tree
-    async function buildReferralTree(userCode, level = 0, maxLevel = 5) {
-      if (level >= maxLevel) return []; // Prevent infinite recursion
-      
-      const directReferrals = await User.find({ 
-        parentReferralCode: userCode 
-      })
-        .select('firstName lastName email referralCode isActive isVerified balance createdAt')
-        .sort({ createdAt: -1 })
-        .lean();
+    // Use shared referralService so admin sees the same rank / progress logic as users
+    const treeData = await referralService.getReferralTree(user._id);
 
-      const referralsWithChildren = await Promise.all(
-        directReferrals.map(async (referral) => {
-          const children = await buildReferralTree(referral.referralCode, level + 1, maxLevel);
-          return {
-            ...referral,
-            level: level + 1,
-            children,
-            childrenCount: children.length,
-            totalDescendants: children.reduce((sum, child) => sum + child.totalDescendants + 1, children.length)
-          };
-        })
-      );
-
-      return referralsWithChildren;
-    }
-
-    const tree = await buildReferralTree(user.referralCode);
-    
-    // Calculate stats
-    const stats = {
-      totalReferrals: tree.length,
-      totalDescendants: tree.reduce((sum, child) => sum + child.totalDescendants + 1, tree.length),
-      activeReferrals: tree.filter(r => r.isActive).length,
-      verifiedReferrals: tree.filter(r => r.isVerified).length
-    };
-
+    // Keep backward-compatible shape expected by admin UI, but include full stats (with rank)
     res.json({
-      tree,
-      stats,
+      tree: treeData.tree || [],
+      stats: treeData.stats || {},
       rootUser: {
         _id: user._id,
         firstName: user.firstName,

@@ -7,7 +7,7 @@ import {
   DollarSign, CreditCard, Users, Package, TrendingUp, 
   Wallet, ArrowUpRight, CheckCircle, Clock, AlertCircle,
   Shield, Activity, Loader2, Plus, Minus, Gift, History,
-  MailX
+  MailX, Sparkles, Target
 } from 'lucide-react';
 import EmailHistory from './EmailHistory';
 import { User } from './types';
@@ -728,24 +728,113 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
 
               {activeTab === 'referrals' && (
                 <div className="space-y-6">
-                  {/* Referral Stats */}
+                  {/* Referral Rank & Stats */}
                   {details.referralTree && details.referralTree.stats && (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
-                        <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-1">TOTAL NETWORK</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{details.referralTree.stats.totalDescendants}</p>
-                      </div>
-                      <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
-                        <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">DIRECT REFERRALS</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{details.referralTree.stats.totalReferrals}</p>
-                      </div>
-                      <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
-                        <p className="text-xs text-green-600 dark:text-green-400 font-medium mb-1">ACTIVE</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{details.referralTree.stats.activeReferrals}</p>
-                      </div>
-                      <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
-                        <p className="text-xs text-orange-600 dark:text-orange-400 font-medium mb-1">VERIFIED</p>
-                        <p className="text-2xl font-bold text-gray-900 dark:text-white">{details.referralTree.stats.verifiedReferrals}</p>
+                    <div className="space-y-4">
+                      {/* Rank card */}
+                      {details.referralTree.stats.rank && (
+                        <div className="bg-white dark:bg-gray-900/70 rounded-lg border border-gray-200 dark:border-gray-700 p-4 shadow-sm">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div className="flex items-center gap-2">
+                              <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                                <Sparkles className="w-4 h-4 text-white" />
+                              </div>
+                              <div>
+                                <p className="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wide">Referral Rank</p>
+                                <p className="font-semibold text-gray-900 dark:text-white">
+                                  {details.referralTree.stats.rank.current?.name || 'Getting Started'}
+                                </p>
+                                {details.referralTree.stats.rank.current?.description && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    {details.referralTree.stats.rank.current.description}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                            {details.referralTree.stats.rank.next && (
+                              <div className="text-xs text-right text-gray-600 dark:text-gray-300 space-y-0.5">
+                                <p className="font-medium">
+                                  Next: {details.referralTree.stats.rank.next.name}
+                                </p>
+                                <p>
+                                  {(details.referralTree.stats.directVerifiedReferrals ?? 0)} /{' '}
+                                  {details.referralTree.stats.rank.next.minDirects ?? 0} verified directs
+                                </p>
+                                <p>
+                                  {(details.referralTree.stats.totalReferrals || 0)} /{' '}
+                                  {details.referralTree.stats.rank.next.minReferrals ?? 0} total team
+                                </p>
+                              </div>
+                            )}
+                          </div>
+
+                          {details.referralTree.stats.rank.next && (
+                            <div className="mt-3 space-y-1">
+                              <div className="h-2 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                                <div
+                                  className="h-full bg-gradient-to-r from-blue-500 to-purple-600"
+                                  style={{
+                                    width: `${Math.min(
+                                      100,
+                                      Math.max(
+                                        0,
+                                        (details.referralTree.stats.rank.progressToNext ?? 0) * 100
+                                      )
+                                    )}%`
+                                  }}
+                                />
+                              </div>
+                              <p className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
+                                <Target className="w-3 h-3" />
+                                Need{' '}
+                                <span className="font-semibold text-gray-900 dark:text-white">
+                                  {Math.max(
+                                    0,
+                                    (details.referralTree.stats.rank.next?.minDirects ?? 0) -
+                                      (details.referralTree.stats.directVerifiedReferrals ?? 0)
+                                  )}
+                                </span>{' '}
+                                more verified directs and{' '}
+                                <span className="font-semibold text-gray-900 dark:text-white">
+                                  {Math.max(
+                                    0,
+                                    (details.referralTree.stats.rank.next?.minReferrals ?? 0) -
+                                      (details.referralTree.stats.totalReferrals || 0)
+                                  )}
+                                </span>{' '}
+                                more total to reach {details.referralTree.stats.rank.next?.name}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Basic stats */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-4 border border-purple-200 dark:border-purple-800">
+                          <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mb-1">TOTAL TEAM</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {details.referralTree.stats.totalReferrals ?? 0}
+                          </p>
+                        </div>
+                        <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-lg p-4 border border-blue-200 dark:border-blue-800">
+                          <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mb-1">DIRECT REFERRALS</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {details.referralTree.stats.directReferrals ?? details.referralTree.stats.totalReferrals ?? 0}
+                          </p>
+                        </div>
+                        <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-lg p-4 border border-green-200 dark:border-green-800">
+                          <p className="text-xs text-green-600 dark:text-green-400 font-medium mb-1">ACTIVE</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {details.referralTree.stats.activeReferrals ?? 0}
+                          </p>
+                        </div>
+                        <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-lg p-4 border border-orange-200 dark:border-orange-800">
+                          <p className="text-xs text-orange-600 dark:text-orange-400 font-medium mb-1">VERIFIED</p>
+                          <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                            {details.referralTree.stats.verifiedReferrals ?? 0}
+                          </p>
+                        </div>
                       </div>
                     </div>
                   )}
