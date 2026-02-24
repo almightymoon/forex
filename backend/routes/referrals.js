@@ -15,10 +15,6 @@ router.get('/code', authenticateToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Build full referral tree to get accurate, verification-aware stats
-    const treeData = await referralService.getReferralTree(req.user._id);
-    const treeStats = treeData?.stats || {};
-
     // Generate referral code if doesn't exist
     const referralCode = await referralService.generateReferralCode(user);
 
@@ -92,29 +88,11 @@ router.get('/stats', authenticateToken, async (req, res) => {
       level5Count: 0
     };
 
-    // Prefer tree-based stats (which know about verification + levels) for rank / counts,
-    // but fall back to stored referralStats if needed.
-    const totalReferrals =
-      typeof treeStats.totalReferrals === 'number' ? treeStats.totalReferrals : stats.totalReferrals || 0;
-    const verifiedReferrals =
-      typeof treeStats.verifiedReferrals === 'number'
-        ? treeStats.verifiedReferrals
-        : typeof stats.verifiedReferrals === 'number'
-          ? stats.verifiedReferrals
-          : 0;
+    const verifiedReferrals = typeof stats.verifiedReferrals === 'number' ? stats.verifiedReferrals : 0;
+    const totalReferrals = stats.totalReferrals || 0;
+    const directReferrals = stats.level1Count ?? stats.directReferrals ?? 0;
     const unverifiedReferrals = Math.max(0, totalReferrals - verifiedReferrals);
-
-    // Direct referrals (all level-1) are still useful for display,
-    // but ranking should use *verified* directs only.
-    const directReferrals =
-      typeof treeStats.directReferrals === 'number'
-        ? treeStats.directReferrals
-        : stats.level1Count ?? stats.directReferrals ?? 0;
-
-    const directVerifiedReferrals =
-      typeof treeStats.directVerifiedReferrals === 'number' ? treeStats.directVerifiedReferrals : 0;
-
-    const rank = referralService.getReferralRank(totalReferrals, directVerifiedReferrals);
+    const rank = referralService.getReferralRank(totalReferrals, directReferrals);
 
     // Total earnings: sum from BalanceTransaction (referralCommissionService flow) – source of truth
     const BalanceTransaction = require('../models/BalanceTransaction');
@@ -136,12 +114,9 @@ router.get('/stats', authenticateToken, async (req, res) => {
       success: true,
       data: {
         ...stats,
-        totalReferrals,
         totalEarnings,
         verifiedReferrals,
         unverifiedReferrals,
-        directReferrals,
-        directVerifiedReferrals,
         rank,
         pendingEarnings: pendingEarnings[0]?.total || 0,
         referralCode: user.referralCode
