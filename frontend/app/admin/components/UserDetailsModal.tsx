@@ -31,6 +31,13 @@ interface UserDetails {
       totalDescendants: number;
       activeReferrals: number;
       verifiedReferrals: number;
+      directReferrals?: number;
+      directVerifiedReferrals?: number;
+      rank?: {
+        current?: { name?: string; description?: string };
+        next?: { name?: string; minDirects?: number; minReferrals?: number };
+        progressToNext?: number;
+      };
     };
     rootUser: {
       _id: string;
