@@ -379,16 +379,26 @@ class ReferralService {
 
     const tree = await buildReferralTree(user.referralCode);
     const flat = this.flattenTree(tree);
+
     const totalReferrals = flat.length;
     const directReferrals = tree.length;
     const verifiedCount = flat.filter((n) => n.verified).length;
     const unverifiedCount = totalReferrals - verifiedCount;
-    const totalDescendants = tree.reduce((sum, child) => sum + (child.totalDescendants || 0) + 1, tree.length);
-    const rank = this.getReferralRank(totalReferrals, directReferrals);
+    const totalDescendants = tree.reduce(
+      (sum, child) => sum + (child.totalDescendants || 0) + 1,
+      tree.length
+    );
+
+    // Only count VERIFIED level-1 referrals (directs with a completed package)
+    const directVerifiedReferrals = tree.filter((child) => child.verified).length;
+
+    // Rank progression should be based on VERIFIED directs only
+    const rank = this.getReferralRank(totalReferrals, directVerifiedReferrals);
 
     const stats = {
       totalReferrals,
       directReferrals,
+      directVerifiedReferrals,
       totalDescendants,
       activeReferrals: flat.filter((r) => r.isActive).length,
       verifiedReferrals: verifiedCount,

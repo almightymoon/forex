@@ -44,7 +44,10 @@ interface ReferralStats {
   unverifiedReferrals?: number;
   rank?: ReferralRank;
   level1Count: number;
+   /** All level-1 referrals, regardless of verification */
   directReferrals?: number;
+   /** Level-1 referrals who have purchased a package (used for rank / progress) */
+  directVerifiedReferrals?: number;
   level2Count: number;
   level3Count: number;
   level4Count: number;
@@ -792,7 +795,8 @@ export default function ReferralsPage() {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600 dark:text-gray-400">Progress to {stats.rank.next.name}</span>
                         <span className="font-medium text-gray-900 dark:text-white">
-                          {(stats?.level1Count ?? stats?.directReferrals ?? 0)} / {stats.rank.next.minDirects ?? 0} directs · {stats?.totalReferrals || 0} / {stats.rank.next.minReferrals} total
+                          {(stats?.directVerifiedReferrals ?? 0)} / {stats.rank.next.minDirects ?? 0} verified directs ·{' '}
+                          {stats?.totalReferrals || 0} / {stats.rank.next.minReferrals} total
                         </span>
                       </div>
                       <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -808,9 +812,12 @@ export default function ReferralsPage() {
                         <Target className="w-4 h-4 inline mr-1" />
                         Need{' '}
                         <strong className="text-gray-900 dark:text-white">
-                          {Math.max(0, (stats.rank.next?.minDirects ?? 0) - (stats?.level1Count ?? stats?.directReferrals ?? 0))}
+                          {Math.max(
+                            0,
+                            (stats.rank.next?.minDirects ?? 0) - (stats?.directVerifiedReferrals ?? 0)
+                          )}
                         </strong>{' '}
-                        more directs and{' '}
+                        more verified directs and{' '}
                         <strong className="text-gray-900 dark:text-white">
                           {Math.max(0, (stats.rank.next?.minReferrals ?? 0) - (stats?.totalReferrals || 0))}
                         </strong>{' '}
