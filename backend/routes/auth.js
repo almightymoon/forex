@@ -578,12 +578,14 @@ router.post('/forgot-password', [
 
     const { email } = req.body;
 
+    let emailSent = false;
+
     // Check if user exists
     const user = await User.findByEmail(email);
     if (!user) {
-      // Don't reveal if user exists or not
-      return res.json({
-        message: 'If an account with that email exists, a password reset link has been sent'
+      return res.status(404).json({
+        error: 'Email not registered',
+        message: 'This email is not registered. Please sign up first.'
       });
     }
 
@@ -605,7 +607,7 @@ router.post('/forgot-password', [
         expiryTime: '1 hour'
       });
 
-      const emailSent = await notificationService.sendEmail({
+      emailSent = await notificationService.sendEmail({
         to: user.email,
         subject: 'Password Reset Request - Forex Navigators',
         html: emailTemplate,
@@ -616,17 +618,24 @@ router.post('/forgot-password', [
 
       if (!emailSent) {
         console.error('Failed to send password reset email to:', user.email);
-        // Still return success to user (security best practice - don't reveal if email was sent)
+        return res.status(503).json({
+          error: 'Email service unavailable',
+          message: 'We could not send the reset email right now. Please try again later.'
+        });
       }
     } catch (emailError) {
       console.error('Error sending password reset email:', emailError);
-      // Still return success to user (security best practice)
+      return res.status(503).json({
+        error: 'Email service unavailable',
+        message: 'We could not send the reset email right now. Please try again later.'
+      });
     }
 
     res.json({
-      message: 'If an account with that email exists, a password reset link has been sent',
+      message: 'Password reset link sent',
       // Only include token in development for testing
-      resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined
+      resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined,
+      ...(process.env.NODE_ENV === 'development' ? { exists: true, emailSent } : {})
     });
 
   } catch (error) {
@@ -644,7 +653,7 @@ router.post('/forgot-password', [
 router.post('/reset-password', [
   body('token').notEmpty().withMessage('Reset token is required'),
   body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters long')
-], async (req, res) => {
+], passwordPolicyMiddleware, async (req, res) => {
   try {
     // Check validation errors
     const errors = validationResult(req);
