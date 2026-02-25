@@ -968,7 +968,7 @@ export default function Dashboard() {
               {user?.role === 'student' && (
                 <div className="flex items-center gap-2 shrink-0">
                   <a
-                    href="https://t.me/+mYQxlxyXsmhjZWU0"
+                    href="https://t.me/+p7P6zC16xJk3ZmJk"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-[#0088cc]/10 dark:bg-[#0088cc]/20 text-[#0088cc] dark:text-[#54a9eb] hover:bg-[#0088cc]/20 dark:hover:bg-[#0088cc]/30 transition-colors text-sm font-medium"

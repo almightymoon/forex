@@ -696,7 +696,7 @@ export default function Community() {
 
         {/* Join Telegram - Navigators Fighters */}
         <a
-          href="https://t.me/+mYQxlxyXsmhjZWU0"
+          href="https://t.me/+p7P6zC16xJk3ZmJk"
           target="_blank"
           rel="noopener noreferrer"
           className="mx-4 mt-4 flex items-center gap-3 rounded-xl border border-[#0088cc]/30 bg-[#0088cc]/10 p-3 text-[#0088cc] dark:border-[#54a9eb]/30 dark:bg-[#0088cc]/20 dark:text-[#54a9eb] hover:bg-[#0088cc]/20 dark:hover:bg-[#0088cc]/30 transition-colors"
