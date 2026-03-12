@@ -9,7 +9,7 @@ import {
   Calendar, MessageSquare, Search, CreditCard, Globe, 
   Lock, Bell, Smartphone, Server, Database, Key, Zap,
   Save, RotateCcw, Palette, Monitor, Languages, MapPin,
-  RefreshCw, AlertCircle, Share2
+  RefreshCw, AlertCircle, Share2, Package
 } from 'lucide-react';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../components/Toast';
@@ -22,6 +22,7 @@ import UserManagement from './UserManagement';
 import PaymentManagement from './PaymentManagement';
 import CommissionManagement from './CommissionManagement';
 import PromoCodeManagement from './PromoCodeManagement';
+import ProductManagement from './ProductManagement';
 import Analytics from './Analytics';
 import Settings from './Settings';
 import Notifications from './Notifications';
@@ -782,6 +783,7 @@ export default function AdminDashboard() {
               { id: 'commissions', label: 'Commissions', icon: Share2 },
               { id: 'analytics', label: 'Analytics', icon: TrendingUp },
               { id: 'promocodes', label: 'Promo Codes', icon: Target },
+              { id: 'products', label: 'Products', icon: Package },
               { id: 'notifications', label: 'Notifications', icon: Mail },
               { id: 'settings', label: 'Settings', icon: SettingsIcon }
             ].map((tab) => {
@@ -842,6 +844,10 @@ export default function AdminDashboard() {
             onPromoCodeUpdate={handlePromoCodeUpdate}
             onPromoCodeDelete={handlePromoCodeDelete}
           />
+        )}
+
+        {activeTab === 'products' && (
+          <ProductManagement />
         )}
 
         {activeTab === 'notifications' && (

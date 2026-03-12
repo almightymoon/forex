@@ -341,7 +341,7 @@ export default function PaymentManagement({
         setShowWithdrawalModal(false);
         if (onRefresh) onRefresh();
       } else {
-        showToast(data.message || 'Failed to reject withdrawal', 'error');
+        showToast(data.error || data.message || 'Failed to reject withdrawal', 'error');
       }
     } catch (error) {
       console.error('Reject withdrawal error:', error);
@@ -1313,10 +1313,12 @@ export default function PaymentManagement({
                     <textarea
                       value={rejectionReason}
                       onChange={(e) => setRejectionReason(e.target.value)}
-                      placeholder="Enter reason if rejecting this withdrawal"
-                      rows={2}
+                      placeholder="Enter reason if rejecting this withdrawal (max 2000 characters)"
+                      rows={4}
+                      maxLength={2000}
                       className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
+                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{rejectionReason.length}/2000 characters</p>
                   </div>
 
                   <div className="flex gap-3">

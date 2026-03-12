@@ -13,8 +13,12 @@ const NotificationTracking = require('../models/NotificationTracking');
 const notificationService = require('../services/notificationService');
 const referralService = require('../services/referralService');
 const { body, validationResult } = require('express-validator');
+const adminProductsRouter = require('./adminProducts');
 
 const router = express.Router();
+
+// Mount admin products (CRUD + image upload)
+router.use('/products', adminProductsRouter);
 
 // Apply admin middleware to all routes
 router.use(authenticateToken, requireAdmin);
@@ -1314,6 +1318,12 @@ router.post('/withdrawals/:id/reject', [
 
   } catch (error) {
     console.error('Reject withdrawal error:', error);
+    if (error.name === 'ValidationError' && error.errors?.rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        error: error.errors.rejectionReason.message || 'Rejection reason cannot exceed 2000 characters'
+      });
+    }
     res.status(500).json({ 
       success: false,
       error: error.message || 'Failed to reject withdrawal' 
