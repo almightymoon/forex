@@ -168,7 +168,28 @@ console.error = (...args) => {
 };
 
 // Database connection
-const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/forex-lms';
+function buildMongoUri() {
+  const raw = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/forex-lms';
+  const dbName = (process.env.DB_NAME || '').trim();
+
+  if (!dbName) return raw;
+
+  // If the URI already includes a DB path, keep it.
+  // If it doesn't (e.g. ends with .net/ or has only "/"), inject DB_NAME.
+  try {
+    const u = new URL(raw);
+    const hasDbPath = u.pathname && u.pathname !== '/' && u.pathname.trim().length > 1;
+    if (hasDbPath) return raw;
+
+    u.pathname = `/${encodeURIComponent(dbName)}`;
+    return u.toString();
+  } catch {
+    // If URL parsing fails, fall back to raw.
+    return raw;
+  }
+}
+
+const mongoUri = buildMongoUri();
 mongoose.connect(mongoUri)
   .then(() => console.log(`Connected to MongoDB: ${mongoUri}`))
   .catch(err => console.error('MongoDB connection error:', err));
