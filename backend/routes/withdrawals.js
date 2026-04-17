@@ -2,6 +2,8 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const Withdrawal = require('../models/Withdrawal');
 const User = require('../models/User');
+const mongoose = require('mongoose');
+const BalanceTransaction = require('../models/BalanceTransaction');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const notificationService = require('../services/notificationService');
 
@@ -33,35 +35,53 @@ router.post('/request', [
       });
     }
 
-    // Get user with balance
-    const user = await User.findById(req.user._id);
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
-    }
+    const session = await mongoose.startSession();
+    let withdrawal;
+    let user;
 
-    // Check if user has sufficient balance
-    if (user.balance < amount) {
-      return res.status(400).json({ 
-        error: 'Insufficient balance',
-        message: `Your balance is $${user.balance.toFixed(2)}. You cannot withdraw $${amount.toFixed(2)}`
-      });
-    }
+    await session.withTransaction(async () => {
+      // Get user with balance (inside txn)
+      user = await User.findById(req.user._id).session(session);
+      if (!user) {
+        throw Object.assign(new Error('User not found'), { statusCode: 404 });
+      }
 
-    // Create withdrawal request
-    const withdrawal = new Withdrawal({
-      user: req.user._id,
-      amount,
-      currency: 'USDT',
-      walletAddress,
-      network,
-      status: 'pending'
+      // Check if user has sufficient balance
+      if ((user.balance || 0) < amount) {
+        throw Object.assign(new Error('Insufficient balance'), { statusCode: 400, code: 'INSUFFICIENT_BALANCE', balance: user.balance || 0 });
+      }
+
+      // Create withdrawal request
+      withdrawal = await Withdrawal.create([{
+        user: req.user._id,
+        amount,
+        currency: 'USDT',
+        walletAddress,
+        network,
+        status: 'pending'
+      }], { session }).then((docs) => docs[0]);
+
+      // Deduct balance atomically + record transaction
+      const balanceBefore = user.balance || 0;
+      const balanceAfter = balanceBefore - amount;
+      user.balance = balanceAfter;
+      await user.save({ session });
+
+      await BalanceTransaction.create([{
+        user: user._id,
+        type: 'withdrawal',
+        amount: -amount,
+        balanceBefore,
+        balanceAfter,
+        description: 'Withdrawal requested',
+        relatedWithdrawal: withdrawal._id,
+        metadata: new Map([
+          ['network', String(network)],
+          ['walletAddress', String(walletAddress)]
+        ])
+      }], { session });
     });
-
-    await withdrawal.save();
-
-    // Deduct balance immediately (will be refunded if rejected)
-    user.balance -= amount;
-    await user.save();
+    session.endSession();
 
     // Send notification to all admins
     const admins = await User.find({ role: 'admin' });
@@ -94,9 +114,18 @@ router.post('/request', [
 
   } catch (error) {
     console.error('Create withdrawal request error:', error);
-    res.status(500).json({ 
+    if (error && error.statusCode === 404) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    if (error && error.statusCode === 400 && error.code === 'INSUFFICIENT_BALANCE') {
+      return res.status(400).json({
+        error: 'Insufficient balance',
+        message: `Your balance is $${Number(error.balance || 0).toFixed(2)}. You cannot withdraw $${amount.toFixed(2)}`
+      });
+    }
+    res.status(500).json({
       success: false,
-      error: error.message || 'Failed to create withdrawal request' 
+      error: error.message || 'Failed to create withdrawal request'
     });
   }
 });
@@ -238,11 +267,23 @@ router.post('/:id/reject', [
     // Reject withdrawal
     await withdrawal.reject(req.user._id, reason);
 
-    // Refund balance to user
+    // Refund balance to user and record transaction
     const user = await User.findById(withdrawal.user._id);
     if (user) {
-      user.balance += withdrawal.amount;
+      const balanceBefore = user.balance || 0;
+      const balanceAfter = balanceBefore + withdrawal.amount;
+      user.balance = balanceAfter;
       await user.save();
+      await BalanceTransaction.createTransaction({
+        user: user._id,
+        type: 'adjustment',
+        amount: withdrawal.amount,
+        description: 'Withdrawal refunded (rejected)',
+        performedBy: req.user._id,
+        relatedWithdrawal: withdrawal._id,
+        notes: reason,
+        metadata: new Map([['status', 'rejected']])
+      });
     }
 
     // Send notification to user
@@ -283,8 +324,19 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     if (withdrawal.status === 'pending') {
       const user = await User.findById(withdrawal.user._id);
       if (user) {
-        user.balance += withdrawal.amount;
+        const balanceBefore = user.balance || 0;
+        user.balance = balanceBefore + withdrawal.amount;
         await user.save();
+        await BalanceTransaction.createTransaction({
+          user: user._id,
+          type: 'adjustment',
+          amount: withdrawal.amount,
+          description: 'Withdrawal refunded (admin deleted pending request)',
+          performedBy: req.user._id,
+          relatedWithdrawal: withdrawal._id,
+          notes: 'Pending withdrawal deleted by admin',
+          metadata: new Map([['status', 'deleted']])
+        });
         console.log(`[Delete Withdrawal] Refunded $${withdrawal.amount} to user ${user.email}`);
       }
     }
@@ -326,11 +378,21 @@ router.post('/:id/cancel', authenticateToken, async (req, res) => {
     // Cancel withdrawal
     await withdrawal.cancel();
 
-    // Refund balance to user
+    // Refund balance to user and record transaction
     const user = await User.findById(req.user._id);
     if (user) {
-      user.balance += withdrawal.amount;
+      const balanceBefore = user.balance || 0;
+      user.balance = balanceBefore + withdrawal.amount;
       await user.save();
+      await BalanceTransaction.createTransaction({
+        user: user._id,
+        type: 'adjustment',
+        amount: withdrawal.amount,
+        description: 'Withdrawal refunded (cancelled by user)',
+        relatedWithdrawal: withdrawal._id,
+        notes: 'User cancelled pending withdrawal',
+        metadata: new Map([['status', 'cancelled']])
+      });
     }
 
     res.json({

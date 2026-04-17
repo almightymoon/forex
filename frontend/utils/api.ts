@@ -86,7 +86,7 @@ export const apiRequest = async (
     }
     
     // Check cache for GET requests
-    if (useCache && options.method === 'GET' || !options.method) {
+    if (useCache && (options.method === 'GET' || !options.method)) {
       const cacheKey = `${endpoint}:${token || 'no-token'}`;
       const cached = cache.get(cacheKey);
       if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {

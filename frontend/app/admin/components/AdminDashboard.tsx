@@ -16,6 +16,7 @@ import { useToast } from '../../../components/Toast';
 import { useAdmin } from '../../../context/AdminContext';
 import { useSessionTimeout } from '../../../hooks/useSessionTimeout';
 import { buildApiUrl } from '../../../utils/api';
+import { apiRequest } from '../../../utils/api';
 import { getDashboardRoute, getUserRole } from '../../../utils/dashboardUtils';
 import Overview from './Overview';
 import UserManagement from './UserManagement';
@@ -713,6 +714,82 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleClearUserData = async (confirmText: string) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(buildApiUrl('api/admin/reset-user-data'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ confirmText })
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || `HTTP ${response.status}: Failed to clear user data`);
+    }
+
+    // Clear local caches that could keep removed users hidden/ghosted
+    try {
+      localStorage.removeItem('deletedUserIds');
+    } catch {}
+
+    // Bust course cache (public list) and notify other dashboards.
+    try {
+      await fetch(`/api/courses?bust=${Date.now()}`);
+    } catch {}
+    try {
+      window.dispatchEvent(new CustomEvent('platform:dataChanged', { detail: { type: 'reset' } }));
+    } catch {}
+
+    await refreshData();
+    showToast('User data cleared. Settings preserved.', 'success');
+  };
+
+  const handleDownloadCoursesBackup = async () => {
+    const response = await apiRequest('api/admin/backup/courses', { method: 'GET' }, false);
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || `HTTP ${response.status}: Failed to download backup`);
+    }
+    const json = await response.json();
+    const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `courses-backup-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('Courses backup downloaded.', 'success');
+  };
+
+  const handleRestoreCoursesBackup = async (backup: any, confirmText: string) => {
+    const response = await apiRequest(
+      'api/admin/restore/courses',
+      { method: 'POST', body: JSON.stringify({ confirmText, backup }) },
+      false
+    );
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || `HTTP ${response.status}: Failed to restore courses`);
+    }
+    // Bust the Next.js /api/courses in-memory cache so restored courses appear immediately.
+    try {
+      await fetch(`/api/courses?bust=${Date.now()}`);
+    } catch {}
+
+    // Notify any open pages (teacher dashboard, etc.) to refetch without requiring a full reload.
+    try {
+      window.dispatchEvent(new CustomEvent('platform:dataChanged', { detail: { type: 'courses' } }));
+    } catch {}
+
+    await refreshData();
+    showToast('Courses restored successfully.', 'success');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
@@ -875,6 +952,9 @@ export default function AdminDashboard() {
             settingsSaved={settingsSaved}
             onTestEmailConfig={handleTestEmailConfig}
             testingEmailConfig={testingEmailConfig}
+            onClearUserData={handleClearUserData}
+            onDownloadCoursesBackup={handleDownloadCoursesBackup}
+            onRestoreCoursesBackup={handleRestoreCoursesBackup}
           />
                 )}
       </div>

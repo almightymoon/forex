@@ -8,6 +8,7 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const PaymentProcessor = require('../services/paymentProcessor');
 const Package = require('../models/Package');
 const { uploadImage } = require('../config/cloudinary');
+const { logActivity } = require('../services/activityLogService');
 
 const router = express.Router();
 
@@ -164,6 +165,21 @@ router.post('/create', [
     });
 
     await payment.save();
+
+    await logActivity({
+      req,
+      actor: { userId: req.user._id, email: req.user.email, role: req.user.role },
+      action: 'payment.created',
+      entity: { type: 'payment', id: payment._id, label: `payment:${payment._id}` },
+      metadata: {
+        type: payment.type,
+        status: payment.status,
+        packageName,
+        finalAmount,
+        userId: req.user._id?.toString?.() || req.user._id,
+        userEmail: req.user.email
+      }
+    });
 
     // Send notification to admins
     try {
@@ -788,6 +804,22 @@ router.post('/admin/confirm', [
       user.isVerified = true;
       await user.save();
     }
+
+    await logActivity({
+      req,
+      actor: { userId: req.user._id, email: req.user.email, role: req.user.role },
+      action: 'payment.confirmed',
+      entity: { type: 'payment', id: payment._id, label: `payment:${payment._id}` },
+      metadata: {
+        type: payment.type,
+        packageName: payment.package?.name,
+        amount: payment.amount,
+        finalAmount: payment.finalAmount,
+        userId: (payment.user && payment.user._id ? payment.user._id.toString() : (payment.user?._id || payment.user)) || undefined,
+        userEmail: user?.email || payment.user?.email,
+        confirmedUserId: payment.user?._id || payment.user
+      }
+    });
 
     // Automatically enroll user in all published courses when payment is confirmed
     if (payment.type === 'package' && user) {

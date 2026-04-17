@@ -74,6 +74,18 @@ export default function TeacherDashboard() {
       }
   }, []);
 
+  // Listen for admin restore/reset events so teacher UI updates without full refresh
+  useEffect(() => {
+    const handler = (event: any) => {
+      const t = event?.detail?.type;
+      if (t === 'courses' || t === 'reset') {
+        refreshData();
+      }
+    };
+    window.addEventListener('platform:dataChanged', handler as any);
+    return () => window.removeEventListener('platform:dataChanged', handler as any);
+  }, []);
+
   // Dynamic data fetching
   useEffect(() => {
     const fetchTeacherData = async () => {

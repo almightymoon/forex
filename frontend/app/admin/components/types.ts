@@ -16,7 +16,9 @@ export interface User {
   parentReferralCode?: string;
   referralCode?: string;
   hasPackage?: boolean;
+  hasPendingPackage?: boolean;
   hasReferral?: boolean;
+  accessStatus?: 'active' | 'pending' | 'inactive';
   createdAt: string;
   lastLogin?: string;
   security?: {

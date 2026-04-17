@@ -14,6 +14,7 @@ const TwoFactorAuthService = require('../services/twoFactorAuth');
 const notificationService = require('../services/notificationService');
 const referralService = require('../services/referralService');
 const cloudinary = require('../config/cloudinary');
+const { logActivity } = require('../services/activityLogService');
 // Stripe imports removed - payments disabled
 // const { stripe, createPaymentIntent } = require('../config/stripe');
 
@@ -199,6 +200,14 @@ router.post('/register', [
       await user.save();
     console.log(`✅ User ${email} created successfully in database`);
 
+    await logActivity({
+      req,
+      actor: { userId: user._id, email: user.email, role: user.role },
+      action: 'user.registered',
+      entity: { type: 'user', id: user._id, label: user.email },
+      metadata: { country: user.country }
+    });
+
     // Generate referral code for new user (non-blocking)
     try {
       await referralService.generateReferralCode(user);
@@ -379,12 +388,9 @@ router.post('/login', [
       req.loginSecurity.clearFailedAttempts();
     }
 
-    // Payment check disabled - users are auto-verified during registration
-    // If user is not verified, verify them automatically (for backward compatibility)
-    if (!user.isVerified) {
-      user.isVerified = true;
-      await user.save();
-    }
+    // Do NOT auto-verify on login.
+    // Users without an approved package purchase should remain unverified/pending,
+    // and should not appear as "active" in referral trees/admin status.
 
     // Check if 2FA is required
     if (TwoFactorAuthService.requiresTwoFactor(user)) {
@@ -413,6 +419,13 @@ router.post('/login', [
 
     // Generate token with session timeout and role
     const token = await generateTokenWithTimeout(user._id, user.role);
+
+    await logActivity({
+      req,
+      actor: { userId: user._id, email: user.email, role: user.role },
+      action: 'user.login',
+      entity: { type: 'user', id: user._id, label: user.email }
+    });
 
     res.json({
       message: 'Login successful',

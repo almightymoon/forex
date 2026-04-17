@@ -201,9 +201,15 @@ export default function UserManagement({
       email.includes(searchLower);
     
     const matchesRole = filterRole === 'all' || user.role === filterRole;
+    const effectiveStatus =
+      user.accessStatus ||
+      // fallback for older backend responses
+      (user.isActive ? 'active' : 'inactive');
+
     const matchesStatus = filterStatus === 'all' || 
-      (filterStatus === 'active' && user.isActive) ||
-      (filterStatus === 'inactive' && !user.isActive) ||
+      (filterStatus === 'active' && effectiveStatus === 'active') ||
+      (filterStatus === 'pending' && effectiveStatus === 'pending') ||
+      (filterStatus === 'inactive' && effectiveStatus === 'inactive') ||
       (filterStatus === 'locked' && isUserLocked(user));
 
     if (!filterNoPackageNoReferral) {
@@ -307,6 +313,7 @@ export default function UserManagement({
                   >
                     <option value="all">All Status</option>
                     <option value="active">Active</option>
+                    <option value="pending">Pending (package)</option>
                     <option value="inactive">Inactive</option>
                     <option value="locked">Locked (login)</option>
                   </select>
@@ -379,11 +386,24 @@ export default function UserManagement({
                   </td>
                   <td className="py-4 px-4">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                        user.isActive ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
-                      }`}>
-                        {user.isActive ? 'Active' : 'Inactive'}
-                      </span>
+                      {(() => {
+                        const status = user.accessStatus || (user.isActive ? 'active' : 'inactive');
+                        const cls =
+                          status === 'active'
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+                            : status === 'pending'
+                              ? 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400'
+                              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400';
+                        const label =
+                          status === 'active' ? 'Active'
+                          : status === 'pending' ? 'Pending'
+                          : 'Inactive';
+                        return (
+                          <span className={`px-3 py-1 rounded-full text-xs font-medium ${cls}`}>
+                            {label}
+                          </span>
+                        );
+                      })()}
                       {isUserLocked(user) && (
                         <span className="px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 flex items-center gap-1" title="Locked due to failed login attempts">
                           <Lock className="w-3 h-3" />

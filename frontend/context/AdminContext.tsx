@@ -144,8 +144,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const fetchAdminData = async (token: string) => {
+  const fetchAdminData = async (token: string, options?: { useCache?: boolean }) => {
     try {
+      const useCache = options?.useCache !== false;
       const endpoints = [
         'api/admin/users',
         'api/admin/payments',
@@ -158,7 +159,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       ];
       
       const responses = await Promise.allSettled(
-        endpoints.map(endpoint => apiRequest(endpoint))
+        endpoints.map(endpoint => apiRequest(endpoint, {}, useCache))
       );
       
       const [usersRes, paymentsRes, withdrawalsRes, analyticsRes, promoCodesRes, packagesRes, settingsRes, notificationRes] = responses;
@@ -276,7 +277,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
       // Fetch fresh data
       console.log('AdminContext - Fetching fresh admin data...');
-      const { users, payments, withdrawals, analytics, promoCodes, packages, settings, notificationCount } = await fetchAdminData(token);
+      const { users, payments, withdrawals, analytics, promoCodes, packages, settings, notificationCount } = await fetchAdminData(token, { useCache: true });
 
       setData({
         user,
@@ -329,7 +330,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       // Always verify admin role on refresh
       const user = await checkAdminRole(token);
       
-      const { users, payments, withdrawals, analytics, promoCodes, packages, settings, notificationCount } = await fetchAdminData(token);
+      // Always bypass cache on manual/explicit refresh so UI updates immediately
+      const { users, payments, withdrawals, analytics, promoCodes, packages, settings, notificationCount } = await fetchAdminData(token, { useCache: false });
       
       setData(prev => ({
         ...prev,

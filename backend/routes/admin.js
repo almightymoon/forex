@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const { clearFailedAttemptsByEmail } = require('../middleware/loginSecurity');
 const User = require('../models/User');
@@ -17,6 +18,7 @@ const notificationService = require('../services/notificationService');
 const referralService = require('../services/referralService');
 const { body, validationResult } = require('express-validator');
 const adminProductsRouter = require('./adminProducts');
+const ActivityLog = require('../models/ActivityLog');
 
 const router = express.Router();
 
@@ -25,6 +27,72 @@ router.use('/products', adminProductsRouter);
 
 // Apply admin middleware to all routes
 router.use(authenticateToken, requireAdmin);
+
+// Auto-log admin mutations (best-effort)
+router.use(async (req, _res, next) => {
+  try {
+    const method = (req.method || 'GET').toUpperCase();
+    if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+      const actor = req.user
+        ? { userId: req.user._id, email: req.user.email, role: req.user.role }
+        : undefined;
+
+      await ActivityLog.create({
+        actor,
+        action: `admin.${method.toLowerCase()}`,
+        entity: { type: 'admin_route', label: req.path },
+        metadata: {
+          method,
+          path: req.path,
+          params: req.params,
+          query: req.query,
+          bodyKeys: req.body ? Object.keys(req.body) : []
+        },
+        ip: (req.headers['x-forwarded-for'] || req.ip || '').toString().split(',')[0].trim(),
+        userAgent: (req.headers['user-agent'] || '').toString()
+      });
+    }
+  } catch (e) {
+    // ignore
+  }
+  next();
+});
+
+// @route   GET /api/admin/activity-logs
+// @desc    List activity/audit logs (admin only)
+// @access  Private (Admin)
+// Query: limit (<=200), skip, action, entityType, actorEmail, q
+router.get('/activity-logs', async (req, res) => {
+  try {
+    const { limit = 50, skip = 0, action, entityType, actorEmail, q } = req.query;
+    const lim = Math.min(Math.max(parseInt(limit, 10) || 50, 1), 200);
+    const sk = Math.max(parseInt(skip, 10) || 0, 0);
+
+    const query = {};
+    if (action) query.action = action;
+    if (entityType) query['entity.type'] = entityType;
+    if (actorEmail) query['actor.email'] = actorEmail;
+    if (q) {
+      const rx = new RegExp(String(q).trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      query.$or = [
+        { action: rx },
+        { 'actor.email': rx },
+        { 'entity.type': rx },
+        { 'entity.label': rx }
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      ActivityLog.find(query).sort({ createdAt: -1 }).skip(sk).limit(lim).lean(),
+      ActivityLog.countDocuments(query)
+    ]);
+
+    res.json({ items, total });
+  } catch (error) {
+    console.error('Get activity logs error:', error);
+    res.status(500).json({ error: 'Failed to fetch activity logs' });
+  }
+});
 
 // @route   POST /api/admin/email-history/:id/resend
 // @desc    Resend a failed email (admin only)
@@ -116,15 +184,34 @@ router.get('/users', async (req, res) => {
     });
     const packageSet = new Set(packagePurchaserIds.map((id) => id.toString()));
 
+    // Compute "has initiated a package purchase" (pending)
+    const pendingPackagePurchaserIds = await Payment.distinct('user', {
+      status: 'pending',
+      type: 'package'
+    });
+    const pendingPackageSet = new Set(pendingPackagePurchaserIds.map((id) => id.toString()));
+
     const usersWithFlags = users.map((u) => {
       const id = u._id?.toString();
-      const hasPackage =
-        (id ? packageSet.has(id) : false) || (Array.isArray(u.badges) && u.badges.length > 0);
+      // Package ownership should be derived from completed package payments (source of truth).
+      // Do NOT infer from badges, since badges may exist for unrelated achievements.
+      const hasPackage = id ? packageSet.has(id) : false;
+      const hasPendingPackage = id ? pendingPackageSet.has(id) : false;
       const hasReferral = !!(u.parentReferralCode && String(u.parentReferralCode).trim().length > 0);
+
+      // Access status (package-driven):
+      // - active: has completed package payment (or admin/teacher)
+      // - pending: has a pending package payment but not completed
+      // - inactive: no package payment yet
+      const role = String(u.role || '').toLowerCase();
+      const privileged = role === 'admin' || role === 'teacher' || role === 'instructor';
+      const accessStatus = privileged ? 'active' : (hasPackage ? 'active' : (hasPendingPackage ? 'pending' : 'inactive'));
 
       return {
         ...u,
         hasPackage,
+        hasPendingPackage,
+        accessStatus,
         hasReferral
       };
     });
@@ -1220,6 +1307,259 @@ router.put('/settings', async (req, res) => {
   }
 });
 
+// @route   GET /api/admin/backup/courses
+// @desc    Download a backup JSON of all courses (admin only)
+// @access  Private (Admin)
+router.get('/backup/courses', async (_req, res) => {
+  try {
+    const courses = await Course.find({}).lean();
+    res.json({
+      type: 'courses_backup',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      courses
+    });
+  } catch (error) {
+    console.error('Courses backup error:', error);
+    res.status(500).json({ error: 'Failed to create courses backup' });
+  }
+});
+
+// @route   POST /api/admin/restore/courses
+// @desc    Restore courses from a previously downloaded backup (admin only)
+// @access  Private (Admin)
+router.post(
+  '/restore/courses',
+  [
+    body('confirmText').isString().trim().notEmpty().withMessage('confirmText is required'),
+    body('backup').isObject().withMessage('backup object is required')
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+      }
+
+      const confirmText = String(req.body.confirmText || '').trim().toUpperCase();
+      if (confirmText !== 'RESTORE') {
+        return res.status(400).json({ error: 'Confirmation text mismatch. Type RESTORE to continue.' });
+      }
+
+      const backup = req.body.backup || {};
+      if (backup.type !== 'courses_backup' || !Array.isArray(backup.courses)) {
+        return res.status(400).json({ error: 'Invalid backup file. Expected type courses_backup.' });
+      }
+
+      const ops = [];
+      for (const raw of backup.courses) {
+        if (!raw || !raw._id) continue;
+        const _id = mongoose.Types.ObjectId.isValid(raw._id)
+          ? new mongoose.Types.ObjectId(String(raw._id))
+          : null;
+        if (!_id) continue;
+
+        const doc = { ...raw };
+        delete doc.__v;
+        // Ensure _id is ObjectId
+        doc._id = _id;
+
+        ops.push({
+          replaceOne: {
+            filter: { _id },
+            replacement: doc,
+            upsert: true
+          }
+        });
+      }
+
+      if (ops.length === 0) {
+        return res.status(400).json({ error: 'Backup contained no valid courses to restore.' });
+      }
+
+      const result = await Course.collection.bulkWrite(ops, { ordered: false });
+
+      res.json({
+        success: true,
+        message: 'Courses restored successfully.',
+        result: {
+          inserted: result.insertedCount || 0,
+          upserted: result.upsertedCount || 0,
+          modified: result.modifiedCount || 0,
+          matched: result.matchedCount || 0
+        }
+      });
+    } catch (error) {
+      console.error('Courses restore error:', error);
+      res.status(500).json({ error: 'Failed to restore courses', message: error.message });
+    }
+  }
+);
+
+// @route   POST /api/admin/reset-user-data
+// @desc    Delete all user-generated data (keep settings/packages/admin+teacher users)
+// @access  Private (Admin)
+router.post(
+  '/reset-user-data',
+  [body('confirmText').isString().trim().notEmpty().withMessage('confirmText is required')],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+      }
+
+      const confirmText = String(req.body.confirmText || '').trim().toUpperCase();
+      if (confirmText !== 'RESET') {
+        return res.status(400).json({ error: 'Confirmation text mismatch. Type RESET to continue.' });
+      }
+
+      // Users to KEEP
+      const keepRoles = ['admin', 'teacher', 'instructor'];
+      const keepUsers = await User.find({ role: { $in: keepRoles } }).select('_id').lean();
+      const keepUserIds = new Set((keepUsers || []).map((u) => u._id.toString()));
+
+      // Models to wipe (history/user-generated)
+      const Referral = require('../models/Referral');
+      const ReferralCommission = require('../models/ReferralCommission');
+      const Notification = require('../models/Notification');
+      const CourseProgress = require('../models/CourseProgress');
+      const Certificate = require('../models/Certificate');
+      const StudentCertificateAssignment = require('../models/StudentCertificateAssignment');
+      const TeacherCertificate = require('../models/TeacherCertificate');
+      const LiveSession = require('../models/LiveSession');
+      const TeacherMessage = require('../models/TeacherMessage');
+      const Channel = require('../models/Channel');
+      const Message = require('../models/Message');
+      const MT5Account = require('../models/MT5Account');
+      const MT5Trade = require('../models/MT5Trade');
+      const Trade = require('../models/Trade');
+
+      // 1) Delete all non-privileged users
+      const deleteUsersResult = await User.deleteMany({ role: { $nin: keepRoles } });
+
+      // 2) Wipe transactional/history collections
+      const results = await Promise.all([
+        Payment.deleteMany({}),
+        Withdrawal.deleteMany({}),
+        BalanceTransaction.deleteMany({}),
+        Referral.deleteMany({}),
+        ReferralCommission.deleteMany({}),
+        Notification.deleteMany({}),
+        NotificationTracking.deleteMany({}),
+        ActivityLog.deleteMany({}),
+        CourseProgress.deleteMany({}),
+        Certificate.deleteMany({}),
+        StudentCertificateAssignment.deleteMany({}),
+        TeacherCertificate.deleteMany({}),
+        LiveSession.deleteMany({}),
+        TeacherMessage.deleteMany({}),
+        Channel.deleteMany({}),
+        Message.deleteMany({}),
+        MT5Account.deleteMany({}),
+        MT5Trade.deleteMany({}),
+        Trade.deleteMany({})
+      ]);
+
+      // 3) Clean enrollments/subscriptions on courses so remaining teacher/admin users don't carry stale enrollments
+      // Keep course content, just clear enrollment/progress style fields if present.
+      try {
+        await Course.updateMany(
+          {},
+          {
+            $set: {
+              enrolledStudents: [],
+              enrollmentRequests: []
+            }
+          },
+          { strict: false }
+        );
+      } catch (e) {
+        // best-effort; schema may not have these fields
+      }
+
+      // 4) Clear referral stats/codes on kept users (optional but helps a true clean restart)
+      const keepUserIdList = Array.from(keepUserIds);
+      if (keepUserIdList.length > 0) {
+        await User.updateMany(
+          { _id: { $in: keepUserIdList } },
+          {
+            $set: {
+              referralStats: {
+                totalReferrals: 0,
+                totalEarnings: 0,
+                verifiedReferrals: 0,
+                level1Count: 0,
+                level2Count: 0,
+                level3Count: 0,
+                level4Count: 0,
+                level5Count: 0
+              }
+            }
+          },
+          { strict: false }
+        );
+      }
+
+      const [
+        paymentsResult,
+        withdrawalsResult,
+        balanceTxResult,
+        referralsResult,
+        referralCommissionsResult,
+        notificationsResult,
+        notificationTrackingResult,
+        activityLogsResult,
+        courseProgressResult,
+        certificatesResult,
+        studentCertAssignResult,
+        teacherCertResult,
+        liveSessionsResult,
+        teacherMessagesResult,
+        channelsResult,
+        messagesResult,
+        mt5AccountsResult,
+        mt5TradesResult,
+        tradesResult
+      ] = results;
+
+      return res.json({
+        success: true,
+        message: 'User data cleared successfully. Settings/packages preserved.',
+        preserved: {
+          users: keepUserIdList.length,
+          roles: keepRoles
+        },
+        deleted: {
+          users: deleteUsersResult.deletedCount || 0,
+          payments: paymentsResult.deletedCount || 0,
+          withdrawals: withdrawalsResult.deletedCount || 0,
+          balanceTransactions: balanceTxResult.deletedCount || 0,
+          referrals: referralsResult.deletedCount || 0,
+          referralCommissions: referralCommissionsResult.deletedCount || 0,
+          notifications: notificationsResult.deletedCount || 0,
+          notificationTracking: notificationTrackingResult.deletedCount || 0,
+          activityLogs: activityLogsResult.deletedCount || 0,
+          courseProgress: courseProgressResult.deletedCount || 0,
+          certificates: certificatesResult.deletedCount || 0,
+          studentCertificateAssignments: studentCertAssignResult.deletedCount || 0,
+          teacherCertificates: teacherCertResult.deletedCount || 0,
+          liveSessions: liveSessionsResult.deletedCount || 0,
+          teacherMessages: teacherMessagesResult.deletedCount || 0,
+          channels: channelsResult.deletedCount || 0,
+          messages: messagesResult.deletedCount || 0,
+          mt5Accounts: mt5AccountsResult.deletedCount || 0,
+          mt5Trades: mt5TradesResult.deletedCount || 0,
+          trades: tradesResult.deletedCount || 0
+        }
+      });
+    } catch (error) {
+      console.error('Reset user data error:', error);
+      return res.status(500).json({ error: 'Failed to reset user data', message: error.message });
+    }
+  }
+);
+
 // @route   GET /api/admin/withdrawals
 // @desc    Get all withdrawal requests (admin only)
 // @access  Private (Admin)
@@ -1716,13 +2056,30 @@ router.get('/platform-commissions', async (req, res) => {
     
     const ReferralCommissionService = require('../services/referralCommissionService');
     const commissionService = new ReferralCommissionService();
+
+    // Pull current referral pool configuration from DB (admin Packages tab updates this).
+    const activePackages = await Package.find({ isActive: true })
+      .select('name referralPoolPercentage')
+      .lean();
+    const poolPctByName = new Map(
+      (activePackages || []).map((p) => [String(p.name), Number(p.referralPoolPercentage)])
+    );
+
+    const getPoolPct = (pkgNameRaw) => {
+      const normalized = commissionService.normalizePackageName(pkgNameRaw);
+      // Prefer DB-configured package percentage; fallback to 0 if missing.
+      const fromDb = poolPctByName.get(normalized);
+      if (typeof fromDb === 'number' && !Number.isNaN(fromDb)) return fromDb;
+      return 0;
+    };
     
     const platformCommissions = payments.map((payment) => {
       const pkgName = payment.package?.name || 'Unknown';
       const pkgAmount = payment.finalAmount || payment.amount || 0;
-      const referralPool = commissionService.getReferralPool(pkgName, pkgAmount);
-      const companyShare = commissionService.getCompanyShare(pkgName, pkgAmount);
-      const poolPct = (commissionService.packageReferralPools?.[commissionService.normalizePackageName(pkgName)] || 0) * 100;
+      const poolPct = getPoolPct(pkgName);
+      const referralPool = Math.round((pkgAmount * poolPct) * 100) / 100;
+      const companyShare = Math.round((pkgAmount * (1 - poolPct)) * 100) / 100;
+      const poolPctDisplay = poolPct * 100;
       
       return {
         _id: payment._id,
@@ -1732,8 +2089,8 @@ router.get('/platform-commissions', async (req, res) => {
         packageAmount: pkgAmount,
         referralPool,
         platformCommission: companyShare,
-        referralPoolPercentage: poolPct,
-        platformCommissionPercentage: 100 - poolPct,
+        referralPoolPercentage: poolPctDisplay,
+        platformCommissionPercentage: 100 - poolPctDisplay,
         createdAt: payment.createdAt,
         confirmedAt: payment.confirmedAt
       };
@@ -1751,8 +2108,9 @@ router.get('/platform-commissions', async (req, res) => {
     allCompleted.forEach((payment) => {
       const pkgName = payment.package?.name || 'Unknown';
       const pkgAmount = payment.finalAmount || payment.amount || 0;
-      const refPool = commissionService.getReferralPool(pkgName, pkgAmount);
-      const companyShare = commissionService.getCompanyShare(pkgName, pkgAmount);
+      const poolPct = getPoolPct(pkgName);
+      const refPool = Math.round((pkgAmount * poolPct) * 100) / 100;
+      const companyShare = Math.round((pkgAmount * (1 - poolPct)) * 100) / 100;
       
       totalPlatformCommission += companyShare;
       totalReferralPool += refPool;

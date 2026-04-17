@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Save, RotateCcw, Globe, Shield, Bell, CreditCard, Mail, 
@@ -18,6 +18,9 @@ interface SettingsProps {
   settingsSaved: boolean;
   onTestEmailConfig: () => Promise<void>;
   testingEmailConfig: boolean;
+  onClearUserData: (confirmText: string) => Promise<void>;
+  onDownloadCoursesBackup: () => Promise<void>;
+  onRestoreCoursesBackup: (backup: any, confirmText: string) => Promise<void>;
 }
 
 export default function Settings({ 
@@ -29,8 +32,22 @@ export default function Settings({
   settingsLoading,
   settingsSaved,
   onTestEmailConfig,
-  testingEmailConfig
+  testingEmailConfig,
+  onClearUserData,
+  onDownloadCoursesBackup,
+  onRestoreCoursesBackup
 }: SettingsProps) {
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [clearingData, setClearingData] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+
+  const [restoreConfirmText, setRestoreConfirmText] = useState('');
+  const [restoringCourses, setRestoringCourses] = useState(false);
+  const [restoreError, setRestoreError] = useState<string | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
+  const restoreFileInputRef = useRef<HTMLInputElement | null>(null);
+
   // Ensure settings object exists with default values
   const safeSettings = settings || {
     general: {
@@ -621,6 +638,209 @@ export default function Settings({
           </div>
         </div>
       </div>
+
+      {/* Danger Zone */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-red-200 dark:border-red-900/40 shadow-lg">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-red-600 rounded-xl flex items-center justify-center flex-shrink-0">
+              <AlertTriangle className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Danger zone</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                Clean reset the platform by deleting all user data and history.
+              </p>
+              <ul className="text-xs text-gray-500 dark:text-gray-400 mt-3 space-y-1 list-disc pl-4">
+                <li>Deletes users (keeps Admin/Teacher accounts)</li>
+                <li>Deletes payments, withdrawals, commissions, referrals, logs, notifications, progress, messages, trades</li>
+                <li>Keeps platform settings (SMTP etc.), packages, courses content</li>
+              </ul>
+            </div>
+          </div>
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={async () => {
+                setBackupError(null);
+                try {
+                  await onDownloadCoursesBackup();
+                } catch (err: any) {
+                  setBackupError(err?.message || 'Failed to download backup.');
+                }
+              }}
+              className="px-4 py-2.5 bg-gray-900 hover:bg-black text-white rounded-xl transition-colors flex items-center gap-2"
+              title="Download a JSON backup of all courses"
+            >
+              <Save className="w-4 h-4" />
+              Download courses backup
+            </button>
+            {backupError && (
+              <div className="px-4 py-3 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20">
+                <p className="text-xs text-red-700 dark:text-red-300">{backupError}</p>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => restoreFileInputRef.current?.click()}
+              className="px-4 py-2.5 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl transition-colors flex items-center gap-2 cursor-pointer border border-gray-200 dark:border-gray-600 hover:bg-gray-200 dark:hover:bg-gray-600"
+              title="Upload a JSON backup to restore courses"
+            >
+              <Server className="w-4 h-4" />
+              Restore courses backup
+            </button>
+            <input
+              ref={restoreFileInputRef}
+              type="file"
+              accept="application/json"
+              className="hidden"
+              onChange={async (e) => {
+                setRestoreError(null);
+                const inputEl = e.target as HTMLInputElement;
+                const file = inputEl.files?.[0];
+                if (!file) return;
+                try {
+                  setRestoringCourses(true);
+                  const text = await file.text();
+                  const backup = JSON.parse(text);
+                  const confirm = String(restoreConfirmText || '').trim().toUpperCase();
+                  if (confirm !== 'RESTORE') {
+                    setRestoreError('Type RESTORE in the box below before uploading.');
+                    return;
+                  }
+                  await onRestoreCoursesBackup(backup, 'RESTORE');
+                } catch (err: any) {
+                  setRestoreError(err?.message || 'Failed to restore backup.');
+                } finally {
+                  // Reset input safely (React may recycle the event object after awaits)
+                  try {
+                    inputEl.value = '';
+                  } catch {}
+                  setRestoringCourses(false);
+                }
+              }}
+            />
+
+            <div className="px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white/50 dark:bg-gray-900/20">
+              <p className="text-xs text-gray-600 dark:text-gray-300">
+                To restore courses, type <span className="font-bold">RESTORE</span> then upload the backup file.
+              </p>
+              <input
+                value={restoreConfirmText}
+                onChange={(e) => setRestoreConfirmText(e.target.value)}
+                placeholder="RESTORE"
+                className="mt-2 w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400"
+                disabled={restoringCourses}
+              />
+              {restoreError && (
+                <p className="mt-2 text-xs text-red-700 dark:text-red-300">{restoreError}</p>
+              )}
+              {restoringCourses && (
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Restoring...</p>
+              )}
+            </div>
+
+            <button
+              onClick={() => {
+                setResetConfirmText('');
+                setResetError(null);
+                setShowResetModal(true);
+              }}
+              className="px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors flex items-center gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Clear user data
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Clear user data modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-lg border border-gray-200 dark:border-gray-700 shadow-xl overflow-hidden">
+            <div className="p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
+                    Clear all user data?
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                    This will permanently delete user accounts and history. Settings (SMTP etc.) stay intact.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowResetModal(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="mt-5 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 rounded-xl">
+                <p className="text-sm font-medium text-red-800 dark:text-red-200">
+                  Type <span className="font-bold">RESET</span> to confirm.
+                </p>
+                <input
+                  value={resetConfirmText}
+                  onChange={(e) => setResetConfirmText(e.target.value)}
+                  placeholder="RESET"
+                  className="mt-3 w-full px-3 py-2 border border-red-200 dark:border-red-900/40 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400"
+                />
+                {resetError && (
+                  <p className="mt-3 text-sm text-red-700 dark:text-red-300">
+                    {resetError}
+                  </p>
+                )}
+              </div>
+
+              <div className="mt-6 flex gap-3 justify-end">
+                <button
+                  onClick={() => setShowResetModal(false)}
+                  disabled={clearingData}
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setResetError(null);
+                    const txt = resetConfirmText.trim().toUpperCase();
+                    if (txt !== 'RESET') {
+                      setResetError('Please type RESET exactly to continue.');
+                      return;
+                    }
+                    setClearingData(true);
+                    try {
+                      await onClearUserData('RESET');
+                      setShowResetModal(false);
+                    } catch (e: any) {
+                      setResetError(e?.message || 'Failed to clear user data.');
+                    } finally {
+                      setClearingData(false);
+                    }
+                  }}
+                  disabled={clearingData || resetConfirmText.trim().toUpperCase() !== 'RESET'}
+                  className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {clearingData ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Clearing...
+                    </>
+                  ) : (
+                    <>
+                      <AlertTriangle className="w-4 h-4" />
+                      Yes, clear data
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }

@@ -1901,7 +1901,7 @@ export default function Dashboard() {
                   <TradingViewTerminal
                     symbol={tradingViewSymbol}
                     theme="dark"
-                    height="min(85vh, 900px)"
+                    height="clamp(520px, 80vh, 950px)"
                     enableLogin={true}
                     mode="terminal"
                   />
@@ -1911,7 +1911,7 @@ export default function Dashboard() {
                     interval={tradingViewInterval}
                     theme="dark"
                     locale="en"
-                    height="min(85vh, 900px)"
+                    height="clamp(520px, 80vh, 950px)"
                     hideSideToolbar={false}
                   />
                 )}

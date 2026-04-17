@@ -166,7 +166,7 @@ export default function TradingViewTerminal({
   }, []);
 
   return (
-    <div className="w-full relative">
+    <div className="w-full relative flex flex-col" style={{ height: containerHeight }}>
       {/* Toolbar */}
       <div className="flex items-center justify-between p-3 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 rounded-t-xl">
         <div className="flex items-center space-x-3">
@@ -205,8 +205,7 @@ export default function TradingViewTerminal({
       <div
         ref={containerRef}
         id={containerId}
-        className="tradingview-widget-container w-full overflow-hidden rounded-b-xl border-x border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
-        style={{ height: containerHeight }}
+        className="tradingview-widget-container w-full flex-1 overflow-hidden rounded-b-xl border-x border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800"
       />
 
       {/* Login Prompt Modal */}

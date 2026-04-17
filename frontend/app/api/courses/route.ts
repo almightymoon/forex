@@ -54,15 +54,21 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category');
     const level = searchParams.get('level');
     const search = searchParams.get('search');
+    const bust = searchParams.get('bust');
     
     // Create cache key
     const cacheKey = `courses:${category || 'all'}:${level || 'all'}:${search || 'all'}`;
     
-    // Check cache
-    const cached = cache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-      console.log('Returning cached courses data');
-      return NextResponse.json(cached.data);
+    // Optional cache busting (used after admin restore/reset)
+    if (bust) {
+      cache.clear();
+    } else {
+      // Check cache
+      const cached = cache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+        console.log('Returning cached courses data');
+        return NextResponse.json(cached.data);
+      }
     }
     
     // Build backend URL with query parameters

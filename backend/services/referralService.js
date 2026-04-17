@@ -319,17 +319,27 @@ class ReferralService {
       );
 
       let directReferrals = await User.find({ parentReferralCode: normalizedCode })
-        .select('firstName lastName email referralCode isActive isVerified balance createdAt parentReferralCode')
+        .select('firstName lastName email referralCode role isActive isVerified balance createdAt parentReferralCode')
         .sort({ createdAt: -1 })
         .lean();
 
       if (directReferrals.length === 0 && matchingUsers.length > 0) {
         const regexCode = new RegExp(`^${normalizedCode.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i');
         directReferrals = await User.find({ parentReferralCode: { $regex: regexCode } })
-          .select('firstName lastName email referralCode isActive isVerified balance createdAt parentReferralCode')
+          .select('firstName lastName email referralCode role isActive isVerified balance createdAt parentReferralCode')
           .sort({ createdAt: -1 })
           .lean();
       }
+
+      // Exclude users who haven't completed a package purchase yet (pending/no package).
+      // This ensures unpaid/unapproved users do not show in referral trees at all.
+      directReferrals = (directReferrals || []).filter((ref) => {
+        const role = String(ref.role || '').toLowerCase();
+        const privileged = role === 'admin' || role === 'teacher' || role === 'instructor';
+        if (privileged) return true;
+        const id = ref._id?.toString();
+        return id ? verifiedSet.has(id) : false;
+      });
 
       const referralsWithChildren = await Promise.all(
         directReferrals.map(async (referral) => {

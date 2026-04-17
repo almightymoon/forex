@@ -58,8 +58,10 @@ async function fixExistingCommissions() {
         const packageNameRaw = payment.package?.name || 'Unknown';
         const packageName = commissionService.normalizePackageName(packageNameRaw);
         
-        // Get referral pool
-        const referralPool = commissionService.getReferralPool(packageNameRaw, packageAmount);
+        // Get referral pool (dynamic from Package config)
+        const cfg = await commissionService.getCommissionConfig(packageNameRaw);
+        const poolPct = Number(cfg.referralPoolPercentage) || 0;
+        const referralPool = Math.round((packageAmount * poolPct) * 100) / 100;
         
         // Get level from metadata or calculate from commission rate
         let level = 1;
@@ -78,7 +80,7 @@ async function fixExistingCommissions() {
         }
 
         // Calculate correct commission from referral pool
-        const commissionRate = commissionService.commissionRates[level] || 0;
+        const commissionRate = (cfg.commissionRates?.[level] ?? commissionService.commissionRates[level]) || 0;
         const correctCommission = Math.round((referralPool * commissionRate) * 100) / 100;
         const oldCommission = transaction.amount;
         const difference = correctCommission - oldCommission;

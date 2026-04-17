@@ -4,7 +4,8 @@ const Package = require('../models/Package');
 
 class ReferralCommissionService {
   constructor() {
-    // Commission rates by level (applied to referral pool)
+    // Commission rates by level (applied to referral pool).
+    // These can also be overridden per-package via the Package model.
     this.commissionRates = {
       1: 0.20,  // 20%
       2: 0.15,  // 15%
@@ -12,18 +13,6 @@ class ReferralCommissionService {
       4: 0.10,  // 10%
       5: 0.10   // 10%
     };
-    
-    // Package-specific referral pool percentages
-    // Format: { packageName: referralPoolPercentage }
-    this.packageReferralPools = {
-      'FX Launch': 1.0,    // 100% of $100 = $100 to referrals (L1 $20, L2 $15, etc.), 0% platform
-      'FX Scale': 0.40,    // 40% of $250 = $100 to referrals, 60% to company
-      'FX Legacy': 0.10    // 10% of $1000 = $100 to referrals, 90% ($900) platform commission
-    };
-
-    // Fallbacks (used only if DB packages are missing/misconfigured)
-    this.defaultCommissionRates = { ...this.commissionRates };
-    this.defaultPackageReferralPools = { ...this.packageReferralPools };
   }
   
   /**
@@ -45,9 +34,9 @@ class ReferralCommissionService {
    * @param {Number} packageAmount - Full package amount
    * @returns {Number} Amount allocated to referral pool
    */
-  getReferralPool(packageName, packageAmount) {
-    const key = this.normalizePackageName(packageName);
-    const poolPercentage = this.defaultPackageReferralPools[key] || 0;
+  async getReferralPool(packageName, packageAmount) {
+    const cfg = await this.getCommissionConfig(packageName);
+    const poolPercentage = Number(cfg.referralPoolPercentage) || 0;
     return Math.round((packageAmount * poolPercentage) * 100) / 100;
   }
   
@@ -57,9 +46,9 @@ class ReferralCommissionService {
    * @param {Number} packageAmount - Full package amount
    * @returns {Number} Amount allocated to company
    */
-  getCompanyShare(packageName, packageAmount) {
-    const key = this.normalizePackageName(packageName);
-    const poolPercentage = this.defaultPackageReferralPools[key] || 0;
+  async getCompanyShare(packageName, packageAmount) {
+    const cfg = await this.getCommissionConfig(packageName);
+    const poolPercentage = Number(cfg.referralPoolPercentage) || 0;
     return Math.round((packageAmount * (1 - poolPercentage)) * 100) / 100;
   }
 
@@ -69,7 +58,7 @@ class ReferralCommissionService {
       return {
         packageName: key,
         referralPoolPercentage: 0,
-        commissionRates: this.defaultCommissionRates
+        commissionRates: { ...this.commissionRates }
       };
     }
 
@@ -78,18 +67,18 @@ class ReferralCommissionService {
       if (!pkg) {
         return {
           packageName: key,
-          referralPoolPercentage: this.defaultPackageReferralPools[key] || 0,
-          commissionRates: this.defaultCommissionRates
+          referralPoolPercentage: 0,
+          commissionRates: { ...this.commissionRates }
         };
       }
 
       const rates = pkg.commissionRates || {};
       const commissionRates = {
-        1: typeof rates[1] === 'number' ? rates[1] : this.defaultCommissionRates[1],
-        2: typeof rates[2] === 'number' ? rates[2] : this.defaultCommissionRates[2],
-        3: typeof rates[3] === 'number' ? rates[3] : this.defaultCommissionRates[3],
-        4: typeof rates[4] === 'number' ? rates[4] : this.defaultCommissionRates[4],
-        5: typeof rates[5] === 'number' ? rates[5] : this.defaultCommissionRates[5]
+        1: typeof rates[1] === 'number' ? rates[1] : this.commissionRates[1],
+        2: typeof rates[2] === 'number' ? rates[2] : this.commissionRates[2],
+        3: typeof rates[3] === 'number' ? rates[3] : this.commissionRates[3],
+        4: typeof rates[4] === 'number' ? rates[4] : this.commissionRates[4],
+        5: typeof rates[5] === 'number' ? rates[5] : this.commissionRates[5]
       };
 
       return {
@@ -97,14 +86,14 @@ class ReferralCommissionService {
         referralPoolPercentage:
           typeof pkg.referralPoolPercentage === 'number'
             ? pkg.referralPoolPercentage
-            : (this.defaultPackageReferralPools[key] || 0),
+            : 0,
         commissionRates
       };
     } catch (e) {
       return {
         packageName: key,
-        referralPoolPercentage: this.defaultPackageReferralPools[key] || 0,
-        commissionRates: this.defaultCommissionRates
+        referralPoolPercentage: 0,
+        commissionRates: { ...this.commissionRates }
       };
     }
   }
@@ -212,7 +201,7 @@ class ReferralCommissionService {
         console.log(`[Commission] Level ${level}: Found referrer:`, referrer.email);
 
         // Commission = rate × REFERRAL POOL only. Never use package amount.
-        const commissionRate = cfg.commissionRates?.[level] ?? this.defaultCommissionRates[level] ?? 0;
+        const commissionRate = cfg.commissionRates?.[level] ?? this.commissionRates[level] ?? 0;
         const commissionAmount = Math.round((referralPool * commissionRate) * 100) / 100;
         totalCommissionsDistributed += commissionAmount;
 
@@ -320,9 +309,10 @@ class ReferralCommissionService {
    * @returns {Number} The commission amount
    */
   calculateCommission(packageName, packageAmount, level) {
-    const referralPool = this.getReferralPool(packageName, packageAmount);
+    // Deprecated: use getCommissionConfig + pool-based calc (async).
+    // Kept for backward compatibility; returns 0 to avoid using hardcoded pool defaults.
     const rate = this.commissionRates[level] || 0;
-    return Math.round((referralPool * rate) * 100) / 100;
+    return Math.round((0 * rate) * 100) / 100;
   }
 
   /**
@@ -332,22 +322,20 @@ class ReferralCommissionService {
    * @returns {Object} Commission breakdown with pool info
    */
   getCommissionBreakdown(packageName, packageAmount) {
+    // Deprecated: needs DB-backed pool percentage (async).
+    // Kept for backward compatibility; returns a safe empty breakdown.
     const key = this.normalizePackageName(packageName);
-    const referralPool = this.getReferralPool(packageName, packageAmount);
-    const companyShare = this.getCompanyShare(packageName, packageAmount);
-    const poolPercentage = (this.packageReferralPools[key] || 0) * 100;
-    
     return {
       packageName: key,
       packageAmount,
-      referralPool,
-      referralPoolPercentage: poolPercentage,
-      companyShare,
-      companySharePercentage: (1 - (this.packageReferralPools[key] || 0)) * 100,
+      referralPool: 0,
+      referralPoolPercentage: 0,
+      companyShare: packageAmount,
+      companySharePercentage: 100,
       commissionsByLevel: Object.entries(this.commissionRates).map(([level, rate]) => ({
         level: parseInt(level),
         rate: rate * 100,
-        amount: Math.round((referralPool * rate) * 100) / 100
+        amount: 0
       }))
     };
   }
