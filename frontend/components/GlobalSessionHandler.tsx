@@ -74,6 +74,14 @@ export function GlobalSessionHandler() {
             }
             return response;
           }
+
+          // Handle monthly fee restriction
+          if (errorData.code === 'MONTHLY_FEE_REQUIRED') {
+            if (isOnPaymentPage) return response;
+            console.log('Global session handler: Monthly fee required detected');
+            router.push('/monthly-fee');
+            return response;
+          }
           
           // Handle payment verification errors
           if (errorData.code === 'PAYMENT_PENDING') {

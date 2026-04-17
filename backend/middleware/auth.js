@@ -412,6 +412,16 @@ const requireVerifiedPayment = async (req, res, next) => {
   }
 };
 
+function startOfUtcMonth(d = new Date()) {
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1, 0, 0, 0, 0));
+}
+
+function addUtcMonths(date, months) {
+  const y = date.getUTCFullYear();
+  const m = date.getUTCMonth();
+  return new Date(Date.UTC(y, m + months, 1, 0, 0, 0, 0));
+}
+
 // Middleware to check if user has an active package subscription
 // This is required for ALL users (except admin/teacher) to access the application
 const requirePackageSubscription = async (req, res, next) => {
@@ -429,6 +439,7 @@ const requirePackageSubscription = async (req, res, next) => {
     }
 
     const Payment = require('../models/Payment');
+    const Package = require('../models/Package');
     
     // Check if user has a completed package payment
     const completedPackagePayment = await Payment.findOne({
@@ -438,8 +449,53 @@ const requirePackageSubscription = async (req, res, next) => {
     }).sort({ createdAt: -1 });
 
     if (completedPackagePayment) {
-      // User has completed payment, allow access
-      return next();
+      // Enforce monthly fee policy based on package tier + purchase date.
+      const pkgName = completedPackagePayment.package?.name || '';
+      const pkg = pkgName ? await Package.findOne({ name: pkgName }).lean() : null;
+
+      // If package config missing, fail open (don't lock users out)
+      if (!pkg) return next();
+
+      const monthlyFeeEnabled = !!pkg.monthlyFeeEnabled;
+      const freeMonths = Number(pkg.monthlyFeeFreeMonths ?? 0);
+      const graceDays = Number(pkg.monthlyFeeGraceDays ?? 3);
+      const feeAmount = Number(pkg.monthlyFeeAmount ?? 50);
+
+      // Lifetime / no-fee packages
+      if (!monthlyFeeEnabled) return next();
+
+      // Within free period after package purchase? (e.g. 6 months free)
+      const purchasedAt = completedPackagePayment.createdAt ? new Date(completedPackagePayment.createdAt) : new Date();
+      const freeUntil = addUtcMonths(startOfUtcMonth(purchasedAt), freeMonths);
+      const now = new Date();
+      if (now < freeUntil) return next();
+
+      // Determine fee period we require:
+      // If today's UTC date <= graceDays, allow access if last month's fee is paid.
+      // Otherwise require current month's fee.
+      const currentMonthStart = startOfUtcMonth(now);
+      const requiresPreviousMonth = now.getUTCDate() <= graceDays;
+      const requiredMonthStart = requiresPreviousMonth ? addUtcMonths(currentMonthStart, -1) : currentMonthStart;
+      const requiredMonthEnd = addUtcMonths(requiredMonthStart, 1);
+
+      const paidFee = await Payment.findOne({
+        user: req.user._id,
+        status: 'completed',
+        type: 'monthly_fee',
+        createdAt: { $gte: requiredMonthStart, $lt: requiredMonthEnd }
+      }).sort({ createdAt: -1 });
+
+      if (paidFee) return next();
+
+      return res.status(403).json({
+        error: 'Monthly fee required',
+        message:
+          'Your monthly fee payment is due. Please pay to regain access.',
+        code: 'MONTHLY_FEE_REQUIRED',
+        redirectTo: '/monthly-fee',
+        amount: feeAmount,
+        dueForMonth: requiredMonthStart.toISOString()
+      });
     }
 
     // Check if user has pending payment

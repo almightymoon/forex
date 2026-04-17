@@ -118,6 +118,19 @@ export default function ReferralsPage() {
     fetchReferralData();
   }, []);
 
+  const handleBack = () => {
+    try {
+      router.back();
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && window.history.length <= 1) {
+          router.push('/dashboard');
+        }
+      }, 0);
+    } catch {
+      router.push('/dashboard');
+    }
+  };
+
   const fetchReferralData = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -646,7 +659,16 @@ export default function ReferralsPage() {
       <header className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
-            <div className="flex items-center space-x-4 group cursor-pointer" onClick={() => router.push('/dashboard')}>
+            <div className="flex items-center space-x-4">
+              <button
+                onClick={handleBack}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Back"
+                aria-label="Back"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+              </button>
+              <div className="flex items-center space-x-4 group cursor-pointer" onClick={() => router.push('/dashboard')}>
               <div className="relative">
                 <img 
                   src="/all-07.svg" 
@@ -660,6 +682,7 @@ export default function ReferralsPage() {
                   {settings.platformName}
                 </h1>
                 <p className="text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors duration-200">Referral Program</p>
+              </div>
               </div>
             </div>
             

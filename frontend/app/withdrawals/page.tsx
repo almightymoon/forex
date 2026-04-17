@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { 
   Wallet, 
   ArrowUpRight, 
+  ArrowLeft,
   AlertCircle, 
   CheckCircle, 
   XCircle, 
@@ -235,6 +236,20 @@ export default function WithdrawalsPage() {
     ? withdrawals 
     : withdrawals.filter(w => w.status === statusFilter);
 
+  const handleBack = () => {
+    try {
+      router.back();
+      // Fallback (some navigations may not have history)
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && window.history.length <= 1) {
+          router.push('/dashboard');
+        }
+      }, 0);
+    } catch {
+      router.push('/dashboard');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       {/* Header */}
@@ -242,6 +257,14 @@ export default function WithdrawalsPage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-20">
             <div className="flex items-center space-x-4">
+              <button
+                onClick={handleBack}
+                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                title="Back"
+                aria-label="Back"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+              </button>
               <img 
                 src="/all-07.svg" 
                 alt={`${settings.platformName} Logo`} 

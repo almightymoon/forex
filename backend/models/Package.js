@@ -24,16 +24,19 @@ const packageSchema = new mongoose.Schema(
 
     // Commission configuration
     referralPoolPercentage: { type: Number, default: 0, min: 0, max: 1 },
-    commissionRates: { type: commissionRatesSchema, default: () => ({}) }
+    commissionRates: { type: commissionRatesSchema, default: () => ({}) },
+
+    // Monthly fee policy
+    monthlyFeeEnabled: { type: Boolean, default: false },
+    monthlyFeeAmount: { type: Number, default: 50, min: 0 },
+    monthlyFeeGraceDays: { type: Number, default: 3, min: 0, max: 31 },
+    monthlyFeeFreeMonths: { type: Number, default: 0, min: 0, max: 120 }
   },
   { timestamps: true }
 );
 
 packageSchema.statics.ensureDefaults = async function ensureDefaults() {
-  const count = await this.countDocuments();
-  if (count > 0) return;
-
-  await this.insertMany([
+  const defaults = [
     {
       name: 'FX Launch',
       subtitle: 'Launch your trading journey',
@@ -49,7 +52,11 @@ packageSchema.statics.ensureDefaults = async function ensureDefaults() {
       image: '/pkg1.jpg',
       sortOrder: 1,
       referralPoolPercentage: 0.7,
-      commissionRates: { 1: 0.2, 2: 0.15, 3: 0.15, 4: 0.1, 5: 0.1 }
+      commissionRates: { 1: 0.2, 2: 0.15, 3: 0.15, 4: 0.1, 5: 0.1 },
+      monthlyFeeEnabled: true,
+      monthlyFeeAmount: 50,
+      monthlyFeeGraceDays: 3,
+      monthlyFeeFreeMonths: 0
     },
     {
       name: 'FX Scale',
@@ -67,7 +74,11 @@ packageSchema.statics.ensureDefaults = async function ensureDefaults() {
       image: '/pkg2.jpg',
       sortOrder: 2,
       referralPoolPercentage: 0.4,
-      commissionRates: { 1: 0.2, 2: 0.15, 3: 0.15, 4: 0.1, 5: 0.1 }
+      commissionRates: { 1: 0.2, 2: 0.15, 3: 0.15, 4: 0.1, 5: 0.1 },
+      monthlyFeeEnabled: true,
+      monthlyFeeAmount: 50,
+      monthlyFeeGraceDays: 3,
+      monthlyFeeFreeMonths: 6
     },
     {
       name: 'FX Legacy',
@@ -87,9 +98,19 @@ packageSchema.statics.ensureDefaults = async function ensureDefaults() {
       image: '/pkg3.jpg',
       sortOrder: 3,
       referralPoolPercentage: 0.25,
-      commissionRates: { 1: 0.2, 2: 0.15, 3: 0.15, 4: 0.1, 5: 0.1 }
+      commissionRates: { 1: 0.2, 2: 0.15, 3: 0.15, 4: 0.1, 5: 0.1 },
+      monthlyFeeEnabled: false,
+      monthlyFeeAmount: 0,
+      monthlyFeeGraceDays: 3,
+      monthlyFeeFreeMonths: 999
     }
-  ]);
+  ];
+
+  // Insert-only defaults.
+  // Admins can customize packages in the Admin panel, so we must not overwrite existing rows.
+  for (const def of defaults) {
+    await this.updateOne({ name: def.name }, { $setOnInsert: { ...def, isActive: true, currency: def.currency || 'USD' } }, { upsert: true });
+  }
 };
 
 module.exports = mongoose.model('Package', packageSchema);

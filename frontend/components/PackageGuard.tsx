@@ -68,6 +68,9 @@ export default function PackageGuard({ children, allowedPaths = [] }: PackageGua
           if (data.code === 'PACKAGE_REQUIRED') {
             router.push('/select-package');
             return;
+          } else if (data.code === 'MONTHLY_FEE_REQUIRED') {
+            router.push('/monthly-fee');
+            return;
           } else if (data.code === 'PAYMENT_PENDING') {
             if (data.redirectTo === '/payment' && data.paymentId) {
               const pkg = data.packageName ?? '';

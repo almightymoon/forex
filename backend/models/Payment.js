@@ -49,13 +49,16 @@ const paymentSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['signup', 'course', 'session', 'subscription', 'signal', 'package'],
+    enum: ['signup', 'course', 'session', 'subscription', 'signal', 'package', 'monthly_fee'],
     default: 'signup'
   },
   package: {
     name: {
       type: String,
-      enum: ['FX Launch', 'FX Scale', 'FX Legacy']
+      // Admin-managed packages. We keep this flexible to avoid schema blocking new packages.
+      // Validation happens at route/service level.
+      type: String,
+      trim: true
     },
     price: Number
   },

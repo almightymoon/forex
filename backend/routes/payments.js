@@ -247,6 +247,104 @@ router.post('/create', [
   }
 });
 
+// @route   POST /api/payments/monthly-fee
+// @desc    Create a new payment for monthly fee (requires package + fee policy)
+// @access  Private
+router.post('/monthly-fee', authenticateToken, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const notificationService = require('../services/notificationService');
+    const Package = require('../models/Package');
+
+    const Payment = require('../models/Payment');
+    const completedPackagePayment = await Payment.findOne({
+      user: req.user._id,
+      status: 'completed',
+      type: 'package'
+    }).sort({ createdAt: -1 });
+
+    if (!completedPackagePayment) {
+      return res.status(403).json({
+        error: 'Package required',
+        code: 'PACKAGE_REQUIRED',
+        redirectTo: '/select-package'
+      });
+    }
+
+    const pkgName = completedPackagePayment.package?.name || '';
+    const pkg = pkgName ? await Package.findOne({ name: pkgName }).lean() : null;
+    if (!pkg || !pkg.monthlyFeeEnabled) {
+      return res.status(400).json({
+        error: 'Monthly fee not applicable',
+        message: 'Your package does not require a monthly fee.'
+      });
+    }
+
+    const amount = Number(pkg.monthlyFeeAmount ?? 50);
+    const graceDays = Number(pkg.monthlyFeeGraceDays ?? 3);
+
+    // Avoid duplicate pending monthly fee payments
+    const existingPending = await Payment.findOne({
+      user: req.user._id,
+      status: 'pending',
+      type: 'monthly_fee'
+    }).sort({ createdAt: -1 });
+    if (existingPending) {
+      return res.status(200).json({
+        message: 'Monthly fee payment already pending.',
+        payment: existingPending
+      });
+    }
+
+    const payment = new Payment({
+      user: req.user._id,
+      amount,
+      currency: 'USD',
+      paymentMethod: 'binance_wallet',
+      status: 'pending',
+      type: 'monthly_fee',
+      description: `Monthly fee payment ($${amount})`,
+      discountAmount: 0,
+      finalAmount: amount,
+      metadata: {
+        feeType: 'monthly',
+        graceDays: String(graceDays),
+        packageName: pkgName
+      },
+      binanceWallet: {
+        walletAddress: 'TApaMK8BcN67GDRqVs45qnzbb4oQGt2Pna',
+        network: 'TRC20'
+      }
+    });
+
+    await payment.save();
+
+    // Notify admins
+    try {
+      const admins = await User.find({ role: 'admin' });
+      for (const admin of admins) {
+        await notificationService.sendNotificationToUser(admin._id, 'admin', {
+          type: 'monthly_fee_pending',
+          paymentId: payment._id,
+          userId: req.user._id,
+          userName: `${req.user.firstName} ${req.user.lastName}`,
+          amount
+        });
+      }
+    } catch (notificationError) {
+      console.error('Error sending admin notification (monthly fee):', notificationError);
+    }
+
+    res.status(201).json({
+      message: 'Monthly fee payment created successfully.',
+      payment
+    });
+  } catch (error) {
+    console.error('Create monthly fee payment error:', error);
+    res.status(500).json({ error: 'Failed to create monthly fee payment' });
+  }
+});
+
 // @route   POST /api/payments/:id/submit-payment (must be before GET/PUT /:id)
 // @desc    Submit payment with transaction ID, payer details, and screenshot (screenshot stored in env Cloudinary)
 // @access  Private
