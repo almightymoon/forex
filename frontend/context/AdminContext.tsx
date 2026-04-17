@@ -276,7 +276,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
       // Fetch fresh data
       console.log('AdminContext - Fetching fresh admin data...');
-      const { users, payments, withdrawals, analytics, promoCodes, settings, notificationCount } = await fetchAdminData(token);
+      const { users, payments, withdrawals, analytics, promoCodes, packages, settings, notificationCount } = await fetchAdminData(token);
 
       setData({
         user,
@@ -285,6 +285,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         withdrawals,
         analytics,
         promoCodes,
+        packages,
         settings,
         notificationCount
       });
@@ -303,6 +304,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           withdrawals: [],
           analytics: {},
           promoCodes: [],
+          packages: [],
           settings: getDefaultSettings(),
           notificationCount: 0
         });
@@ -327,7 +329,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       // Always verify admin role on refresh
       const user = await checkAdminRole(token);
       
-      const { users, payments, withdrawals, analytics, promoCodes, settings, notificationCount } = await fetchAdminData(token);
+      const { users, payments, withdrawals, analytics, promoCodes, packages, settings, notificationCount } = await fetchAdminData(token);
       
       setData(prev => ({
         ...prev,
@@ -337,6 +339,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         withdrawals,
         analytics,
         promoCodes,
+        packages,
         settings,
         notificationCount
       }));
@@ -353,6 +356,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           withdrawals: [],
           analytics: {},
           promoCodes: [],
+          packages: [],
           settings: getDefaultSettings(),
           notificationCount: 0
         });
@@ -382,6 +386,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         withdrawals: [],
         analytics: {},
         promoCodes: [],
+        packages: [],
         settings: getDefaultSettings(),
         notificationCount: 0
       });

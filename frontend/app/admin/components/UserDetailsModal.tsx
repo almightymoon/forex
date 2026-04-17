@@ -45,7 +45,18 @@ interface UserDetails {
       lastName: string;
       email: string;
       referralCode: string;
+      parentReferralCode?: string | null;
     };
+    referredBy?: {
+      _id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+      referralCode?: string;
+      isActive?: boolean;
+      isVerified?: boolean;
+      createdAt?: string;
+    } | null;
   } | null;
   package: {
     name: string;
