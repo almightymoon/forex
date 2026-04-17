@@ -21,10 +21,12 @@ import Overview from './Overview';
 import UserManagement from './UserManagement';
 import PaymentManagement from './PaymentManagement';
 import CommissionManagement from './CommissionManagement';
+import PackageManagement from './PackageManagement';
 import PromoCodeManagement from './PromoCodeManagement';
 import Analytics from './Analytics';
 import Settings from './Settings';
 import Notifications from './Notifications';
+import LogsManagement from './LogsManagement';
 import { 
   User, Payment, Analytics as AnalyticsType, PromoCode, 
   AdminSettings, UserForm, PromoForm 
@@ -50,7 +52,7 @@ export default function AdminDashboard() {
   console.log('AdminDashboard - Loading state:', loading);
   console.log('AdminDashboard - User data:', data.user);
   
-  const { user, users, payments, withdrawals, analytics, promoCodes, settings: contextSettings } = data;
+  const { user, users, payments, withdrawals, analytics, promoCodes, packages, settings: contextSettings } = data;
   
   // Helper function to get deleted user IDs from localStorage
   const getDeletedUserIds = (): Set<string> => {
@@ -750,9 +752,11 @@ export default function AdminDashboard() {
               { id: 'users', label: 'Users', icon: Users },
               { id: 'payments', label: 'Payments', icon: DollarSign },
               { id: 'commissions', label: 'Commissions', icon: Share2 },
+              { id: 'packages', label: 'Packages', icon: CreditCard },
               { id: 'analytics', label: 'Analytics', icon: TrendingUp },
               { id: 'promocodes', label: 'Promo Codes', icon: Target },
               { id: 'notifications', label: 'Notifications', icon: Mail },
+              { id: 'logs', label: 'Logs', icon: FileText },
               { id: 'settings', label: 'Settings', icon: SettingsIcon }
             ].map((tab) => {
               const Icon = tab.icon;
@@ -804,6 +808,10 @@ export default function AdminDashboard() {
           <CommissionManagement />
         )}
 
+        {activeTab === 'packages' && (
+          <PackageManagement packages={packages || []} onRefresh={refreshData} />
+        )}
+
         {activeTab === 'promocodes' && (
           <PromoCodeManagement
             promoCodes={promoCodes}
@@ -819,6 +827,10 @@ export default function AdminDashboard() {
 
         {activeTab === 'analytics' && (
           <Analytics analytics={analytics} />
+        )}
+
+        {activeTab === 'logs' && (
+          <LogsManagement />
         )}
 
         {activeTab === 'settings' && (

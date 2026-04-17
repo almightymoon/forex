@@ -25,7 +25,7 @@ import Image from 'next/image';
 import { buildApiUrl } from '@/utils/api';
 import DarkModeToggle from '../../components/DarkModeToggle';
 
-const packages = [
+const fallbackPackages = [
   { 
     name: 'FX Launch', 
     subtitle: 'Launch your trading journey',
@@ -93,11 +93,16 @@ const packages = [
   }
 ];
 
-type PackageType = typeof packages[0];
+type PackageType = typeof fallbackPackages[0] & {
+  _id?: string;
+  isActive?: boolean;
+  sortOrder?: number;
+};
 
 export default function SelectPackagePage() {
   const router = useRouter();
   const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null);
+  const [packages, setPackages] = useState<PackageType[]>(fallbackPackages);
   const [promoCode, setPromoCode] = useState('');
   const [isPromoValid, setIsPromoValid] = useState(false);
   const [promoDiscount, setPromoDiscount] = useState(0);
@@ -113,6 +118,46 @@ export default function SelectPackagePage() {
       return;
     }
   }, [router]);
+
+  useEffect(() => {
+    // Load packages from backend (admin-managed). Fallback to hardcoded if fetch fails.
+    const loadPackages = async () => {
+      try {
+        const res = await fetch(buildApiUrl('api/packages'), { cache: 'no-store' as any });
+        if (!res.ok) return;
+        const apiPkgs = await res.json();
+        if (!Array.isArray(apiPkgs) || apiPkgs.length === 0) return;
+
+        // Keep the existing UI look by mapping known packages to their visual styles.
+        const styleMap = new Map(fallbackPackages.map((p) => [p.name, p]));
+        const merged: PackageType[] = apiPkgs
+          .filter((p: any) => p && p.isActive !== false)
+          .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
+          .map((p: any) => {
+            const base = styleMap.get(p.name) || fallbackPackages[0];
+            return {
+              ...base,
+              _id: p._id,
+              name: p.name ?? base.name,
+              subtitle: p.subtitle ?? base.subtitle,
+              price: Number(p.price ?? base.price),
+              features: Array.isArray(p.features) && p.features.length ? p.features : base.features,
+              image: p.image ?? base.image,
+              isActive: p.isActive
+            };
+          });
+
+        if (merged.length) {
+          setPackages(merged);
+          // If selected package no longer exists, clear it
+          setSelectedPackage((prev) => (prev && merged.some((m) => m.name === prev.name) ? prev : null));
+        }
+      } catch {
+        // keep fallback
+      }
+    };
+    loadPackages();
+  }, []);
 
   const validatePromoCode = async () => {
     if (!promoCode.trim() || !selectedPackage) return;

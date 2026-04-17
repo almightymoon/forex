@@ -41,6 +41,9 @@ interface User {
   lastName: string;
   email: string;
   balance?: number;
+  hasPackage?: boolean;
+  hasReferral?: boolean;
+  parentReferralCode?: string;
 }
 
 interface PaymentManagementProps {
@@ -76,6 +79,7 @@ export default function PaymentManagement({
   const [newBalance, setNewBalance] = useState('');
   const [balanceReason, setBalanceReason] = useState('');
   const [isUpdatingBalance, setIsUpdatingBalance] = useState(false);
+  const [balanceNoPackageNoReferralOnly, setBalanceNoPackageNoReferralOnly] = useState(false);
   const [isProcessingWithdrawal, setIsProcessingWithdrawal] = useState(false);
   const [withdrawalTransactionHash, setWithdrawalTransactionHash] = useState('');
   const [withdrawalNotes, setWithdrawalNotes] = useState('');
@@ -134,11 +138,20 @@ export default function PaymentManagement({
   // Filter users for balance editing
   const filteredUsers = users.filter(user => {
     const searchLower = balanceSearchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       user.firstName?.toLowerCase().includes(searchLower) ||
       user.lastName?.toLowerCase().includes(searchLower) ||
       user.email?.toLowerCase().includes(searchLower)
     );
+
+    if (!balanceNoPackageNoReferralOnly) return matchesSearch;
+
+    const hasPackage = !!user.hasPackage;
+    const hasReferral = typeof user.hasReferral === 'boolean'
+      ? user.hasReferral
+      : !!(user.parentReferralCode && String(user.parentReferralCode).trim().length > 0);
+
+    return matchesSearch && !hasPackage && !hasReferral;
   });
 
   const handleCompleteWithdrawal = async () => {
@@ -768,6 +781,15 @@ export default function PaymentManagement({
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white">User Balance Management</h3>
             <div className="flex items-center space-x-2">
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 select-none">
+                <input
+                  type="checkbox"
+                  checked={balanceNoPackageNoReferralOnly}
+                  onChange={(e) => setBalanceNoPackageNoReferralOnly(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Show only: no package + no referral
+              </label>
               <div className="relative">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500" />
                 <input

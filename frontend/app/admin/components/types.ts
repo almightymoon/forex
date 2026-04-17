@@ -13,6 +13,10 @@ export interface User {
   };
   isActive?: boolean;
   isVerified?: boolean;
+  parentReferralCode?: string;
+  referralCode?: string;
+  hasPackage?: boolean;
+  hasReferral?: boolean;
   createdAt: string;
   lastLogin?: string;
 }

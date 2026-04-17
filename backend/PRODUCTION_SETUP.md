@@ -454,26 +454,56 @@ pm2 restart forex-lms-backend
 
 ### 2. Database Backups
 
-Automated backup script (add to crontab):
+Automated full backup (MongoDB + optional logs/files):
+
+- Uses `backend/scripts/backup-all.sh` and `backend/scripts/restore-all.sh`
+- Backs up **all MongoDB collections** (users, payments, commissions, etc.)
+- Optionally includes extra folders (server logs, local uploads) via `BACKUP_EXTRA_PATHS`
+- Supports retention, encryption, and optional S3 upload
+
+Create scripts executable:
 ```bash
-#!/bin/bash
-# backup-mongodb.sh
-DATE=$(date +%Y%m%d_%H%M%S)
-BACKUP_DIR="/backups/mongodb"
-mkdir -p $BACKUP_DIR
+cd /path/to/forex/backend
+chmod +x scripts/backup-all.sh scripts/restore-all.sh
+```
 
-mongodump --uri="mongodb://user:password@localhost:27017/forex-lms-production" \
-  --out="$BACKUP_DIR/backup_$DATE"
+Run manually (local backup folder in `backend/backups/`):
+```bash
+cd /path/to/forex/backend
+export MONGO_URI="mongodb://user:password@localhost:27017/forex-lms-production"
+./scripts/backup-all.sh
+```
 
-# Keep only last 30 days
-find $BACKUP_DIR -type d -mtime +30 -exec rm -rf {} +
+Optional: include server paths (colon-separated):
+```bash
+export BACKUP_EXTRA_PATHS="/var/log:/home/ubuntu/.pm2/logs"
+./scripts/backup-all.sh
+```
+
+Optional: encrypt backups:
+```bash
+export BACKUP_ENCRYPTION_PASSPHRASE="use-a-strong-secret"
+./scripts/backup-all.sh
+```
+
+Optional: upload to S3 (requires AWS CLI configured):
+```bash
+export BACKUP_S3_URI="s3://your-bucket/forex-backups"
+./scripts/backup-all.sh
 ```
 
 Add to crontab (daily at 2 AM):
 ```bash
 crontab -e
-# Add line:
-0 2 * * * /path/to/backup-mongodb.sh
+# Example (adjust paths/env):
+0 2 * * * cd /path/to/forex/backend && MONGO_URI="mongodb://user:password@localhost:27017/forex-lms-production" BACKUP_DIR="/backups/forex" BACKUP_KEEP_DAYS=30 BACKUP_EXTRA_PATHS="/home/ubuntu/.pm2/logs" /bin/bash ./scripts/backup-all.sh >/dev/null 2>&1
+```
+
+Restore example:
+```bash
+cd /path/to/forex/backend
+export MONGO_URI="mongodb://user:password@localhost:27017/forex-lms-production"
+./scripts/restore-all.sh ./backups/forex-backup-YYYYMMDDTHHMMSSZ.tar.gz
 ```
 
 ### 3. Log Rotation

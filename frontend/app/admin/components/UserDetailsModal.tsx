@@ -689,6 +689,36 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                     
                     {details.referralTree && details.referralTree.tree && Array.isArray(details.referralTree.tree) ? (
                       <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+                        {/* Upline / Referral Leader */}
+                        {details.referralTree.referredBy && (
+                          <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
+                            <p className="text-xs font-medium text-gray-600 dark:text-gray-300 mb-2">
+                              Referred by (signup link used)
+                            </p>
+                            <div className="flex items-center justify-between gap-3 bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-lg p-3 border border-purple-200 dark:border-purple-800">
+                              <div className="flex items-center space-x-3 min-w-0">
+                                <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center flex-shrink-0">
+                                  <span className="text-white font-bold">
+                                    {details.referralTree.referredBy.firstName?.charAt(0) || 'U'}
+                                    {details.referralTree.referredBy.lastName?.charAt(0) || ''}
+                                  </span>
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="font-semibold text-gray-900 dark:text-white truncate">
+                                    {details.referralTree.referredBy.firstName} {details.referralTree.referredBy.lastName}
+                                  </p>
+                                  <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                                    {details.referralTree.referredBy.email}
+                                  </p>
+                                  <p className="text-xs text-purple-700 dark:text-purple-300 mt-1">
+                                    Referral Code: {details.referralTree.referredBy.referralCode || 'N/A'}
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Root User */}
                         {details.referralTree.rootUser && (
                           <div className="mb-4 pb-4 border-b border-gray-200 dark:border-gray-700">
@@ -706,6 +736,11 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                                 <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
                                   Referral Code: {details.referralTree.rootUser.referralCode || (user as any).referralCode || 'N/A'}
                                 </p>
+                                {details.referralTree.rootUser.parentReferralCode && !details.referralTree.referredBy && (
+                                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                    Signed up with referral code: {details.referralTree.rootUser.parentReferralCode}
+                                  </p>
+                                )}
                               </div>
                             </div>
                           </div>

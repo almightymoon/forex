@@ -18,6 +18,7 @@ const cloudinary = require('../config/cloudinary');
 // const { stripe, createPaymentIntent } = require('../config/stripe');
 
 const router = express.Router();
+const Package = require('../models/Package');
 
 // Generate JWT token
 const generateToken = (userId, role) => {
@@ -128,23 +129,25 @@ router.post('/register', [
     // IMPORTANT: Only reach this point if ALL validations above passed
     console.log('✅ All validations passed. Creating user...');
     
-    // Validate package selection if Binance wallet payment
+    // Validate package selection for signup flow (admin-managed packages)
+    // Note: registration page redirects to /select-package, but older clients may send selectedPackage here.
     let packagePrice = 0;
+    let normalizedSelectedPackage = selectedPackage;
     if (paymentMethod === 'binance_wallet' || !paymentMethod) {
-      if (!selectedPackage || !selectedPackage.packageName) {
-        return res.status(400).json({
-          error: 'Package selection required',
-          message: 'Please select a package to continue'
-        });
+      if (selectedPackage && selectedPackage.packageName) {
+        const pkg = await Package.findOne({ name: selectedPackage.packageName, isActive: true }).lean();
+        if (!pkg) {
+          return res.status(400).json({
+            error: 'Invalid package',
+            message: 'Selected package is not available'
+          });
+        }
+        packagePrice = Number(pkg.price ?? 0);
+        normalizedSelectedPackage = {
+          packageName: pkg.name,
+          price: packagePrice
+        };
       }
-      const validPackages = ['FX Launch', 'FX Scale', 'FX Legacy'];
-      if (!validPackages.includes(selectedPackage.packageName)) {
-        return res.status(400).json({
-          error: 'Invalid package',
-          message: 'Please select a valid package'
-        });
-      }
-      packagePrice = selectedPackage.price || 0;
     }
 
     const userData = {
@@ -156,9 +159,9 @@ router.post('/register', [
       country: country || 'Pakistan',
       isVerified: false, // User must pay first before verification
       isActive: true,
-      selectedPackage: selectedPackage ? {
-        packageName: selectedPackage.packageName,
-        price: packagePrice,
+      selectedPackage: normalizedSelectedPackage ? {
+        packageName: normalizedSelectedPackage.packageName,
+        price: packagePrice || normalizedSelectedPackage.price || 0,
         selectedAt: new Date()
       } : undefined
     };

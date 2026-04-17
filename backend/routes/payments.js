@@ -3,6 +3,7 @@ const { body, validationResult } = require('express-validator');
 const Payment = require('../models/Payment');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const PaymentProcessor = require('../services/paymentProcessor');
+const Package = require('../models/Package');
 
 const router = express.Router();
 const paymentProcessor = new PaymentProcessor();
@@ -44,7 +45,8 @@ router.get('/user', authenticateToken, async (req, res) => {
 router.post('/create', [
   authenticateToken,
   body('packageName').notEmpty().withMessage('Package name is required'),
-  body('packagePrice').isNumeric().withMessage('Package price is required'),
+  // packagePrice is ignored (server uses DB price), kept optional for backward compatibility
+  body('packagePrice').optional().isNumeric().withMessage('Package price must be numeric'),
   body('paymentMethod').notEmpty().withMessage('Payment method is required')
 ], async (req, res) => {
   try {
@@ -53,10 +55,26 @@ router.post('/create', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { packageName, packagePrice, promoCode, discount = 0, paymentMethod } = req.body;
+    const { packageName, promoCode, discount = 0, paymentMethod } = req.body;
     const User = require('../models/User');
     const PromoCode = require('../models/PromoCode');
     const notificationService = require('../services/notificationService');
+
+    // Load package from DB (admin-managed)
+    const pkg = await Package.findOne({ name: packageName, isActive: true }).lean();
+    if (!pkg) {
+      return res.status(400).json({
+        error: 'Invalid package',
+        message: 'Selected package is not available'
+      });
+    }
+    const packagePrice = Number(pkg.price ?? 0);
+    if (!Number.isFinite(packagePrice) || packagePrice <= 0) {
+      return res.status(400).json({
+        error: 'Invalid package configuration',
+        message: 'Package price is not configured correctly'
+      });
+    }
 
     // Check if user already has a pending payment for this package
     const existingPayment = await Payment.findOne({

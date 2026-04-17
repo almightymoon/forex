@@ -16,6 +16,7 @@ interface AdminData {
   withdrawals: any[];
   analytics: any;
   promoCodes: any[];
+  packages: any[];
   settings: any;
   notificationCount: number;
 }
@@ -97,6 +98,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
     withdrawals: [],
     analytics: {},
     promoCodes: [],
+    packages: [],
     settings: getDefaultSettings(),
     notificationCount: 0
   });
@@ -149,6 +151,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         'api/admin/withdrawals',
         'api/admin/analytics',
         'api/admin/promocodes',
+        'api/admin/packages',
         'api/admin/settings',
         'api/notifications/user?unreadOnly=true&limit=1'
       ];
@@ -157,7 +160,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
         endpoints.map(endpoint => apiRequest(endpoint))
       );
       
-      const [usersRes, paymentsRes, withdrawalsRes, analyticsRes, promoCodesRes, settingsRes, notificationRes] = responses;
+      const [usersRes, paymentsRes, withdrawalsRes, analyticsRes, promoCodesRes, packagesRes, settingsRes, notificationRes] = responses;
       
       // Handle each response with proper error handling
       const users = usersRes.status === 'fulfilled' && usersRes.value.ok 
@@ -190,6 +193,10 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       const promoCodes = promoCodesRes.status === 'fulfilled' && promoCodesRes.value.ok 
         ? await promoCodesRes.value.json() 
         : [];
+
+      const packages = packagesRes.status === 'fulfilled' && packagesRes.value.ok
+        ? await packagesRes.value.json()
+        : [];
         
       let settings = {};
       if (settingsRes.status === 'fulfilled' && settingsRes.value.ok) {
@@ -209,7 +216,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        return { users, payments, withdrawals, analytics, promoCodes, settings, notificationCount };
+        return { users, payments, withdrawals, analytics, promoCodes, packages, settings, notificationCount };
     } catch (error) {
       console.error('Failed to fetch admin data:', error);
       // Return default data instead of throwing
@@ -230,6 +237,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
           paymentMethodStats: []
         },
         promoCodes: [],
+        packages: [],
         settings: getDefaultSettings(),
         notificationCount: 0
       };

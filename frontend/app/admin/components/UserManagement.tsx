@@ -32,6 +32,7 @@ export default function UserManagement({
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
+  const [filterNoPackageNoReferral, setFilterNoPackageNoReferral] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
@@ -195,7 +196,17 @@ export default function UserManagement({
       (filterStatus === 'active' && user.isActive) ||
       (filterStatus === 'inactive' && !user.isActive);
 
-    return matchesSearch && matchesRole && matchesStatus;
+    if (!filterNoPackageNoReferral) {
+      return matchesSearch && matchesRole && matchesStatus;
+    }
+
+    const hasPackage = !!(user as any).hasPackage;
+    const hasReferral =
+      typeof (user as any).hasReferral === 'boolean'
+        ? !!(user as any).hasReferral
+        : !!((user as any).parentReferralCode && String((user as any).parentReferralCode).trim().length > 0);
+
+    return matchesSearch && matchesRole && matchesStatus && !hasPackage && !hasReferral;
   });
 
   return (
@@ -249,6 +260,15 @@ export default function UserManagement({
           </div>
           
           <div className="flex gap-3">
+            <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 select-none px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700">
+              <input
+                type="checkbox"
+                checked={filterNoPackageNoReferral}
+                onChange={(e) => setFilterNoPackageNoReferral(e.target.checked)}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              No package + no referral
+            </label>
                               <select
                     value={filterRole}
                     onChange={(e) => setFilterRole(e.target.value)}
@@ -367,8 +387,7 @@ export default function UserManagement({
                           </button>
                           <button
                             onClick={() => {
-                              setSelectedUser(user);
-                              setShowEditModal(true);
+                              openEditUserModal(user);
                             }}
                             className="p-2 text-gray-600 dark:text-gray-400 hover:text-purple-600 dark:hover:text-purple-400 hover:bg-purple-50 dark:hover:bg-purple-900/20 rounded-lg transition-colors"
                             title="Edit User"

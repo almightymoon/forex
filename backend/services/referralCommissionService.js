@@ -1,24 +1,12 @@
 const User = require('../models/User');
 const BalanceTransaction = require('../models/BalanceTransaction');
+const Package = require('../models/Package');
 
 class ReferralCommissionService {
   constructor() {
-    // Commission rates by level (applied to referral pool)
-    this.commissionRates = {
-      1: 0.20,  // 20%
-      2: 0.15,  // 15%
-      3: 0.15,  // 15%
-      4: 0.10,  // 10%
-      5: 0.10   // 10%
-    };
-    
-    // Package-specific referral pool percentages
-    // Format: { packageName: referralPoolPercentage }
-    this.packageReferralPools = {
-      'FX Launch': 0.70,   // 70% of $100 = $70 to referrals, 30% to company
-      'FX Scale': 0.40,    // 40% of $250 = $100 to referrals, 60% to company
-      'FX Legacy': 0.25    // 25% of $1000 = $250 to referrals, 75% to company
-    };
+    // Fallbacks (used only if DB packages are missing/misconfigured)
+    this.defaultCommissionRates = { 1: 0.2, 2: 0.15, 3: 0.15, 4: 0.1, 5: 0.1 };
+    this.defaultPackageReferralPools = { 'FX Launch': 0.7, 'FX Scale': 0.4, 'FX Legacy': 0.25 };
   }
   
   /**
@@ -42,7 +30,7 @@ class ReferralCommissionService {
    */
   getReferralPool(packageName, packageAmount) {
     const key = this.normalizePackageName(packageName);
-    const poolPercentage = this.packageReferralPools[key] || 0;
+    const poolPercentage = this.defaultPackageReferralPools[key] || 0;
     return Math.round((packageAmount * poolPercentage) * 100) / 100;
   }
   
@@ -54,8 +42,54 @@ class ReferralCommissionService {
    */
   getCompanyShare(packageName, packageAmount) {
     const key = this.normalizePackageName(packageName);
-    const poolPercentage = this.packageReferralPools[key] || 0;
+    const poolPercentage = this.defaultPackageReferralPools[key] || 0;
     return Math.round((packageAmount * (1 - poolPercentage)) * 100) / 100;
+  }
+
+  async getCommissionConfig(packageNameRaw) {
+    const key = this.normalizePackageName(packageNameRaw);
+    if (key === 'Unknown') {
+      return {
+        packageName: key,
+        referralPoolPercentage: 0,
+        commissionRates: this.defaultCommissionRates
+      };
+    }
+
+    try {
+      const pkg = await Package.findOne({ name: key, isActive: true }).lean();
+      if (!pkg) {
+        return {
+          packageName: key,
+          referralPoolPercentage: this.defaultPackageReferralPools[key] || 0,
+          commissionRates: this.defaultCommissionRates
+        };
+      }
+
+      const rates = pkg.commissionRates || {};
+      const commissionRates = {
+        1: typeof rates[1] === 'number' ? rates[1] : this.defaultCommissionRates[1],
+        2: typeof rates[2] === 'number' ? rates[2] : this.defaultCommissionRates[2],
+        3: typeof rates[3] === 'number' ? rates[3] : this.defaultCommissionRates[3],
+        4: typeof rates[4] === 'number' ? rates[4] : this.defaultCommissionRates[4],
+        5: typeof rates[5] === 'number' ? rates[5] : this.defaultCommissionRates[5]
+      };
+
+      return {
+        packageName: pkg.name,
+        referralPoolPercentage:
+          typeof pkg.referralPoolPercentage === 'number'
+            ? pkg.referralPoolPercentage
+            : (this.defaultPackageReferralPools[key] || 0),
+        commissionRates
+      };
+    } catch (e) {
+      return {
+        packageName: key,
+        referralPoolPercentage: this.defaultPackageReferralPools[key] || 0,
+        commissionRates: this.defaultCommissionRates
+      };
+    }
   }
 
   /**
@@ -81,13 +115,15 @@ class ReferralCommissionService {
 
       const packageAmount = Number(payment.finalAmount ?? payment.amount) || 0;
       const packageNameRaw = payment.package?.name || 'Unknown';
-      const packageName = this.normalizePackageName(packageNameRaw);
-      const poolPct = this.packageReferralPools[packageName] || 0;
+      const normalized = this.normalizePackageName(packageNameRaw);
+      const cfg = await this.getCommissionConfig(packageNameRaw);
+      const packageName = cfg.packageName || normalized;
+      const poolPct = cfg.referralPoolPercentage || 0;
 
       // Commission is ALWAYS from referral pool, never from package amount.
       // e.g. FX Legacy $1000 -> pool 25% = $250; Level 5 = 10% of $250 = $25 (not $100).
-      const referralPool = this.getReferralPool(packageNameRaw, packageAmount);
-      const companyShare = this.getCompanyShare(packageNameRaw, packageAmount);
+      const referralPool = Math.round((packageAmount * poolPct) * 100) / 100;
+      const companyShare = Math.round((packageAmount * (1 - poolPct)) * 100) / 100;
 
       // Double-check: we must NEVER use full package amount as pool for known packages.
       if (packageName !== 'Unknown' && poolPct > 0) {
@@ -138,7 +174,7 @@ class ReferralCommissionService {
         console.log(`[Commission] Level ${level}: Found referrer:`, referrer.email);
 
         // Commission = rate × REFERRAL POOL only. Never use package amount.
-        const commissionRate = this.commissionRates[level];
+        const commissionRate = cfg.commissionRates?.[level] ?? this.defaultCommissionRates[level] ?? 0;
         const commissionAmount = Math.round((referralPool * commissionRate) * 100) / 100;
         totalCommissionsDistributed += commissionAmount;
 

@@ -8,7 +8,10 @@ const PromoCode = require('../models/PromoCode');
 const Settings = require('../models/Settings');
 const Withdrawal = require('../models/Withdrawal');
 const BalanceTransaction = require('../models/BalanceTransaction');
+const Package = require('../models/Package');
 const { body, validationResult } = require('express-validator');
+const fs = require('fs');
+const path = require('path');
 
 const router = express.Router();
 
@@ -20,11 +23,34 @@ router.use(authenticateToken, requireAdmin);
 // @access  Private (Admin)
 router.get('/users', async (req, res) => {
   try {
+    // Use lean() so we can safely attach computed flags
     const users = await User.find({})
       .select('-password')
-      .sort({ createdAt: -1 });
-    
-    res.json(users);
+      .sort({ createdAt: -1 })
+      .lean();
+
+    // Compute "has bought a package" from completed package payments.
+    // (Badges may exist too, but payments are the source of truth.)
+    const packagePurchaserIds = await Payment.distinct('user', {
+      status: 'completed',
+      type: 'package'
+    });
+    const packageSet = new Set(packagePurchaserIds.map((id) => id.toString()));
+
+    const usersWithFlags = users.map((u) => {
+      const id = u._id?.toString();
+      const hasPackage =
+        (id ? packageSet.has(id) : false) || (Array.isArray(u.badges) && u.badges.length > 0);
+      const hasReferral = !!(u.parentReferralCode && String(u.parentReferralCode).trim().length > 0);
+
+      return {
+        ...u,
+        hasPackage,
+        hasReferral
+      };
+    });
+
+    res.json(usersWithFlags);
   } catch (error) {
     console.error('Get users error:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
@@ -113,6 +139,14 @@ router.get('/users/:id/referral-tree', async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
+    // The "referral leader" (upline) is the user whose referral code was used at signup.
+    // That code is stored as parentReferralCode on the user.
+    const referredByUser = user.parentReferralCode
+      ? await User.findOne({ referralCode: user.parentReferralCode })
+          .select('firstName lastName email referralCode isActive isVerified createdAt')
+          .lean()
+      : null;
+
     // Recursive function to build referral tree
     async function buildReferralTree(userCode, level = 0, maxLevel = 5) {
       if (level >= maxLevel) return []; // Prevent infinite recursion
@@ -158,8 +192,22 @@ router.get('/users/:id/referral-tree', async (req, res) => {
         firstName: user.firstName,
         lastName: user.lastName,
         email: user.email,
-        referralCode: user.referralCode
+        referralCode: user.referralCode,
+        parentReferralCode: user.parentReferralCode || null
       }
+      ,
+      referredBy: referredByUser
+        ? {
+            _id: referredByUser._id,
+            firstName: referredByUser.firstName,
+            lastName: referredByUser.lastName,
+            email: referredByUser.email,
+            referralCode: referredByUser.referralCode,
+            isActive: referredByUser.isActive,
+            isVerified: referredByUser.isVerified,
+            createdAt: referredByUser.createdAt
+          }
+        : null
     });
   } catch (error) {
     console.error('Get user referral tree error:', error);
@@ -183,6 +231,79 @@ router.get('/users/:id/transactions', async (req, res) => {
   } catch (error) {
     console.error('Get user transactions error:', error);
     res.status(500).json({ error: 'Failed to fetch user transactions' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Packages (admin-managed)
+// ---------------------------------------------------------------------------
+
+// @route   GET /api/admin/packages
+// @desc    List all packages (admin only)
+router.get('/packages', async (req, res) => {
+  try {
+    // Ensure default packages exist so the admin tab is never empty on fresh DBs
+    await Package.ensureDefaults();
+    const packages = await Package.find({}).sort({ sortOrder: 1, createdAt: 1 }).lean();
+    res.json(packages);
+  } catch (error) {
+    console.error('Get packages error:', error);
+    res.status(500).json({ error: 'Failed to fetch packages' });
+  }
+});
+
+// @route   POST /api/admin/packages
+// @desc    Create a package (admin only)
+router.post(
+  '/packages',
+  [
+    body('name').notEmpty().trim(),
+    body('price').isNumeric(),
+    body('referralPoolPercentage').optional().isFloat({ min: 0, max: 1 })
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const created = await Package.create(req.body);
+      res.status(201).json(created);
+    } catch (error) {
+      console.error('Create package error:', error);
+      res.status(500).json({ error: 'Failed to create package' });
+    }
+  }
+);
+
+// @route   PUT /api/admin/packages/:id
+// @desc    Update a package (admin only)
+router.put('/packages/:id', async (req, res) => {
+  try {
+    const updated = await Package.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true
+    }).lean();
+
+    if (!updated) return res.status(404).json({ error: 'Package not found' });
+    res.json(updated);
+  } catch (error) {
+    console.error('Update package error:', error);
+    res.status(500).json({ error: 'Failed to update package' });
+  }
+});
+
+// @route   DELETE /api/admin/packages/:id
+// @desc    Delete a package (admin only)
+router.delete('/packages/:id', async (req, res) => {
+  try {
+    const deleted = await Package.findByIdAndDelete(req.params.id).lean();
+    if (!deleted) return res.status(404).json({ error: 'Package not found' });
+    res.json({ message: 'Package deleted' });
+  } catch (error) {
+    console.error('Delete package error:', error);
+    res.status(500).json({ error: 'Failed to delete package' });
   }
 });
 
@@ -1224,6 +1345,77 @@ router.get('/commissions', async (req, res) => {
   } catch (error) {
     console.error('Get commissions error:', error);
     res.status(500).json({ error: 'Failed to fetch commissions' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Logs (admin-only)
+// ---------------------------------------------------------------------------
+
+function readLastLines(filePath, maxLines = 500, maxBytes = 1024 * 512) {
+  // Best-effort "tail" implementation (sync) to keep the endpoint simple.
+  // Reads up to maxBytes from the end, then returns the last maxLines.
+  const stat = fs.statSync(filePath);
+  const size = stat.size;
+  const start = Math.max(0, size - maxBytes);
+  const length = size - start;
+  const fd = fs.openSync(filePath, 'r');
+  try {
+    const buf = Buffer.alloc(length);
+    fs.readSync(fd, buf, 0, length, start);
+    const text = buf.toString('utf8');
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    return lines.slice(Math.max(0, lines.length - maxLines));
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+// @route   GET /api/admin/logs
+// @desc    Get server log lines (admin only)
+// @access  Private (Admin)
+// Query:
+//   - source: "app" | "access" (default "app")
+//   - limit: number of lines (default 500, max 5000)
+//   - search: substring filter (optional)
+router.get('/logs', async (req, res) => {
+  try {
+    const source = (req.query.source || 'app').toString();
+    const limitRaw = parseInt((req.query.limit || '500').toString(), 10);
+    const limit = Number.isFinite(limitRaw) ? Math.min(Math.max(limitRaw, 1), 5000) : 500;
+    const search = (req.query.search || '').toString().trim();
+
+    const logDir = path.join(__dirname, '..', 'logs');
+    const fileName = source === 'access' ? 'access.log' : 'app.log';
+    const filePath = path.join(logDir, fileName);
+
+    if (!fs.existsSync(filePath)) {
+      return res.json({
+        source,
+        fileName,
+        lines: [],
+        message: 'Log file not found yet'
+      });
+    }
+
+    let lines = readLastLines(filePath, limit);
+    if (search) {
+      const q = search.toLowerCase();
+      lines = lines.filter((l) => l.toLowerCase().includes(q));
+    }
+
+    // Return newest first for UI convenience
+    lines = lines.reverse();
+
+    res.json({
+      source,
+      fileName,
+      lines,
+      count: lines.length
+    });
+  } catch (error) {
+    console.error('Get logs error:', error);
+    res.status(500).json({ error: 'Failed to fetch logs' });
   }
 });
 

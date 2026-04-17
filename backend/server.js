@@ -4,6 +4,8 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const multer = require('multer');
+const fs = require('fs');
+const path = require('path');
 const maintenanceMiddleware = require('./middleware/maintenanceMode');
 const { checkSessionTimeout } = require('./middleware/sessionTimeout');
 const morgan = require('morgan');
@@ -31,11 +33,20 @@ const mt5Routes = require('./routes/mt5');
 const referralRoutes = require('./routes/referrals');
 const withdrawalRoutes = require('./routes/withdrawals');
 const tradeRoutes = require('./routes/trades');
+const packageRoutes = require('./routes/packages');
 const { initializeWebSocket } = require('./websocket');
 const { authenticateToken, requirePackageSubscription } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
+
+// Ensure log directory exists (used by morgan + console mirror)
+const LOG_DIR = path.join(__dirname, 'logs');
+try {
+  fs.mkdirSync(LOG_DIR, { recursive: true });
+} catch (e) {
+  console.error('Failed to create log directory:', e);
+}
 
 // Trust proxy for rate limiting behind reverse proxy
 app.set('trust proxy', 1);
@@ -102,13 +113,75 @@ const upload = multer({
 app.use('/api/assignments/*/submit', upload.any());
 
 // Logging middleware
-app.use(morgan('combined'));
+const accessLogStream = fs.createWriteStream(path.join(LOG_DIR, 'access.log'), { flags: 'a' });
+app.use(morgan('combined', { stream: accessLogStream }));
+// Keep existing console logging behavior for local dev visibility
+app.use(morgan('dev'));
+
+// Mirror console output to app.log for admin viewing
+const appLogStream = fs.createWriteStream(path.join(LOG_DIR, 'app.log'), { flags: 'a' });
+function formatLogLine(level, args) {
+  const msg = args
+    .map((a) => {
+      if (a instanceof Error) return a.stack || a.message;
+      if (typeof a === 'string') return a;
+      try {
+        return JSON.stringify(a);
+      } catch {
+        return String(a);
+      }
+    })
+    .join(' ');
+  return `[${new Date().toISOString()}] [${level}] ${msg}\n`;
+}
+
+const originalConsole = {
+  log: console.log.bind(console),
+  info: console.info.bind(console),
+  warn: console.warn.bind(console),
+  error: console.error.bind(console)
+};
+
+console.log = (...args) => {
+  try {
+    appLogStream.write(formatLogLine('INFO', args));
+  } catch {}
+  originalConsole.log(...args);
+};
+console.info = (...args) => {
+  try {
+    appLogStream.write(formatLogLine('INFO', args));
+  } catch {}
+  originalConsole.info(...args);
+};
+console.warn = (...args) => {
+  try {
+    appLogStream.write(formatLogLine('WARN', args));
+  } catch {}
+  originalConsole.warn(...args);
+};
+console.error = (...args) => {
+  try {
+    appLogStream.write(formatLogLine('ERROR', args));
+  } catch {}
+  originalConsole.error(...args);
+};
 
 // Database connection
 const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/forex-lms';
 mongoose.connect(mongoUri)
   .then(() => console.log(`Connected to MongoDB: ${mongoUri}`))
   .catch(err => console.error('MongoDB connection error:', err));
+
+// Seed default packages once DB is ready (safe no-op if already exists)
+mongoose.connection.once('open', async () => {
+  try {
+    const Package = require('./models/Package');
+    await Package.ensureDefaults();
+  } catch (e) {
+    console.error('Package seed error:', e);
+  }
+});
 
 // Debug environment variables
 console.log('Environment variables check:');
@@ -119,6 +192,7 @@ console.log('- PORT:', process.env.PORT);
 // Public routes (no middleware)
 app.use('/api/auth', authRoutes);
 app.use('/api/settings/public', require('./routes/settings'));
+app.use('/api/packages', packageRoutes);
 
 // Routes with session timeout check
 // Admin and teacher routes don't require package subscription

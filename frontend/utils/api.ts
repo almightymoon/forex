@@ -2,7 +2,19 @@
 import { env } from '../lib/env';
 
 // export const API_BASE_URL = env.API_BASE_URL || 'https://thefxnavigators.com/api';
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com/api';
+function getDefaultApiBaseUrl(): string {
+  // If env isn't set, pick a sensible default for local dev.
+  // This prevents the frontend from accidentally calling production during development.
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:4000/api';
+    }
+  }
+  return 'https://thefxnavigators.com/api';
+}
+
+export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || getDefaultApiBaseUrl();
 // Simple in-memory cache
 const cache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
