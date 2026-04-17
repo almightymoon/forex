@@ -188,26 +188,28 @@ export default function Packages() {
 
         <div className="relative">
           {/* Carousel controls */}
-          <div className="hidden md:flex items-center justify-between pointer-events-none absolute inset-y-0 -left-2 -right-2 z-20">
-            <button
-              type="button"
-              onClick={handlePrev}
-              className="pointer-events-auto h-12 w-12 rounded-full bg-white/90 dark:bg-gray-900/80 border border-slate-200 dark:border-white/10 shadow-lg hover:shadow-xl transition flex items-center justify-center"
-              aria-label="Previous package"
-              title="Previous"
-            >
-              <ChevronLeft className="w-6 h-6 text-slate-700 dark:text-gray-200" />
-            </button>
-            <button
-              type="button"
-              onClick={handleNext}
-              className="pointer-events-auto h-12 w-12 rounded-full bg-white/90 dark:bg-gray-900/80 border border-slate-200 dark:border-white/10 shadow-lg hover:shadow-xl transition flex items-center justify-center"
-              aria-label="Next package"
-              title="Next"
-            >
-              <ChevronRight className="w-6 h-6 text-slate-700 dark:text-gray-200" />
-            </button>
-          </div>
+          {packages.length > 3 && (
+            <div className="hidden md:flex items-center justify-between pointer-events-none absolute inset-y-0 -left-2 -right-2 z-20">
+              <button
+                type="button"
+                onClick={handlePrev}
+                className="pointer-events-auto h-12 w-12 rounded-full bg-white/90 dark:bg-gray-900/80 border border-slate-200 dark:border-white/10 shadow-lg hover:shadow-xl transition flex items-center justify-center"
+                aria-label="Previous package"
+                title="Previous"
+              >
+                <ChevronLeft className="w-6 h-6 text-slate-700 dark:text-gray-200" />
+              </button>
+              <button
+                type="button"
+                onClick={handleNext}
+                className="pointer-events-auto h-12 w-12 rounded-full bg-white/90 dark:bg-gray-900/80 border border-slate-200 dark:border-white/10 shadow-lg hover:shadow-xl transition flex items-center justify-center"
+                aria-label="Next package"
+                title="Next"
+              >
+                <ChevronRight className="w-6 h-6 text-slate-700 dark:text-gray-200" />
+              </button>
+            </div>
+          )}
 
           {/* Horizontal scroller */}
           <div
@@ -297,7 +299,7 @@ export default function Packages() {
           </div>
 
           {/* Dots */}
-          {packages.length > 1 && (
+          {packages.length > 3 && (
             <div className="mt-6 flex items-center justify-center gap-2">
               {packages.map((_, idx) => (
                 <button
