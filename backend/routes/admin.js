@@ -1,5 +1,6 @@
 const express = require('express');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
+const { clearFailedAttemptsByEmail } = require('../middleware/loginSecurity');
 const User = require('../models/User');
 const Course = require('../models/Course');
 const TradingSignal = require('../models/TradingSignal');
@@ -9,14 +10,92 @@ const Settings = require('../models/Settings');
 const Withdrawal = require('../models/Withdrawal');
 const BalanceTransaction = require('../models/BalanceTransaction');
 const Package = require('../models/Package');
-const { body, validationResult } = require('express-validator');
 const fs = require('fs');
 const path = require('path');
+const NotificationTracking = require('../models/NotificationTracking');
+const notificationService = require('../services/notificationService');
+const referralService = require('../services/referralService');
+const { body, validationResult } = require('express-validator');
+const adminProductsRouter = require('./adminProducts');
 
 const router = express.Router();
 
+// Mount admin products (CRUD + image upload)
+router.use('/products', adminProductsRouter);
+
 // Apply admin middleware to all routes
 router.use(authenticateToken, requireAdmin);
+
+// @route   POST /api/admin/email-history/:id/resend
+// @desc    Resend a failed email (admin only)
+// @access  Private (Admin)
+router.post('/email-history/:id/resend', async (req, res) => {
+  try {
+    const record = await NotificationTracking.findById(req.params.id)
+      .populate('userId', 'email firstName lastName');
+    if (!record) {
+      return res.status(404).json({ error: 'Email record not found' });
+    }
+    if (record.channel !== 'email') {
+      return res.status(400).json({ error: 'Only email records can be resent' });
+    }
+    if (!record.userId || !record.userId.email) {
+      return res.status(400).json({ error: 'Recipient not found' });
+    }
+
+    const to = record.userId.email;
+    const subject = record.title;
+    const message = record.message || '';
+    const isHtml = /<[a-z][\s\S]*>/i.test(message);
+    const html = isHtml ? message : null;
+    const text = isHtml ? message.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim() : message;
+
+    const sent = await notificationService.sendEmail({
+      to,
+      subject,
+      html: html || `<pre>${message.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</pre>`,
+      text: text || message,
+      userId: record.userId._id,
+      type: record.type
+    });
+
+    if (sent) {
+      return res.json({ success: true, message: 'Email resent successfully' });
+    }
+    return res.status(500).json({ error: 'Resend failed', message: 'Email could not be sent (check SMTP config or recipient)' });
+  } catch (error) {
+    console.error('Resend email error:', error);
+    return res.status(500).json({ error: 'Resend failed', message: error.message || 'Failed to resend email' });
+  }
+});
+
+// @route   GET /api/admin/email-history
+// @desc    List emails sent to users (admin only). Query: userId, type, status, limit, skip
+// @access  Private (Admin)
+router.get('/email-history', async (req, res) => {
+  try {
+    const { userId, type, status, limit = 50, skip = 0 } = req.query;
+    const query = { channel: 'email' };
+    if (userId) query.userId = userId;
+    if (type) query.type = type;
+    if (status) query.status = status;
+
+    const [items, total] = await Promise.all([
+      NotificationTracking.find(query)
+        .populate('userId', 'email firstName lastName role')
+        .sort({ createdAt: -1 })
+        .skip(Number(skip))
+        .limit(Math.min(Number(limit), 200))
+        .lean(),
+      NotificationTracking.countDocuments(query)
+    ]);
+
+    res.json({ items, total });
+  } catch (error) {
+    console.error('Get email history error:', error);
+    res.status(500).json({ error: 'Failed to fetch email history' });
+  }
+});
 
 // @route   GET /api/admin/users
 // @desc    Get all users (admin only)
@@ -70,6 +149,37 @@ router.get('/users/:id', async (req, res) => {
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to fetch user' });
+  }
+});
+
+// @route   PUT /api/admin/users/:id/email-unreachable
+// @desc    Mark user's email as unreachable / stop sending emails (admin only)
+// @access  Private (Admin)
+router.put('/users/:id/email-unreachable', [
+  body('emailUnreachable').isBoolean().withMessage('emailUnreachable must be true or false'),
+  body('reason').optional().trim().isLength({ max: 500 }).withMessage('Reason max 500 chars')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+    }
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const { emailUnreachable, reason } = req.body;
+    user.emailUnreachable = !!emailUnreachable;
+    user.emailUnreachableAt = emailUnreachable ? new Date() : undefined;
+    user.emailUnreachableReason = emailUnreachable ? (reason || '') : undefined;
+    await user.save();
+    res.json({
+      message: emailUnreachable ? 'Email marked as unreachable. No further emails will be sent.' : 'Email marked as reachable again.',
+      user: { _id: user._id, email: user.email, emailUnreachable: user.emailUnreachable, emailUnreachableAt: user.emailUnreachableAt, emailUnreachableReason: user.emailUnreachableReason }
+    });
+  } catch (error) {
+    console.error('Update email unreachable error:', error);
+    res.status(500).json({ error: 'Failed to update email unreachable status' });
   }
 });
 
@@ -130,7 +240,7 @@ router.get('/users/:id/referrals', async (req, res) => {
 });
 
 // @route   GET /api/admin/users/:id/referral-tree
-// @desc    Get user's complete referral tree (admin only)
+// @desc    Get user's complete referral tree & rank stats (admin only)
 // @access  Private (Admin)
 router.get('/users/:id/referral-tree', async (req, res) => {
   try {
@@ -146,47 +256,13 @@ router.get('/users/:id/referral-tree', async (req, res) => {
           .select('firstName lastName email referralCode isActive isVerified createdAt')
           .lean()
       : null;
+    // Use shared referralService so admin sees the same rank / progress logic as users
+    const treeData = await referralService.getReferralTree(user._id);
 
-    // Recursive function to build referral tree
-    async function buildReferralTree(userCode, level = 0, maxLevel = 5) {
-      if (level >= maxLevel) return []; // Prevent infinite recursion
-      
-      const directReferrals = await User.find({ 
-        parentReferralCode: userCode 
-      })
-        .select('firstName lastName email referralCode isActive isVerified balance createdAt')
-        .sort({ createdAt: -1 })
-        .lean();
-
-      const referralsWithChildren = await Promise.all(
-        directReferrals.map(async (referral) => {
-          const children = await buildReferralTree(referral.referralCode, level + 1, maxLevel);
-          return {
-            ...referral,
-            level: level + 1,
-            children,
-            childrenCount: children.length,
-            totalDescendants: children.reduce((sum, child) => sum + child.totalDescendants + 1, children.length)
-          };
-        })
-      );
-
-      return referralsWithChildren;
-    }
-
-    const tree = await buildReferralTree(user.referralCode);
-    
-    // Calculate stats
-    const stats = {
-      totalReferrals: tree.length,
-      totalDescendants: tree.reduce((sum, child) => sum + child.totalDescendants + 1, tree.length),
-      activeReferrals: tree.filter(r => r.isActive).length,
-      verifiedReferrals: tree.filter(r => r.isVerified).length
-    };
-
+    // Keep backward-compatible shape expected by admin UI, but include full stats (with rank)
     res.json({
-      tree,
-      stats,
+      tree: treeData.tree || [],
+      stats: treeData.stats || {},
       rootUser: {
         _id: user._id,
         firstName: user.firstName,
@@ -332,12 +408,14 @@ router.post('/users/:id/credit', [
       notes
     });
 
-    // Send notification to user
+    // Send email to user about balance credit
     const notificationService = require('../services/notificationService');
-    await notificationService.sendNotificationToUser(req.params.id, 'balance', {
-      title: 'Balance Credited',
-      message: `$${amount} USDT has been credited to your account. ${description}`,
-      transactionId: transaction._id
+    await notificationService.sendNotificationToUser(req.params.id, 'balance_credited', {
+      amount: parseFloat(amount),
+      currency: 'USDT',
+      description: description,
+      transactionId: transaction._id.toString(),
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     });
 
     res.json({
@@ -613,8 +691,47 @@ router.put('/users/:id', async (req, res) => {
   }
 });
 
+// @route   POST /api/admin/users/:id/unblock
+// @desc    Unblock a user locked due to failed login attempts (admin only)
+// @access  Private (Admin)
+router.post('/users/:id/unblock', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const wasLocked = user.security?.isLocked || (user.security?.lockedUntil && new Date(user.security.lockedUntil) > new Date());
+    if (!wasLocked) {
+      return res.status(400).json({ error: 'Account is not locked', message: 'This account is not currently locked.' });
+    }
+
+    // Clear lock in database
+    await User.findByIdAndUpdate(req.params.id, {
+      $unset: {
+        'security.isLocked': 1,
+        'security.lockedUntil': 1,
+        'security.lockReason': 1
+      },
+      $set: {
+        'security.failedLoginAttempts': 0
+      }
+    });
+
+    // Clear in-memory failed attempts for this email (all IPs)
+    clearFailedAttemptsByEmail(user.email);
+
+    const updatedUser = await User.findById(req.params.id).select('-password');
+    res.json({ message: 'Account unblocked successfully', user: updatedUser });
+  } catch (error) {
+    console.error('Unblock user error:', error);
+    res.status(500).json({ error: 'Failed to unblock user' });
+  }
+});
+
 // @route   DELETE /api/admin/users/:id
-// @desc    Delete user (admin only)
+// @desc    Delete user (admin only). Optionally roll back commissions distributed from this user's payments.
+// @body    { rollbackCommissions?: boolean } - If true, reverses all referral commissions paid out due to this user's completed payments, then deletes the user.
 // @access  Private (Admin)
 router.delete('/users/:id', async (req, res) => {
   try {
@@ -628,8 +745,20 @@ router.delete('/users/:id', async (req, res) => {
       return res.status(400).json({ error: 'Cannot delete your own account' });
     }
 
+    const rollbackCommissions = !!(req.body && req.body.rollbackCommissions) || req.query.rollbackCommissions === 'true';
+
+    if (rollbackCommissions) {
+      const BalanceTransaction = require('../models/BalanceTransaction');
+      const { reversedCount, reversedDetails } = await BalanceTransaction.reverseCommissionsForUser(req.params.id);
+      console.log(`[Delete User] Rolled back ${reversedCount} commission(s) for user ${user.email}`, reversedDetails);
+      await User.findByIdAndDelete(req.params.id);
+      return res.json({
+        message: 'User deleted successfully. Commissions rolled back.',
+        rollback: { reversedCount, reversedDetails }
+      });
+    }
+
     await User.findByIdAndDelete(req.params.id);
-    
     res.json({ message: 'User deleted successfully' });
   } catch (error) {
     console.error('Delete user error:', error);
@@ -836,7 +965,30 @@ router.get('/analytics', async (req, res) => {
         users: monthUsers
       });
     }
-    
+
+    // Recent activity: merge latest user registrations and completed payments, sort by date
+    const recentUsers = await User.find({}).sort({ createdAt: -1 }).limit(10).select('firstName lastName email role createdAt').lean();
+    const recentPayments = await Payment.find({ status: 'completed' }).sort({ updatedAt: -1 }).limit(10).populate('user', 'firstName lastName email').lean();
+    const activityItems = [
+      ...recentUsers.map(u => ({
+        type: 'user_registration',
+        _id: u._id.toString(),
+        createdAt: u.createdAt,
+        userName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Unknown',
+        email: u.email,
+        role: u.role
+      })),
+      ...recentPayments.map(p => ({
+        type: 'payment_received',
+        _id: p._id.toString(),
+        createdAt: p.updatedAt || p.createdAt,
+        amount: p.amount || p.finalAmount,
+        currency: p.currency || 'USD',
+        userName: p.user ? `${p.user.firstName || ''} ${p.user.lastName || ''}`.trim() : 'Unknown',
+        packageName: p.package?.name || 'Signup'
+      }))
+    ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)).slice(0, 15);
+
     const analytics = {
       totalUsers,
       totalRevenue: completedPayments[0]?.total || 0,
@@ -851,7 +1003,8 @@ router.get('/analytics', async (req, res) => {
         method: stat._id,
         count: stat.count,
         totalAmount: stat.totalAmount
-      }))
+      })),
+      recentActivity: activityItems
     };
     
     res.json(analytics);
@@ -1023,7 +1176,8 @@ router.get('/settings', async (req, res) => {
         defaultCurrency: settings.defaultCurrency,
         timezone: settings.timezone,
         language: settings.language,
-        maintenanceMode: settings.maintenanceMode
+        maintenanceMode: settings.maintenanceMode,
+        maintenanceAllowTeachers: settings.maintenanceAllowTeachers || false
       },
       security: settings.security,
       notifications: settings.notifications,
@@ -1089,6 +1243,101 @@ router.get('/withdrawals', async (req, res) => {
   }
 });
 
+// @route   DELETE /api/admin/withdrawals
+// @desc    Bulk delete withdrawal requests (admin only)
+// @access  Private (Admin)
+router.delete('/withdrawals', async (req, res) => {
+  try {
+    const { withdrawalIds } = req.body;
+    
+    if (!withdrawalIds || !Array.isArray(withdrawalIds) || withdrawalIds.length === 0) {
+      return res.status(400).json({ error: 'Withdrawal IDs are required' });
+    }
+
+    let deletedCount = 0;
+    let refundedAmount = 0;
+
+    for (const withdrawalId of withdrawalIds) {
+      const withdrawal = await Withdrawal.findById(withdrawalId).populate('user');
+      
+      if (!withdrawal) {
+        console.log(`[Bulk Delete] Withdrawal ${withdrawalId} not found, skipping`);
+        continue;
+      }
+
+      // If withdrawal is pending, refund the balance to user
+      if (withdrawal.status === 'pending') {
+        const user = await User.findById(withdrawal.user._id);
+        if (user) {
+          user.balance += withdrawal.amount;
+          await user.save();
+          refundedAmount += withdrawal.amount;
+          console.log(`[Bulk Delete] Refunded $${withdrawal.amount} to user ${user.email}`);
+        }
+      }
+
+      // Delete the withdrawal
+      await Withdrawal.findByIdAndDelete(withdrawalId);
+      deletedCount++;
+      console.log(`[Bulk Delete] Deleted withdrawal ${withdrawalId}`);
+    }
+
+    res.json({
+      success: true,
+      message: `${deletedCount} withdrawal(s) deleted successfully`,
+      deletedCount,
+      refundedAmount
+    });
+
+  } catch (error) {
+    console.error('Bulk delete withdrawals error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message || 'Failed to delete withdrawals' 
+    });
+  }
+});
+
+// @route   DELETE /api/admin/withdrawals/:id
+// @desc    Delete withdrawal request (admin only)
+// @access  Private (Admin)
+// NOTE: This route must be registered AFTER /withdrawals (bulk delete) to avoid route conflicts
+router.delete('/withdrawals/:id', async (req, res) => {
+  try {
+    const withdrawal = await Withdrawal.findById(req.params.id).populate('user');
+    
+    if (!withdrawal) {
+      return res.status(404).json({ error: 'Withdrawal not found' });
+    }
+
+    // If withdrawal is pending, refund the balance to user
+    if (withdrawal.status === 'pending') {
+      const user = await User.findById(withdrawal.user._id);
+      if (user) {
+        user.balance += withdrawal.amount;
+        await user.save();
+        console.log(`[Delete Withdrawal] Refunded $${withdrawal.amount} to user ${user.email}`);
+      }
+    }
+
+    // Delete the withdrawal
+    await Withdrawal.findByIdAndDelete(req.params.id);
+    console.log(`[Delete Withdrawal] Deleted withdrawal ${req.params.id}`);
+
+    res.json({
+      success: true,
+      message: 'Withdrawal deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete withdrawal error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message || 'Failed to delete withdrawal' 
+    });
+  }
+});
+
 // @route   POST /api/admin/withdrawals/:id/complete
 // @desc    Complete withdrawal (admin only)
 // @access  Private (Admin)
@@ -1119,13 +1368,14 @@ router.post('/withdrawals/:id/complete', [
     }
     await withdrawal.complete(transactionHash);
 
-    // Send notification to user
+    // Send email to user about withdrawal confirmation
     const notificationService = require('../services/notificationService');
-    await notificationService.sendNotificationToUser(withdrawal.user._id, 'withdrawal', {
-      title: 'Withdrawal Completed',
-      message: `Your withdrawal of $${withdrawal.amount} USDT has been processed successfully`,
-      withdrawalId: withdrawal._id,
-      transactionHash: transactionHash || 'N/A'
+    await notificationService.sendNotificationToUser(withdrawal.user._id, 'withdrawal_confirmed', {
+      amount: withdrawal.amount,
+      currency: withdrawal.currency || 'USDT',
+      transactionHash: transactionHash || 'N/A',
+      withdrawalId: withdrawal._id.toString(),
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     });
 
     res.json({
@@ -1188,6 +1438,12 @@ router.post('/withdrawals/:id/reject', [
 
   } catch (error) {
     console.error('Reject withdrawal error:', error);
+    if (error.name === 'ValidationError' && error.errors?.rejectionReason) {
+      return res.status(400).json({
+        success: false,
+        error: error.errors.rejectionReason.message || 'Rejection reason cannot exceed 2000 characters'
+      });
+    }
     res.status(500).json({ 
       success: false,
       error: error.message || 'Failed to reject withdrawal' 
@@ -1416,6 +1672,130 @@ router.get('/logs', async (req, res) => {
   } catch (error) {
     console.error('Get logs error:', error);
     res.status(500).json({ error: 'Failed to fetch logs' });
+  }
+});
+
+// @route   GET /api/admin/platform-commissions
+// @desc    Get platform commissions (company share from all payments)
+// @access  Private (Admin)
+router.get('/platform-commissions', async (req, res) => {
+  try {
+    const { limit = 50, page = 1, packageName, startDate, endDate } = req.query;
+    
+    console.log('[Platform Commissions] Fetching platform commissions with filters:', {
+      limit,
+      page,
+      packageName,
+      startDate,
+      endDate
+    });
+    
+    const query = { type: 'package', status: 'completed' };
+    
+    // Debug: check if there are any package payments at all
+    const allPackagePayments = await Payment.find({ type: 'package' })
+      .select('status package.name finalAmount amount adminConfirmed')
+      .lean();
+    console.log('[Platform Commissions] All package payments (any status):', allPackagePayments.length);
+    
+    if (packageName) query['package.name'] = packageName;
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+    
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+    
+    const payments = await Payment.find(query)
+      .populate('user', 'firstName lastName email')
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip(skip)
+      .lean();
+    
+    const ReferralCommissionService = require('../services/referralCommissionService');
+    const commissionService = new ReferralCommissionService();
+    
+    const platformCommissions = payments.map((payment) => {
+      const pkgName = payment.package?.name || 'Unknown';
+      const pkgAmount = payment.finalAmount || payment.amount || 0;
+      const referralPool = commissionService.getReferralPool(pkgName, pkgAmount);
+      const companyShare = commissionService.getCompanyShare(pkgName, pkgAmount);
+      const poolPct = (commissionService.packageReferralPools?.[commissionService.normalizePackageName(pkgName)] || 0) * 100;
+      
+      return {
+        _id: payment._id,
+        paymentId: payment._id,
+        user: payment.user || { firstName: 'Unknown', lastName: '', email: '' },
+        package: payment.package || { name: 'Unknown', price: 0 },
+        packageAmount: pkgAmount,
+        referralPool,
+        platformCommission: companyShare,
+        referralPoolPercentage: poolPct,
+        platformCommissionPercentage: 100 - poolPct,
+        createdAt: payment.createdAt,
+        confirmedAt: payment.confirmedAt
+      };
+    });
+    
+    const total = await Payment.countDocuments(query);
+    
+    // Stats
+    const allCompleted = await Payment.find({ type: 'package', status: 'completed' }).lean();
+    let totalPlatformCommission = 0;
+    let totalReferralPool = 0;
+    let totalPackageAmount = 0;
+    const byPackage = {};
+    
+    allCompleted.forEach((payment) => {
+      const pkgName = payment.package?.name || 'Unknown';
+      const pkgAmount = payment.finalAmount || payment.amount || 0;
+      const refPool = commissionService.getReferralPool(pkgName, pkgAmount);
+      const companyShare = commissionService.getCompanyShare(pkgName, pkgAmount);
+      
+      totalPlatformCommission += companyShare;
+      totalReferralPool += refPool;
+      totalPackageAmount += pkgAmount;
+      
+      if (!byPackage[pkgName]) byPackage[pkgName] = { totalAmount: 0, platformCommission: 0, referralPool: 0, count: 0 };
+      byPackage[pkgName].totalAmount += pkgAmount;
+      byPackage[pkgName].platformCommission += companyShare;
+      byPackage[pkgName].referralPool += refPool;
+      byPackage[pkgName].count += 1;
+    });
+    
+    res.json({
+      commissions: platformCommissions,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / parseInt(limit))
+      },
+      stats: {
+        total: {
+          totalPlatformCommission: Math.round(totalPlatformCommission * 100) / 100,
+          totalReferralPool: Math.round(totalReferralPool * 100) / 100,
+          totalPackageAmount: Math.round(totalPackageAmount * 100) / 100,
+          totalCount: allCompleted.length
+        },
+        byPackage: Object.entries(byPackage).map(([name, data]) => ({
+          packageName: name,
+          totalAmount: Math.round(data.totalAmount * 100) / 100,
+          platformCommission: Math.round(data.platformCommission * 100) / 100,
+          referralPool: Math.round(data.referralPool * 100) / 100,
+          count: data.count
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('[Platform Commissions] Error:', error);
+    console.error('[Platform Commissions] Error stack:', error.stack);
+    res.status(500).json({
+      error: 'Failed to fetch platform commissions',
+      message: error.message
+    });
   }
 });
 

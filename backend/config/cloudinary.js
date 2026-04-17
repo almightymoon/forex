@@ -1,23 +1,26 @@
 const cloudinary = require('cloudinary').v2;
 
-// Configure Cloudinary
+// Configure Cloudinary (trim env vars - whitespace causes "Invalid Signature")
+const cloudName = (process.env.CLOUDINARY_CLOUD_NAME || '').trim();
+const apiKey = (process.env.CLOUDINARY_API_KEY || '').trim();
+const apiSecret = (process.env.CLOUDINARY_API_SECRET || '').trim();
+
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET
+  cloud_name: cloudName,
+  api_key: apiKey,
+  api_secret: apiSecret
 });
 
 // Helper function to upload image
 const uploadImage = async (file, folder = 'trading-platform') => {
+  if (!cloudName || !apiKey || !apiSecret) {
+    throw new Error('Cloudinary is not configured. Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in .env');
+  }
   try {
     const result = await cloudinary.uploader.upload(file, {
       folder: folder,
-      resource_type: 'auto',
-      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp'],
-      transformation: [
-        { quality: 'auto:good' },
-        { fetch_format: 'auto' }
-      ]
+      resource_type: 'image',
+      allowed_formats: ['jpg', 'jpeg', 'png', 'gif', 'webp']
     });
 
     return {

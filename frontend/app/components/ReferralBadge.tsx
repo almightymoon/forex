@@ -67,12 +67,18 @@ interface ReferralBadgeProps {
 // Map rank names to icon components
 const getRankIcon = (rankName: string) => {
   const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+    'Getting Started': Sprout,
     'Starter': Sprout,
     'Bronze': Medal,
+    'Bronze Leader': Medal,
     'Silver': Award,
+    'Silver Leader': Award,
     'Gold': Trophy,
+    'Gold Leader': Trophy,
     'Platinum': Gem,
-    'Diamond': Crown
+    'Platinum Leader': Gem,
+    'Diamond': Crown,
+    'Diamond Leader': Crown
   };
   return iconMap[rankName] || Sprout;
 };

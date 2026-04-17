@@ -4,14 +4,15 @@ const ReferralCommission = require('../models/ReferralCommission');
 const Payment = require('../models/Payment');
 const notificationService = require('./notificationService');
 
-/** Ranks based on total referrals (all levels). Verified = has purchased a package. */
+/** Ranks based on Total Team + required Direct referrals. */
 const REFERRAL_RANKS = [
-  { minReferrals: 0, name: 'Starter', icon: '🌱', color: '#94a3b8', description: 'Just getting started' },
-  { minReferrals: 5, name: 'Bronze', icon: '🥉', color: '#cd7f32', description: '5+ referrals' },
-  { minReferrals: 10, name: 'Silver', icon: '🥈', color: '#c0c0c0', description: '10+ referrals' },
-  { minReferrals: 25, name: 'Gold', icon: '🥇', color: '#ffd700', description: '25+ referrals' },
-  { minReferrals: 50, name: 'Platinum', icon: '💎', color: '#e5e4e2', description: '50+ referrals' },
-  { minReferrals: 100, name: 'Diamond', icon: '👑', color: '#b9f2ff', description: '100+ referrals' }
+  { minReferrals: 0, minDirects: 0, name: 'Getting Started', icon: '🌱', color: '#94a3b8', description: 'Build your team' },
+  { minReferrals: 120, minDirects: 4, name: 'Starter', icon: '🌱', color: '#94a3b8', description: '4 directs, 120+ total team' },
+  { minReferrals: 372, minDirects: 6, name: 'Bronze Leader', icon: '🥉', color: '#cd7f32', description: '6 directs, 372+ total team' },
+  { minReferrals: 1008, minDirects: 8, name: 'Silver Leader', icon: '🥈', color: '#c0c0c0', description: '8 directs, 1,008+ total team' },
+  { minReferrals: 2540, minDirects: 10, name: 'Gold Leader', icon: '🥇', color: '#ffd700', description: '10 directs, 2,540+ total team' },
+  { minReferrals: 6120, minDirects: 12, name: 'Platinum Leader', icon: '💎', color: '#e5e4e2', description: '12 directs, 6,120+ total team' },
+  { minReferrals: 15330, minDirects: 15, name: 'Diamond Leader', icon: '👑', color: '#b9f2ff', description: '15 directs, 15,330+ total team' }
 ];
 
 class ReferralService {
@@ -28,26 +29,32 @@ class ReferralService {
   }
 
   /**
-   * Get rank info for a given total referral count.
-   * @param {number} totalReferrals
+   * Get rank info for total team and direct referrals.
+   * User qualifies for a rank only when BOTH totalReferrals >= minReferrals AND directReferrals >= minDirects.
+   * @param {number} totalReferrals - Total team size (all levels)
+   * @param {number} directReferrals - Direct referrals only (level 1)
    * @returns {{ current: object, next: object | null, progressToNext: number }}
    */
-  getReferralRank(totalReferrals) {
-    const n = Math.max(0, totalReferrals);
+  getReferralRank(totalReferrals, directReferrals = 0) {
+    const total = Math.max(0, totalReferrals);
+    const directs = Math.max(0, directReferrals);
     let current = REFERRAL_RANKS[0];
     let next = null;
     for (let i = REFERRAL_RANKS.length - 1; i >= 0; i--) {
-      if (n >= REFERRAL_RANKS[i].minReferrals) {
-        current = REFERRAL_RANKS[i];
+      const r = REFERRAL_RANKS[i];
+      if (total >= r.minReferrals && directs >= (r.minDirects || 0)) {
+        current = r;
         next = REFERRAL_RANKS[i + 1] || null;
         break;
       }
     }
     let progressToNext = 1;
     if (next) {
-      const range = next.minReferrals - current.minReferrals;
-      const progress = n - current.minReferrals;
-      progressToNext = range > 0 ? Math.min(1, Math.max(0, progress / range)) : 1;
+      const totalRange = next.minReferrals - current.minReferrals;
+      const directRange = (next.minDirects || 0) - (current.minDirects || 0);
+      const totalProgress = totalRange > 0 ? (total - current.minReferrals) / totalRange : 1;
+      const directProgress = directRange > 0 ? (directs - (current.minDirects || 0)) / directRange : 1;
+      progressToNext = Math.min(1, Math.max(0, Math.min(totalProgress, directProgress)));
     }
     return { current, next, progressToNext };
   }
@@ -351,7 +358,7 @@ class ReferralService {
     }
 
     if (!user.referralCode) {
-      const rank = this.getReferralRank(0);
+      const rank = this.getReferralRank(0, 0);
       return {
         user: {
           id: user._id.toString(),
@@ -373,13 +380,15 @@ class ReferralService {
     const tree = await buildReferralTree(user.referralCode);
     const flat = this.flattenTree(tree);
     const totalReferrals = flat.length;
+    const directReferrals = tree.length;
     const verifiedCount = flat.filter((n) => n.verified).length;
     const unverifiedCount = totalReferrals - verifiedCount;
     const totalDescendants = tree.reduce((sum, child) => sum + (child.totalDescendants || 0) + 1, tree.length);
-    const rank = this.getReferralRank(totalReferrals);
+    const rank = this.getReferralRank(totalReferrals, directReferrals);
 
     const stats = {
       totalReferrals,
+      directReferrals,
       totalDescendants,
       activeReferrals: flat.filter((r) => r.isActive).length,
       verifiedReferrals: verifiedCount,
@@ -437,10 +446,19 @@ class ReferralService {
       .limit(limit)
       .skip(offset);
 
-    const totalEarnings = await ReferralCommission.aggregate([
+    const totalEarningsFromRC = await ReferralCommission.aggregate([
       { $match: { referrer: userId, status: 'paid' } },
       { $group: { _id: null, total: { $sum: '$commissionAmount' } } }
     ]);
+    const rcTotal = totalEarningsFromRC[0]?.total || 0;
+
+    const BalanceTransaction = require('../models/BalanceTransaction');
+    const totalEarningsFromBT = await BalanceTransaction.aggregate([
+      { $match: { user: userId, type: 'referral_commission' } },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const btTotal = totalEarningsFromBT[0]?.total || 0;
+    const totalEarnings = btTotal > 0 ? btTotal : rcTotal;
 
     const earningsByLevel = await ReferralCommission.aggregate([
       { $match: { referrer: userId, status: 'paid' } },
@@ -460,7 +478,7 @@ class ReferralService {
 
     return {
       commissions: commissions,
-      totalEarnings: totalEarnings[0]?.total || 0,
+      totalEarnings,
       earningsByLevel: earningsByLevel.reduce((acc, item) => {
         acc[`level${item._id}`] = {
           total: item.total,

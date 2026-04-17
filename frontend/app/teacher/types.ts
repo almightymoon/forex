@@ -11,6 +11,7 @@ export interface Course {
   createdAt: string;
   thumbnail?: string;
   assignments?: Assignment[];
+  allowedPackages?: number[] | null; // null means for all packages, array of [100, 250, 1000]
   teacher?: {
     _id: string;
     firstName: string;

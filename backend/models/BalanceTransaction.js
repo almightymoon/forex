@@ -4,8 +4,7 @@ const balanceTransactionSchema = new mongoose.Schema({
   user: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: true,
-    index: true
+    required: true
   },
   type: {
     type: String,
@@ -121,6 +120,45 @@ balanceTransactionSchema.statics.getUserTransactions = async function(userId, op
     .sort({ createdAt: -1 })
     .limit(limit)
     .skip(skip);
+};
+
+/**
+ * Reverse all referral commissions that were distributed due to a user's completed payments.
+ * Used when deleting a user (e.g. wrong payment details): subtracts those commissions from referrers' balances.
+ * @param {ObjectId} userId - The purchaser user ID (the user being deleted)
+ * @returns {Promise<{ reversedCount: number, reversedDetails: Array<{ referrerId, amount, paymentId }> }>}
+ */
+balanceTransactionSchema.statics.reverseCommissionsForUser = async function(userId) {
+  const Payment = mongoose.model('Payment');
+  const payments = await Payment.find({ user: userId, status: 'completed' }).lean();
+  const reversedDetails = [];
+  let reversedCount = 0;
+
+  for (const payment of payments) {
+    const commissionTxns = await this.find({
+      type: 'referral_commission',
+      relatedPayment: payment._id
+    }).sort({ createdAt: 1 }).lean();
+
+    for (const tx of commissionTxns) {
+      await this.createTransaction({
+        user: tx.user,
+        type: 'adjustment',
+        amount: -tx.amount,
+        description: 'Commission rollback (purchaser user deleted)',
+        relatedPayment: payment._id,
+        notes: `Reversing referral commission of $${tx.amount} from deleted purchaser's payment`
+      });
+      reversedCount++;
+      reversedDetails.push({
+        referrerId: tx.user.toString(),
+        amount: tx.amount,
+        paymentId: payment._id.toString()
+      });
+    }
+  }
+
+  return { reversedCount, reversedDetails };
 };
 
 module.exports = mongoose.model('BalanceTransaction', balanceTransactionSchema);

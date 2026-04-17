@@ -312,7 +312,7 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleUserDelete = async (userId: string) => {
+  const handleUserDelete = async (userId: string, options?: { rollbackCommissions?: boolean }) => {
     // Optimistically remove user from list immediately (before API call)
     const userToDelete = localUsers.find(u => u._id === userId);
     
@@ -338,12 +338,18 @@ export default function AdminDashboard() {
       const response = await fetch(buildApiUrl(`api/admin/users/${userId}`), {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`
-        }
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ rollbackCommissions: options?.rollbackCommissions === true })
       });
 
       if (response.ok) {
-        showToast('User deleted successfully!', 'success');
+        const data = await response.json().catch(() => ({}));
+        const message = data.rollback?.reversedCount != null
+          ? `User deleted. ${data.rollback.reversedCount} commission(s) rolled back.`
+          : 'User deleted successfully!';
+        showToast(message, 'success');
         console.log('User deleted successfully, keeping in deletedUserIds permanently');
         // Keep the user in deletingUserIds - they should NEVER come back
         // The user will stay in localStorage deletedUserIds until page refresh
@@ -414,6 +420,30 @@ export default function AdminDashboard() {
     } catch (error) {
       console.error('Toggle user status error:', error);
       showToast('Failed to update user status', 'error');
+    }
+  };
+
+  const handleUserUnblock = async (user: User) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(buildApiUrl(`api/admin/users/${user._id}/unblock`), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        await refreshData();
+        showToast('Account unblocked successfully', 'success');
+      } else {
+        const error = await response.json();
+        showToast(error.error || error.message || 'Failed to unblock account', 'error');
+      }
+    } catch (error) {
+      console.error('Unblock user error:', error);
+      showToast('Failed to unblock account', 'error');
     }
   };
 
@@ -790,6 +820,7 @@ export default function AdminDashboard() {
             onUserUpdate={handleUserUpdate}
             onUserDelete={handleUserDelete}
             onUserToggleStatus={handleUserToggleStatus}
+            onUserUnblock={handleUserUnblock}
           />
         )}
 

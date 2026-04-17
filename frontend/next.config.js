@@ -1,5 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Remove console logs in production
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn'], // Keep error and warn logs
+    } : false,
+  },
 
   images: {
     domains: [
@@ -67,8 +73,11 @@ const nextConfig = {
   // Enable compression
   compress: true,
   
-  // Enable source maps in development
+  // Disable source maps in production (prevents code inspection)
   productionBrowserSourceMaps: false,
+  
+  // Disable React DevTools in production
+  reactStrictMode: true,
   
   // Suppress error overlay in development
   onDemandEntries: {

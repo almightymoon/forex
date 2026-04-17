@@ -432,6 +432,587 @@ class EmailTemplateService {
           </html>
         `,
         text: `Password Reset Request\n\nHello {{userName}},\n\nWe received a request to reset your password for your {{companyName}} account.\n\nReset your password: {{resetUrl}}\n\nThis link will expire in {{expiryTime}}.\n\nIf you didn't request this, please ignore this email.\n\nBest regards,\nThe {{companyName}} Team`
+      },
+
+      account_verified: {
+        name: 'Account Verified',
+        subject: 'Account Verified - Welcome to Forex Navigators!',
+        category: 'onboarding',
+        description: 'Email sent when user account is verified',
+        channels: ['email'],
+        variables: ['userName', 'packageName', 'loginUrl', 'companyName'],
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Account Verified - Welcome!</title>
+            <style>
+              body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+              .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+              .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center; }
+              .header h1 { color: white; margin: 0; font-size: 32px; font-weight: 300; }
+              .success-icon { font-size: 64px; margin-bottom: 10px; }
+              .content { padding: 40px 30px; }
+              .welcome-text { font-size: 18px; color: #333; line-height: 1.6; margin-bottom: 30px; }
+              .package-card { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 12px; padding: 25px; margin: 25px 0; border-left: 4px solid #10b981; }
+              .package-name { font-size: 22px; font-weight: 600; color: #059669; margin-bottom: 10px; }
+              .cta-button { display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 15px 30px; text-decoration: none; border-radius: 50px; font-weight: 600; font-size: 16px; transition: transform 0.3s ease; }
+              .cta-button:hover { transform: translateY(-2px); }
+              .features-list { background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 25px 0; }
+              .feature-item { padding: 10px 0; border-bottom: 1px solid #e9ecef; }
+              .feature-item:last-child { border-bottom: none; }
+              .footer { background: #2d3748; color: white; padding: 30px; text-align: center; font-size: 14px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <div class="success-icon">✅</div>
+                <h1>Account Verified!</h1>
+              </div>
+              <div class="content">
+                <div class="welcome-text">
+                  <p>Hello <strong>{{userName}}</strong>,</p>
+                  <p>🎉 Great news! Your account has been verified and activated successfully!</p>
+                  <p>Your payment has been confirmed by our admin team, and you now have full access to all premium features.</p>
+                </div>
+                
+                <div class="package-card">
+                  <div class="package-name">📦 {{packageName}}</div>
+                  <p style="color: #666; margin: 0;">Your subscription is now active and you can access all course materials, live sessions, and trading signals.</p>
+                </div>
+                
+                <div class="features-list">
+                  <div class="feature-item">
+                    <strong>✅</strong> Full access to premium courses
+                  </div>
+                  <div class="feature-item">
+                    <strong>✅</strong> Live trading sessions
+                  </div>
+                  <div class="feature-item">
+                    <strong>✅</strong> Expert trading signals
+                  </div>
+                  <div class="feature-item">
+                    <strong>✅</strong> Community support
+                  </div>
+                </div>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="{{loginUrl}}" class="cta-button">🚀 Access Dashboard</a>
+                </div>
+                
+                <p style="color: #666; font-size: 14px; text-align: center;">
+                  If you have any questions, our support team is here to help!
+                </p>
+              </div>
+              <div class="footer">
+                <p>© 2026 {{companyName}}. All rights reserved.</p>
+                <p>Welcome to the Forex Navigators community!</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `Account Verified - Welcome!\n\nHello {{userName}},\n\n🎉 Great news! Your account has been verified and activated successfully!\n\nYour payment has been confirmed by our admin team, and you now have full access to all premium features.\n\nPackage: {{packageName}}\n\nYou now have access to:\n✅ Full access to premium courses\n✅ Live trading sessions\n✅ Expert trading signals\n✅ Community support\n\nAccess your dashboard: {{loginUrl}}\n\nIf you have any questions, our support team is here to help!\n\nBest regards,\nThe {{companyName}} Team`
+      },
+
+      payment_confirmed: {
+        name: 'Payment Confirmed',
+        subject: 'Payment Confirmed - Your Account is Activated!',
+        category: 'payments',
+        description: 'Email sent when payment is confirmed by admin',
+        channels: ['email'],
+        variables: ['userName', 'amount', 'currency', 'packageName', 'transactionId', 'date', 'loginUrl', 'companyName'],
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Payment Confirmed</title>
+            <style>
+              body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f4f8; }
+              .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.1); }
+              .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center; }
+              .header h1 { color: white; margin: 0; font-size: 30px; font-weight: 600; }
+              .success-icon { font-size: 48px; margin-bottom: 10px; }
+              .content { padding: 40px 30px; }
+              .payment-details { background: #f8f9fa; border-radius: 16px; padding: 30px; margin: 25px 0; border: 2px solid #e9ecef; }
+              .amount { font-size: 32px; font-weight: 700; color: #10b981; text-align: center; margin-bottom: 20px; }
+              .detail-row { display: flex; justify-content: space-between; margin: 15px 0; padding: 10px 0; border-bottom: 1px solid #e9ecef; }
+              .detail-label { color: #6c757d; font-weight: 500; }
+              .detail-value { color: #333; font-weight: 600; }
+              .cta-button { display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; transition: all 0.3s ease; }
+              .cta-button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3); }
+              .footer { background: #2c3e50; color: white; padding: 30px; text-align: center; font-size: 14px; }
+              .checkmark { color: #10b981; font-size: 24px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <div class="success-icon">✅</div>
+                <h1>Payment Confirmed!</h1>
+              </div>
+              <div class="content">
+                <p>Hello <strong>{{userName}}</strong>,</p>
+                <p>Your payment has been confirmed by our admin team. Your account is now activated and you have full access to all premium features!</p>
+                
+                <div class="payment-details">
+                  <div class="amount">{{currency}} {{amount}}</div>
+                  <div class="detail-row">
+                    <span class="detail-label">Package:</span>
+                    <span class="detail-value">{{packageName}}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Transaction ID:</span>
+                    <span class="detail-value">{{transactionId}}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Date:</span>
+                    <span class="detail-value">{{date}}</span>
+                  </div>
+                </div>
+                
+                <p style="text-align: center; color: #10b981; font-weight: 600;">
+                  <span class="checkmark">✓</span> Your account has been activated
+                </p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="{{loginUrl}}" class="cta-button">🚀 Access Dashboard</a>
+                </div>
+                
+                <p style="color: #666; font-size: 14px; text-align: center;">
+                  You can now access all courses, live sessions, and trading signals.
+                </p>
+              </div>
+              <div class="footer">
+                <p>© 2026 {{companyName}}. All rights reserved.</p>
+                <p>Questions about this payment? Contact support</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `Payment Confirmed!\n\nHello {{userName}},\n\nYour payment has been confirmed by our admin team. Your account is now activated!\n\nAmount: {{currency}} {{amount}}\nPackage: {{packageName}}\nTransaction ID: {{transactionId}}\nDate: {{date}}\n\nYour account has been activated and you have full access to all premium features.\n\nAccess your dashboard: {{loginUrl}}\n\nBest regards,\nThe {{companyName}} Team`
+      },
+
+      payment_pending: {
+        name: 'Payment Pending',
+        subject: 'Payment Received - Awaiting Admin Approval',
+        category: 'payments',
+        description: 'Email sent when payment is created and pending admin approval',
+        channels: ['email'],
+        variables: ['userName', 'amount', 'currency', 'packageName', 'paymentId', 'loginUrl', 'companyName'],
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Payment Received - Awaiting Approval</title>
+            <style>
+              body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+              .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+              .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center; }
+              .header h1 { color: white; margin: 0; font-size: 32px; font-weight: 300; }
+              .icon { font-size: 64px; margin-bottom: 10px; }
+              .content { padding: 40px 30px; }
+              .welcome-text { font-size: 18px; color: #333; line-height: 1.6; margin-bottom: 30px; }
+              .payment-card { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 16px; padding: 30px; margin: 25px 0; border-left: 4px solid #667eea; }
+              .payment-amount { font-size: 36px; font-weight: 700; color: #667eea; text-align: center; margin-bottom: 15px; }
+              .payment-details { background: white; border-radius: 8px; padding: 20px; margin: 15px 0; }
+              .detail-row { display: flex; justify-content: space-between; margin: 12px 0; padding: 8px 0; border-bottom: 1px solid #e9ecef; }
+              .detail-row:last-child { border-bottom: none; }
+              .detail-label { color: #6c757d; font-weight: 500; }
+              .detail-value { color: #333; font-weight: 600; }
+              .status-badge { display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: white; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 14px; margin: 10px 0; }
+              .info-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 20px; margin: 25px 0; }
+              .info-title { color: #c2410c; font-weight: 600; margin-bottom: 10px; font-size: 16px; }
+              .info-text { color: #9a3412; line-height: 1.6; font-size: 14px; }
+              .cta-button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 50px; font-weight: 600; font-size: 16px; transition: transform 0.3s ease; margin: 20px 0; }
+              .cta-button:hover { transform: translateY(-2px); }
+              .features-list { background: #f8f9fa; border-radius: 8px; padding: 20px; margin: 25px 0; }
+              .feature-item { padding: 10px 0; border-bottom: 1px solid #e9ecef; color: #495057; }
+              .feature-item:last-child { border-bottom: none; }
+              .footer { background: #2d3748; color: white; padding: 30px; text-align: center; font-size: 14px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <div class="icon">📧</div>
+                <h1>Payment Received!</h1>
+              </div>
+              <div class="content">
+                <div class="welcome-text">
+                  <p>Hello <strong>{{userName}}</strong>,</p>
+                  <p>Thank you for your payment! We have successfully received your payment request and it is currently being reviewed by our admin team.</p>
+                </div>
+                
+                <div class="payment-card">
+                  <div class="payment-amount">{{currency}} {{amount}}</div>
+                  <div style="text-align: center;">
+                    <span class="status-badge">⏳ Awaiting Admin Approval</span>
+                  </div>
+                  
+                  <div class="payment-details">
+                    <div class="detail-row">
+                      <span class="detail-label">Package:</span>
+                      <span class="detail-value">{{packageName}}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Payment ID:</span>
+                      <span class="detail-value">#{{paymentId}}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Status:</span>
+                      <span class="detail-value">Pending Review</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="info-box">
+                  <div class="info-title">📋 What Happens Next?</div>
+                  <div class="info-text">
+                    <p style="margin: 8px 0;">1. Our admin team will review your payment</p>
+                    <p style="margin: 8px 0;">2. Once verified, your account will be activated</p>
+                    <p style="margin: 8px 0;">3. You'll receive a confirmation email with full access details</p>
+                    <p style="margin: 8px 0;">4. Access to Forex LMS will be opened for you</p>
+                  </div>
+                </div>
+                
+                <div class="features-list">
+                  <div class="feature-item">
+                    <strong>✅</strong> Premium trading courses and materials
+                  </div>
+                  <div class="feature-item">
+                    <strong>✅</strong> Live trading sessions with expert instructors
+                  </div>
+                  <div class="feature-item">
+                    <strong>✅</strong> Real-time trading signals and market insights
+                  </div>
+                  <div class="feature-item">
+                    <strong>✅</strong> Community support and networking
+                  </div>
+                  <div class="feature-item">
+                    <strong>✅</strong> Certificates upon course completion
+                  </div>
+                </div>
+                
+                <p style="text-align: center; color: #666; font-size: 14px; margin: 30px 0 20px;">
+                  Once your payment is confirmed, you can access your account here:
+                </p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="{{loginUrl}}" class="cta-button">🚀 Login to Forex LMS</a>
+                </div>
+                
+                <p style="color: #666; font-size: 14px; text-align: center;">
+                  We'll notify you via email as soon as your account is activated. This usually takes 24-48 hours.
+                </p>
+              </div>
+              <div class="footer">
+                <p>© 2026 {{companyName}}. All rights reserved.</p>
+                <p>Questions? Contact our support team</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `Payment Received - Awaiting Admin Approval\n\nHello {{userName}},\n\nThank you for your payment! We have successfully received your payment request and it is currently being reviewed by our admin team.\n\nPayment Details:\nAmount: {{currency}} {{amount}}\nPackage: {{packageName}}\nPayment ID: #{{paymentId}}\nStatus: Pending Review\n\nWhat Happens Next?\n1. Our admin team will review your payment\n2. Once verified, your account will be activated\n3. You'll receive a confirmation email with full access details\n4. Access to Forex LMS will be opened for you\n\nOnce your payment is confirmed, you can access your account here:\n{{loginUrl}}\n\nWe'll notify you via email as soon as your account is activated. This usually takes 24-48 hours.\n\nBest regards,\nThe {{companyName}} Team`
+      },
+
+      withdrawal_request: {
+        name: 'Withdrawal Request',
+        subject: 'Withdrawal Request Submitted - Awaiting Admin Approval',
+        category: 'withdrawals',
+        description: 'Email sent when user submits a withdrawal request',
+        channels: ['email'],
+        variables: ['userName', 'amount', 'currency', 'walletAddress', 'network', 'withdrawalId', 'loginUrl', 'companyName'],
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Withdrawal Request Submitted</title>
+            <style>
+              body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+              .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+              .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 30px; text-align: center; }
+              .header h1 { color: white; margin: 0; font-size: 32px; font-weight: 300; }
+              .icon { font-size: 64px; margin-bottom: 10px; }
+              .content { padding: 40px 30px; }
+              .welcome-text { font-size: 18px; color: #333; line-height: 1.6; margin-bottom: 30px; }
+              .withdrawal-card { background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 16px; padding: 30px; margin: 25px 0; border-left: 4px solid #667eea; }
+              .withdrawal-amount { font-size: 36px; font-weight: 700; color: #667eea; text-align: center; margin-bottom: 15px; }
+              .withdrawal-details { background: white; border-radius: 8px; padding: 20px; margin: 15px 0; }
+              .detail-row { display: flex; justify-content: space-between; margin: 12px 0; padding: 8px 0; border-bottom: 1px solid #e9ecef; }
+              .detail-row:last-child { border-bottom: none; }
+              .detail-label { color: #6c757d; font-weight: 500; }
+              .detail-value { color: #333; font-weight: 600; word-break: break-all; }
+              .status-badge { display: inline-block; background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: white; padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 14px; margin: 10px 0; }
+              .info-box { background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 20px; margin: 25px 0; }
+              .info-title { color: #c2410c; font-weight: 600; margin-bottom: 10px; font-size: 16px; }
+              .info-text { color: #9a3412; line-height: 1.6; font-size: 14px; }
+              .footer { background: #2d3748; color: white; padding: 30px; text-align: center; font-size: 14px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <div class="icon">💸</div>
+                <h1>Withdrawal Request Submitted!</h1>
+              </div>
+              <div class="content">
+                <div class="welcome-text">
+                  <p>Hello <strong>{{userName}}</strong>,</p>
+                  <p>Your withdrawal request has been successfully submitted and is currently being reviewed by our admin team.</p>
+                </div>
+                
+                <div class="withdrawal-card">
+                  <div class="withdrawal-amount">{{currency}} {{amount}}</div>
+                  <div style="text-align: center;">
+                    <span class="status-badge">⏳ Awaiting Admin Approval</span>
+                  </div>
+                  
+                  <div class="withdrawal-details">
+                    <div class="detail-row">
+                      <span class="detail-label">Amount:</span>
+                      <span class="detail-value">{{currency}} {{amount}}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Network:</span>
+                      <span class="detail-value">{{network}}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Wallet Address:</span>
+                      <span class="detail-value">{{walletAddress}}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Withdrawal ID:</span>
+                      <span class="detail-value">#{{withdrawalId}}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Status:</span>
+                      <span class="detail-value">Pending Review</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="info-box">
+                  <div class="info-title">📋 What Happens Next?</div>
+                  <div class="info-text">
+                    <p style="margin: 8px 0;">1. Our admin team will review your withdrawal request</p>
+                    <p style="margin: 8px 0;">2. Once verified, the funds will be transferred to your wallet</p>
+                    <p style="margin: 8px 0;">3. You'll receive a confirmation email with transaction details</p>
+                    <p style="margin: 8px 0;">4. The transaction will appear in your wallet within 24-48 hours</p>
+                  </div>
+                </div>
+                
+                <p style="color: #666; font-size: 14px; text-align: center;">
+                  We'll notify you via email as soon as your withdrawal is processed. This usually takes 24-48 hours.
+                </p>
+              </div>
+              <div class="footer">
+                <p>© 2026 {{companyName}}. All rights reserved.</p>
+                <p>Questions? Contact our support team</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `Withdrawal Request Submitted - Awaiting Admin Approval\n\nHello {{userName}},\n\nYour withdrawal request has been successfully submitted and is currently being reviewed by our admin team.\n\nWithdrawal Details:\nAmount: {{currency}} {{amount}}\nNetwork: {{network}}\nWallet Address: {{walletAddress}}\nWithdrawal ID: #{{withdrawalId}}\nStatus: Pending Review\n\nWhat Happens Next?\n1. Our admin team will review your withdrawal request\n2. Once verified, the funds will be transferred to your wallet\n3. You'll receive a confirmation email with transaction details\n4. The transaction will appear in your wallet within 24-48 hours\n\nWe'll notify you via email as soon as your withdrawal is processed. This usually takes 24-48 hours.\n\nBest regards,\nThe {{companyName}} Team`
+      },
+
+      withdrawal_confirmed: {
+        name: 'Withdrawal Confirmed',
+        subject: 'Withdrawal Confirmed - Funds Transferred!',
+        category: 'withdrawals',
+        description: 'Email sent when admin confirms and processes withdrawal',
+        channels: ['email'],
+        variables: ['userName', 'amount', 'currency', 'transactionHash', 'withdrawalId', 'date', 'loginUrl', 'companyName'],
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Withdrawal Confirmed</title>
+            <style>
+              body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f4f8; }
+              .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 15px 35px rgba(0,0,0,0.1); }
+              .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center; }
+              .header h1 { color: white; margin: 0; font-size: 30px; font-weight: 600; }
+              .success-icon { font-size: 48px; margin-bottom: 10px; }
+              .content { padding: 40px 30px; }
+              .withdrawal-details { background: #f8f9fa; border-radius: 16px; padding: 30px; margin: 25px 0; border: 2px solid #e9ecef; }
+              .amount { font-size: 32px; font-weight: 700; color: #10b981; text-align: center; margin-bottom: 20px; }
+              .detail-row { display: flex; justify-content: space-between; margin: 15px 0; padding: 10px 0; border-bottom: 1px solid #e9ecef; }
+              .detail-row:last-child { border-bottom: none; }
+              .detail-label { color: #6c757d; font-weight: 500; }
+              .detail-value { color: #333; font-weight: 600; word-break: break-all; }
+              .cta-button { display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px; transition: all 0.3s ease; }
+              .cta-button:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(16, 185, 129, 0.3); }
+              .footer { background: #2c3e50; color: white; padding: 30px; text-align: center; font-size: 14px; }
+              .checkmark { color: #10b981; font-size: 24px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <div class="success-icon">✅</div>
+                <h1>Withdrawal Confirmed!</h1>
+              </div>
+              <div class="content">
+                <p>Hello <strong>{{userName}}</strong>,</p>
+                <p>Great news! Your withdrawal request has been confirmed and processed by our admin team. The funds have been transferred to your wallet.</p>
+                
+                <div class="withdrawal-details">
+                  <div class="amount">{{currency}} {{amount}}</div>
+                  <div class="detail-row">
+                    <span class="detail-label">Amount:</span>
+                    <span class="detail-value">{{currency}} {{amount}}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Withdrawal ID:</span>
+                    <span class="detail-value">#{{withdrawalId}}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Transaction Hash:</span>
+                    <span class="detail-value">{{transactionHash}}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="detail-label">Date:</span>
+                    <span class="detail-value">{{date}}</span>
+                  </div>
+                </div>
+                
+                <p style="text-align: center; color: #10b981; font-weight: 600;">
+                  <span class="checkmark">✓</span> Funds have been transferred to your wallet
+                </p>
+                
+                <p style="color: #666; font-size: 14px; text-align: center; margin-top: 30px;">
+                  The transaction should appear in your wallet within a few minutes. If you don't see it after 24 hours, please contact our support team.
+                </p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="{{loginUrl}}" class="cta-button">🚀 View Dashboard</a>
+                </div>
+              </div>
+              <div class="footer">
+                <p>© 2026 {{companyName}}. All rights reserved.</p>
+                <p>Questions about this withdrawal? Contact support</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `Withdrawal Confirmed - Funds Transferred!\n\nHello {{userName}},\n\nGreat news! Your withdrawal request has been confirmed and processed by our admin team. The funds have been transferred to your wallet.\n\nWithdrawal Details:\nAmount: {{currency}} {{amount}}\nWithdrawal ID: #{{withdrawalId}}\nTransaction Hash: {{transactionHash}}\nDate: {{date}}\n\n✓ Funds have been transferred to your wallet\n\nThe transaction should appear in your wallet within a few minutes. If you don't see it after 24 hours, please contact our support team.\n\nView Dashboard: {{loginUrl}}\n\nBest regards,\nThe {{companyName}} Team`
+      },
+
+      balance_credited: {
+        name: 'Balance Credited',
+        subject: 'Balance Credited to Your Account',
+        category: 'balance',
+        description: 'Email sent when admin credits balance to user account',
+        channels: ['email'],
+        variables: ['userName', 'amount', 'currency', 'description', 'transactionId', 'date', 'loginUrl', 'companyName'],
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Balance Credited</title>
+            <style>
+              body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #10b981 0%, #059669 100%); }
+              .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.1); }
+              .header { background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 40px 30px; text-align: center; }
+              .header h1 { color: white; margin: 0; font-size: 32px; font-weight: 300; }
+              .success-icon { font-size: 64px; margin-bottom: 10px; }
+              .content { padding: 40px 30px; }
+              .welcome-text { font-size: 18px; color: #333; line-height: 1.6; margin-bottom: 30px; }
+              .balance-card { background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius: 16px; padding: 30px; margin: 25px 0; border-left: 4px solid #10b981; }
+              .balance-amount { font-size: 42px; font-weight: 700; color: #059669; text-align: center; margin-bottom: 15px; }
+              .balance-details { background: white; border-radius: 8px; padding: 20px; margin: 15px 0; }
+              .detail-row { display: flex; justify-content: space-between; margin: 12px 0; padding: 8px 0; border-bottom: 1px solid #e9ecef; }
+              .detail-row:last-child { border-bottom: none; }
+              .detail-label { color: #6c757d; font-weight: 500; }
+              .detail-value { color: #333; font-weight: 600; }
+              .description-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 12px; padding: 20px; margin: 25px 0; }
+              .description-title { color: #166534; font-weight: 600; margin-bottom: 10px; font-size: 16px; }
+              .description-text { color: #15803d; line-height: 1.6; font-size: 14px; }
+              .cta-button { display: inline-block; background: linear-gradient(135deg, #10b981 0%, #059669 100%); color: white; padding: 16px 32px; text-decoration: none; border-radius: 50px; font-weight: 600; font-size: 16px; transition: transform 0.3s ease; margin: 20px 0; }
+              .cta-button:hover { transform: translateY(-2px); }
+              .footer { background: #2d3748; color: white; padding: 30px; text-align: center; font-size: 14px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <div class="success-icon">💰</div>
+                <h1>Balance Credited!</h1>
+              </div>
+              <div class="content">
+                <div class="welcome-text">
+                  <p>Hello <strong>{{userName}}</strong>,</p>
+                  <p>Great news! Funds have been successfully credited to your account.</p>
+                </div>
+                
+                <div class="balance-card">
+                  <div class="balance-amount">+{{currency}} {{amount}}</div>
+                  <div style="text-align: center; color: #059669; font-weight: 600; font-size: 16px;">
+                    ✓ Successfully Added to Your Account
+                  </div>
+                  
+                  <div class="balance-details">
+                    <div class="detail-row">
+                      <span class="detail-label">Amount Credited:</span>
+                      <span class="detail-value">{{currency}} {{amount}}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Transaction ID:</span>
+                      <span class="detail-value">#{{transactionId}}</span>
+                    </div>
+                    <div class="detail-row">
+                      <span class="detail-label">Date:</span>
+                      <span class="detail-value">{{date}}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class="description-box">
+                  <div class="description-title">📝 Transaction Details</div>
+                  <div class="description-text">
+                    {{description}}
+                  </div>
+                </div>
+                
+                <p style="color: #666; font-size: 14px; text-align: center; margin: 30px 0 20px;">
+                  Your new balance is now available in your account. You can use it for trading, withdrawals, or other transactions.
+                </p>
+                
+                <div style="text-align: center; margin: 30px 0;">
+                  <a href="{{loginUrl}}" class="cta-button">🚀 View My Balance</a>
+                </div>
+                
+                <p style="color: #666; font-size: 14px; text-align: center;">
+                  If you have any questions about this transaction, please contact our support team.
+                </p>
+              </div>
+              <div class="footer">
+                <p>© 2026 {{companyName}}. All rights reserved.</p>
+                <p>Thank you for being part of our community!</p>
+              </div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `Balance Credited to Your Account\n\nHello {{userName}},\n\nGreat news! Funds have been successfully credited to your account.\n\nAmount Credited: {{currency}} {{amount}}\nTransaction ID: #{{transactionId}}\nDate: {{date}}\n\nTransaction Details:\n{{description}}\n\nYour new balance is now available in your account. You can use it for trading, withdrawals, or other transactions.\n\nView My Balance: {{loginUrl}}\n\nIf you have any questions about this transaction, please contact our support team.\n\nBest regards,\nThe {{companyName}} Team`
       }
     };
   }
@@ -455,20 +1036,33 @@ class EmailTemplateService {
     }
 
     let html = template.html;
-    let text = template.text;
+    let text = template.text || '';
 
     // Replace variables in both HTML and text versions
+    // Handle both {{variable}} and {{ variable }} formats
     Object.keys(variables).forEach(key => {
-      const regex = new RegExp(`{{${key}}}`, 'g');
-      html = html.replace(regex, variables[key] || '');
-      text = text.replace(regex, variables[key] || '');
+      const value = variables[key] || '';
+      // Replace {{key}} format
+      const regex1 = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
+      html = html.replace(regex1, value);
+      text = text.replace(regex1, value);
+      // Replace {{ key }} format (with spaces)
+      const regex2 = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g');
+      html = html.replace(regex2, value);
+      text = text.replace(regex2, value);
     });
 
+    // Strip any remaining {{...}} patterns (anything between double braces) so variables never show in email
+    const stripPlaceholders = (s) => s.replace(/\{\{[^}]*\}\}/g, '');
+    html = stripPlaceholders(html);
+    text = stripPlaceholders(text);
+
+    // Return with replaced html/text last so they are not overwritten by ...template
     return {
+      ...template,
       html,
       text,
-      subject: template.name,
-      ...template
+      subject: template.subject || template.name
     };
   }
 

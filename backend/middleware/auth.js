@@ -332,34 +332,52 @@ const requireVerifiedPayment = async (req, res, next) => {
     }
 
     // Admin and teachers can access everything
-    if (req.user.role === 'admin' || req.user.role === 'teacher') {
+    if (req.user.role === 'admin' || req.user.role === 'teacher' || req.user.role === 'instructor') {
       return next();
     }
 
+    // Fetch fresh user data from database to check current verification status
+    const User = require('../models/User');
+    const user = await User.findById(req.user._id);
+    
+    if (!user) {
+      return res.status(404).json({ 
+        error: 'User not found',
+        message: 'User account not found'
+      });
+    }
+
     // Check if user is verified
-    if (!req.user.isVerified) {
+    if (!user.isVerified) {
       const Payment = require('../models/Payment');
       
       // Check if user has any pending payments
       const pendingPayment = await Payment.findOne({
-        user: req.user._id,
+        user: user._id,
         status: 'pending',
         type: 'package'
       }).sort({ createdAt: -1 });
 
       if (pendingPayment) {
-        return res.status(403).json({ 
-          error: 'Payment verification pending',
-          message: 'Your payment is pending admin verification. You will be notified once your account is activated.',
+        const hasTransactionId = !!(pendingPayment.transactionId && String(pendingPayment.transactionId).trim());
+        const packageName = pendingPayment.package?.name || '';
+        const amount = pendingPayment.finalAmount ?? pendingPayment.amount ?? 0;
+        return res.status(403).json({
+          error: hasTransactionId ? 'Payment verification pending' : 'Complete your payment',
+          message: hasTransactionId
+            ? 'Your payment is pending admin verification. You will be notified once your account is activated.'
+            : 'Please complete your payment by entering your transaction ID.',
           code: 'PAYMENT_PENDING',
-          redirectTo: '/payment',
-          paymentId: pendingPayment._id
+          redirectTo: hasTransactionId ? '/payment-pending' : '/payment',
+          paymentId: pendingPayment._id,
+          packageName,
+          amount
         });
       }
 
       // Check if user has completed payment but not verified yet
       const completedPayment = await Payment.findOne({
-        user: req.user._id,
+        user: user._id,
         status: 'completed',
         type: 'package'
       }).sort({ createdAt: -1 });
@@ -381,6 +399,8 @@ const requireVerifiedPayment = async (req, res, next) => {
       });
     }
 
+    // Update req.user with fresh data
+    req.user = user;
     next();
 
   } catch (error) {
@@ -430,11 +450,19 @@ const requirePackageSubscription = async (req, res, next) => {
     }).sort({ createdAt: -1 });
 
     if (pendingPayment) {
-      return res.status(403).json({ 
-        error: 'Payment verification pending',
-        message: 'Your payment is pending admin verification. Please check your email for updates once your account is activated.',
+      const hasTransactionId = !!(pendingPayment.transactionId && String(pendingPayment.transactionId).trim());
+      const packageName = pendingPayment.package?.name || '';
+      const amount = pendingPayment.finalAmount ?? pendingPayment.amount ?? 0;
+      return res.status(403).json({
+        error: hasTransactionId ? 'Payment verification pending' : 'Complete your payment',
+        message: hasTransactionId
+          ? 'Your payment is pending admin verification. Please check your email for updates once your account is activated.'
+          : 'Please complete your payment by entering your transaction ID.',
         code: 'PAYMENT_PENDING',
-        redirectTo: '/payment-pending'
+        redirectTo: hasTransactionId ? '/payment-pending' : '/payment',
+        paymentId: pendingPayment._id,
+        packageName,
+        amount
       });
     }
 

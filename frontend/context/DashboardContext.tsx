@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { buildApiUrl, apiRequest } from '../utils/api';
 import { fetchWithMaintenanceCheck } from '../hooks/useMaintenanceMode';
+import { useMaintenanceContext } from './MaintenanceContext';
 
 interface User {
   _id: string;
@@ -157,6 +158,7 @@ export const useDashboard = () => {
 };
 
 export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { setFromResponse } = useMaintenanceContext();
   const [data, setData] = useState<DashboardData>({
     user: null,
     courses: [],
@@ -206,6 +208,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
 
       if (userResult.isMaintenanceMode) {
+        setFromResponse(true, userResult.error?.message);
         setError('Maintenance mode is active');
         return;
       }
@@ -223,7 +226,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           certificatesResult,
           notificationResult
         ] = await Promise.all([
-          fetchWithMaintenanceCheck('/api/courses/enrolled', {
+          fetchWithMaintenanceCheck(buildApiUrl('api/courses/enrolled'), {
             headers: { 'Authorization': `Bearer ${token}` }
           }),
           apiRequest('api/signals'),
@@ -234,11 +237,20 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         ]);
 
         // Parse responses that need JSON parsing
+        let coursesData = [];
         let liveSessionsData = [];
         let notificationCountData = 0;
         let signalsData = [];
         let assignmentsData = [];
         let certificatesData = [];
+
+        // Parse courses result
+        if (coursesResult.data) {
+          coursesData = Array.isArray(coursesResult.data) ? coursesResult.data : [];
+        } else if (coursesResult.error) {
+          console.error('Error fetching enrolled courses:', coursesResult.error);
+          coursesData = [];
+        }
 
         if (liveSessionsResult.ok) {
           try {
@@ -284,7 +296,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // Update state with fetched data
         setData(prev => ({
           ...prev,
-          courses: coursesResult.data || [],
+          courses: coursesData,
           signals: signalsData,
           assignments: assignmentsData,
           liveSessions: liveSessionsData,
@@ -302,7 +314,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setFromResponse]);
 
   const fetchAvailableCourses = useCallback(async () => {
     try {
@@ -314,6 +326,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const result = await fetchWithMaintenanceCheck('/api/courses');
       
       if (result.isMaintenanceMode) {
+        setFromResponse(true, result.error?.message);
         setError('Maintenance mode is active');
         return;
       }
@@ -324,7 +337,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch (error) {
       console.error('Error fetching available courses:', error);
     }
-  }, []); // Remove dependency to prevent infinite loops
+  }, [setFromResponse]); // Remove data dependency to prevent infinite loops
 
   const refreshData = useCallback(async () => {
     setRefreshing(true);
@@ -349,7 +362,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         // Fetch essential data in background
         const [liveSessionsResult, coursesResult] = await Promise.all([
           apiRequest(`api/sessions?t=${Date.now()}`),
-          fetchWithMaintenanceCheck('/api/courses/enrolled', {
+          fetchWithMaintenanceCheck(buildApiUrl('api/courses/enrolled'), {
             headers: { 'Authorization': `Bearer ${token}` }
           })
         ]);

@@ -940,8 +940,13 @@ export default function ProfilePage() {
                       <button
                         onClick={async () => {
                           const amount = parseFloat(withdrawalAmount);
+                          const MIN_WITHDRAWAL_AMOUNT = 30;
                           if (!amount || amount <= 0) {
                             showToast('Please enter a valid amount', 'error');
+                            return;
+                          }
+                          if (amount < MIN_WITHDRAWAL_AMOUNT) {
+                            showToast(`Minimum withdrawal amount is $${MIN_WITHDRAWAL_AMOUNT}`, 'error');
                             return;
                           }
                           if (amount > (user.balance || 0)) {

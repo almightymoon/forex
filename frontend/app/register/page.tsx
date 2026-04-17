@@ -475,11 +475,11 @@ export default function RegisterPage() {
           className="mt-6 text-center text-sm text-gray-500"
         >
           <p>By creating an account, you agree to our Terms of Service and Privacy Policy</p>
-          <p className="mt-2">
+          {/* <p className="mt-2">
             <Link href="/dashboard" className="text-green-600 hover:text-green-700 font-medium">
               View Dashboard Demo
             </Link>
-          </p>
+          </p> */}
         </motion.div>
       </div>
       

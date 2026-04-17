@@ -3,7 +3,21 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Users, DollarSign, CreditCard, Target, TrendingUp } from 'lucide-react';
-import { Analytics } from './types';
+import { Analytics, RecentActivityItem } from './types';
+
+function formatRelativeTime(dateStr: string): string {
+  const date = new Date(dateStr);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
+  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+  if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
+  return date.toLocaleDateString();
+}
 
 interface OverviewProps {
   analytics: Analytics;
@@ -12,9 +26,6 @@ interface OverviewProps {
 }
 
 export default function Overview({ analytics, onTabChange, userCount }: OverviewProps) {
-  // Debug logging
-  console.log('Overview component - analytics:', analytics);
-  
   // Ensure analytics object exists with default values
   const safeAnalytics = analytics || {
     totalUsers: 0,
@@ -26,8 +37,10 @@ export default function Overview({ analytics, onTabChange, userCount }: Overview
     activePromoCodes: 0,
     monthlyRevenue: [],
     monthlyUserGrowth: [],
-    paymentMethodStats: []
+    paymentMethodStats: [],
+    recentActivity: []
   };
+  const recentActivity: RecentActivityItem[] = safeAnalytics.recentActivity || [];
   
   // Use userCount prop if provided, otherwise use analytics.totalUsers
   const displayUserCount = userCount !== undefined ? userCount : safeAnalytics.totalUsers;
@@ -137,27 +150,37 @@ export default function Overview({ analytics, onTabChange, userCount }: Overview
       <div className="bg-white dark:bg-gray-800 rounded-2xl  p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
         <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Recent Activity</h3>
         <div className="space-y-4">
-          <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-              <Users className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="text-gray-900 dark:text-white font-medium">New User Registration</p>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">John Doe registered as a student</p>
-            </div>
-            <span className="text-gray-500 dark:text-gray-400 text-sm">2 hours ago</span>
-          </div>
-          
-          <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700">
-            <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
-              <DollarSign className="w-5 h-5 text-white" />
-            </div>
-            <div className="flex-1">
-              <p className="text-gray-900 dark:text-white font-medium">Payment Received</p>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">$300 signup fee payment completed</p>
-            </div>
-            <span className="text-gray-500 dark:text-gray-400 text-sm">1 hour ago</span>
-          </div>
+          {recentActivity.length === 0 ? (
+            <p className="text-gray-500 dark:text-gray-400 text-sm py-4">No recent activity</p>
+          ) : (
+            recentActivity.map((item) => (
+              item.type === 'user_registration' ? (
+                <div key={`user-${item._id}`} className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
+                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
+                    <Users className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-900 dark:text-white font-medium">New User Registration</p>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm truncate">{item.userName || 'Unknown'} registered as a {item.role || 'student'}</p>
+                  </div>
+                  <span className="text-gray-500 dark:text-gray-400 text-sm flex-shrink-0">{formatRelativeTime(item.createdAt)}</span>
+                </div>
+              ) : (
+                <div key={`payment-${item._id}`} className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700">
+                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
+                    <DollarSign className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-gray-900 dark:text-white font-medium">Payment Received</p>
+                    <p className="text-gray-600 dark:text-gray-300 text-sm truncate">
+                      ${typeof item.amount === 'number' ? item.amount.toFixed(0) : '0'} {item.packageName || 'signup'} payment completed{item.userName ? ` (${item.userName})` : ''}
+                    </p>
+                  </div>
+                  <span className="text-gray-500 dark:text-gray-400 text-sm flex-shrink-0">{formatRelativeTime(item.createdAt)}</span>
+                </div>
+              )
+            ))
+          )}
         </div>
       </div>
     </motion.div>

@@ -8,7 +8,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['assignment', 'course', 'message', 'system', 'payment', 'security', 'referral', 'commission'],
+    enum: ['assignment', 'course', 'message', 'system', 'payment', 'security', 'referral', 'commission', 'live_session'],
     required: true
   },
   title: {
@@ -22,6 +22,10 @@ const notificationSchema = new mongoose.Schema({
   data: {
     type: mongoose.Schema.Types.Mixed,
     default: {}
+  },
+  link: {
+    type: String,
+    default: null
   },
   read: {
     type: Boolean,

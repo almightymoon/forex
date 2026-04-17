@@ -1,3 +1,9 @@
+require('dotenv').config();
+const disableConsoleInProduction = require('./utils/disableConsole');
+
+// Disable console logs in production (keeps error/warn)
+disableConsoleInProduction();
+
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
@@ -10,7 +16,6 @@ const maintenanceMiddleware = require('./middleware/maintenanceMode');
 const { checkSessionTimeout } = require('./middleware/sessionTimeout');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
@@ -34,6 +39,7 @@ const referralRoutes = require('./routes/referrals');
 const withdrawalRoutes = require('./routes/withdrawals');
 const tradeRoutes = require('./routes/trades');
 const packageRoutes = require('./routes/packages');
+const packagePerksRoutes = require('./routes/packagePerks');
 const { initializeWebSocket } = require('./websocket');
 const { authenticateToken, requirePackageSubscription } = require('./middleware/auth');
 
@@ -167,32 +173,71 @@ console.error = (...args) => {
   originalConsole.error(...args);
 };
 
-// Database connection
-function buildMongoUri() {
-  const raw = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/forex-lms';
+// Database connection with DB_NAME injection (keeps prod/local consistent)
+function getMongoUri() {
+  const uri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/forex-lms';
   const dbName = (process.env.DB_NAME || '').trim();
+  if (!dbName) return uri;
 
-  if (!dbName) return raw;
-
-  // If the URI already includes a DB path, keep it.
-  // If it doesn't (e.g. ends with .net/ or has only "/"), inject DB_NAME.
   try {
-    const u = new URL(raw);
+    const u = new URL(uri);
     const hasDbPath = u.pathname && u.pathname !== '/' && u.pathname.trim().length > 1;
-    if (hasDbPath) return raw;
-
+    if (hasDbPath) return uri;
     u.pathname = `/${encodeURIComponent(dbName)}`;
     return u.toString();
   } catch {
-    // If URL parsing fails, fall back to raw.
-    return raw;
+    const match = uri.match(/^(mongodb(\+srv)?:\/\/[^/]+)(\/([^?]*))?(\?.*)?$/);
+    if (match) {
+      const pathPart = match[4];
+      if (pathPart === undefined || pathPart === '' || pathPart === '/') {
+        return match[1] + '/' + dbName + (match[5] || '');
+      }
+    }
+    return uri;
   }
 }
 
-const mongoUri = buildMongoUri();
-mongoose.connect(mongoUri)
-  .then(() => console.log(`Connected to MongoDB: ${mongoUri}`))
-  .catch(err => console.error('MongoDB connection error:', err));
+const mongoUri = getMongoUri();
+
+const mongooseOptions = {
+  serverSelectionTimeoutMS: 30000,
+  socketTimeoutMS: 45000,
+  connectTimeoutMS: 30000,
+  maxPoolSize: 10,
+  minPoolSize: 5,
+  retryWrites: true,
+  w: 'majority'
+};
+
+async function connectToMongoDB() {
+  try {
+    await mongoose.connect(mongoUri, mongooseOptions);
+    console.log(`✅ Connected to MongoDB: ${mongoUri.replace(/\/\/[^:]+:[^@]+@/, '//***:***@')}`);
+    console.log('MongoDB connection state:', mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected');
+  } catch (err) {
+    console.error('❌ MongoDB connection error:', err.message);
+    console.error('Connection URI:', mongoUri.replace(/\/\/[^:]+:[^@]+@/, '//***:***@'));
+    console.warn('⚠️  Server will start but database operations may fail');
+  }
+}
+
+mongoose.connection.on('connected', () => {
+  console.log('✅ Mongoose connected to MongoDB');
+});
+mongoose.connection.on('error', (err) => {
+  console.error('❌ Mongoose connection error:', err.message);
+});
+mongoose.connection.on('disconnected', () => {
+  console.warn('⚠️  Mongoose disconnected from MongoDB');
+});
+
+connectToMongoDB();
+
+process.on('SIGINT', async () => {
+  await mongoose.connection.close();
+  console.log('MongoDB connection closed through app termination');
+  process.exit(0);
+});
 
 // Seed default packages once DB is ready (safe no-op if already exists)
 mongoose.connection.once('open', async () => {
@@ -209,6 +254,9 @@ console.log('Environment variables check:');
 console.log('- JWT_SECRET length:', process.env.JWT_SECRET ? process.env.JWT_SECRET.length : 'NOT SET');
 console.log('- NODE_ENV:', process.env.NODE_ENV);
 console.log('- PORT:', process.env.PORT);
+
+// Maintenance mode: run first for all /api so only admin (and optionally teacher) can access during maintenance
+app.use('/api', maintenanceMiddleware);
 
 // Public routes (no middleware)
 app.use('/api/auth', authRoutes);
@@ -227,7 +275,15 @@ app.use('/api/settings', checkSessionTimeout, settingsRoutes);
 app.use('/api/auth', authRoutes);
 
 // Payment routes - allow access without package so users can purchase packages
+// Explicit POST submit-payment so it always matches (avoids router mount path issues)
+app.post('/api/payments/:id/submit-payment', checkSessionTimeout, (req, res, next) => {
+  req.url = '/' + req.params.id + '/submit-payment';
+  paymentRoutes(req, res, next);
+});
 app.use('/api/payments', checkSessionTimeout, paymentRoutes);
+
+// Package perks routes - allow access to check perks (requires auth but not package)
+app.use('/api/package-perks', checkSessionTimeout, authenticateToken, packagePerksRoutes);
 
 // Public course routes - allow viewing available courses without package subscription
 const Course = require('./models/Course');
@@ -248,6 +304,54 @@ app.get('/api/courses', async (req, res) => {
       query.$text = { $search: search };
     }
     
+    // Try to get user's package if authenticated (optional auth header)
+    let userPackagePrice = null;
+    try {
+      const authHeader = req.headers['authorization'];
+      if (authHeader) {
+        const token = authHeader.split(' ')[1];
+        if (token) {
+          const jwt = require('jsonwebtoken');
+          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+          const User = require('./models/User');
+          const user = await User.findById(decoded.userId);
+          
+          if (user && (user.role === 'admin' || user.role === 'teacher' || user.role === 'instructor')) {
+            // Admin/teacher can see all courses
+            userPackagePrice = null; // null means show all
+          } else if (user) {
+            // Get user's package price from completed payment
+            const Payment = require('./models/Payment');
+            const completedPayment = await Payment.findOne({
+              user: user._id,
+              status: 'completed',
+              type: 'package'
+            }).sort({ createdAt: -1 });
+            
+            if (completedPayment && completedPayment.package && completedPayment.package.price) {
+              userPackagePrice = completedPayment.package.price;
+            }
+          }
+        }
+      }
+    } catch (authError) {
+      // If auth fails, just continue without package filtering (show all)
+      console.log('Auth check failed, showing all courses:', authError.message);
+    }
+    
+    // Filter by package: show courses where allowedPackages is null (for all) OR includes user's package
+    if (userPackagePrice !== null) {
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { allowedPackages: null }, // For all packages
+          { allowedPackages: { $exists: false } }, // Backward compatibility
+          { allowedPackages: { $size: 0 } }, // Empty array means for all
+          { allowedPackages: userPackagePrice } // MongoDB matches if value is in array
+        ]
+      });
+    }
+    
     const sortObj = {};
     sortObj[sort] = order === 'desc' ? -1 : 1;
     
@@ -260,6 +364,180 @@ app.get('/api/courses', async (req, res) => {
   } catch (error) {
     console.error('Get courses error:', error);
     res.status(500).json({ error: 'Failed to fetch courses' });
+  }
+});
+
+// IMPORTANT: Register /enrolled route BEFORE /:id route to prevent route conflicts
+// This route must be registered before the /:id route or "enrolled" will be treated as an ID
+const { requireVerifiedPayment } = require('./middleware/auth');
+app.get('/api/courses/enrolled', checkSessionTimeout, authenticateToken, requireVerifiedPayment, async (req, res) => {
+  try {
+    const User = require('./models/User');
+    const Course = require('./models/Course');
+    const CourseProgress = require('./models/CourseProgress');
+    
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    console.log(`[Enrolled Courses] Fetching courses for user: ${user.email}`);
+
+    // Get course IDs from user's enrolledCourses array
+    let userEnrolledCourseIds = [];
+    if (user.enrolledCourses && Array.isArray(user.enrolledCourses)) {
+      userEnrolledCourseIds = user.enrolledCourses
+        .map(e => e && e.courseId ? e.courseId.toString() : null)
+        .filter(Boolean);
+    }
+
+    // Find courses where user is in enrolledStudents array
+    let coursesByEnrollment = [];
+    try {
+      coursesByEnrollment = await Course.find({
+        'enrolledStudents.student': user._id,
+        $or: [{ isPublished: true }, { status: 'published' }]
+      }).populate('teacher', 'firstName lastName').lean();
+    } catch (queryError) {
+      console.error('[Enrolled Courses] Error querying courses:', queryError);
+      throw queryError;
+    }
+
+    // Find courses by user's enrolledCourses array
+    let coursesByUserArray = [];
+    if (userEnrolledCourseIds.length > 0) {
+      try {
+        const mongoose = require('mongoose');
+        const objectIds = userEnrolledCourseIds
+          .filter(id => mongoose.Types.ObjectId.isValid(id))
+          .map(id => new mongoose.Types.ObjectId(id));
+        
+        if (objectIds.length > 0) {
+          coursesByUserArray = await Course.find({
+            _id: { $in: objectIds },
+            $or: [{ isPublished: true }, { status: 'published' }]
+          }).populate('teacher', 'firstName lastName').lean();
+        }
+      } catch (error) {
+        console.error('[Enrolled Courses] Error fetching courses by user.enrolledCourses:', error);
+      }
+    }
+
+    // Combine and deduplicate courses
+    const allCourseIds = new Set();
+    const enrolledCourses = [];
+    
+    coursesByEnrollment.forEach(course => {
+      const courseId = course._id.toString();
+      if (!allCourseIds.has(courseId)) {
+        allCourseIds.add(courseId);
+        enrolledCourses.push(course);
+      }
+    });
+
+    coursesByUserArray.forEach(course => {
+      const courseId = course._id.toString();
+      if (!allCourseIds.has(courseId)) {
+        allCourseIds.add(courseId);
+        enrolledCourses.push(course);
+      }
+    });
+    
+    // Get progress records
+    let progressRecords = [];
+    try {
+      progressRecords = await CourseProgress.find({ student: user._id }).lean();
+    } catch (progressError) {
+      console.error('[Enrolled Courses] Error fetching progress:', progressError);
+    }
+    
+    // Format courses
+    const formattedCourses = enrolledCourses.map(course => {
+      try {
+        const courseId = course._id.toString();
+        const enrollment = course.enrolledStudents?.find(
+          e => e.student && e.student.toString() === user._id.toString()
+        );
+        
+        const progressRecord = progressRecords.find(
+          p => {
+            if (!p.course) return false;
+            const progressCourseId = p.course.toString ? p.course.toString() : (p.course._id ? p.course._id.toString() : String(p.course));
+            return progressCourseId === courseId;
+          }
+        );
+        
+        let progress = 0;
+        let completedContent = 0;
+        let totalContent = 0;
+        
+        if (progressRecord && progressRecord.overallProgress) {
+          progress = progressRecord.overallProgress.percentage || 0;
+          completedContent = progressRecord.overallProgress.completedContent || 0;
+          totalContent = progressRecord.overallProgress.totalContent || 0;
+        } else if (enrollment) {
+          progress = enrollment.progress || 0;
+          completedContent = (enrollment.completedVideos && Array.isArray(enrollment.completedVideos)) ? enrollment.completedVideos.length : 0;
+        }
+        
+        if (totalContent === 0) {
+          if (course.content && Array.isArray(course.content)) {
+            totalContent = course.content.length;
+          } else if (course.videos && Array.isArray(course.videos)) {
+            totalContent = course.videos.length;
+          }
+        }
+        
+        return {
+          _id: course._id,
+          title: course.title || 'Untitled Course',
+          description: course.description || '',
+          instructor: course.teacher ? {
+            firstName: course.teacher.firstName || '',
+            lastName: course.teacher.lastName || ''
+          } : { firstName: '', lastName: '' },
+          teacher: course.teacher,
+          progress: Math.round(progress),
+          totalLessons: totalContent,
+          completedLessons: completedContent,
+          category: course.category || 'Uncategorized',
+          level: course.level || 'Beginner',
+          rating: course.rating || 0,
+          thumbnail: course.thumbnail,
+          totalDuration: course.totalDuration || 0,
+          price: course.price || 0,
+          currency: course.currency || 'USD'
+        };
+      } catch (error) {
+        console.error(`[Enrolled Courses] Error formatting course ${course._id}:`, error);
+        return {
+          _id: course._id,
+          title: course.title || 'Untitled Course',
+          description: course.description || '',
+          instructor: { firstName: '', lastName: '' },
+          teacher: course.teacher,
+          progress: 0,
+          totalLessons: 0,
+          completedLessons: 0,
+          category: course.category || 'Uncategorized',
+          level: course.level || 'Beginner',
+          rating: course.rating || 0,
+          thumbnail: course.thumbnail,
+          totalDuration: course.totalDuration || 0,
+          price: course.price || 0,
+          currency: course.currency || 'USD'
+        };
+      }
+    });
+    
+    console.log(`[Enrolled Courses] Returning ${formattedCourses.length} courses`);
+    res.json(formattedCourses);
+  } catch (error) {
+    console.error('[Enrolled Courses] Error:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch enrolled courses', 
+      message: error.message 
+    });
   }
 });
 
@@ -321,11 +599,9 @@ app.use('/api/assignments', checkSessionTimeout, authenticateToken, requirePacka
 app.use('/api/upload', checkSessionTimeout, authenticateToken, requirePackageSubscription, uploadRoutes);
 app.use('/api/mt5', checkSessionTimeout, authenticateToken, requirePackageSubscription, mt5Routes);
 app.use('/api/referrals', checkSessionTimeout, authenticateToken, requirePackageSubscription, referralRoutes);
-app.use('/api/withdrawals', checkSessionTimeout, authenticateToken, requirePackageSubscription, withdrawalRoutes);
+// Withdrawals routes - admin routes don't need package subscription
+app.use('/api/withdrawals', checkSessionTimeout, authenticateToken, withdrawalRoutes);
 app.use('/api/trades', checkSessionTimeout, authenticateToken, requirePackageSubscription, tradeRoutes);
-
-// Apply maintenance mode middleware to protected routes only (after all routes are registered)
-app.use('/api', maintenanceMiddleware);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

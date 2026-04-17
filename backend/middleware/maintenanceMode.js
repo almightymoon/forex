@@ -19,35 +19,18 @@ const maintenanceMiddleware = async (req, res, next) => {
       return next();
     }
 
-    // Exclude certain routes from maintenance mode check
+    // Only exclude routes needed for login and public maintenance status (no /api/admin bypass)
     const excludedPaths = [
       '/api/auth/login',
-      '/api/auth/register', 
+      '/api/auth/register',
       '/api/settings/public',
-      '/api/admin', // All admin routes
-      '/api/health', // Health check
+      '/api/health'
     ];
 
-    // Public GET routes that should be excluded
-    const publicGetRoutes = [
-      '/api/signals', // GET signals is public
-      '/api/courses', // GET courses might be public
-    ];
+    const requestPath = (req.baseUrl && req.path) ? req.baseUrl + req.path : (req.originalUrl ? req.originalUrl.split('?')[0] : req.path);
+    const isExcluded = excludedPaths.some(path => requestPath === path || requestPath.startsWith(path + '/'));
 
-    // Check if the current path should be excluded
-    const isExcluded = excludedPaths.some(path => {
-      if (path.endsWith('/admin')) {
-        return req.path.startsWith('/api/admin');
-      }
-      return req.path === path || req.path.startsWith(path + '/');
-    });
-
-    // Check if it's a public GET route
-    const isPublicGetRoute = req.method === 'GET' && publicGetRoutes.some(route => {
-      return req.path === route || req.path.startsWith(route + '/');
-    });
-
-    if (isExcluded || isPublicGetRoute) {
+    if (isExcluded) {
       return next();
     }
 
@@ -74,18 +57,23 @@ const maintenanceMiddleware = async (req, res, next) => {
         });
       }
 
-      // Allow access only for admin users
-      if (user.role !== 'admin') {
-        return res.status(503).json({
-          error: 'Service Unavailable',
-          message: 'The system is currently under maintenance. Please try again later.',
-          maintenanceMode: true
-        });
+      const allowTeachers = settings.maintenanceAllowTeachers === true;
+
+      // Allow admin always; allow teacher only if admin enabled it
+      if (user.role === 'admin') {
+        req.user = user;
+        return next();
+      }
+      if (user.role === 'teacher' && allowTeachers) {
+        req.user = user;
+        return next();
       }
 
-      // User is admin, allow access
-      req.user = user;
-      next();
+      return res.status(503).json({
+        error: 'Service Unavailable',
+        message: 'The system is currently under maintenance. Please try again later.',
+        maintenanceMode: true
+      });
     } catch (error) {
       return res.status(503).json({
         error: 'Service Unavailable',

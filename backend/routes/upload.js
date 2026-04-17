@@ -3,8 +3,15 @@ const fs = require('fs');
 const path = require('path');
 const multer = require('multer');
 const { authenticateToken, requireTeacher } = require('../middleware/auth');
+const { uploadImage, uploadVideo, uploadDocument } = require('../config/cloudinary');
 
 const router = express.Router();
+
+const useCloudinary = !!(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
 
 // Ensure upload directory exists
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads', 'course-content');
@@ -52,6 +59,9 @@ const upload = multer({
   }
 });
 
+const IMAGE_MIMES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+const VIDEO_MIMES = ['video/mp4', 'video/quicktime', 'video/x-msvideo'];
+
 router.post('/', authenticateToken, requireTeacher, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
@@ -61,11 +71,33 @@ router.post('/', authenticateToken, requireTeacher, upload.single('file'), async
       });
     }
 
-    const relativePath = `/uploads/course-content/${req.file.filename}`;
+    let url = `/uploads/course-content/${req.file.filename}`;
+
+    if (useCloudinary) {
+      try {
+        const mimetype = req.file.mimetype;
+        const filePath = req.file.path;
+
+        if (IMAGE_MIMES.includes(mimetype)) {
+          const result = await uploadImage(filePath, 'forex/course-content');
+          url = result.url;
+        } else if (VIDEO_MIMES.includes(mimetype)) {
+          const result = await uploadVideo(filePath, 'forex/course-content/videos');
+          url = result.url;
+        } else {
+          const result = await uploadDocument(filePath, 'forex/course-content/documents');
+          url = result.url;
+        }
+
+        try { fs.unlinkSync(filePath); } catch (_) {}
+      } catch (cloudErr) {
+        console.error('Cloudinary upload error (using local file):', cloudErr.message);
+      }
+    }
 
     res.json({
       message: 'File uploaded successfully',
-      url: relativePath,
+      url,
       filename: req.file.filename,
       originalName: req.file.originalname,
       mimetype: req.file.mimetype,

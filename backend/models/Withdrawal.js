@@ -40,7 +40,7 @@ const withdrawalSchema = new mongoose.Schema({
   rejectionReason: {
     type: String,
     trim: true,
-    maxlength: [500, 'Rejection reason cannot exceed 500 characters']
+    maxlength: [2000, 'Rejection reason cannot exceed 2000 characters']
   },
   processedBy: {
     type: mongoose.Schema.Types.ObjectId,
@@ -50,7 +50,7 @@ const withdrawalSchema = new mongoose.Schema({
   notes: {
     type: String,
     trim: true,
-    maxlength: [500, 'Notes cannot exceed 500 characters']
+    maxlength: [2000, 'Notes cannot exceed 2000 characters']
   }
 }, {
   timestamps: true

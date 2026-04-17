@@ -13,7 +13,9 @@ import {
   Shield, 
   CreditCard,
   Settings,
-  AlertCircle
+  AlertCircle,
+  Video,
+  Radio
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 import { useLanguage } from '../../../context/LanguageContext';
@@ -21,12 +23,13 @@ import { buildApiUrl } from '../../../utils/api';
 
 interface Notification {
   _id: string;
-  type: 'assignment' | 'course' | 'message' | 'system' | 'payment' | 'security';
+  type: 'assignment' | 'course' | 'message' | 'system' | 'payment' | 'security' | 'referral' | 'commission' | 'live_session';
   title: string;
   message: string;
   data: any;
   read: boolean;
   createdAt: string;
+  link?: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
 }
 
@@ -204,6 +207,11 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
         return <CreditCard className="w-5 h-5 text-yellow-600" />;
       case 'security':
         return <Shield className="w-5 h-5 text-red-600" />;
+      case 'live_session':
+        return <Radio className="w-5 h-5 text-red-500 animate-pulse" />;
+      case 'referral':
+      case 'commission':
+        return <CreditCard className="w-5 h-5 text-green-600" />;
       default:
         return <AlertCircle className="w-5 h-5 text-gray-600" />;
     }
@@ -305,7 +313,14 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
                       key={notification._id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      className={`p-4 hover:bg-gray-50 transition-colors border-l-4 ${getPriorityColor(notification.priority)} ${!notification.read ? 'bg-blue-50' : ''}`}
+                      className={`p-4 hover:bg-gray-50 transition-colors border-l-4 ${getPriorityColor(notification.priority)} ${!notification.read ? 'bg-blue-50' : ''} ${notification.link ? 'cursor-pointer' : ''} ${notification.type === 'live_session' ? 'bg-red-50 dark:bg-red-900/20 border-l-red-500' : ''}`}
+                      onClick={() => {
+                        if (notification.link) {
+                          markAsRead(notification._id);
+                          onClose();
+                          window.location.href = notification.link;
+                        }
+                      }}
                     >
                       <div className="flex items-start space-x-3">
                         <div className="flex-shrink-0 mt-1">
@@ -324,9 +339,26 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
                             {notification.message}
                           </p>
                           <div className="flex items-center space-x-2 mt-2">
+                            {notification.type === 'live_session' && notification.link && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  markAsRead(notification._id);
+                                  onClose();
+                                  window.location.href = notification.link!;
+                                }}
+                                className="text-xs bg-red-600 text-white px-2 py-1 rounded font-medium flex items-center space-x-1 hover:bg-red-700"
+                              >
+                                <Video className="w-3 h-3" />
+                                <span>Join Now</span>
+                              </button>
+                            )}
                             {!notification.read && (
                               <button
-                                onClick={() => markAsRead(notification._id)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  markAsRead(notification._id);
+                                }}
                                 className="text-xs text-blue-600 hover:text-blue-800 font-medium flex items-center space-x-1"
                               >
                                 <Check className="w-3 h-3" />
@@ -334,7 +366,10 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
                               </button>
                             )}
                             <button
-                              onClick={() => deleteNotification(notification._id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteNotification(notification._id);
+                              }}
                               className="text-xs text-red-600 hover:text-red-800 font-medium flex items-center space-x-1"
                             >
                               <Trash2 className="w-3 h-3" />

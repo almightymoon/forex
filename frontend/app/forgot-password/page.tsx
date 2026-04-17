@@ -32,7 +32,7 @@ export default function ForgotPasswordPage() {
 
       if (response.ok) {
         setIsSubmitted(true);
-        showToast('Password reset email sent successfully!', 'success');
+        showToast('Password reset link sent. Please check your email.', 'success');
       } else {
         setError(data.message || 'Failed to send reset email. Please try again.');
       }
@@ -57,10 +57,10 @@ export default function ForgotPasswordPage() {
               Check Your Email
             </h2>
             <p className="text-gray-600 dark:text-gray-300">
-              We've sent a password reset link to <strong>{email}</strong>
+              We’ve sent a password reset link to <strong>{email}</strong>.
             </p>
             <p className="text-sm text-gray-500 dark:text-gray-400 mt-4">
-              Please check your email and follow the instructions to reset your password.
+              Please check your inbox (and spam). If it doesn’t arrive, try again in a few minutes.
             </p>
           </div>
           

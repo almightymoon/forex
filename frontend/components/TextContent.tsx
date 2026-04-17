@@ -152,6 +152,7 @@ const TextContent: React.FC<TextContentProps> = ({
                   <span className="text-sm">Scrolled to end</span>
                 </div>
               ) : (
+                /* Mark as complete button removed
                 <button
                   onClick={handleMarkComplete}
                   disabled={progressLoading}
@@ -160,6 +161,8 @@ const TextContent: React.FC<TextContentProps> = ({
                   <CheckCircle className="w-4 h-4" />
                   <span>Mark Complete</span>
                 </button>
+                */
+                null
               )}
             </div>
           )}
@@ -177,7 +180,7 @@ const TextContent: React.FC<TextContentProps> = ({
       {/* Text Content */}
       <div 
         ref={textRef}
-        className="prose prose-lg max-w-none dark:prose-invert max-h-96 overflow-y-auto"
+        className="prose prose-lg max-w-none dark:prose-invert"
       >
         <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
           {textContent ? (
@@ -200,11 +203,11 @@ const TextContent: React.FC<TextContentProps> = ({
         </p>
       )}
 
-      {/* Error Display */}
-      {progressError && (
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-          <p className="text-red-600 dark:text-red-400 text-sm">
-            {progressError}
+      {/* Error Display - only show after multiple retry failures */}
+      {progressError && !isCompleted && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+          <p className="text-yellow-700 dark:text-yellow-400 text-xs">
+            Progress sync pending - your reading time is being tracked locally
           </p>
         </div>
       )}

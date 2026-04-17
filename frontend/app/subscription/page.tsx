@@ -22,6 +22,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { buildApiUrl } from '@/utils/api';
 import DarkModeToggle from '../../components/DarkModeToggle';
+import PackagePerksDisplay from '../components/PackagePerksDisplay';
 
 const packages = [
   { 
@@ -175,9 +176,9 @@ export default function SubscriptionPage() {
         </div>
 
         {currentPackage ? (
-          <div className="flex justify-center">
+          <div className="space-y-8">
             {/* Active Subscription Card */}
-            <div className="w-full max-w-2xl">
+            <div className="w-full max-w-4xl mx-auto">
               <div className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow-xl border-2 border-blue-500 dark:border-blue-400 overflow-hidden`}>
                 {/* Active Badge */}
                 <div className="absolute top-4 right-4 z-10">
@@ -263,6 +264,13 @@ export default function SubscriptionPage() {
                 </div>
               </div>
             </div>
+
+            {/* Package Perks Display - Placed below the subscription card */}
+            {subscriptionPackage && (
+              <div className="w-full max-w-4xl mx-auto">
+                <PackagePerksDisplay showUpgradeButton={true} />
+              </div>
+            )}
           </div>
         ) : (
           <div className="text-center py-16">

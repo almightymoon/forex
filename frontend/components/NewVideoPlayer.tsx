@@ -79,11 +79,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [isPictureInPicture, setIsPictureInPicture] = useState(false);
   const [showControls, setShowControls] = useState(true);
   const [controlsTimeout, setControlsTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [hasEnded, setHasEnded] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const ytPlayerRef = useRef<any>(null);
   const progressPollRef = useRef<number | null>(null);
+  const updateProgressRef = useRef<(watched: number, duration: number) => void>(() => {});
+  const saveProgressRef = useRef<() => Promise<boolean>>(async () => false);
 
   const { progressData, watchPercentage, isCompleted, loading, error, updateProgress, saveProgress } = useVideoProgress({
     courseId,
@@ -107,6 +110,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setIsYouTube(false);
     }
   }, [videoUrl]);
+
+  // Keep refs updated so YouTube init effect doesn't depend on callbacks (prevents player destroy/recreate on parent re-renders)
+  updateProgressRef.current = updateProgress;
+  saveProgressRef.current = saveProgress;
 
   // Local video handlers
   const handleLocalTimeUpdate = useCallback(() => {
@@ -158,16 +165,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           width: '100%',
           videoId: id,
           playerVars: {
-            controls: 0,
-            rel: 0,
-            modestbranding: 1,
-            disablekb: 1,
-            fs: 0,
-            iv_load_policy: 3,
-            autoplay: 0,
+            controls: 0,           // Hide YouTube controls (we use our own)
+            rel: 0,                // Don't show related videos at end
+            modestbranding: 1,     // Minimal YouTube branding
+            disablekb: 1,          // Disable keyboard controls (we handle them)
+            fs: 0,                 // Disable fullscreen button (we have our own)
+            iv_load_policy: 3,     // Hide video annotations
+            autoplay: 0,           // Don't autoplay
             origin: window.location.origin,
-            enablejsapi: 1,
-            playsinline: 1,
+            enablejsapi: 1,        // Enable JS API for our controls
+            playsinline: 1,        // Play inline on mobile
+            showinfo: 0,           // Hide video title/uploader
+            cc_load_policy: 0,     // Don't show captions by default
+            hl: 'en',              // Set language
+            end: 0,                // Prevent end screen
           },
           events: {
             onReady: (e: any) => {
@@ -207,7 +218,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                         if (playerState === 1) {
                           setCurrentTime(ct);
                           setDuration(dur || 0);
-                          updateProgress(ct, dur);
+                          updateProgressRef.current(ct, dur);
                         } else {
                           console.log('Video not playing, stopping progress tracking');
                           if (progressPollRef.current) {
@@ -231,12 +242,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               } else if (e.data === 0) {
                 console.log('Video ended');
                 setIsPlaying(false);
+                setHasEnded(true); // Show end overlay to hide YouTube's related videos
                 // mark as completed (updateProgress will handle percent check)
                 try {
                   if (ytPlayerRef.current && ytPlayerRef.current.getDuration) {
                     const dur = ytPlayerRef.current.getDuration();
-                    updateProgress(dur, dur);
-                    saveProgress();
+                    updateProgressRef.current(dur, dur);
+                    saveProgressRef.current();
                   }
                 } catch (err) {
                   console.error('Error marking as completed:', err);
@@ -274,7 +286,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         console.error('Error destroying YouTube player:', err);
       }
     };
-  }, [isYouTube, videoUrl, contentId, courseId, updateProgress, saveProgress]);
+  }, [isYouTube, videoUrl, contentId, courseId]);
 
   // External click toggles play via API
   const togglePlayExternal = useCallback(() => {
@@ -289,7 +301,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       console.log('Current time:', ytPlayerRef.current.getCurrentTime());
       console.log('Duration:', ytPlayerRef.current.getDuration());
       
-      // playing = 1, paused = 2, cued = 5
+      // playing = 1, paused = 2, cued = 5, ended = 0
       if (state === 1) {
         console.log('Pausing video');
         ytPlayerRef.current.pauseVideo();
@@ -299,13 +311,36 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         console.log('Starting cued video');
         ytPlayerRef.current.playVideo();
         setIsPlaying(true);
+        setHasEnded(false);
+      } else if (state === 0) {
+        // Video ended, replay from start
+        console.log('Replaying video from start');
+        ytPlayerRef.current.seekTo(0, true);
+        ytPlayerRef.current.playVideo();
+        setIsPlaying(true);
+        setHasEnded(false);
       } else {
         console.log('Playing video');
         ytPlayerRef.current.playVideo();
         setIsPlaying(true);
+        setHasEnded(false);
       }
     } catch (err) {
       console.error('Error toggling YouTube video playback:', err);
+    }
+  }, [isPlayerReady]);
+
+  // Replay video from beginning
+  const replayVideo = useCallback(() => {
+    if (!ytPlayerRef.current || !isPlayerReady) return;
+    try {
+      ytPlayerRef.current.seekTo(0, true);
+      ytPlayerRef.current.playVideo();
+      setIsPlaying(true);
+      setHasEnded(false);
+      setCurrentTime(0);
+    } catch (err) {
+      console.error('Error replaying video:', err);
     }
   }, [isPlayerReady]);
 
@@ -548,6 +583,23 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return () => window.removeEventListener('beforeunload', beforeUnload);
   }, [contentId, courseId, progressData, saveUrl]);
 
+  // Prevent right-click and copying on video player
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    return false;
+  }, []);
+
+  // Block copy/paste shortcuts within player
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // Block Ctrl+C, Ctrl+U, Ctrl+S, Ctrl+Shift+I
+    if (e.ctrlKey || e.metaKey) {
+      if (['c', 'u', 's', 'i', 'j'].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+        return false;
+      }
+    }
+  }, []);
+
   // render
   return (
     <>
@@ -587,17 +639,53 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         .progress-slider::-moz-range-track {
           background: transparent;
         }
+        /* Prevent text selection on video player */
+        .video-protected {
+          -webkit-user-select: none;
+          -moz-user-select: none;
+          -ms-user-select: none;
+          user-select: none;
+        }
+        /* Hide YouTube branding/logo that might show URL */
+        .yt-wrapper iframe {
+          pointer-events: none;
+        }
+        /* Hide YouTube end screen elements */
+        .yt-wrapper .ytp-ce-element,
+        .yt-wrapper .ytp-ce-covering-overlay,
+        .yt-wrapper .ytp-ce-element-shadow,
+        .yt-wrapper .ytp-ce-covering-image,
+        .yt-wrapper .ytp-ce-expanding-image,
+        .yt-wrapper .ytp-ce-video,
+        .yt-wrapper .ytp-endscreen-content,
+        .yt-wrapper .ytp-show-tiles .ytp-videowall-still {
+          display: none !important;
+          opacity: 0 !important;
+          visibility: hidden !important;
+        }
       `}</style>
       <div 
         ref={containerRef} 
-        className="relative w-full h-full bg-black rounded-xl overflow-hidden shadow-lg group"
+        className="relative w-full h-full bg-black rounded-xl overflow-hidden shadow-lg group video-protected"
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
+        onContextMenu={handleContextMenu}
+        onKeyDown={handleKeyDown}
+        tabIndex={0}
       >
         {/* video area */}
         <div className="w-full h-[420px] bg-black flex items-center justify-center relative">
           {isExternal && isYouTube ? (
-            <div className="absolute inset-0 yt-wrapper" />
+            <>
+              <div className="absolute inset-0 yt-wrapper" />
+              {/* Transparent overlay: click-to-play when paused; when playing, pointer-events none so video keeps playing and controls work */}
+              <div 
+                className={`absolute inset-0 z-10 ${isPlaying ? 'pointer-events-none' : 'cursor-pointer'}`}
+                onClick={() => !isPlaying && togglePlayExternal()}
+                onContextMenu={handleContextMenu}
+                style={{ background: 'transparent' }}
+              />
+            </>
           ) : isExternal ? (
             // Other external providers: still use iframe (note: will not have precise tracking)
             <iframe
@@ -626,21 +714,40 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             </video>
           )}
 
+          {/* End screen overlay - hides YouTube's related videos */}
+          {hasEnded && isYouTube && (
+            <div 
+              className="absolute inset-0 z-30 bg-black/90 flex flex-col items-center justify-center cursor-pointer"
+              onClick={replayVideo}
+            >
+              <div className="text-center">
+                <button 
+                  className="bg-white/20 hover:bg-white/30 p-6 rounded-full text-white transition-all duration-200 backdrop-blur-sm border border-white/30 hover:scale-110 mb-4"
+                  onClick={replayVideo}
+                >
+                  <RotateCcw className="w-12 h-12" />
+                </button>
+                <p className="text-white text-lg font-medium">Click to replay</p>
+                {isCompleted && (
+                  <div className="flex items-center justify-center gap-2 mt-3 text-green-400">
+                    <CheckCircle className="w-5 h-5" />
+                    <span>Video completed</span>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* YouTube-style center play button overlay */}
-          <button
-            onClick={() => {
-              if (isExternal) togglePlayExternal();
-              else togglePlayLocal();
-            }}
-            className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-300 ${
+          <div
+            className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-300 z-20 pointer-events-none ${
               showControls ? 'opacity-100 scale-100' : 'opacity-0 scale-75'
-            } ${isPlaying ? 'opacity-0' : 'opacity-100'}`}
-            title={isPlaying ? 'Pause' : 'Play'}
+            } ${isPlaying || hasEnded ? 'opacity-0' : 'opacity-100'}`}
           >
-            <div className="bg-black/70 hover:bg-black/80 p-6 rounded-full text-white transition-all duration-200 backdrop-blur-sm border border-white/30 hover:scale-110">
+            <div className="bg-black/70 p-6 rounded-full text-white backdrop-blur-sm border border-white/30">
               {isPlaying ? <Pause className="w-12 h-12" /> : <Play className="w-12 h-12 ml-1" />}
             </div>
-          </button>
+          </div>
         </div>
 
         {/* YouTube-style controls */}
@@ -789,14 +896,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           </div>
         </div>
 
-        {/* Title overlay */}
-        <div className={`absolute top-4 left-4 right-4 transition-all duration-300 ${
-          showControls ? 'opacity-100 translate-y-0' : 'opacity-0 -translate-y-2'
-        }`}>
-          <h3 className="text-white text-lg font-medium bg-black/50 backdrop-blur-sm px-3 py-2 rounded-lg">
-            {title}
-          </h3>
-        </div>
+{/* Title overlay removed to prevent overlapping with video content */}
       </div>
     </>
   );

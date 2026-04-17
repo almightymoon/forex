@@ -4,9 +4,26 @@ const Package = require('../models/Package');
 
 class ReferralCommissionService {
   constructor() {
+    // Commission rates by level (applied to referral pool)
+    this.commissionRates = {
+      1: 0.20,  // 20%
+      2: 0.15,  // 15%
+      3: 0.15,  // 15%
+      4: 0.10,  // 10%
+      5: 0.10   // 10%
+    };
+    
+    // Package-specific referral pool percentages
+    // Format: { packageName: referralPoolPercentage }
+    this.packageReferralPools = {
+      'FX Launch': 1.0,    // 100% of $100 = $100 to referrals (L1 $20, L2 $15, etc.), 0% platform
+      'FX Scale': 0.40,    // 40% of $250 = $100 to referrals, 60% to company
+      'FX Legacy': 0.10    // 10% of $1000 = $100 to referrals, 90% ($900) platform commission
+    };
+
     // Fallbacks (used only if DB packages are missing/misconfigured)
-    this.defaultCommissionRates = { 1: 0.2, 2: 0.15, 3: 0.15, 4: 0.1, 5: 0.1 };
-    this.defaultPackageReferralPools = { 'FX Launch': 0.7, 'FX Scale': 0.4, 'FX Legacy': 0.25 };
+    this.defaultCommissionRates = { ...this.commissionRates };
+    this.defaultPackageReferralPools = { ...this.packageReferralPools };
   }
   
   /**
@@ -113,6 +130,24 @@ class ReferralCommissionService {
         return [];
       }
 
+      // Check if commissions already exist for this payment to prevent duplicates
+      const BalanceTransaction = require('../models/BalanceTransaction');
+      const mongoose = require('mongoose');
+      // Ensure payment._id is converted to ObjectId if it's a string
+      const paymentId = mongoose.Types.ObjectId.isValid(payment._id) 
+        ? (typeof payment._id === 'string' ? new mongoose.Types.ObjectId(payment._id) : payment._id)
+        : payment._id;
+      
+      const existingCommissions = await BalanceTransaction.countDocuments({
+        relatedPayment: paymentId,
+        type: 'referral_commission'
+      });
+      
+      if (existingCommissions > 0) {
+        console.log(`[Commission] Commissions already exist for payment ${payment._id} (${existingCommissions} found). Skipping to prevent duplicates.`);
+        return [];
+      }
+
       const packageAmount = Number(payment.finalAmount ?? payment.amount) || 0;
       const packageNameRaw = payment.package?.name || 'Unknown';
       const normalized = this.normalizePackageName(packageNameRaw);
@@ -125,18 +160,15 @@ class ReferralCommissionService {
       const referralPool = Math.round((packageAmount * poolPct) * 100) / 100;
       const companyShare = Math.round((packageAmount * (1 - poolPct)) * 100) / 100;
 
-      // Double-check: we must NEVER use full package amount as pool for known packages.
+      // Double-check: pool must match configured percentage (100% pool allowed for FX Launch).
       if (packageName !== 'Unknown' && poolPct > 0) {
-        if (referralPool >= packageAmount - 0.01) {
-          throw new Error(`[Commission] BUG: Referral pool ($${referralPool}) must not equal package amount ($${packageAmount}). Commission must be from pool only.`);
-        }
         if (Math.abs(referralPool - packageAmount * poolPct) > 0.02) {
           throw new Error(`[Commission] BUG: Pool $${referralPool} inconsistent with ${(poolPct * 100)}% of $${packageAmount}.`);
         }
       }
       
       console.log('[Commission] Package:', packageNameRaw, '->', packageName, '| Amount: $' + packageAmount);
-      console.log('[Commission] Referral Pool: $' + referralPool.toFixed(2), `(${(poolPct * 100).toFixed(0)}% of package — NOT using full $${packageAmount})`);
+      console.log('[Commission] Referral Pool: $' + referralPool.toFixed(2), `(${(poolPct * 100).toFixed(0)}% of package)`);
       console.log('[Commission] Company Share: $' + companyShare.toFixed(2));
 
       // Get the buyer
@@ -151,6 +183,12 @@ class ReferralCommissionService {
       // If buyer has no referrer, no commissions to distribute
       if (!buyer.parentReferralCode) {
         console.log('[Commission] No referrer - ending distribution. Company keeps full share: $' + packageAmount.toFixed(2));
+        return [];
+      }
+
+      // Buyer came from default referral link only (no ref param) — do not pay commission
+      if (buyer.referredByDefaultCode === true) {
+        console.log('[Commission] Buyer referred via default link only — skipping commission distribution. Company keeps full share: $' + packageAmount.toFixed(2));
         return [];
       }
 
@@ -220,7 +258,7 @@ class ReferralCommissionService {
 
         console.log(`[Commission] Level ${level}: Transaction created, new balance: $${transaction.balanceAfter.toFixed(2)}`);
 
-        // Increment verified referrals (downline purchaser) for this referrer
+        // Update referrer stats: verified count and total earnings
         if (!referrer.referralStats) {
           referrer.referralStats = {
             totalReferrals: 0,
@@ -237,6 +275,7 @@ class ReferralCommissionService {
           referrer.referralStats.verifiedReferrals = 0;
         }
         referrer.referralStats.verifiedReferrals += 1;
+        referrer.referralStats.totalEarnings = (referrer.referralStats.totalEarnings || 0) + commissionAmount;
         await referrer.save();
 
         // Send notification to referrer
@@ -244,7 +283,7 @@ class ReferralCommissionService {
           const notificationService = require('./notificationService');
           await notificationService.sendNotificationToUser(referrer._id, 'commission', {
             title: `Level ${level} Commission Earned!`,
-            message: `You earned $${commissionAmount.toFixed(2)} USDT commission from ${buyer.firstName} ${buyer.lastName}'s ${packageName} purchase (${(commissionRate * 100).toFixed(0)}% of $${referralPool.toFixed(2)} referral pool)`,
+            message: `You earned $${commissionAmount.toFixed(2)} USDT commission from ${buyer.firstName} ${buyer.lastName}'s ${packageName} purchase`,
             amount: commissionAmount,
             level: level,
             buyerName: `${buyer.firstName} ${buyer.lastName}`,

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { buildApiUrl } from '../utils/api';
 import CoolLoader from './CoolLoader';
+import { useMaintenanceContext } from '../context/MaintenanceContext';
 
 interface PackageGuardProps {
   children: React.ReactNode;
@@ -13,6 +14,7 @@ interface PackageGuardProps {
 export default function PackageGuard({ children, allowedPaths = [] }: PackageGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
+  const { setFromResponse } = useMaintenanceContext();
   const [isChecking, setIsChecking] = useState(true);
   const [hasAccess, setHasAccess] = useState(false);
 
@@ -46,6 +48,20 @@ export default function PackageGuard({ children, allowedPaths = [] }: PackageGua
           }
         });
 
+        if (response.status === 503) {
+          try {
+            const data = await response.json();
+            if (data.maintenanceMode) {
+              setFromResponse(true, data.message);
+              setHasAccess(true);
+              setIsChecking(false);
+              return;
+            }
+          } catch {
+            // ignore parse error
+          }
+        }
+
         if (response.status === 403) {
           const data = await response.json();
           
@@ -53,7 +69,13 @@ export default function PackageGuard({ children, allowedPaths = [] }: PackageGua
             router.push('/select-package');
             return;
           } else if (data.code === 'PAYMENT_PENDING') {
-            router.push('/payment-pending');
+            if (data.redirectTo === '/payment' && data.paymentId) {
+              const pkg = data.packageName ?? '';
+              const amt = data.amount ?? 0;
+              router.push(`/payment?package=${encodeURIComponent(pkg)}&amount=${amt}&paymentId=${data.paymentId}`);
+            } else {
+              router.push(data.redirectTo || '/payment-pending');
+            }
             return;
           }
         }

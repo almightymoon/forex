@@ -335,7 +335,17 @@ courseProgressSchema.methods.updateContentProgress = function(contentId, content
         watchedSegments: []
       },
       quizAttempts: [],
-      assignmentSubmissions: []
+      assignmentSubmission: {
+        submitted: false,
+        passed: false
+      },
+      readingProgress: {
+        timeSpent: 0,
+        readingPercentage: 0,
+        lastReadAt: null,
+        isMarkedComplete: false,
+        markedCompleteAt: null
+      }
     };
     this.contentProgress.push(contentProgress);
   }

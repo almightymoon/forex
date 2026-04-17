@@ -11,6 +11,15 @@
   display: none;  /* Safari and Chrome */
 }
 
+/* Market ticker marquee */
+@keyframes ticker-marquee {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+.animate-ticker-marquee {
+  animation: ticker-marquee 45s linear infinite;
+}
+
 /* Fix text direction issues - ensure LTR by default */
 input[type="text"],
 input[type="email"],
@@ -303,4 +312,14 @@ textarea,
   .submission-content pre {
     @apply bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 p-3 rounded text-sm font-mono overflow-x-auto;
   }
+}
+
+/* Referral tree - override react-d3-tree for readable text */
+.rd3t-tree-container text,
+.rd3t-node text,
+.rd3t-leaf-node text,
+.rd3t-label__title,
+.rd3t-label__attributes {
+  font-weight: 400 !important;
+  font-size: 16px !important;
 }

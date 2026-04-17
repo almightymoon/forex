@@ -19,6 +19,11 @@ export interface User {
   hasReferral?: boolean;
   createdAt: string;
   lastLogin?: string;
+  security?: {
+    isLocked?: boolean;
+    lockedUntil?: string;
+    lockReason?: string;
+  };
 }
 
 export interface Payment {
@@ -33,12 +38,28 @@ export interface Payment {
   status: 'pending' | 'completed' | 'failed' | 'processing' | 'cancelled' | 'refunded';
   paymentMethod: string;
   createdAt: string;
+  transactionId?: string;
   binanceWallet?: {
     walletAddress?: string;
     network?: string;
     transactionHash?: string;
   };
+  payerName?: string;
+  payerEmail?: string;
+  paymentScreenshotUrl?: string;
   adminConfirmed?: boolean;
+}
+
+export interface RecentActivityItem {
+  type: 'user_registration' | 'payment_received';
+  _id: string;
+  createdAt: string;
+  userName?: string;
+  email?: string;
+  role?: string;
+  amount?: number;
+  currency?: string;
+  packageName?: string;
 }
 
 export interface Analytics {
@@ -52,6 +73,7 @@ export interface Analytics {
   monthlyRevenue: Array<{ month: string; revenue: number }>;
   monthlyUserGrowth: Array<{ month: string; users: number }>;
   paymentMethodStats: Array<{ method: string; count: number; totalAmount: number }>;
+  recentActivity?: RecentActivityItem[];
 }
 
 export interface PromoCode {
@@ -76,6 +98,8 @@ export interface AdminSettings {
     timezone: string;
     language: string;
     maintenanceMode: boolean;
+    maintenanceAllowTeachers: boolean;
+    defaultReferralCode: string;
   };
   security: {
     twoFactorAuth: boolean;

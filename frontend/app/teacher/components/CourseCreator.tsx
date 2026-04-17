@@ -1,6 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useToast } from '../../../components/Toast';
+
+// Rich text editor (no SSR to avoid hydration issues)
+const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
+import 'react-quill/dist/quill.snow.css';
 import { 
   Plus, 
   Save, 
@@ -62,6 +66,7 @@ interface Course {
   content?: any[];
   quizzes?: any[];
   assignments?: any[];
+  allowedPackages?: number[] | null; // null means for all packages, array of [100, 250, 1000]
   instructor?: string;
 }
 
@@ -74,6 +79,7 @@ interface ContentBlock {
   metadata?: any;
   textContent?: string;
   videoUrl?: string;
+  imageUrl?: string;
   description?: string;
 }
 
@@ -134,6 +140,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
     learningOutcomes: editingCourse?.learningOutcomes || initialData?.learningOutcomes || [],
     content: editingCourse?.content || initialData?.content || [],
     quizzes: editingCourse?.quizzes || initialData?.quizzes || [],
+    allowedPackages: editingCourse?.allowedPackages || initialData?.allowedPackages || null, // null means for all packages
     settings: {
       allowPreview: true,
       requireEnrollment: true,
@@ -173,6 +180,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         learningOutcomes: editingCourse.learningOutcomes || [],
         content: editingCourse.content || [],
         quizzes: editingCourse.quizzes || [],
+        allowedPackages: editingCourse.allowedPackages || null,
         settings: {
           allowPreview: true,
           requireEnrollment: true,
@@ -181,7 +189,27 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
           passingScore: 70
         }
       });
-      setContentBlocks(editingCourse.content || []);
+      
+      // Transform content from database format to frontend format
+      // Database has textContent, videoUrl, etc. but frontend expects content field
+      const transformedContent = (editingCourse.content || []).map((item: any) => ({
+        ...item,
+        id: item._id || item.id || `block-${Date.now()}-${Math.random()}`,
+        // Map textContent to content for text blocks
+        content: item.type === 'text' 
+          ? (item.textContent || item.content || '')
+          : item.type === 'video'
+          ? (item.videoUrl || item.content || '')
+          : item.type === 'ppt'
+          ? (item.pptUrl || item.content || '')
+          : (item.content || ''),
+        // Keep original fields for reference
+        textContent: item.textContent,
+        videoUrl: item.videoUrl,
+        pptUrl: item.pptUrl
+      }));
+      
+      setContentBlocks(transformedContent);
       setQuizzes(editingCourse.quizzes || []);
       setAssignments(editingCourse.assignments || []);
     }
@@ -395,9 +423,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         const baseBlock = {
           title: block.title,
           description: block.description || '',
-          type: block.type === 'text' ? 'text' : 
-                block.type === 'video' ? 'video' : 
-                block.type === 'image' ? 'text' : 'text', // Map image to text for now
+          type: block.type,
           order: block.order,
           isPreview: false,
           duration: 0,
@@ -405,16 +431,22 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         };
 
         // Add type-specific required fields
-        if (block.type === 'text' || block.type === 'image') {
+        if (block.type === 'text') {
           return {
             ...baseBlock,
-            textContent: block.textContent || block.content || 'Default text content',
+            textContent: block.content || block.textContent || 'Default text content',
             type: 'text'
+          };
+        } else if (block.type === 'image') {
+          return {
+            ...baseBlock,
+            imageUrl: block.content || block.imageUrl || '',
+            type: 'image'
           };
         } else if (block.type === 'video') {
           return {
             ...baseBlock,
-            videoUrl: block.videoUrl || block.content || 'https://example.com/video',
+            videoUrl: block.content || block.videoUrl || 'https://example.com/video',
             type: 'video'
           };
         } else if (block.type === 'file') {
@@ -427,7 +459,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
           // Default to text for unknown types
           return {
             ...baseBlock,
-            textContent: block.textContent || block.content || 'Default content',
+            textContent: block.content || block.textContent || 'Default content',
             type: 'text'
           };
         }
@@ -516,9 +548,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         const baseBlock = {
           title: block.title,
           description: block.description || '',
-          type: block.type === 'text' ? 'text' : 
-                block.type === 'video' ? 'video' : 
-                block.type === 'image' ? 'text' : 'text', // Map image to text for now
+          type: block.type,
           order: block.order,
           isPreview: false,
           duration: 0,
@@ -526,16 +556,22 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         };
 
         // Add type-specific required fields
-        if (block.type === 'text' || block.type === 'image') {
+        if (block.type === 'text') {
           return {
             ...baseBlock,
-            textContent: block.textContent || block.content || 'Default text content',
+            textContent: block.content || block.textContent || 'Default text content',
             type: 'text'
+          };
+        } else if (block.type === 'image') {
+          return {
+            ...baseBlock,
+            imageUrl: block.content || block.imageUrl || '',
+            type: 'image'
           };
         } else if (block.type === 'video') {
           return {
             ...baseBlock,
-            videoUrl: block.videoUrl || block.content || 'https://example.com/video',
+            videoUrl: block.content || block.videoUrl || 'https://example.com/video',
             type: 'video'
           };
         } else if (block.type === 'file') {
@@ -548,7 +584,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
           // Default to text for unknown types
           return {
             ...baseBlock,
-            textContent: block.textContent || block.content || 'Default content',
+            textContent: block.content || block.textContent || 'Default content',
             type: 'text'
           };
         }
@@ -884,6 +920,70 @@ function BasicInfoTab({
               step="0.01"
             />
           </div>
+
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+              Available for Packages
+            </label>
+            <div className="space-y-2">
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={courseData.allowedPackages === null || courseData.allowedPackages === undefined}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      // Set to null to mean "for all packages"
+                      setCourseData({ ...courseData, allowedPackages: null });
+                    } else {
+                      // Unchecking "for all" - initialize with empty array so user can select specific packages
+                      setCourseData({ ...courseData, allowedPackages: [] });
+                    }
+                  }}
+                  className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                />
+                <span className="text-gray-700 dark:text-gray-300 font-medium">For All Packages (Visible to everyone)</span>
+              </label>
+              <div className="ml-6 space-y-2">
+                {[100, 250, 1000].map((pkgPrice) => {
+                  const packageNames: { [key: number]: string } = {
+                    100: 'FX Launch ($100)',
+                    250: 'FX Scale ($250)',
+                    1000: 'FX Legacy ($1000)'
+                  };
+                  // Only disable if explicitly null/undefined (for all), not if it's an empty array (selecting specific)
+                  const isForAll = courseData.allowedPackages === null || courseData.allowedPackages === undefined;
+                  const isChecked = Array.isArray(courseData.allowedPackages) && courseData.allowedPackages.includes(pkgPrice);
+                  return (
+                    <label key={pkgPrice} className="flex items-center space-x-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const currentPackages = Array.isArray(courseData.allowedPackages) ? courseData.allowedPackages : [];
+                          if (e.target.checked) {
+                            // Add package
+                            const newPackages = [...currentPackages, pkgPrice];
+                            setCourseData({ ...courseData, allowedPackages: newPackages });
+                          } else {
+                            // Remove package
+                            const newPackages = currentPackages.filter(p => p !== pkgPrice);
+                            // If no packages selected, set to null (for all)
+                            setCourseData({ ...courseData, allowedPackages: newPackages.length > 0 ? newPackages : null });
+                          }
+                        }}
+                        disabled={isForAll}
+                        className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                      />
+                      <span className={`text-gray-700 dark:text-gray-300 ${isForAll ? 'opacity-50' : ''}`}>{packageNames[pkgPrice]}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+                Uncheck "For All Packages" to select specific packages. Select specific packages to restrict access, or leave "For All Packages" checked to make it visible to all students.
+              </p>
+            </div>
+          </div>
         </div>
 
         <div className="mt-6">
@@ -1147,7 +1247,12 @@ function ContentBuilderTab({
         <ContentEditor
           block={editingBlock}
           onSave={(updates) => {
-            updateContentBlock(editingBlock.id, updates);
+            // Ensure textContent is synced with content for text blocks
+            const syncedUpdates = {
+              ...updates,
+              ...(updates.type === 'text' && updates.content ? { textContent: updates.content } : {})
+            };
+            updateContentBlock(editingBlock.id, syncedUpdates);
             setEditingBlock(null);
           }}
           onCancel={() => setEditingBlock(null)}
@@ -1245,58 +1350,49 @@ function ContentBlock({
 }
 
 // ========================================
-// SIMPLE TEXT EDITOR COMPONENT
+// RICH TEXT EDITOR COMPONENT (ReactQuill)
 // ========================================
-// A clean, simple text editor using textarea
-// Features:
-// - Basic text input with LTR direction
-// - No text direction issues
-// - Resizable textarea
-// - Dark mode support
-// - Simple and reliable
-// ========================================
-function SimpleTextEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const [text, setText] = useState(value);
+const QUILL_MODULES = {
+  toolbar: [
+    [{ header: [1, 2, 3, false] }],
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ list: 'ordered' }, { list: 'bullet' }],
+    [{ color: [] }, { background: [] }],
+    [{ align: [] }],
+    ['link', 'image'],
+    ['clean'],
+  ],
+};
 
-  useEffect(() => {
-    setText(value);
-  }, [value]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    setText(newValue);
-    onChange(newValue);
-  };
-
+function RichTextEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
-    <div className="border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
-      <textarea
-        value={text}
-        onChange={handleChange}
-        className="w-full p-4 min-h-[300px] focus:outline-none bg-white dark:bg-gray-800 text-gray-900 dark:text-white resize-vertical"
-        style={{ 
-          direction: 'ltr', 
-          textAlign: 'left',
-          unicodeBidi: 'normal',
-          writingMode: 'horizontal-tb'
-        }}
-        dir="ltr"
+    <div className="rich-text-editor-wrapper border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800 [&_.ql-toolbar]:bg-gray-50 dark:[&_.ql-toolbar]:bg-gray-700 [&_.ql-toolbar]:border-gray-300 dark:[&_.ql-toolbar]:border-gray-600 [&_.ql-container]:border-gray-300 dark:[&_.ql-container]:border-gray-600 [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-gray-900 dark:[&_.ql-editor]:text-white [&_.ql-editor.ql-blank::before]:text-gray-500 dark:[&_.ql-editor.ql-blank::before]:text-gray-400">
+      <ReactQuill
+        theme="snow"
+        value={value ?? ''}
+        onChange={onChange}
         placeholder="Enter your text content here..."
+        modules={QUILL_MODULES}
       />
     </div>
   );
 }
 // ========================================
-// END OF SIMPLE TEXT EDITOR COMPONENT
-// ========================================
-// This component provides a simple, reliable text editing experience
-// without the complexity of rich text formatting. Perfect for basic
-// text content that doesn't require advanced formatting features.
-// ========================================
 
 // Content Editor Component
 function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload, isUploading }: any) {
-  const [editingData, setEditingData] = useState(block);
+  // Initialize editingData with proper content field mapping
+  const [editingData, setEditingData] = useState({
+    ...block,
+    // Ensure content field is populated from textContent, videoUrl, or content
+    content: block.type === 'text' 
+      ? (block.textContent || block.content || '')
+      : block.type === 'video'
+      ? (block.videoUrl || block.content || '')
+      : block.type === 'ppt'
+      ? (block.pptUrl || block.content || '')
+      : (block.content || '')
+  });
 
   const handleSave = () => {
     onSave(editingData);
@@ -1335,11 +1431,11 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
 
             {block.type === 'text' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Content
                 </label>
-                <SimpleTextEditor
-                  value={editingData.content}
+                <RichTextEditor
+                  value={editingData.content ?? ''}
                   onChange={(value) => setEditingData({ ...editingData, content: value })}
                 />
               </div>

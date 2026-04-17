@@ -157,4 +157,190 @@ router.put('/profile/me', [
   }
 });
 
+// @route   GET /api/users/activity/recent
+// @desc    Get user's recent activity feed
+// @access  Private
+router.get('/activity/recent', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user._id;
+    const limit = parseInt(req.query.limit) || 10;
+    const activities = [];
+
+    // 1. Get recent notifications
+    const Notification = require('../models/Notification');
+    const notifications = await Notification.find({ user: userId })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .lean();
+    
+    notifications.forEach(notif => {
+      activities.push({
+        type: 'notification',
+        id: notif._id,
+        title: notif.title,
+        message: notif.message,
+        icon: getNotificationIcon(notif.type),
+        color: getNotificationColor(notif.type),
+        timestamp: notif.createdAt,
+        read: notif.read,
+        data: notif.data
+      });
+    });
+
+    // 2. Get recent course progress updates
+    const CourseProgress = require('../models/CourseProgress');
+    const recentProgress = await CourseProgress.find({ student: userId })
+      .populate('course', 'title')
+      .sort({ lastAccessed: -1 })
+      .limit(5)
+      .lean();
+
+    recentProgress.forEach(progress => {
+      if (progress.lastAccessed) {
+        const completedCount = progress.contentProgress?.filter(c => c.isCompleted).length || 0;
+        const totalCount = progress.contentProgress?.length || 0;
+        
+        if (completedCount > 0) {
+          activities.push({
+            type: 'course_progress',
+            id: `progress_${progress._id}`,
+            title: 'Course Progress Updated',
+            message: `You completed ${completedCount} lesson${completedCount > 1 ? 's' : ''} in ${progress.course?.title || 'Course'}`,
+            icon: 'BookOpen',
+            color: 'blue',
+            timestamp: progress.lastAccessed,
+            courseId: progress.course?._id,
+            courseTitle: progress.course?.title
+          });
+        }
+      }
+    });
+
+    // 3. Get recent trading signals
+    const TradingSignal = require('../models/TradingSignal');
+    const recentSignals = await TradingSignal.find({ isPublished: true })
+      .populate('teacher', 'firstName lastName')
+      .sort({ createdAt: -1 })
+      .limit(5)
+      .lean();
+
+    recentSignals.forEach(signal => {
+      const teacherName = signal.teacher 
+        ? `${signal.teacher.firstName} ${signal.teacher.lastName}` 
+        : 'Unknown Teacher';
+      
+      activities.push({
+        type: 'trading_signal',
+        id: signal._id,
+        title: 'New Trading Signal',
+        message: `${signal.symbol} ${signal.type} signal posted by ${teacherName}`,
+        icon: 'Target',
+        color: 'green',
+        timestamp: signal.createdAt,
+        signalId: signal._id,
+        symbol: signal.symbol
+      });
+    });
+
+    // 4. Get upcoming live sessions
+    const LiveSession = require('../models/LiveSession');
+    const upcomingSessions = await LiveSession.find({
+      status: 'scheduled',
+      scheduledAt: { $gte: new Date() }
+    })
+      .populate('teacher', 'firstName lastName')
+      .sort({ scheduledAt: 1 })
+      .limit(3)
+      .lean();
+
+    upcomingSessions.forEach(session => {
+      activities.push({
+        type: 'live_session',
+        id: session._id,
+        title: 'Live Session Available',
+        message: `${session.title} - ${new Date(session.scheduledAt).toLocaleDateString()}`,
+        icon: 'Play',
+        color: 'green',
+        timestamp: session.scheduledAt,
+        sessionId: session._id,
+        meetingLink: session.meetingLink
+      });
+    });
+
+    // 5. Get recent assignment completions
+    const Assignment = require('../models/Assignment');
+    const completedAssignments = await Assignment.find({
+      'submissions.student': userId,
+      'submissions.status': 'submitted'
+    })
+      .populate('course', 'title')
+      .sort({ 'submissions.submittedAt': -1 })
+      .limit(5)
+      .lean();
+
+    completedAssignments.forEach(assignment => {
+      const submission = assignment.submissions?.find(s => 
+        s.student.toString() === userId.toString() && s.status === 'submitted'
+      );
+      
+      if (submission) {
+        activities.push({
+          type: 'assignment',
+          id: `assignment_${assignment._id}`,
+          title: 'Assignment Submitted',
+          message: `You submitted "${assignment.title}" for ${assignment.course?.title || 'Course'}`,
+          icon: 'FileText',
+          color: 'purple',
+          timestamp: submission.submittedAt,
+          assignmentId: assignment._id
+        });
+      }
+    });
+
+    // Sort all activities by timestamp (most recent first)
+    activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    // Return only the requested limit
+    res.json({
+      success: true,
+      activities: activities.slice(0, limit),
+      total: activities.length
+    });
+
+  } catch (error) {
+    console.error('Get recent activity error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: 'Failed to fetch recent activity',
+      message: error.message 
+    });
+  }
+});
+
+// Helper function to get notification icon
+function getNotificationIcon(type) {
+  const icons = {
+    'assignment': 'FileText',
+    'course': 'BookOpen',
+    'message': 'MessageSquare',
+    'system': 'Bell',
+    'payment': 'CreditCard',
+    'security': 'Shield'
+  };
+  return icons[type] || 'Bell';
+}
+
+// Helper function to get notification color
+function getNotificationColor(type) {
+  const colors = {
+    'assignment': 'purple',
+    'course': 'blue',
+    'message': 'indigo',
+    'system': 'gray',
+    'payment': 'green',
+    'security': 'red'
+  };
+  return colors[type] || 'gray';
+}
+
 module.exports = router;

@@ -84,6 +84,15 @@ const clearFailedAttempts = (email, ip) => {
   failedAttempts.delete(key);
 };
 
+/** Clear all failed-attempt tracking for an email (all IPs). Used when admin unblocks a user. */
+const clearFailedAttemptsByEmail = (email) => {
+  if (!email || typeof email !== 'string') return;
+  const prefix = `${email}:`;
+  for (const key of failedAttempts.keys()) {
+    if (key.startsWith(prefix)) failedAttempts.delete(key);
+  }
+};
+
 const checkAccountLock = async (email, ip) => {
   try {
     const key = `${email}:${ip}`;
@@ -162,6 +171,7 @@ const loginSecurityMiddleware = async (req, res, next) => {
 module.exports = {
   trackFailedLogin,
   clearFailedAttempts,
+  clearFailedAttemptsByEmail,
   checkAccountLock,
   loginSecurityMiddleware
 };

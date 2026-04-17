@@ -130,7 +130,7 @@ export function useTextProgress(options: UseTextProgressOptions): UseTextProgres
   const doSave = useCallback(async (payload: TextProgressPayload) => {
     if (!payload) return;
     setLoading(true);
-    setError(null);
+    // Don't set error to null here - only clear on success
 
     try {
       const token = authToken || localStorage.getItem('token');
@@ -151,19 +151,39 @@ export function useTextProgress(options: UseTextProgressOptions): UseTextProgres
         body: JSON.stringify(requestBody),
       });
 
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(text || `Save failed (${res.status})`);
+      // Try to parse response
+      let responseData;
+      try {
+        responseData = await res.json();
+      } catch {
+        // If response is not JSON, that's okay
+        responseData = {};
       }
 
-      pendingSaveRef.current = null;
-      retryCountRef.current = 0;
-      setLoading(false);
-      return true;
+      // Even if response is not ok, if we got a success message, treat it as success
+      if (res.ok || responseData?.success) {
+        pendingSaveRef.current = null;
+        retryCountRef.current = 0;
+        setLoading(false);
+        setError(null); // Clear any previous errors on success
+        return true;
+      }
+
+      // Only throw if it's a real error
+      throw new Error(responseData?.error || responseData?.message || `Save failed (${res.status})`);
     } catch (err: any) {
       retryCountRef.current += 1;
       setLoading(false);
-      setError(err?.message || 'Save failed');
+      
+      // Don't show error for text progress - it's not critical
+      // Just silently retry in background
+      console.warn('Text progress save error (will retry):', err?.message);
+      
+      // Only show error after multiple failures
+      if (retryCountRef.current > 3) {
+        setError('Unable to save reading progress');
+      }
+      
       const retryAfter = Math.min(5 * 1000 * retryCountRef.current, 60 * 1000);
       setTimeout(() => {
         if (isUnmountedRef.current) return;

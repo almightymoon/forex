@@ -7,8 +7,8 @@ const { authenticateToken, requireTeacher, requireOwnership, requireEnrollment, 
 const router = express.Router();
 
 // @route   GET /api/courses
-// @desc    Get all published courses
-// @access  Public
+// @desc    Get all published courses (filtered by user's package if authenticated)
+// @access  Public (with package filtering for authenticated users)
 router.get('/', async (req, res) => {
   try {
     const { category, level, search, sort = 'createdAt', order = 'desc' } = req.query;
@@ -24,6 +24,40 @@ router.get('/', async (req, res) => {
     if (level) query.level = level;
     if (search) {
       query.$text = { $search: search };
+    }
+    
+    // Get user's package price if authenticated
+    let userPackagePrice = null;
+    if (req.user) {
+      // Admin/teacher can see all courses
+      if (req.user.role === 'admin' || req.user.role === 'teacher' || req.user.role === 'instructor') {
+        userPackagePrice = null; // null means show all
+      } else {
+        // Get user's package price from completed payment
+        const Payment = require('../models/Payment');
+        const completedPayment = await Payment.findOne({
+          user: req.user._id,
+          status: 'completed',
+          type: 'package'
+        }).sort({ createdAt: -1 });
+        
+        if (completedPayment && completedPayment.package && completedPayment.package.price) {
+          userPackagePrice = completedPayment.package.price;
+        }
+      }
+    }
+    
+    // Filter by package: show courses where allowedPackages is null (for all) OR includes user's package
+    if (userPackagePrice !== null) {
+      query.$and = query.$and || [];
+      query.$and.push({
+        $or: [
+          { allowedPackages: null }, // For all packages
+          { allowedPackages: { $exists: false } }, // Backward compatibility
+          { allowedPackages: { $size: 0 } }, // Empty array means for all
+          { allowedPackages: userPackagePrice } // MongoDB matches if value is in array
+        ]
+      });
     }
     
     const sortObj = {};
@@ -46,62 +80,219 @@ router.get('/', async (req, res) => {
 // @access  Private (Requires verified payment)
 router.get('/enrolled', authenticateToken, requireVerifiedPayment, async (req, res) => {
   try {
+    console.log('[Enrolled Courses] ========== ROUTE HIT ==========');
+    console.log('[Enrolled Courses] Route: /api/courses/enrolled');
+    console.log('[Enrolled Courses] User ID from req.user:', req.user?._id);
+    console.log('[Enrolled Courses] User role:', req.user?.role);
+    
+    if (!req.user || !req.user._id) {
+      console.error('[Enrolled Courses] No user in request');
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    
     const user = await User.findById(req.user._id);
     if (!user) {
+      console.error('[Enrolled Courses] User not found:', req.user._id);
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Find courses where the user is enrolled (only published courses)
-    const enrolledCourses = await Course.find({
-      'enrolledStudents.student': user._id,
-      $or: [
-        { isPublished: true },
-        { status: 'published' }
-      ]
-    }).populate('teacher', 'firstName lastName');
+    console.log(`[Enrolled Courses] Fetching courses for user: ${user.email} (${user._id})`);
+    console.log(`[Enrolled Courses] User isVerified: ${user.isVerified}, role: ${user.role}`);
+
+    // Get course IDs from user's enrolledCourses array
+    let userEnrolledCourseIds = [];
+    if (user.enrolledCourses && Array.isArray(user.enrolledCourses)) {
+      userEnrolledCourseIds = user.enrolledCourses
+        .map(e => {
+          if (e && e.courseId) {
+            return e.courseId.toString ? e.courseId.toString() : String(e.courseId);
+          }
+          return null;
+        })
+        .filter(Boolean);
+    }
+    console.log(`[Enrolled Courses] User has ${userEnrolledCourseIds.length} courses in enrolledCourses array:`, userEnrolledCourseIds);
+
+    // Find courses where user is in enrolledStudents array
+    console.log('[Enrolled Courses] Querying courses by enrolledStudents...');
+    let coursesByEnrollment = [];
+    try {
+      coursesByEnrollment = await Course.find({
+        'enrolledStudents.student': user._id,
+        $or: [
+          { isPublished: true },
+          { status: 'published' }
+        ]
+      }).populate('teacher', 'firstName lastName').lean();
+      console.log(`[Enrolled Courses] Found ${coursesByEnrollment.length} courses via enrolledStudents`);
+    } catch (queryError) {
+      console.error('[Enrolled Courses] Error querying courses by enrolledStudents:', queryError);
+      console.error('[Enrolled Courses] Query error stack:', queryError.stack);
+      throw queryError; // Re-throw to be caught by outer catch
+    }
+
+    // Find courses by user's enrolledCourses array
+    let coursesByUserArray = [];
+    if (userEnrolledCourseIds.length > 0) {
+      try {
+        // Convert string IDs back to ObjectIds for MongoDB query
+        const mongoose = require('mongoose');
+        const objectIds = userEnrolledCourseIds
+          .filter(id => mongoose.Types.ObjectId.isValid(id))
+          .map(id => new mongoose.Types.ObjectId(id));
+        
+        if (objectIds.length > 0) {
+          coursesByUserArray = await Course.find({
+            _id: { $in: objectIds },
+            $or: [
+              { isPublished: true },
+              { status: 'published' }
+            ]
+          }).populate('teacher', 'firstName lastName').lean();
+          console.log(`[Enrolled Courses] Found ${coursesByUserArray.length} courses via user.enrolledCourses`);
+        }
+      } catch (error) {
+        console.error('[Enrolled Courses] Error fetching courses by user.enrolledCourses:', error);
+        coursesByUserArray = [];
+      }
+    }
+
+    // Combine and deduplicate courses
+    const allCourseIds = new Set();
+    const enrolledCourses = [];
+    
+    // Add courses from enrolledStudents
+    coursesByEnrollment.forEach(course => {
+      const courseId = course._id.toString();
+      if (!allCourseIds.has(courseId)) {
+        allCourseIds.add(courseId);
+        enrolledCourses.push(course);
+      }
+    });
+
+    // Add courses from user.enrolledCourses that weren't already added
+    coursesByUserArray.forEach(course => {
+      const courseId = course._id.toString();
+      if (!allCourseIds.has(courseId)) {
+        allCourseIds.add(courseId);
+        enrolledCourses.push(course);
+      }
+    });
+
+    console.log(`[Enrolled Courses] Total unique enrolled courses: ${enrolledCourses.length}`);
     
     // Get all progress records for the student
+    console.log('[Enrolled Courses] Fetching progress records...');
     const CourseProgress = require('../models/CourseProgress');
-    const progressRecords = await CourseProgress.find({ student: user._id });
+    let progressRecords = [];
+    try {
+      progressRecords = await CourseProgress.find({ student: user._id }).lean();
+      console.log(`[Enrolled Courses] Found ${progressRecords.length} progress records`);
+    } catch (progressError) {
+      console.error('[Enrolled Courses] Error fetching progress records:', progressError);
+      console.error('[Enrolled Courses] Progress error stack:', progressError.stack);
+      // Continue without progress records rather than failing
+      progressRecords = [];
+    }
     
     // Format the response with user-specific progress from the new progress tracking system
     const formattedCourses = enrolledCourses.map(course => {
-      const enrollment = course.enrolledStudents.find(
-        e => e.student.toString() === user._id.toString()
-      );
-      
-      // Find progress record for this course
-      const progressRecord = progressRecords.find(
-        p => p.course.toString() === course._id.toString()
-      );
-      
-      // Use new progress system if available, otherwise fall back to old system
-      const progress = progressRecord ? progressRecord.overallProgress.percentage : (enrollment ? enrollment.progress : 0);
-      const completedContent = progressRecord ? progressRecord.overallProgress.completedContent : (enrollment ? enrollment.completedVideos.length : 0);
-      const totalContent = progressRecord ? progressRecord.overallProgress.totalContent : (course.content ? course.content.length : (course.videos ? course.videos.length : 0));
-      
-      return {
-        _id: course._id,
-        title: course.title,
-        description: course.description,
-        teacher: course.teacher,
-        progress: Math.round(progress),
-        totalLessons: totalContent,
-        completedLessons: completedContent,
-        category: course.category,
-        level: course.level,
-        rating: course.rating,
-        thumbnail: course.thumbnail,
-        totalDuration: course.totalDuration,
-        price: course.price,
-        currency: course.currency
-      };
+      try {
+        const courseId = course._id.toString();
+        const enrollment = course.enrolledStudents?.find(
+          e => e.student && e.student.toString() === user._id.toString()
+        );
+        
+        // Find progress record for this course
+        const progressRecord = progressRecords.find(
+          p => {
+            if (!p.course) return false;
+            const progressCourseId = p.course.toString ? p.course.toString() : (p.course._id ? p.course._id.toString() : String(p.course));
+            return progressCourseId === courseId;
+          }
+        );
+        
+        // Use new progress system if available, otherwise fall back to old system
+        let progress = 0;
+        let completedContent = 0;
+        let totalContent = 0;
+        
+        if (progressRecord && progressRecord.overallProgress) {
+          progress = progressRecord.overallProgress.percentage || 0;
+          completedContent = progressRecord.overallProgress.completedContent || 0;
+          totalContent = progressRecord.overallProgress.totalContent || 0;
+        } else if (enrollment) {
+          progress = enrollment.progress || 0;
+          completedContent = (enrollment.completedVideos && Array.isArray(enrollment.completedVideos)) ? enrollment.completedVideos.length : 0;
+        }
+        
+        // If totalContent is 0, try to get it from course content
+        if (totalContent === 0) {
+          if (course.content && Array.isArray(course.content)) {
+            totalContent = course.content.length;
+          } else if (course.videos && Array.isArray(course.videos)) {
+            totalContent = course.videos.length;
+          }
+        }
+        
+        return {
+          _id: course._id,
+          title: course.title || 'Untitled Course',
+          description: course.description || '',
+          instructor: course.teacher ? {
+            firstName: course.teacher.firstName || '',
+            lastName: course.teacher.lastName || ''
+          } : { firstName: '', lastName: '' },
+          teacher: course.teacher,
+          progress: Math.round(progress),
+          totalLessons: totalContent,
+          completedLessons: completedContent,
+          category: course.category || 'Uncategorized',
+          level: course.level || 'Beginner',
+          rating: course.rating || 0,
+          thumbnail: course.thumbnail,
+          totalDuration: course.totalDuration || 0,
+          price: course.price || 0,
+          currency: course.currency || 'USD'
+        };
+      } catch (error) {
+        console.error(`[Enrolled Courses] Error formatting course ${course._id}:`, error);
+        // Return a basic course object even if formatting fails
+        return {
+          _id: course._id,
+          title: course.title || 'Untitled Course',
+          description: course.description || '',
+          instructor: { firstName: '', lastName: '' },
+          teacher: course.teacher,
+          progress: 0,
+          totalLessons: 0,
+          completedLessons: 0,
+          category: course.category || 'Uncategorized',
+          level: course.level || 'Beginner',
+          rating: course.rating || 0,
+          thumbnail: course.thumbnail,
+          totalDuration: course.totalDuration || 0,
+          price: course.price || 0,
+          currency: course.currency || 'USD'
+        };
+      }
     });
     
+    console.log(`[Enrolled Courses] Returning ${formattedCourses.length} formatted courses`);
     res.json(formattedCourses);
   } catch (error) {
-    console.error('Error fetching enrolled courses:', error);
-    res.status(500).json({ error: 'Failed to fetch enrolled courses' });
+    console.error('[Enrolled Courses] Error fetching enrolled courses:', error);
+    console.error('[Enrolled Courses] Error stack:', error.stack);
+    console.error('[Enrolled Courses] Error details:', {
+      message: error.message,
+      name: error.name,
+      userId: req.user?._id
+    });
+    res.status(500).json({ 
+      error: 'Failed to fetch enrolled courses', 
+      message: error.message || 'An unexpected error occurred',
+      details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+    });
   }
 });
 
@@ -210,9 +401,33 @@ router.put('/:id', [
       return res.status(400).json({ errors: errors.array() });
     }
 
+    // Fetch existing course to preserve fields not in update
+    const existingCourse = await Course.findById(req.params.id);
+    if (!existingCourse) {
+      return res.status(404).json({ error: 'Course not found' });
+    }
+
+    // Fields that should be preserved if not provided in update
+    const fieldsToPreserve = [
+      'content', 'videos', 'requirements', 'learningOutcomes', 
+      'quizzes', 'tags', 'enrolledStudents', 'totalStudents',
+      'rating', 'totalRatings', 'isFeatured', 'language',
+      'certificate', 'status', 'allowedPackages', 'teacher'
+    ];
+    
+    // Build update object: only update fields that are provided in req.body
+    const updateData = { ...req.body };
+    
+    // Preserve existing fields if they're not in the update
+    fieldsToPreserve.forEach(field => {
+      if (!(field in updateData) && existingCourse[field] !== undefined) {
+        updateData[field] = existingCourse[field];
+      }
+    });
+
     const course = await Course.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     ).populate('teacher', 'firstName lastName profileImage');
 

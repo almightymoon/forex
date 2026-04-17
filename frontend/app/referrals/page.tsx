@@ -31,8 +31,8 @@ import ReferralBadge from '../components/ReferralBadge';
 import Tree from 'react-d3-tree';
 
 interface ReferralRank {
-  current: { name: string; icon: string; color: string; description: string; minReferrals: number };
-  next: { name: string; icon: string; color: string; minReferrals: number } | null;
+  current: { name: string; icon: string; color: string; description: string; minReferrals: number; minDirects?: number };
+  next: { name: string; icon: string; color: string; minReferrals: number; minDirects?: number } | null;
   progressToNext: number;
 }
 
@@ -44,6 +44,7 @@ interface ReferralStats {
   unverifiedReferrals?: number;
   rank?: ReferralRank;
   level1Count: number;
+  directReferrals?: number;
   level2Count: number;
   level3Count: number;
   level4Count: number;
@@ -303,7 +304,7 @@ export default function ReferralsPage() {
                     <ShieldOff className="w-3 h-3" /> Unverified
                   </span>
                 )}
-                <span className="font-semibold text-gray-900 dark:text-white">
+                <span className="text-gray-900 dark:text-white">
                   {userName}
                 </span>
               </div>
@@ -330,13 +331,12 @@ export default function ReferralsPage() {
     });
   };
 
-  // Transform tree data to react-d3-tree format (binary tree - max 2 children)
+  // Transform tree data to react-d3-tree format (all children included for complete tree)
   const transformToD3Tree = (node: any): any => {
     if (!node) return null;
     
     const children = node.children || [];
-    // Take only first 2 children for binary tree
-    const binaryChildren = children.slice(0, 2).map((child: any) => transformToD3Tree(child)).filter(Boolean);
+    const allChildren = children.map((child: any) => transformToD3Tree(child)).filter(Boolean);
     
     // Handle both data structures
     const userName = node.user?.name || `${node.firstName || ''} ${node.lastName || ''}`.trim() || 'Unknown';
@@ -351,10 +351,9 @@ export default function ReferralsPage() {
         level: nodeLevel,
         email: userEmail,
         referralCode: userReferralCode,
-        joinedAt: userJoinedAt,
-        remainingCount: children.length > 2 ? children.length - 2 : 0
+        joinedAt: userJoinedAt
       },
-      children: binaryChildren.length > 0 ? binaryChildren : undefined
+      children: allChildren.length > 0 ? allChildren : undefined
     };
   };
 
@@ -793,7 +792,7 @@ export default function ReferralsPage() {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600 dark:text-gray-400">Progress to {stats.rank.next.name}</span>
                         <span className="font-medium text-gray-900 dark:text-white">
-                          {stats?.totalReferrals || 0} / {stats.rank.next.minReferrals} referrals
+                          {(stats?.level1Count ?? stats?.directReferrals ?? 0)} / {stats.rank.next.minDirects ?? 0} directs · {stats?.totalReferrals || 0} / {stats.rank.next.minReferrals} total
                         </span>
                       </div>
                       <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -807,10 +806,15 @@ export default function ReferralsPage() {
                       </div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         <Target className="w-4 h-4 inline mr-1" />
+                        Need{' '}
+                        <strong className="text-gray-900 dark:text-white">
+                          {Math.max(0, (stats.rank.next?.minDirects ?? 0) - (stats?.level1Count ?? stats?.directReferrals ?? 0))}
+                        </strong>{' '}
+                        more directs and{' '}
                         <strong className="text-gray-900 dark:text-white">
                           {Math.max(0, (stats.rank.next?.minReferrals ?? 0) - (stats?.totalReferrals || 0))}
                         </strong>{' '}
-                        more referrals to reach {stats.rank.next?.name}
+                        more total to reach {stats.rank.next?.name}
                       </p>
                     </div>
                   )}
@@ -1050,7 +1054,7 @@ export default function ReferralsPage() {
                               <span className="px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs font-bold rounded-full">
                                 ROOT
                               </span>
-                              <span className="font-bold text-lg text-gray-900 dark:text-white">
+                              <span className="text-lg text-gray-900 dark:text-white">
                                 {(tree.user as { name?: string; firstName?: string; lastName?: string })?.name || (`${(tree.user as any)?.firstName ?? ''} ${(tree.user as any)?.lastName ?? ''}`.trim()) || 'You'}
                               </span>
                             </div>
@@ -1068,14 +1072,13 @@ export default function ReferralsPage() {
                       if (tree.tree.length === 1) {
                         d3TreeData = transformToD3Tree(tree.tree[0]);
                       } else {
-                        const children = tree.tree.slice(0, 2).map(node => transformToD3Tree(node)).filter(Boolean);
+                        const children = tree.tree.map(node => transformToD3Tree(node)).filter(Boolean);
                         d3TreeData = {
                           name: `${tree.user?.name || 'You'} (You)`,
                           attributes: {
                             level: 0,
                             email: '',
-                            referralCode: tree.user?.referralCode || '',
-                            remainingCount: tree.tree.length > 2 ? tree.tree.length - 2 : 0
+                            referralCode: tree.user?.referralCode || ''
                           },
                           children: children.length > 0 ? children : undefined
                         };
@@ -1086,19 +1089,34 @@ export default function ReferralsPage() {
                       }
                       
                       return (
-                        <div className="w-full h-[600px] bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg overflow-hidden">
+                        <div className="referral-tree-wrapper w-full h-[600px] bg-gradient-to-br from-white via-gray-50 to-blue-50 rounded-lg overflow-hidden border border-gray-200 shadow-inner">
+                          <style dangerouslySetInnerHTML={{ __html: `
+                            .referral-tree-wrapper text,
+                            .referral-tree-wrapper .rd3t-label__title {
+                              font-weight: 400 !important;
+                              font-size: 16px !important;
+                              fill: #1f2937 !important;
+                            }
+                            .referral-tree-wrapper text.rd3t-label__attributes {
+                              font-size: 13px !important;
+                              fill: #4b5563 !important;
+                            }
+                            .referral-tree-wrapper .rd3t-link {
+                              stroke: #94a3b8 !important;
+                            }
+                          `}} />
                           <Tree
                             data={d3TreeData}
                             orientation="vertical"
                             pathFunc="straight"
                             separation={{ siblings: 1.5, nonSiblings: 2 }}
                             translate={{ x: 400, y: 50 }}
-                            nodeSize={{ x: 200, y: 150 }}
+                            nodeSize={{ x: 220, y: 160 }}
                             styles={{
                               nodes: {
                                 node: {
                                   circle: { fill: '#3b82f6', stroke: '#1e40af', strokeWidth: 2 },
-                                  name: { fill: '#1f2937', fontSize: '13px', fontFamily: 'system-ui' },
+                                  name: { fill: '#1f2937', fontSize: '13px', fontFamily: 'system-ui', fontWeight: 400 },
                                   attributes: { fill: '#6b7280', fontSize: '11px' }
                                 },
                                 leafNode: {
@@ -1112,9 +1130,8 @@ export default function ReferralsPage() {
                               return (
                                 <g>
                                   <circle r={15} fill={nodeDatum.children ? '#3b82f6' : '#10b981'} stroke={nodeDatum.children ? '#1e40af' : '#059669'} strokeWidth={2} onClick={toggleNode} style={{ cursor: 'pointer' }} />
-                                  <text x={20} y={5} fill="#1f2937" className="dark:fill-white" fontSize="13" fontFamily="system-ui">{nodeDatum.name}</text>
-                                  {nodeDatum.attributes?.email && <text x={20} y={22} fill="#6b7280" className="dark:fill-gray-400" fontSize="11">{nodeDatum.attributes.email}</text>}
-                                  {nodeDatum.attributes?.remainingCount > 0 && <text x={20} y={38} fill="#ef4444" fontSize="10">+{nodeDatum.attributes.remainingCount} more</text>}
+                                  <text x={20} y={6} fill="#1f2937" fontFamily="system-ui" style={{ fontWeight: 400, fontSize: '16px' }}>{nodeDatum.name}</text>
+                                  {nodeDatum.attributes?.email && <text x={20} y={26} fill="#4b5563" style={{ fontSize: '13px' }}>{nodeDatum.attributes.email}</text>}
                                 </g>
                               );
                             }}
@@ -1140,7 +1157,7 @@ export default function ReferralsPage() {
                         ? 'No referrals in tree structure.' 
                         : tree 
                           ? 'Tree data loaded but empty.' 
-                          : 'Failed to load referral tree.'}
+                          : 'Failed to load referral tree.'} 
                     </p>
                     {stats && stats.totalReferrals > 0 && (
                       <p className="text-sm text-gray-500 dark:text-gray-500 mt-2 mb-4">
@@ -1156,12 +1173,12 @@ export default function ReferralsPage() {
                     >
                       Refresh Tree
                     </button>
-                    {tree && (
+                    {/* {tree && (
                       <div className="mt-4 text-xs text-gray-400 dark:text-gray-500">
                         Debug: Tree exists: {tree ? 'Yes' : 'No'}, 
                         Tree array: {tree?.tree ? (Array.isArray(tree.tree) ? `Yes (${tree.tree.length} items)` : 'Not an array') : 'No tree property'}
                       </div>
-                    )}
+                    )} */}
                   </>
                 )}
               </div>

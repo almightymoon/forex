@@ -122,7 +122,8 @@ const mt5TradeSchema = new mongoose.Schema({
 // Indexes
 mt5TradeSchema.index({ mt5Account: 1, status: 1 });
 mt5TradeSchema.index({ user: 1 });
-mt5TradeSchema.index({ mt5Ticket: 1 });
+// Index already created by unique: true on mt5Ticket field
+// mt5TradeSchema.index({ mt5Ticket: 1 });
 mt5TradeSchema.index({ symbol: 1, status: 1 });
 mt5TradeSchema.index({ openTime: -1 });
 mt5TradeSchema.index({ isCopyTrade: 1 });

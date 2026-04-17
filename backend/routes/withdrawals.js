@@ -24,6 +24,15 @@ router.post('/request', [
 
     const { amount, walletAddress, network = 'TRC20' } = req.body;
 
+    // Minimum withdrawal limit
+    const MIN_WITHDRAWAL_AMOUNT = 30;
+    if (amount < MIN_WITHDRAWAL_AMOUNT) {  
+      return res.status(400).json({ 
+        error: 'Minimum withdrawal limit',
+        message: `Minimum withdrawal amount is $${MIN_WITHDRAWAL_AMOUNT}. You cannot withdraw $${amount.toFixed(2)}`
+      });
+    }
+
     // Get user with balance
     const user = await User.findById(req.user._id);
     if (!user) {
@@ -66,6 +75,15 @@ router.post('/request', [
       userName: `${user.firstName} ${user.lastName}`,
       amount,
       walletAddress
+    });
+
+    // Send email to user about withdrawal request
+    await notificationService.sendNotificationToUser(user._id, 'withdrawal_request', {
+      amount: amount,
+      currency: 'USDT',
+      walletAddress: walletAddress,
+      network: network,
+      withdrawalId: withdrawal._id.toString()
     });
 
     res.json({
@@ -172,12 +190,13 @@ router.post('/:id/complete', [
     }
     await withdrawal.complete(transactionHash);
 
-    // Send notification to user
-    await notificationService.sendNotificationToUser(withdrawal.user._id, 'withdrawal', {
-      title: 'Withdrawal Completed',
-      message: `Your withdrawal of $${withdrawal.amount} USDT has been processed successfully`,
-      withdrawalId: withdrawal._id,
-      transactionHash: transactionHash || 'N/A'
+    // Send email to user about withdrawal confirmation
+    await notificationService.sendNotificationToUser(withdrawal.user._id, 'withdrawal_confirmed', {
+      amount: withdrawal.amount,
+      currency: withdrawal.currency || 'USDT',
+      transactionHash: transactionHash || 'N/A',
+      withdrawalId: withdrawal._id.toString(),
+      date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
     });
 
     res.json({
@@ -244,6 +263,46 @@ router.post('/:id/reject', [
     res.status(500).json({ 
       success: false,
       error: error.message || 'Failed to reject withdrawal' 
+    });
+  }
+});
+
+// @route   DELETE /api/withdrawals/:id
+// @desc    Delete withdrawal request (admin only)
+// @access  Private/Admin
+// NOTE: This route must be registered BEFORE /:id/cancel to avoid route conflicts
+router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const withdrawal = await Withdrawal.findById(req.params.id).populate('user');
+    
+    if (!withdrawal) {
+      return res.status(404).json({ error: 'Withdrawal not found' });
+    }
+
+    // If withdrawal is pending, refund the balance to user
+    if (withdrawal.status === 'pending') {
+      const user = await User.findById(withdrawal.user._id);
+      if (user) {
+        user.balance += withdrawal.amount;
+        await user.save();
+        console.log(`[Delete Withdrawal] Refunded $${withdrawal.amount} to user ${user.email}`);
+      }
+    }
+
+    // Delete the withdrawal
+    await Withdrawal.findByIdAndDelete(req.params.id);
+    console.log(`[Delete Withdrawal] Deleted withdrawal ${req.params.id}`);
+
+    res.json({
+      success: true,
+      message: 'Withdrawal deleted successfully'
+    });
+
+  } catch (error) {
+    console.error('Delete withdrawal error:', error);
+    res.status(500).json({ 
+      success: false,
+      error: error.message || 'Failed to delete withdrawal' 
     });
   }
 });

@@ -24,7 +24,7 @@ import UserProfileDropdown from '../components/UserProfileDropdown';
 import ReferralBadge from '../components/ReferralBadge';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import TradingViewWidget from '../../components/TradingViewWidget';
-import TradingPanel from '../../components/TradingPanel';
+import TradingViewTerminal from '../../components/TradingViewTerminal';
 import OpenPositions from '../../components/OpenPositions';
 import TradeHistory from './components/TradeHistory';
 import { 
@@ -80,6 +80,7 @@ export default function Dashboard() {
   const [sessionsViewMode, setSessionsViewMode] = useState<'grid' | 'list'>('grid');
   const [tradingViewSymbol, setTradingViewSymbol] = useState<string>('FX:EURUSD');
   const [tradingViewInterval, setTradingViewInterval] = useState<'1' | '5' | '15' | '60' | '240' | 'D'>('60');
+  const [tradingViewMode, setTradingViewMode] = useState<'terminal' | 'chart'>('terminal');
   const [tradesRefreshTrigger, setTradesRefreshTrigger] = useState(0);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [bookmarks, setBookmarks] = useState<Set<string>>(new Set());
@@ -99,6 +100,8 @@ export default function Dashboard() {
   const [certificatesLoading, setCertificatesLoading] = useState(false);
   const [selectedCertificate, setSelectedCertificate] = useState<any>(null);
   const [showCertificateModal, setShowCertificateModal] = useState(false);
+  const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [activityLoading, setActivityLoading] = useState(false);
   
   // Safety check for t function
   const safeT = (key: string) => {
@@ -191,6 +194,13 @@ export default function Dashboard() {
     }
   }, [activeTab]);
 
+  // Fetch recent activity when overview tab is active
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchRecentActivity();
+    }
+  }, [activeTab]);
+
   const fetchMyCertificates = async () => {
     try {
       setCertificatesLoading(true);
@@ -215,6 +225,34 @@ export default function Dashboard() {
       setMyCertificates([]);
     } finally {
       setCertificatesLoading(false);
+    }
+  };
+
+  const fetchRecentActivity = async () => {
+    try {
+      setActivityLoading(true);
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const response = await fetch(buildApiUrl('api/users/activity/recent?limit=10'), {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setRecentActivity(data.activities || []);
+      } else {
+        console.error('Failed to fetch recent activity');
+        setRecentActivity([]);
+      }
+    } catch (error) {
+      console.error('Error fetching recent activity:', error);
+      setRecentActivity([]);
+    } finally {
+      setActivityLoading(false);
     }
   };
 
@@ -263,6 +301,105 @@ export default function Dashboard() {
     cancelSessionEnrollment,
     deleteSession
   } = useDashboard();
+
+  // Refresh activity when data changes (must be after useDashboard hook)
+  useEffect(() => {
+    if (activeTab === 'overview') {
+      fetchRecentActivity();
+    }
+  }, [courses, signals, liveSessions, assignments, activeTab]);
+
+  // Sync selectedSession with fresh data when liveSessions updates (e.g. after "Check for Updates")
+  const selectedSessionId = selectedSession?._id;
+  useEffect(() => {
+    if (showMeetingModal && selectedSessionId && liveSessions?.length) {
+      const updated = liveSessions.find((s: any) => s._id === selectedSessionId);
+      if (updated) {
+        setSelectedSession(updated);
+      }
+    }
+  }, [liveSessions, showMeetingModal, selectedSessionId]);
+
+  // Helper function to get activity icon component
+  const getActivityIcon = (iconName: string) => {
+    const iconMap: Record<string, any> = {
+      'BookOpen': BookOpen,
+      'Target': Target,
+      'Play': Play,
+      'FileText': FileText,
+      'Bell': Bell,
+      'MessageSquare': MessageSquare,
+      'CreditCard': Wallet,
+      'Shield': Shield,
+      'CheckCircle': CheckCircle,
+    };
+    return iconMap[iconName] || Bell;
+  };
+
+  // Helper function to get activity color classes
+  const getActivityColorClasses = (color: string) => {
+    const colorMap: Record<string, { bg: string; border: string; iconBg: string; iconText: string }> = {
+      'blue': {
+        bg: 'bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20',
+        border: 'border-blue-200 dark:border-blue-700',
+        iconBg: 'bg-gradient-to-br from-blue-500 to-blue-600',
+        iconText: 'text-white'
+      },
+      'green': {
+        bg: 'bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20',
+        border: 'border-green-200 dark:border-green-700',
+        iconBg: 'bg-gradient-to-br from-green-500 to-green-600',
+        iconText: 'text-white'
+      },
+      'purple': {
+        bg: 'bg-gradient-to-r from-purple-50 to-purple-50 dark:from-purple-900/20 dark:to-purple-900/20',
+        border: 'border-purple-200 dark:border-purple-700',
+        iconBg: 'bg-gradient-to-br from-purple-500 to-purple-600',
+        iconText: 'text-white'
+      },
+      'gray': {
+        bg: 'bg-gradient-to-r from-gray-50 to-gray-50 dark:from-gray-900/20 dark:to-gray-900/20',
+        border: 'border-gray-200 dark:border-gray-700',
+        iconBg: 'bg-gradient-to-br from-gray-500 to-gray-600',
+        iconText: 'text-white'
+      },
+      'indigo': {
+        bg: 'bg-gradient-to-r from-indigo-50 to-indigo-50 dark:from-indigo-900/20 dark:to-indigo-900/20',
+        border: 'border-indigo-200 dark:border-indigo-700',
+        iconBg: 'bg-gradient-to-br from-indigo-500 to-indigo-600',
+        iconText: 'text-white'
+      },
+      'red': {
+        bg: 'bg-gradient-to-r from-red-50 to-red-50 dark:from-red-900/20 dark:to-red-900/20',
+        border: 'border-red-200 dark:border-red-700',
+        iconBg: 'bg-gradient-to-br from-red-500 to-red-600',
+        iconText: 'text-white'
+      },
+    };
+    return colorMap[color] || colorMap['gray'];
+  };
+
+  // Helper function to format time ago
+  const formatTimeAgo = (timestamp: string | Date) => {
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffInSeconds = Math.floor((now.getTime() - date.getTime()) / 1000);
+
+    if (diffInSeconds < 60) {
+      return 'Just now';
+    } else if (diffInSeconds < 3600) {
+      const minutes = Math.floor(diffInSeconds / 60);
+      return `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+    } else if (diffInSeconds < 86400) {
+      const hours = Math.floor(diffInSeconds / 3600);
+      return `${hours} hour${hours > 1 ? 's' : ''} ago`;
+    } else if (diffInSeconds < 604800) {
+      const days = Math.floor(diffInSeconds / 86400);
+      return `${days} day${days > 1 ? 's' : ''} ago`;
+    } else {
+      return date.toLocaleDateString();
+    }
+  };
 
   // Use session timeout hook
   useSessionTimeout({
@@ -826,7 +963,37 @@ export default function Dashboard() {
               </div>
             </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-4">
+              {/* Join Telegram & WhatsApp - Only for students */}
+              {user?.role === 'student' && (
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href="https://t.me/+p7P6zC16xJk3ZmJk"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-[#0088cc]/10 dark:bg-[#0088cc]/20 text-[#0088cc] dark:text-[#54a9eb] hover:bg-[#0088cc]/20 dark:hover:bg-[#0088cc]/30 transition-colors text-sm font-medium"
+                    title="Join Navigators Fighters on Telegram"
+                  >
+                    <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
+                    </svg>
+                    <span className="hidden sm:inline">Telegram</span>
+                  </a>
+                  <a
+                    href="https://chat.whatsapp.com/CyxWPYGEBa9AyEsym4hGp6?mode=gi_t"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-[#25D366]/10 dark:bg-[#25D366]/20 text-[#25D366] dark:text-[#34e077] hover:bg-[#25D366]/20 dark:hover:bg-[#25D366]/30 transition-colors text-sm font-medium"
+                    title="Join Forex Navigators on WhatsApp"
+                  >
+                    <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                    </svg>
+                    <span className="hidden sm:inline">WhatsApp</span>
+                  </a>
+                </div>
+              )}
+
               {/* Notifications */}
               <div className="relative">
                 <button 
@@ -1060,61 +1227,88 @@ export default function Dashboard() {
 
             {/* Recent Activity */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Recent Activity</h3>
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Recent Activity</h3>
+                <button
+                  onClick={fetchRecentActivity}
+                  disabled={activityLoading}
+                  className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                  title="Refresh activity"
+                >
+                  <RefreshCw className={`w-5 h-5 ${activityLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+              {activityLoading ? (
               <div className="space-y-4">
-                <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                    <BookOpen className="w-5 h-5 text-white" />
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="animate-pulse flex items-center space-x-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-xl">
+                      <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
+                      <div className="flex-1 space-y-2">
+                        <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>
+                        <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-1/2"></div>
                   </div>
-                  <div className="flex-1">
-                    <p className="text-gray-900 dark:text-white font-medium">Course Progress Updated</p>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm">You completed 3 lessons in Fundamentals of Forex Trading</p>
                   </div>
-                  <span className="text-gray-500 dark:text-gray-400 text-sm">2 hours ago</span>
+                  ))}
                 </div>
-                
-                {liveSessions.filter(s => s.status === 'scheduled').slice(0, 2).map((session) => (
-                  <div key={session._id} className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700">
-                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
-                      <Play className="w-5 h-5 text-white" />
+              ) : recentActivity.length === 0 ? (
+                <div className="text-center py-8">
+                  <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                  <p className="text-gray-500 dark:text-gray-400">No recent activity</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {recentActivity.map((activity) => {
+                    const IconComponent = getActivityIcon(activity.icon);
+                    const colorClasses = getActivityColorClasses(activity.color);
+                    const timeAgo = formatTimeAgo(activity.timestamp);
+
+                    return (
+                      <div
+                        key={activity.id}
+                        className={`flex items-center space-x-4 p-4 ${colorClasses.bg} rounded-xl border ${colorClasses.border}`}
+                      >
+                        <div className={`w-10 h-10 ${colorClasses.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
+                          <IconComponent className={`w-5 h-5 ${colorClasses.iconText}`} />
                     </div>
-                    <div className="flex-1">
-                      <p className="text-gray-900 dark:text-white font-medium">Live Session Available</p>
-                      <p className="text-gray-600 dark:text-gray-300 text-sm">{session.title} - {new Date(session.scheduledAt).toLocaleDateString()}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-gray-900 dark:text-white font-medium">{activity.title}</p>
+                          <p className="text-gray-600 dark:text-gray-300 text-sm truncate">{activity.message}</p>
                     </div>
-                    <div className="flex space-x-2">
+                        <div className="flex items-center space-x-2 flex-shrink-0">
+                          <span className="text-gray-500 dark:text-gray-400 text-sm whitespace-nowrap">{timeAgo}</span>
+                          {activity.type === 'live_session' && activity.sessionId && (
                                                                     <button
-                        onClick={() => handleSignUpSession(session._id)}
-                        className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors"
+                              onClick={() => {
+                                const session = liveSessions.find(s => s._id === activity.sessionId);
+                                if (session) {
+                                  handleSignUpSession(session._id);
+                                }
+                              }}
+                              className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
                       >
                         Sign up
                       </button>
-                      {session.meetingLink && (
+                          )}
+                          {activity.type === 'live_session' && activity.meetingLink && (
                         <button
                           onClick={() => {
+                                const session = liveSessions.find(s => s._id === activity.sessionId);
+                                if (session) {
                             setSelectedSession(session);
                             setShowMeetingModal(true);
+                                }
                           }}
-                          className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors"
+                              className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
                         >
                           Meeting
                         </button>
                       )}
                     </div>
                   </div>
-                ))}
-                
-                <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700">
-                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
-                    <Target className="w-5 h-5 text-white" />
+                    );
+                  })}
                   </div>
-                  <div className="flex-1">
-                    <p className="text-gray-900 dark:text-white font-medium">New Trading Signal</p>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm">EUR/USD buy signal posted by Captain Smith</p>
-                  </div>
-                  <span className="text-gray-500 dark:text-gray-400 text-sm">5 hours ago</span>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Course Progress Tracking */}
@@ -1649,62 +1843,78 @@ export default function Dashboard() {
             className="space-y-6"
           >
             <div className="space-y-6">
-              {/* Chart and Trading Panel */}
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* TradingView Chart */}
-                <div className="lg:col-span-2 bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
-                    <div>
-                      <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Chart</h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
-                        <span className="font-medium">{tradingViewSymbol}</span>
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={tradingViewSymbol}
-                        onChange={(e) => setTradingViewSymbol(e.target.value)}
-                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                      >
-                        {['FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:USDCAD', 'FX:USDCHF', 'FX:NZDUSD', 'OANDA:XAUUSD', 'BINANCE:BTCUSDT'].map((sym) => (
-                          <option key={sym} value={sym}>
-                            {sym}
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={tradingViewInterval}
-                        onChange={(e) => setTradingViewInterval(e.target.value as any)}
-                        className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
-                      >
-                        <option value="1">1m</option>
-                        <option value="5">5m</option>
-                        <option value="15">15m</option>
-                        <option value="60">1h</option>
-                        <option value="240">4h</option>
-                        <option value="D">1D</option>
-                      </select>
-                    </div>
+              {/* TradingView Chart only - full width */}
+              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                  <div>
+                    <h3 className="text-xl font-semibold text-gray-900 dark:text-white">TradingView</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      <span className="font-medium">{tradingViewSymbol}</span>
+                    </p>
                   </div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <select
+                      value={tradingViewMode}
+                      onChange={(e) => setTradingViewMode(e.target.value as 'terminal' | 'chart')}
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                      title="Select TradingView mode"
+                    >
+                      <option value="terminal">Terminal</option>
+                      <option value="chart">Chart Only</option>
+                    </select>
+                    <select
+                      value={tradingViewSymbol}
+                      onChange={(e) => setTradingViewSymbol(e.target.value)}
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    >
+                      {['FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:USDCAD', 'FX:USDCHF', 'FX:NZDUSD', 'OANDA:XAUUSD', 'BINANCE:BTCUSDT'].map((sym) => (
+                        <option key={sym} value={sym}>
+                          {sym}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={tradingViewInterval}
+                      onChange={(e) => setTradingViewInterval(e.target.value as any)}
+                      className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                    >
+                      <option value="1">1m</option>
+                      <option value="5">5m</option>
+                      <option value="15">15m</option>
+                      <option value="60">1h</option>
+                      <option value="240">4h</option>
+                      <option value="D">1D</option>
+                    </select>
+                    <a
+                      href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(tradingViewSymbol)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 bg-blue-50 dark:bg-blue-900/20 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                      Open in TradingView (login)
+                    </a>
+                  </div>
+                </div>
 
+                {tradingViewMode === 'terminal' ? (
+                  <TradingViewTerminal
+                    symbol={tradingViewSymbol}
+                    theme="dark"
+                    height="min(85vh, 900px)"
+                    enableLogin={true}
+                    mode="terminal"
+                  />
+                ) : (
                   <TradingViewWidget
                     symbol={tradingViewSymbol}
                     interval={tradingViewInterval}
                     theme="dark"
                     locale="en"
-                    height={600}
+                    height="min(85vh, 900px)"
                     hideSideToolbar={false}
                   />
-                </div>
-
-                {/* Trading Panel */}
-                <div className="lg:col-span-1">
-                  <TradingPanel 
-                    symbol={tradingViewSymbol}
-                    currentPrice={1.0850} // You can fetch real-time prices here
-                    onTradeExecuted={() => setTradesRefreshTrigger(prev => prev + 1)}
-                  />
-                </div>
+                )}
               </div>
 
               {/* Open Positions */}
@@ -1925,8 +2135,8 @@ export default function Dashboard() {
                       
                       <div className={`relative z-10 ${sessionsViewMode === 'list' ? 'flex-1 p-6' : 'p-6'}`}>
                         {/* Header section */}
-                        <div className={`flex items-start justify-between mb-4 ${sessionsViewMode === 'list' ? 'flex-col' : ''}`}>
-                        <div className="flex-1">
+                        <div className={`flex items-start justify-between mb-5 ${sessionsViewMode === 'list' ? 'flex-col' : ''}`}>
+                        <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-3">
                               <div className={`w-3 h-3 rounded-full shadow-lg ${
                                 session.status === 'live' 
@@ -1937,7 +2147,7 @@ export default function Dashboard() {
                                 {session.title}
                               </h4>
                             </div>
-                            <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-3 leading-relaxed">
+                            <p className="text-gray-600 dark:text-gray-300 text-sm mb-5 line-clamp-3 leading-relaxed">
                               {session.description}
                             </p>
                             
@@ -1964,74 +2174,78 @@ export default function Dashboard() {
                             </div>
                             </div>
                         
-                        {/* Information grid - responsive based on view mode */}
-                        <div className={`grid gap-3 mb-6 ${
+                        {/* Information grid - 2x2 layout for better breathing room */}
+                        <div className={`grid gap-4 mb-6 ${
                           sessionsViewMode === 'list' 
-                            ? 'grid-cols-4' 
-                            : 'grid-cols-2 xl:grid-cols-4'
+                            ? 'grid-cols-2 lg:grid-cols-4' 
+                            : 'grid-cols-2'
                         }`}>
-                          <div className="group/info bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg p-3 border border-blue-100 dark:border-blue-800 hover:shadow-lg transition-all duration-300 hover:scale-105">
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-md flex items-center justify-center flex-shrink-0">
-                                <Calendar className="w-3 h-3 text-white" />
+                          <div className="group/info bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-4 border border-blue-100 dark:border-blue-800 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-7 h-7 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Calendar className="w-3.5 h-3.5 text-white" />
+                              </div>
+                              <p className="text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wide whitespace-nowrap">{safeT('date')}</p>
                             </div>
-                              <p className="text-blue-600 dark:text-blue-400 text-xs font-bold uppercase tracking-wide truncate">{safeT('date')}</p>
-                            </div>
-                            <p className="text-gray-900 dark:text-white font-bold text-sm truncate" title={new Date(session.scheduledAt).toLocaleDateString()}>{new Date(session.scheduledAt).toLocaleDateString()}</p>
+                            <p className="text-gray-900 dark:text-white font-semibold text-sm truncate" title={new Date(session.scheduledAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}>
+                              {new Date(session.scheduledAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                            </p>
                           </div>
 
-                          <div className="group/info bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg p-3 border border-green-100 dark:border-green-800 hover:shadow-lg transition-all duration-300 hover:scale-105">
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <div className="w-6 h-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-md flex items-center justify-center flex-shrink-0">
-                                <Clock className="w-3 h-3 text-white" />
+                          <div className="group/info bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl p-4 border border-green-100 dark:border-green-800 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-7 h-7 bg-gradient-to-br from-green-500 to-emerald-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Clock className="w-3.5 h-3.5 text-white" />
                               </div>
-                              <p className="text-green-600 dark:text-green-400 text-xs font-bold uppercase tracking-wide truncate">{safeT('time')}</p>
+                              <p className="text-green-600 dark:text-green-400 text-xs font-bold uppercase tracking-wide whitespace-nowrap">{safeT('time')}</p>
                             </div>
-                            <p className="text-gray-900 dark:text-white font-bold text-sm truncate" title={new Date(session.scheduledAt).toLocaleTimeString()}>{new Date(session.scheduledAt).toLocaleTimeString()}</p>
+                            <p className="text-gray-900 dark:text-white font-semibold text-sm truncate" title={new Date(session.scheduledAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}>
+                              {new Date(session.scheduledAt).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+                            </p>
                           </div>
                           
-                          <div className="group/info bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-lg p-3 border border-purple-100 dark:border-purple-800 hover:shadow-lg transition-all duration-300 hover:scale-105">
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-violet-600 rounded-md flex items-center justify-center flex-shrink-0">
-                                <Clock className="w-3 h-3 text-white" />
+                          <div className="group/info bg-gradient-to-br from-purple-50 to-violet-50 dark:from-purple-900/20 dark:to-violet-900/20 rounded-xl p-4 border border-purple-100 dark:border-purple-800 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-7 h-7 bg-gradient-to-br from-purple-500 to-violet-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Clock className="w-3.5 h-3.5 text-white" />
                               </div>
-                              <p className="text-purple-600 dark:text-purple-400 text-xs font-bold uppercase tracking-wide truncate">Duration</p>
+                              <p className="text-purple-600 dark:text-purple-400 text-xs font-bold uppercase tracking-wide whitespace-nowrap">Duration</p>
                             </div>
-                            <p className="text-gray-900 dark:text-white font-bold text-sm">{session.duration} min</p>
+                            <p className="text-gray-900 dark:text-white font-semibold text-sm">{session.duration} min</p>
                           </div>
                           
-                          <div className="group/info bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-lg p-3 border border-orange-100 dark:border-orange-800 hover:shadow-lg transition-all duration-300 hover:scale-105">
-                            <div className="flex items-center gap-1.5 mb-1.5">
-                              <div className="w-6 h-6 bg-gradient-to-br from-orange-500 to-amber-600 rounded-md flex items-center justify-center flex-shrink-0">
-                                <Users className="w-3 h-3 text-white" />
+                          <div className="group/info bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-xl p-4 border border-orange-100 dark:border-orange-800 hover:shadow-lg transition-all duration-300 hover:scale-[1.02] min-w-0">
+                            <div className="flex items-center gap-2 mb-2">
+                              <div className="w-7 h-7 bg-gradient-to-br from-orange-500 to-amber-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                <Users className="w-3.5 h-3.5 text-white" />
                               </div>
-                              <p className="text-orange-600 dark:text-orange-400 text-xs font-bold uppercase tracking-wide truncate">Spots</p>
+                              <p className="text-orange-600 dark:text-orange-400 text-xs font-bold uppercase tracking-wide whitespace-nowrap">Spots</p>
                             </div>
-                            <p className="text-gray-900 dark:text-white font-bold text-sm">{session.currentParticipants.length}/{session.maxParticipants}</p>
-                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 mt-1.5 overflow-hidden">
+                            <p className="text-gray-900 dark:text-white font-semibold text-sm">{session.currentParticipants?.length || 0}/{session.maxParticipants}</p>
+                            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2 mt-2 overflow-hidden">
                               <div 
-                                className="bg-gradient-to-r from-orange-500 to-amber-500 h-1.5 rounded-full transition-all duration-500 shadow-lg" 
-                                style={{ width: `${(session.currentParticipants.length / session.maxParticipants) * 100}%` }}
+                                className="bg-gradient-to-r from-orange-500 to-amber-500 h-2 rounded-full transition-all duration-500 shadow-lg" 
+                                style={{ width: `${session.maxParticipants ? ((session.currentParticipants?.length || 0) / session.maxParticipants) * 100 : 0}%` }}
                               ></div>
                             </div>
                           </div>
                         </div>
 
                         {/* Enhanced tags and metadata */}
-                        <div className="flex flex-wrap items-center gap-2 mb-4">
-                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full shadow-sm">
+                        <div className="flex flex-wrap items-center gap-2.5 mb-5">
+                          <div className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full shadow-sm">
                             <Target className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 capitalize truncate">{session.category}</span>
+                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 capitalize" title={session.category}>{session.category}</span>
                           </div>
                           
-                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full shadow-sm">
+                          <div className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full shadow-sm">
                             <Star className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 capitalize truncate">{session.level}</span>
+                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 capitalize" title={session.level}>{session.level}</span>
                           </div>
                           
-                          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full shadow-sm">
+                          <div className="flex items-center gap-1.5 px-3 py-2 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 rounded-full shadow-sm">
                             <Users className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400 flex-shrink-0" />
-                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 truncate" title={`${session.teacher?.firstName} ${session.teacher?.lastName}`}>
+                            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300" title={`${session.teacher?.firstName || ''} ${session.teacher?.lastName || ''}`}>
                               {session.teacher?.firstName} {session.teacher?.lastName}
                             </span>
                           </div>
@@ -2039,7 +2253,7 @@ export default function Dashboard() {
 
                         {/* Enhanced topics */}
                           {session.topics && session.topics.length > 0 && (
-                            <div className="mb-4">
+                            <div className="mb-5">
                             <p className="text-xs font-bold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1.5">
                               <BookOpen className="w-3.5 h-3.5" />
                               Topics:
@@ -2062,7 +2276,7 @@ export default function Dashboard() {
                       
                       {/* Enhanced footer with price and actions */}
                       <div className={`relative z-10 ${sessionsViewMode === 'list' ? 'flex flex-col justify-center p-6 border-l border-gray-100 dark:border-gray-700' : 'px-6 pb-6'}`}>
-                        <div className={`${sessionsViewMode === 'list' ? 'space-y-4' : 'flex items-center justify-between pt-4 border-t border-gray-100 dark:border-gray-700'}`}>
+                        <div className={`${sessionsViewMode === 'list' ? 'space-y-4' : 'flex items-center justify-between gap-4 pt-5 border-t border-gray-100 dark:border-gray-700 flex-wrap'}`}>
                         <div className="flex items-center space-x-2">
                           {session.isFree ? (
                               <div className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900/30 dark:to-emerald-900/30 rounded-full border border-green-200 dark:border-green-700 shadow-lg">
@@ -2097,15 +2311,29 @@ export default function Dashboard() {
                           {session.meetingLink && (
                             <button
                               onClick={() => {
-                                setSelectedSession(session);
-                                setShowMeetingModal(true);
+                                // Check if user is enrolled and session is live
+                                const isEnrolled = session.currentParticipants?.some(p => p.student === user?._id || p.student?._id === user?._id);
+                                const hasValidMeetingLink = session.meetingLink && session.meetingLink !== 'https://meet.google.com/new';
+                                
+                                if (session.status === 'live' && isEnrolled && hasValidMeetingLink) {
+                                  // Directly open the meeting link for enrolled users in live sessions
+                                  window.open(session.meetingLink, '_blank');
+                                } else {
+                                  // Show modal for other cases
+                                  setSelectedSession(session);
+                                  setShowMeetingModal(true);
+                                }
                               }}
-                                disabled={session.meetingLink === 'https://meet.google.com/new' || (session.meetingLink.includes('meet.google.com') && session.status !== 'live')}
+                                disabled={
+                                  // Only disable if session is not live AND (link is placeholder OR it's a Google Meet)
+                                  session.status !== 'live' && 
+                                  (session.meetingLink === 'https://meet.google.com/new' || session.meetingLink.includes('meet.google.com'))
+                                }
                                 className={`group/btn px-4 py-2 text-white rounded-lg font-semibold transition-all duration-300 transform shadow-lg flex items-center gap-1.5 text-xs ${
-                                  session.meetingLink === 'https://meet.google.com/new' || (session.meetingLink.includes('meet.google.com') && session.status !== 'live')
+                                  session.status !== 'live' && (session.meetingLink === 'https://meet.google.com/new' || session.meetingLink.includes('meet.google.com'))
                                     ? 'bg-gradient-to-r from-gray-400 to-gray-500 cursor-not-allowed'
-                                    : session.meetingLink.includes('meet.google.com') 
-                                      ? 'bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 hover:scale-105 hover:shadow-xl' 
+                                    : session.status === 'live'
+                                      ? 'bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 hover:scale-105 hover:shadow-xl animate-pulse' 
                                       : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 hover:scale-105 hover:shadow-xl'
                                 }`}
                               >
@@ -2114,14 +2342,15 @@ export default function Dashboard() {
                                     <Play className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
                                     Join Live
                                   </>
+                                ) : session.meetingLink === 'https://meet.google.com/new' ? (
+                                  <>
+                                    <Video className="w-3.5 h-3.5" />
+                                    Waiting for Teacher
+                                  </>
                                 ) : session.meetingLink.includes('meet.google.com') ? (
                                   <>
                                     <Video className="w-3.5 h-3.5 group-hover/btn:scale-110 transition-transform" />
-                                    {session.meetingLink === 'https://meet.google.com/new' 
-                                      ? 'Teacher Must Start First'
-                                      : session.status === 'live' 
-                                        ? 'Join as Participant' 
-                                        : 'Waiting for Teacher'}
+                                    Join Meeting
                                   </>
                                 ) : (
                                   <>
@@ -2188,52 +2417,108 @@ export default function Dashboard() {
               <div className="relative w-full h-[70vh] bg-gray-100 flex items-center justify-center">
                 {selectedSession.meetingLink ? (
                                       <div className="text-center space-y-6">
-                      <div className="w-24 h-24 bg-blue-100 rounded-full flex items-center justify-center mx-auto">
-                        <Video className="w-12 h-12 text-blue-600" />
+                      <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto ${
+                        selectedSession.status === 'live' && selectedSession.meetingLink !== 'https://meet.google.com/new'
+                          ? 'bg-green-100 animate-pulse'
+                          : selectedSession.meetingLink === 'https://meet.google.com/new'
+                            ? selectedSession.status === 'live'
+                              ? 'bg-amber-100'
+                              : 'bg-yellow-100'
+                            : 'bg-blue-100'
+                      }`}>
+                        <Video className={`w-12 h-12 ${
+                          selectedSession.status === 'live' && selectedSession.meetingLink !== 'https://meet.google.com/new'
+                            ? 'text-green-600'
+                            : selectedSession.meetingLink === 'https://meet.google.com/new'
+                              ? selectedSession.status === 'live'
+                                ? 'text-amber-600'
+                                : 'text-yellow-600'
+                              : 'text-blue-600'
+                        }`} />
                       </div>
-                      {/* Check if it's a Google Meet link or other external meeting */}
-                      {selectedSession.meetingLink.includes('meet.google.com') ? (
-                        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                          <p className="text-red-800 text-sm">
-                            <strong>Google Meet Ready!</strong> You can now join the Google Meet session or share the link with participants.
+                      
+                      {/* Status message based on meeting state */}
+                      {selectedSession.meetingLink === 'https://meet.google.com/new' ? (
+                        <div className={`rounded-lg p-4 mb-4 border ${
+                          selectedSession.status === 'live' 
+                            ? 'bg-amber-50 border-amber-200' 
+                            : 'bg-yellow-50 border-yellow-200'
+                        }`}>
+                          <p className={`text-sm ${
+                            selectedSession.status === 'live' 
+                              ? 'text-amber-800' 
+                              : 'text-yellow-800'
+                          }`}>
+                            {selectedSession.status === 'live' ? (
+                              <>
+                                <strong>Session Started!</strong> The teacher has gone live and is setting up the meeting room. They need to add the Google Meet link. Please wait or click &quot;Check for Updates&quot; shortly.
+                              </>
+                            ) : (
+                              <>
+                                <strong>Waiting for Teacher</strong> - The teacher needs to start the meeting first. Please wait or check back shortly.
+                              </>
+                            )}
+                          </p>
+                        </div>
+                      ) : selectedSession.status === 'live' ? (
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                          <p className="text-green-800 text-sm">
+                            <strong>Session is LIVE!</strong> Click the button below to join now.
+                          </p>
+                        </div>
+                      ) : selectedSession.meetingLink.includes('meet.google.com') ? (
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                          <p className="text-blue-800 text-sm">
+                            <strong>Google Meet</strong> - The session will start when the teacher goes live.
                           </p>
                         </div>
                       ) : (
                         <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                           <p className="text-green-800 text-sm">
-                            <strong>External Meeting Link!</strong> This will open in a new tab to the external meeting service.
+                            <strong>External Meeting Link!</strong> This will open in a new tab.
                           </p>
                         </div>
                       )}
+                      
                     <div>
-                      <h4 className="text-xl font-semibold text-gray-800 mb-2">
-                        {selectedSession.meetingLink.includes('meet.google.com') 
-                          ? 'Ready to join Google Meet?' 
-                          : 'Ready to join the external meeting?'}
+                      <h4 className="text-xl font-semibold text-gray-800 dark:text-white mb-2">
+                        {selectedSession.meetingLink === 'https://meet.google.com/new'
+                          ? selectedSession.status === 'live'
+                            ? 'Session Started - Waiting for Meeting Link'
+                            : 'Waiting for Teacher to Start'
+                          : selectedSession.status === 'live'
+                            ? 'Join the Live Session'
+                            : 'Session Not Started Yet'}
                       </h4>
-                                          <p className="text-gray-600 mb-6 max-w-md">
-                      {selectedSession.meetingLink.includes('meet.google.com')
-                        ? selectedSession.meetingLink === 'https://meet.google.com/new'
-                          ? 'The teacher needs to start the session first. Once they create the meeting, you will be able to join as a participant.'
+                      <p className="text-gray-600 dark:text-gray-300 mb-6 max-w-md">
+                        {selectedSession.meetingLink === 'https://meet.google.com/new'
+                          ? selectedSession.status === 'live'
+                            ? 'The teacher has started the session! They\'re adding the meeting room link. Click "Check for Updates" in a moment to get the join link.'
+                            : 'The teacher hasn\'t started the meeting yet. Once they create the meeting room, the join button will become active.'
                           : selectedSession.status === 'live' 
-                            ? 'The teacher has started the session. Click the button below to join as a participant.'
-                            : 'The teacher will start the session and join first to become the host. You can join as a participant once the session is live.'
-                        : 'Click the button below to join the external meeting. This will open in a new tab.'}
-                    </p>
+                            ? 'The session is now live! Click the button below to join as a participant.'
+                            : selectedSession.meetingLink.includes('meet.google.com')
+                              ? 'The session is scheduled. You can join once the teacher starts the session and sets it to live.'
+                              : 'Click the button below to join the external meeting.'}
+                      </p>
                       <div className="flex flex-col sm:flex-row gap-3 justify-center">
                         <button
                           onClick={() => window.open(selectedSession.meetingLink, '_blank')}
-                          disabled={selectedSession.meetingLink === 'https://meet.google.com/new' || (selectedSession.meetingLink.includes('meet.google.com') && selectedSession.status !== 'live')}
+                          disabled={selectedSession.meetingLink === 'https://meet.google.com/new'}
                           className={`px-6 py-3 rounded-lg transition-colors font-medium flex items-center justify-center space-x-2 ${
-                            selectedSession.meetingLink === 'https://meet.google.com/new' || (selectedSession.meetingLink.includes('meet.google.com') && selectedSession.status !== 'live')
+                            selectedSession.meetingLink === 'https://meet.google.com/new'
                               ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
-                              : 'bg-blue-600 text-white hover:bg-blue-700'
+                              : selectedSession.status === 'live'
+                                ? 'bg-green-600 text-white hover:bg-green-700 animate-pulse'
+                                : 'bg-blue-600 text-white hover:bg-blue-700'
                           }`}
                         >
                           <Video className="w-5 h-5" />
                           <span>
                             {selectedSession.meetingLink === 'https://meet.google.com/new'
-                              ? 'Teacher Must Start First'
+                              ? selectedSession.status === 'live'
+                                ? 'Waiting for Meeting Link'
+                                : 'Teacher Must Start First'
                               : selectedSession.meetingLink.includes('meet.google.com') 
                                 ? selectedSession.status === 'live' 
                                   ? 'Join as Participant' 
@@ -2241,19 +2526,34 @@ export default function Dashboard() {
                               : 'Join External Meeting'}
                           </span>
                         </button>
-                        <button
-                          onClick={async () => {
-                            try {
-                              await navigator.clipboard.writeText(selectedSession.meetingLink);
-                              // You can add a toast notification here if you have one
-                            } catch (error) {
-                              console.error('Failed to copy link');
-                            }
-                          }}
-                          className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center justify-center space-x-2"
-                        >
-                          <span>Copy Meeting Link</span>
-                        </button>
+                        {selectedSession.meetingLink !== 'https://meet.google.com/new' && (
+                          <button
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(selectedSession.meetingLink);
+                              } catch (error) {
+                                console.error('Failed to copy link');
+                              }
+                            }}
+                            className="px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                          >
+                            <span>Copy Meeting Link</span>
+                          </button>
+                        )}
+                        
+                        {/* Refresh button when waiting for teacher or meeting link */}
+                        {selectedSession.meetingLink === 'https://meet.google.com/new' && (
+                          <button
+                            onClick={async () => {
+                              await refreshData();
+                              // Modal stays open; useEffect will sync selectedSession with fresh data
+                            }}
+                            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium flex items-center justify-center space-x-2"
+                          >
+                            <RefreshCw className="w-5 h-5" />
+                            <span>Check for Updates</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

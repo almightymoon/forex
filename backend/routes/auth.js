@@ -114,14 +114,43 @@ router.post('/register', [
       });
     }
 
-    // STEP 3: Validate referral code if provided (BEFORE creating user)
-    if (referralCode && referralCode.trim()) {
-      const referrer = await User.findOne({ referralCode: referralCode.trim().toUpperCase() });
+    // STEP 3: Validate referral code if provided, or use default referral code from settings
+    let finalReferralCode = referralCode ? referralCode.trim().toUpperCase() : null;
+    let usedDefaultReferralCode = false;
+
+    // If no referral code provided, use default from database settings
+    if (!finalReferralCode) {
+      const Settings = require('../models/Settings');
+      const settings = await Settings.getSettings();
+
+      if (settings.defaultReferralCode && settings.defaultReferralCode.trim()) {
+        finalReferralCode = settings.defaultReferralCode.trim().toUpperCase();
+        usedDefaultReferralCode = true;
+        console.log(`No referral code provided, using default from settings: ${finalReferralCode}`);
+      }
+    }
+    
+    // Validate referral code (either provided or default)
+    if (finalReferralCode) {
+      const referrer = await User.findOne({ referralCode: finalReferralCode });
       if (!referrer) {
-        return res.status(400).json({
-          error: 'Invalid referral code',
-          message: 'The referral code you entered is invalid'
-        });
+        // If default referral code doesn't exist, log warning but don't fail registration
+        const Settings = require('../models/Settings');
+        const settings = await Settings.getSettings();
+        const isDefaultCode = !referralCode && settings.defaultReferralCode && 
+          settings.defaultReferralCode.toUpperCase() === finalReferralCode;
+        
+        if (isDefaultCode) {
+          console.warn(`⚠️  Default referral code ${finalReferralCode} does not exist in database. User will be created without referral.`);
+          finalReferralCode = null;
+        } else {
+          return res.status(400).json({
+            error: 'Invalid referral code',
+            message: 'The referral code you entered is invalid'
+          });
+        }
+      } else {
+        console.log(`✅ Referral code validated: ${finalReferralCode} (referrer: ${referrer.email})`);
       }
     }
 
@@ -129,25 +158,23 @@ router.post('/register', [
     // IMPORTANT: Only reach this point if ALL validations above passed
     console.log('✅ All validations passed. Creating user...');
     
-    // Validate package selection for signup flow (admin-managed packages)
-    // Note: registration page redirects to /select-package, but older clients may send selectedPackage here.
+    // Package selection is optional during registration.
+    // If provided, validate against admin-managed packages in DB.
     let packagePrice = 0;
-    let normalizedSelectedPackage = selectedPackage;
-    if (paymentMethod === 'binance_wallet' || !paymentMethod) {
-      if (selectedPackage && selectedPackage.packageName) {
-        const pkg = await Package.findOne({ name: selectedPackage.packageName, isActive: true }).lean();
-        if (!pkg) {
-          return res.status(400).json({
-            error: 'Invalid package',
-            message: 'Selected package is not available'
-          });
-        }
-        packagePrice = Number(pkg.price ?? 0);
-        normalizedSelectedPackage = {
-          packageName: pkg.name,
-          price: packagePrice
-        };
+    let normalizedSelectedPackage = null;
+    if (selectedPackage && selectedPackage.packageName) {
+      const pkg = await Package.findOne({ name: selectedPackage.packageName, isActive: true }).lean();
+      if (!pkg) {
+        return res.status(400).json({
+          error: 'Invalid package',
+          message: 'Selected package is not available'
+        });
       }
+      packagePrice = Number(pkg.price ?? 0);
+      normalizedSelectedPackage = {
+        packageName: pkg.name,
+        price: packagePrice
+      };
     }
 
     const userData = {
@@ -161,7 +188,7 @@ router.post('/register', [
       isActive: true,
       selectedPackage: normalizedSelectedPackage ? {
         packageName: normalizedSelectedPackage.packageName,
-        price: packagePrice || normalizedSelectedPackage.price || 0,
+        price: normalizedSelectedPackage.price || packagePrice || 0,
         selectedAt: new Date()
       } : undefined
     };
@@ -180,14 +207,23 @@ router.post('/register', [
       // Don't fail registration if referral code generation fails
     }
 
-    // Create referral relationship if referral code provided (non-blocking)
-    if (referralCode) {
+    // Create referral relationship if referral code provided (or default from env) (non-blocking)
+    if (finalReferralCode) {
       try {
-        await referralService.createReferralRelationship(user, referralCode);
+        await referralService.createReferralRelationship(user, finalReferralCode);
+        console.log(`✅ Referral relationship created for user ${user.email} with referrer ${finalReferralCode}`);
+        // Mark when user came from default link only (no ref param) — no commission paid on their purchases
+        if (usedDefaultReferralCode) {
+          user.referredByDefaultCode = true;
+          await user.save();
+          console.log(`ℹ️  User ${user.email} referred via default link — no commission will be paid on their purchases`);
+        }
       } catch (refError) {
         console.error('Error creating referral relationship:', refError);
         // Don't fail registration if referral fails
       }
+    } else {
+      console.log(`ℹ️  No referral code used for user ${user.email}`);
     }
 
     // Record promo code usage if valid (non-blocking, for tracking only)
@@ -551,12 +587,14 @@ router.post('/forgot-password', [
 
     const { email } = req.body;
 
+    let emailSent = false;
+
     // Check if user exists
     const user = await User.findByEmail(email);
     if (!user) {
-      // Don't reveal if user exists or not
-      return res.json({
-        message: 'If an account with that email exists, a password reset link has been sent'
+      return res.status(404).json({
+        error: 'Email not registered',
+        message: 'This email is not registered. Please sign up first.'
       });
     }
 
@@ -567,11 +605,46 @@ router.post('/forgot-password', [
       { expiresIn: '1h' }
     );
 
-    // TODO: Send email with reset link
-    // For now, just return success message
+    // Generate reset link
+    const frontendUrl = process.env.FRONTEND_URL || process.env.NEXT_PUBLIC_FRONTEND_URL || 'http://localhost:3000';
+    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+
+    // Send password reset email
+    try {
+      const emailTemplate = notificationService.getPasswordResetTemplate(user, {
+        resetLink: resetLink,
+        expiryTime: '1 hour'
+      });
+
+      emailSent = await notificationService.sendEmail({
+        to: user.email,
+        subject: 'Password Reset Request - Forex Navigators',
+        html: emailTemplate,
+        text: `Hello ${user.firstName},\n\nWe received a request to reset your password. Click the link below to reset it:\n\n${resetLink}\n\nThis link will expire in 1 hour.\n\nIf you didn't request this, please ignore this email.\n\nBest regards,\nForex Navigators Team`,
+        userId: user._id.toString(),
+        type: 'password_reset'
+      });
+
+      if (!emailSent) {
+        console.error('Failed to send password reset email to:', user.email);
+        return res.status(503).json({
+          error: 'Email service unavailable',
+          message: 'We could not send the reset email right now. Please try again later.'
+        });
+      }
+    } catch (emailError) {
+      console.error('Error sending password reset email:', emailError);
+      return res.status(503).json({
+        error: 'Email service unavailable',
+        message: 'We could not send the reset email right now. Please try again later.'
+      });
+    }
+
     res.json({
-      message: 'Password reset instructions sent to your email',
-      resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined
+      message: 'Password reset link sent',
+      // Only include token in development for testing
+      resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined,
+      ...(process.env.NODE_ENV === 'development' ? { exists: true, emailSent } : {})
     });
 
   } catch (error) {
@@ -589,7 +662,7 @@ router.post('/forgot-password', [
 router.post('/reset-password', [
   body('token').notEmpty().withMessage('Reset token is required'),
   body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters long')
-], async (req, res) => {
+], passwordPolicyMiddleware, async (req, res) => {
   try {
     // Check validation errors
     const errors = validationResult(req);
