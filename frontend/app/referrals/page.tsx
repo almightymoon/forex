@@ -934,31 +934,6 @@ export default function ReferralsPage() {
               </motion.div>
             </div>
 
-            {/* Commission Rates */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
-            >
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Commission Structure
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                {[1, 2, 3, 4, 5].map((level) => (
-                  <div key={level} className="text-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Level {level}</p>
-                    <p className="text-xl font-bold text-gray-900 dark:text-white mt-1">
-                      {level === 1 ? '20%' : level <= 3 ? '15%' : '10%'}
-                    </p>
-                  </div>
-                ))}
-              </div>
-              <p className="mt-4 text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                Verified referrals are those who purchased a package—they earn you commissions. Share your link and encourage sign-ups to buy!
-              </p>
-            </motion.div>
           </div>
         )}
 

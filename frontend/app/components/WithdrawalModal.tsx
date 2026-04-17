@@ -77,6 +77,9 @@ export default function WithdrawalModal({
         setWalletAddress('');
         setNetwork('TRC20');
         onClose();
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event('platform:userChanged'));
+        }
         if (onSuccess) {
           onSuccess();
         }

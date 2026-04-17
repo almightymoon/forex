@@ -496,6 +496,17 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Available USDT</p>
                 </div>
 
+                  <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
+                    <div className="flex items-center justify-between mb-2">
+                      <TrendingUp className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">LIFETIME EARNED</span>
+                    </div>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                      ${Number((currentUser as any).lifetimeEarned || 0).toFixed(2)}
+                    </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Total credited to balance</p>
+                  </div>
+
                 <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
                   <div className="flex items-center justify-between mb-2">
                     <Users className="w-8 h-8 text-purple-600 dark:text-purple-400" />

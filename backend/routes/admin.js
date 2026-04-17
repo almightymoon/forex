@@ -184,9 +184,10 @@ router.get('/users', async (req, res) => {
     });
     const packageSet = new Set(packagePurchaserIds.map((id) => id.toString()));
 
-    // Compute "has initiated a package purchase" (pending)
+    // Compute "has initiated a package purchase" (pending/processing)
+    // Some flows use 'processing' while manual approvals start as 'pending'.
     const pendingPackagePurchaserIds = await Payment.distinct('user', {
-      status: 'pending',
+      status: { $in: ['pending', 'processing'] },
       type: 'package'
     });
     const pendingPackageSet = new Set(pendingPackagePurchaserIds.map((id) => id.toString()));
@@ -228,11 +229,34 @@ router.get('/users', async (req, res) => {
 // @access  Private (Admin)
 router.get('/users/:id', async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findById(req.params.id).select('-password').lean();
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    res.json(user);
+
+    const userObjectId = new mongoose.Types.ObjectId(req.params.id);
+
+    // Lifetime earned:
+    // - Primary (source of truth): sum of all positive balance transactions (credits/commissions/bonuses/etc.)
+    // - Fallback: if older data existed without credit transactions, approximate as (current balance + total withdrawn deducted)
+    const [creditsAgg, withdrawalsAgg] = await Promise.all([
+      BalanceTransaction.aggregate([
+        { $match: { user: userObjectId, amount: { $gt: 0 } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+      BalanceTransaction.aggregate([
+        { $match: { user: userObjectId, type: 'withdrawal', amount: { $lt: 0 } } },
+        { $group: { _id: null, total: { $sum: { $multiply: ['$amount', -1] } } } }
+      ])
+    ]);
+
+    const creditsTotal = Number(creditsAgg?.[0]?.total || 0);
+    const withdrawnTotal = Number(withdrawalsAgg?.[0]?.total || 0);
+    const currentBalance = Number(user.balance || 0);
+
+    const lifetimeEarned = creditsTotal > 0 ? creditsTotal : (currentBalance + withdrawnTotal);
+
+    res.json({ ...user, lifetimeEarned });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to fetch user' });

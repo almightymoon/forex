@@ -78,7 +78,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { settings, loading: settingsLoading } = useSettings();
   const { t } = useLanguage();
-  const { data: dashboardData } = useDashboard();
+  const { data: dashboardData, refreshUser } = useDashboard();
 
   useEffect(() => {
     setMounted(true);
@@ -984,6 +984,8 @@ export default function ProfilePage() {
                               setWithdrawalNetwork('TRC20');
                               // Refresh user data to update balance
                               fetchUserProfile();
+                              await refreshUser();
+                              window.dispatchEvent(new Event('platform:userChanged'));
                             } else {
                               showToast(data.message || 'Failed to submit withdrawal request', 'error');
                             }

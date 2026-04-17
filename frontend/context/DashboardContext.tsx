@@ -136,6 +136,7 @@ interface DashboardContextType {
   refreshing: boolean;
   error: string | null;
   fetchUserData: () => Promise<void>;
+  refreshUser: () => Promise<void>;
   fetchAvailableCourses: () => Promise<void>;
   refreshData: () => Promise<void>;
   clearCache: () => void;
@@ -313,6 +314,35 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setError('Failed to fetch dashboard data');
     } finally {
       setLoading(false);
+    }
+  }, [setFromResponse]);
+
+  // Always fetch latest user (used for balance/status changes)
+  const refreshUser = useCallback(async () => {
+    try {
+      if (typeof window === 'undefined') return;
+      const token = localStorage.getItem('token');
+      if (!token) return;
+
+      const userResult = await fetchWithMaintenanceCheck(buildApiUrl('api/auth/me'), {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (userResult.isMaintenanceMode) {
+        setFromResponse(true, userResult.error?.message);
+        return;
+      }
+
+      if (userResult.data) {
+        const userData = userResult.data.user || userResult.data;
+        setData(prev => ({
+          ...prev,
+          user: userData,
+          lastUpdated: Date.now()
+        }));
+      }
+    } catch (e) {
+      console.error('Error refreshing user:', e);
     }
   }, [setFromResponse]);
 
@@ -549,6 +579,18 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     fetchAvailableCourses();
   }, []); // Only run once on mount
 
+  // Allow other pages to force-refresh user (e.g. after withdrawals)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => {
+      refreshUser();
+    };
+    window.addEventListener('platform:userChanged', handler as EventListener);
+    return () => {
+      window.removeEventListener('platform:userChanged', handler as EventListener);
+    };
+  }, [refreshUser]);
+
   // Auto-refresh data if it's stale when component becomes visible
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
@@ -576,6 +618,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     refreshing,
     error,
     fetchUserData,
+    refreshUser,
     fetchAvailableCourses,
     refreshData,
     clearCache,

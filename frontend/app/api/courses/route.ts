@@ -72,7 +72,12 @@ export async function GET(request: NextRequest) {
     }
     
     // Build backend URL with query parameters
-    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
+    const host = request.nextUrl.hostname;
+    const defaultBackend =
+      host === 'localhost' || host === '127.0.0.1'
+        ? 'http://localhost:4000'
+        : 'https://thefxnavigators.com';
+    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || defaultBackend;
     // Fix: Don't add /api/ if BACKEND_URL already includes it
     let backendUrl = BACKEND_URL.includes('/api') 
       ? `${BACKEND_URL}/courses`

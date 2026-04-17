@@ -52,7 +52,7 @@ export default function WithdrawalsPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const { settings } = useSettings();
-  const { data: { user } } = useDashboard();
+  const { data: { user }, refreshUser } = useDashboard();
 
   useEffect(() => {
     fetchWithdrawals();
@@ -168,6 +168,8 @@ export default function WithdrawalsPage() {
         setShowForm(false);
         await fetchWithdrawals();
         await fetchUserBalance();
+        await refreshUser();
+        window.dispatchEvent(new Event('platform:userChanged'));
       } else {
         showToast(data.message || 'Failed to submit withdrawal request', 'error');
       }

@@ -14,7 +14,19 @@ function getDefaultApiBaseUrl(): string {
   return 'https://thefxnavigators.com/api';
 }
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || getDefaultApiBaseUrl();
+function getApiBaseUrl(): string {
+  // In local dev, ALWAYS talk to local backend unless explicitly overridden
+  // with a non-local URL (prevents accidentally calling production).
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:4000/api';
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_BASE_URL || getDefaultApiBaseUrl();
+}
+
+export const API_BASE_URL = getApiBaseUrl();
 // Simple in-memory cache
 const cache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes

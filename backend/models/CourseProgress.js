@@ -8,7 +8,7 @@ const contentCompletionSchema = new mongoose.Schema({
   },
   contentType: {
     type: String,
-    enum: ['video', 'text', 'ppt', 'quiz', 'assignment'],
+    enum: ['video', 'text', 'ppt', 'image', 'quiz', 'assignment'],
     required: true
   },
   isCompleted: {
@@ -397,6 +397,7 @@ courseProgressSchema.methods.updateContentProgress = function(contentId, content
 
     case 'text':
     case 'ppt':
+    case 'image':
       // Initialize readingProgress if it doesn't exist
       if (!contentProgress.readingProgress) {
         contentProgress.readingProgress = {
@@ -494,6 +495,7 @@ courseProgressSchema.methods.checkCertificateEligibility = function() {
         break;
       case 'text':
       case 'ppt':
+      case 'image':
         if (content.isCompleted) criteria.textContentCompleted++;
         break;
     }
@@ -531,7 +533,7 @@ courseProgressSchema.methods.getDetailedProgress = function() {
   };
 
   // Group content by type
-  ['video', 'quiz', 'assignment', 'text', 'ppt'].forEach(type => {
+  ['video', 'quiz', 'assignment', 'text', 'ppt', 'image'].forEach(type => {
     progress.contentBreakdown[type] = {
       total: 0,
       completed: 0,
