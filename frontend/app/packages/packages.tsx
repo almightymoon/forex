@@ -52,7 +52,7 @@ const packages = [
   {
     name: "FX Scale",
     subtitle: "Grow with structure",
-    price: "$250",
+    price: "$600",
     badge: "Most Popular",
     image: "/pkg2.jpg",
     accent: "blue",

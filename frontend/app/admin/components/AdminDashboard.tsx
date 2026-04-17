@@ -9,7 +9,7 @@ import {
   Calendar, MessageSquare, Search, CreditCard, Globe, 
   Lock, Bell, Smartphone, Server, Database, Key, Zap,
   Save, RotateCcw, Palette, Monitor, Languages, MapPin,
-  RefreshCw, AlertCircle, Share2
+  RefreshCw, AlertCircle, Share2, ChevronLeft, ChevronRight
 } from 'lucide-react';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../components/Toast';
@@ -46,6 +46,9 @@ export default function AdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const [testingEmailConfig, setTestingEmailConfig] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const tabsScrollRef = useRef<HTMLDivElement | null>(null);
+  const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
+  const [canScrollTabsRight, setCanScrollTabsRight] = useState(false);
   const { settings: globalSettings } = useSettings();
   const { showToast } = useToast();
   const { data, loading, refreshing, refreshData } = useAdmin();
@@ -140,6 +143,30 @@ export default function AdminDashboard() {
       setLocalSettings(contextSettings);
     }
   }, [contextSettings]);
+
+  // Tabs scroller helpers
+  const updateTabsScrollState = () => {
+    const el = tabsScrollRef.current;
+    if (!el) return;
+    const maxScrollLeft = el.scrollWidth - el.clientWidth;
+    setCanScrollTabsLeft(el.scrollLeft > 1);
+    setCanScrollTabsRight(el.scrollLeft < maxScrollLeft - 1);
+  };
+
+  const scrollTabsBy = (delta: number) => {
+    const el = tabsScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: delta, behavior: 'smooth' });
+    // State will update on scroll event, but also trigger after a short delay for reliability.
+    window.setTimeout(updateTabsScrollState, 200);
+  };
+
+  useEffect(() => {
+    updateTabsScrollState();
+    const handleResize = () => updateTabsScrollState();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
   
   // Use local settings for the UI
   const settings = localSettings;
@@ -853,36 +880,66 @@ export default function AdminDashboard() {
       <div className="admin-container">
         {/* Navigation Tabs */}
         <div className="bg-white dark:bg-gray-800 rounded-2xl p-2 border border-gray-200 dark:border-gray-700 shadow-lg mb-8 mt-10">
-          <nav className="flex space-x-1 overflow-x-auto">
-            {[
-              { id: 'overview', label: 'Overview', icon: BarChart3 },
-              { id: 'users', label: 'Users', icon: Users },
-              { id: 'payments', label: 'Payments', icon: DollarSign },
-              { id: 'commissions', label: 'Commissions', icon: Share2 },
-              { id: 'packages', label: 'Packages', icon: CreditCard },
-              { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-              { id: 'promocodes', label: 'Promo Codes', icon: Target },
-              { id: 'notifications', label: 'Notifications', icon: Mail },
-              { id: 'logs', label: 'Logs', icon: FileText },
-              { id: 'settings', label: 'Settings', icon: SettingsIcon }
-            ].map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-2 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap ${
-                    activeTab === tab.id
-                      ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg'
-                      : 'text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-                  }`}
-                >
-                  <Icon className="w-4 h-4" />
-                  <span>{tab.label}</span>
-                </button>
-              );
-            })}
-          </nav>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => scrollTabsBy(-320)}
+              disabled={!canScrollTabsLeft}
+              className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Scroll tabs left"
+              aria-label="Scroll tabs left"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+
+            <div
+              ref={tabsScrollRef}
+              onScroll={updateTabsScrollState}
+              className="flex-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            >
+              <nav className="flex space-x-1">
+                {[
+                  { id: 'overview', label: 'Overview', icon: BarChart3 },
+                  { id: 'users', label: 'Users', icon: Users },
+                  { id: 'payments', label: 'Payments', icon: DollarSign },
+                  { id: 'commissions', label: 'Commissions', icon: Share2 },
+                  { id: 'packages', label: 'Packages', icon: CreditCard },
+                  { id: 'analytics', label: 'Analytics', icon: TrendingUp },
+                  { id: 'promocodes', label: 'Promo Codes', icon: Target },
+                  { id: 'notifications', label: 'Notifications', icon: Mail },
+                  { id: 'logs', label: 'Logs', icon: FileText },
+                  { id: 'settings', label: 'Settings', icon: SettingsIcon }
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      onClick={() => setActiveTab(tab.id)}
+                      className={`flex items-center space-x-2 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                        activeTab === tab.id
+                          ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg'
+                          : 'text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </nav>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => scrollTabsBy(320)}
+              disabled={!canScrollTabsRight}
+              className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Scroll tabs right"
+              aria-label="Scroll tabs right"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         {/* Tab Content */}
