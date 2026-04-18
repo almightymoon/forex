@@ -336,7 +336,7 @@ export default function SelectPackagePage() {
                 transition={{ delay: index * 0.1, duration: 0.6 }}
                 whileHover={{ y: -8, scale: 1.02 }}
                 className={`relative group cursor-pointer ${
-                  pkg.highlight ? 'lg:scale-105 lg:-mt-4' : ''
+                  ''
                 }`}
                 onClick={() => {
                   setSelectedPackage(pkg);
@@ -370,7 +370,7 @@ export default function SelectPackagePage() {
                       : 'border-purple-500 dark:border-purple-400 shadow-2xl shadow-purple-500/50'
                     : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
                   }
-                  ${pkg.highlight ? 'ring-4 ring-blue-400/30 dark:ring-blue-500/20' : ''}
+                  ${pkg.highlight ? 'shadow-xl shadow-blue-500/10 dark:shadow-blue-500/5' : ''}
                 `}>
                   {/* Gradient Background Overlay */}
                   <div className={`absolute inset-0 bg-gradient-to-br ${pkg.bgGradient} dark:${pkg.darkBgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />

@@ -12,7 +12,8 @@ import {
   MoreVertical,
   Edit,
   Check,
-  X
+  X,
+  ChevronLeft
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 import { useLanguage } from '../../../context/LanguageContext';
@@ -87,8 +88,22 @@ export default function Community() {
   const [deletedMessageIds, setDeletedMessageIds] = useState<Set<string>>(new Set());
   const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
   const [useWebSocket, setUseWebSocket] = useState(true);
+  /** Mobile: full-width channel list vs chat (desktop always shows both). */
+  const [mobilePanel, setMobilePanel] = useState<'channels' | 'chat'>('channels');
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const isNarrowScreen = () =>
+    typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches;
+
+  const selectChannel = (channelId: string) => {
+    setActiveChannel(channelId);
+    if (isNarrowScreen()) setMobilePanel('chat');
+  };
+
+  const backToChannels = () => {
+    setMobilePanel('channels');
+  };
   const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // WebSocket event handler with better deduplication
@@ -137,7 +152,8 @@ export default function Community() {
         // Remove deleted channel
         setChannels(prev => prev.filter(c => c._id !== event.data));
         if (activeChannel === event.data) {
-          setActiveChannel(null);
+          setActiveChannel('');
+          setMobilePanel('channels');
         }
         break;
     }
@@ -673,7 +689,7 @@ export default function Community() {
 
   if (loading) {
     return (
-      <div className="flex h-[calc(100vh-200px)] items-center justify-center bg-gray-50 dark:bg-gray-800 rounded-lg">
+      <div className="flex h-[min(70dvh,calc(100vh-12rem))] min-h-[320px] items-center justify-center rounded-lg bg-gray-50 dark:bg-gray-800 md:h-[calc(100vh-200px)]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
           <p className="text-gray-600 dark:text-gray-300">Loading community...</p>
@@ -683,9 +699,13 @@ export default function Community() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-200px)] bg-gray-50 dark:bg-gray-800 rounded-lg overflow-hidden shadow-lg">
-      {/* Left Sidebar - Channels */}
-      <div className="w-80 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+    <div className="flex h-[min(70dvh,calc(100vh-12rem))] min-h-[320px] flex-col overflow-hidden rounded-lg bg-gray-50 shadow-lg dark:bg-gray-800 md:h-[calc(100vh-200px)] md:flex-row">
+      {/* Left Sidebar - Channels (full width on mobile; split on md+) */}
+      <div
+        className={`flex min-h-0 w-full min-w-0 flex-col border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900 md:w-80 md:shrink-0 md:border-r ${
+          mobilePanel === 'chat' ? 'hidden md:flex' : 'flex'
+        }`}
+      >
         <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold">Trading Community</h2>
@@ -726,22 +746,27 @@ export default function Community() {
           </div>
         </a>
         
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
               Channels ({channels.length})
             </h3>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center gap-2">
               <span className="text-xs text-gray-400">WebSocket</span>
               <button
+                type="button"
                 onClick={() => setUseWebSocket(!useWebSocket)}
-                className={`w-8 h-4 rounded-full transition-colors ${
+                className={`h-4 w-8 rounded-full transition-colors ${
                   useWebSocket ? 'bg-green-500' : 'bg-gray-400'
                 }`}
+                aria-pressed={useWebSocket}
+                aria-label="Toggle WebSocket"
               >
-                <div className={`w-3 h-3 bg-white rounded-full transition-transform ${
-                  useWebSocket ? 'translate-x-4' : 'translate-x-0.5'
-                }`} />
+                <div
+                  className={`h-3 w-3 rounded-full bg-white transition-transform ${
+                    useWebSocket ? 'translate-x-4' : 'translate-x-0.5'
+                  }`}
+                />
               </button>
             </div>
           </div>
@@ -749,8 +774,9 @@ export default function Community() {
             {channels.map((channel) => (
               <button
                 key={channel._id}
-                onClick={() => setActiveChannel(channel._id)}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-left transition-colors ${
+                type="button"
+                onClick={() => selectChannel(channel._id)}
+                className={`flex w-full items-center space-x-3 rounded-lg px-3 py-2 text-left transition-colors ${
                   activeChannel === channel._id
                     ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-900 dark:text-blue-200'
                     : 'hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300'
@@ -777,26 +803,39 @@ export default function Community() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-gray-800">
+      <div
+        className={`flex min-h-0 min-w-0 flex-1 flex-col bg-white dark:bg-gray-800 ${
+          mobilePanel === 'channels' ? 'hidden md:flex' : 'flex'
+        }`}
+      >
         {/* Channel Header */}
-        <div className="p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800">
-          <h3 className="font-semibold text-gray-900 dark:text-white">
-            {channels.find(c => c._id === activeChannel)?.name ? 
-              `#${channels.find(c => c._id === activeChannel)?.name}` : 
-              'Select a channel'
-            }
-          </h3>
-          {channels.find(c => c._id === activeChannel)?.description && (
-            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-              {channels.find(c => c._id === activeChannel)?.description}
-            </p>
-          )}
+        <div className="flex shrink-0 items-start gap-2 border-b border-gray-200 bg-white p-3 dark:border-gray-700 dark:bg-gray-800 sm:p-4">
+          <button
+            type="button"
+            onClick={backToChannels}
+            className="mt-0.5 rounded-lg p-1.5 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 md:hidden"
+            aria-label="Back to channels"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-semibold text-gray-900 dark:text-white">
+              {channels.find(c => c._id === activeChannel)?.name
+                ? `#${channels.find(c => c._id === activeChannel)?.name}`
+                : 'Select a channel'}
+            </h3>
+            {channels.find(c => c._id === activeChannel)?.description && (
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                {channels.find(c => c._id === activeChannel)?.description}
+              </p>
+            )}
+          </div>
         </div>
         
         {/* Messages Area */}
         <div 
           ref={messagesContainerRef}
-          className="flex-1 p-4 overflow-y-auto"
+          className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4"
           onScroll={checkIfUserScrolledUp}
         >
           {!activeChannel ? (
@@ -814,13 +853,6 @@ export default function Community() {
           ) : (
             <div className="flex flex-col space-y-4">
               {messages.map((message) => {
-                // Debug: log message timestamps
-                console.log(
-                  message._id,
-                  message.content,
-                  message.createdAt || message.timestamp
-                );
-                
                 return (
                 <div key={message._id} className="flex space-x-3 group relative p-3 bg-gray-50 dark:bg-gray-700 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors duration-200 border border-gray-100 dark:border-gray-600">
                   <div className="flex-shrink-0">

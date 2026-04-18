@@ -21,7 +21,6 @@ import NotificationDropdown from './components/NotificationDropdown';
 import Community from './components/Community';
 import StudentCertificateAssignments from './components/StudentCertificateAssignments';
 import UserProfileDropdown from '../components/UserProfileDropdown';
-import ReferralBadge from '../components/ReferralBadge';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import TradingViewWidget from '../../components/TradingViewWidget';
 import TradingViewTerminal from '../../components/TradingViewTerminal';
@@ -293,7 +292,6 @@ export default function Dashboard() {
   const { 
     data: { user, courses, availableCourses, signals, assignments, liveSessions, certificates, notificationCount },
     loading,
-    refreshing,
     refreshData,
     updateCourseProgress,
     addEnrolledCourse,
@@ -944,29 +942,44 @@ export default function Dashboard() {
               <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         {/* Header */}
         <header className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            <div className="flex items-center space-x-4 group cursor-pointer" onClick={() => setActiveTab('overview')}>
-              <div className="relative">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          {/* Single row on all breakpoints — items-center keeps logo and actions on one visual line */}
+          <div className="flex min-h-[3.5rem] w-full flex-row flex-nowrap items-center justify-between gap-2 py-2 sm:min-h-[3.75rem] sm:gap-3 md:min-h-[5rem] md:gap-6 md:py-3">
+            <div
+              className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4 group cursor-pointer md:max-w-[min(100%,28rem)]"
+              onClick={() => setActiveTab('overview')}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  setActiveTab('overview');
+                }
+              }}
+              aria-label={`${settings.platformName} — Home / Overview`}
+            >
+              <div className="relative shrink-0">
                 <img 
                   src="/all-07.svg" 
-                  alt={`${settings.platformName} Logo`} 
-                  className="w-14 h-14 object-contain dark:invert group-hover:scale-105 transition-transform duration-200"
+                  alt="" 
+                  className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 object-contain dark:invert group-hover:scale-105 transition-transform duration-200"
                 />
                 <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
               </div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent group-hover:from-blue-700 group-hover:to-purple-700 transition-all duration-200">
+              <div className="hidden min-w-0 flex-1 md:block">
+                <h1 className="text-base font-bold leading-tight sm:text-xl md:text-2xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent group-hover:from-blue-700 group-hover:to-purple-700 transition-all duration-200 [overflow-wrap:anywhere]">
                   {settings.platformName}
                 </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors duration-200">Trading Education Platform</p>
+                <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 sm:text-sm group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors duration-200 line-clamp-2 sm:line-clamp-none">
+                  Trading Education Platform
+                </p>
               </div>
             </div>
             
-            <div className="flex flex-wrap items-center gap-2 sm:gap-4">
-              {/* Join Telegram & WhatsApp - Only for students */}
+            <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1 sm:gap-2 md:gap-3 md:pl-2">
+              {/* Join Telegram & WhatsApp — hidden on small screens to prevent header overlap */}
               {user?.role === 'student' && (
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="hidden lg:flex items-center gap-2 shrink-0">
                   <a
                     href="https://t.me/+p7P6zC16xJk3ZmJk"
                     target="_blank"
@@ -995,12 +1008,12 @@ export default function Dashboard() {
               )}
 
               {/* Notifications */}
-              <div className="relative">
+              <div className="relative shrink-0">
                 <button 
                   onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 relative group hover:shadow-md"
+                  className="p-2 sm:p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 relative group hover:shadow-md"
                 >
-                  <Bell className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
+                  <Bell className="w-[1.125rem] h-[1.125rem] sm:w-5 sm:h-5 group-hover:scale-110 transition-transform duration-200" />
                   {notificationCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium animate-pulse shadow-lg">
                       {notificationCount > 99 ? '99+' : notificationCount}
@@ -1014,30 +1027,8 @@ export default function Dashboard() {
                 />
               </div>
 
-              {/* Quick Actions */}
-              <div className="flex items-center space-x-2">
-                {/* Dark Mode Toggle */}
+              <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
                 <DarkModeToggle size="sm" />
-                
-                {/* Referral Badge - Only for students */}
-                {user?.role === 'student' && <ReferralBadge />}
-                
-                {/* Refresh Button */}
-                <button 
-                  onClick={async () => {
-                    if (typeof window === 'undefined') return; // Prevent SSR issues
-                    
-                    const token = localStorage.getItem('token');
-                    if (token) {
-                      await refreshData();
-                    }
-                  }}
-                  className={`p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 group hover:shadow-md ${refreshing ? 'animate-spin' : ''}`}
-                  title="Refresh Dashboard"
-                  disabled={refreshing}
-                >
-                  <RefreshCw className="w-5 h-5 group-hover:scale-110 transition-transform duration-200" />
-                </button>
               </div>
               
               {/* Admin Panel Link - Only for Admin Users */}
@@ -1055,7 +1046,7 @@ export default function Dashboard() {
               )}
               
               {/* User Profile Dropdown */}
-              <div className="border-l border-gray-200 dark:border-gray-700 pl-4">
+              <div className="border-l border-gray-200 dark:border-gray-700 pl-2 sm:pl-4 ml-0.5 sm:ml-0">
                 <UserProfileDropdown user={user} />
               </div>
             </div>
@@ -1941,14 +1932,14 @@ export default function Dashboard() {
         {activeTab === 'live-sessions' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             {/* My Enrolled Sessions */}
-            <div className="bg-white rounded-2xl dark:bg-gray-800 p-6 border border-gray-200 shadow-lg">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold dark:text-white text-gray-900">{safeT('myEnrolledSessions')}</h3>
+            <div className="min-w-0 overflow-hidden bg-white rounded-2xl dark:bg-gray-800 p-6 border border-gray-200 shadow-lg">
+              <div className="mb-6 flex min-w-0 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <h3 className="min-w-0 text-xl font-semibold text-gray-900 dark:text-white">{safeT('myEnrolledSessions')}</h3>
                 <button
                   onClick={() => refreshData()}
-                  className="px-3 py-1 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                  className="flex shrink-0 items-center justify-center gap-2 self-end rounded-lg bg-blue-600 px-3 py-1.5 text-sm text-white transition-colors hover:bg-blue-700 sm:self-center"
                 >
-                  <RefreshCw className="w-4 h-4" />
+                  <RefreshCw className="h-4 w-4" />
                   <span>Refresh</span>
                 </button>
               </div>
@@ -2014,56 +2005,64 @@ export default function Dashboard() {
             </div>
 
             {/* Available Sessions */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
-                    <Sparkles className="w-4 h-4 text-white" />
+            <div className="min-w-0 overflow-hidden bg-white dark:bg-gray-800 rounded-2xl p-4 sm:p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
+              <div className="mb-6 flex min-w-0 flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-4">
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 sm:gap-3">
+                  <div className="flex min-w-0 flex-1 items-start gap-2 sm:items-center sm:gap-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
+                      <Sparkles className="h-4 w-4 text-white" />
+                    </div>
+                    <h3 className="min-w-0 flex-1 break-words text-lg font-bold leading-snug text-gray-900 dark:text-white sm:text-xl">
+                      {safeT('availableLiveSessions')}
+                    </h3>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">{safeT('availableLiveSessions')}</h3>
-                  <div className="px-2 py-1 bg-gradient-to-r from-blue-100 to-purple-100 dark:from-blue-900/30 dark:to-purple-900/30 rounded-full">
+                  <div className="shrink-0 rounded-full bg-gradient-to-r from-blue-100 to-purple-100 px-2 py-1 dark:from-blue-900/30 dark:to-purple-900/30">
                     <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">
                       {liveSessions.filter(s => 
                         (s.status === 'scheduled' || s.status === 'live') && 
                         s.status !== 'cancelled' && 
                         s.status !== 'deleted'
-                      ).length} Available
+                      ).length}{' '}
+                      Available
                     </span>
                   </div>
                 </div>
-                
-                <div className="flex items-center gap-3">
-                  {/* View Toggle */}
-                  <div className="flex items-center bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+
+                <div className="flex w-full min-w-0 shrink-0 flex-wrap items-center justify-end gap-2 sm:w-auto sm:justify-end sm:gap-3">
+                  <div className="flex items-center rounded-lg bg-gray-100 p-1 dark:bg-gray-700">
                     <button
+                      type="button"
                       onClick={() => setSessionsViewMode('grid')}
-                      className={`p-2 rounded-md transition-all duration-200 ${
+                      className={`rounded-md p-2 transition-all duration-200 ${
                         sessionsViewMode === 'grid'
-                          ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-600 dark:text-blue-400'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-600 dark:text-blue-400'
+                          : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                       }`}
+                      aria-label="Grid view"
                     >
-                      <Grid3X3 className="w-4 h-4" />
+                      <Grid3X3 className="h-4 w-4" />
                     </button>
                     <button
+                      type="button"
                       onClick={() => setSessionsViewMode('list')}
-                      className={`p-2 rounded-md transition-all duration-200 ${
+                      className={`rounded-md p-2 transition-all duration-200 ${
                         sessionsViewMode === 'list'
-                          ? 'bg-white dark:bg-gray-600 shadow-sm text-blue-600 dark:text-blue-400'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
+                          ? 'bg-white text-blue-600 shadow-sm dark:bg-gray-600 dark:text-blue-400'
+                          : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'
                       }`}
+                      aria-label="List view"
                     >
-                      <List className="w-4 h-4" />
+                      <List className="h-4 w-4" />
                     </button>
                   </div>
-                  
-                <button
-                  onClick={() => refreshData()}
-                    className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white text-sm rounded-lg transition-all duration-200 flex items-center space-x-2 shadow-md hover:shadow-lg transform hover:scale-105"
-                >
-                  <RefreshCw className="w-4 h-4" />
-                  <span>Refresh</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => refreshData()}
+                    className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 px-3 py-2 text-sm text-white shadow-md transition-all duration-200 hover:from-blue-700 hover:to-purple-700 sm:px-4"
+                  >
+                    <RefreshCw className="h-4 w-4 shrink-0" />
+                    <span className="whitespace-nowrap">Refresh</span>
+                  </button>
                 </div>
               </div>
               {liveSessions.length === 0 ? (

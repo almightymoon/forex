@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Settings, LogOut, ChevronDown, Bell, Share2, Wallet, ArrowUpRight, Package } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, Bell, Share2, Wallet, ArrowUpRight, Package, CreditCard } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../../context/LanguageContext';
 import { buildApiUrl } from '../../utils/api';
+import { clearMonthlyFeeAccessLock } from '../../utils/monthlyFeeAccessLock';
 
 interface UserProfileDropdownProps {
   user: {
@@ -95,11 +96,10 @@ export default function UserProfileDropdown({
   }, []);
 
   const handleLogout = () => {
-    // Clear localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    
-    // Redirect to login page
+    clearMonthlyFeeAccessLock();
+
     router.push('/login');
   };
 
@@ -128,18 +128,18 @@ export default function UserProfileDropdown({
               {/* Profile Button */}
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 relative"
+          className="flex items-center space-x-1.5 sm:space-x-3 p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 relative shrink-0"
         >
           {/* Profile Avatar */}
-          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
             {user.profileImage ? (
               <img 
                 src={user.profileImage} 
                 alt="Profile" 
-                className="w-10 h-10 rounded-full object-cover"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover"
               />
             ) : (
-              <span className="text-white font-semibold text-lg">
+              <span className="text-white font-semibold text-base sm:text-lg">
                 {user.firstName?.charAt(0) || user.lastName?.charAt(0) || 'U'}
               </span>
             )}
@@ -159,7 +159,7 @@ export default function UserProfileDropdown({
         
         {/* Chevron Icon */}
         <ChevronDown 
-          className={`w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform duration-200 ${
+          className={`hidden sm:inline w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform duration-200 ${
             isOpen ? 'rotate-180' : ''
           }`}
         />
@@ -249,6 +249,20 @@ export default function UserProfileDropdown({
               <Share2 className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
               <span>Referrals</span>
             </button>
+
+            {/* Monthly Fee */}
+            {(user.role === 'student' || !user.role || user.role === '') && (
+              <button
+                onClick={() => {
+                  setIsOpen(false);
+                  router.push('/monthly-fee');
+                }}
+                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
+              >
+                <CreditCard className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
+                <span>Monthly Fee</span>
+              </button>
+            )}
 
             {/* Withdrawal - Navigate to withdrawals page */}
             <button

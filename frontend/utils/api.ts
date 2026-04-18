@@ -1,13 +1,16 @@
 // API configuration utility
-import { env } from '../lib/env';
+/** Matches `getBackendOrigin` in `app/api/[...path]/route.ts` — include IPv6 loopback. */
+function isBrowserLocalDevHost(hostname: string): boolean {
+  const h = hostname || '';
+  return h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '[::1]';
+}
 
-// export const API_BASE_URL = env.API_BASE_URL || 'https://thefxnavigators.com/api';
 function getDefaultApiBaseUrl(): string {
   // If env isn't set, pick a sensible default for local dev.
   // This prevents the frontend from accidentally calling production during development.
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
+    if (isBrowserLocalDevHost(host)) {
       return 'http://localhost:4000/api';
     }
   }
@@ -19,7 +22,7 @@ function getApiBaseUrl(): string {
   // with a non-local URL (prevents accidentally calling production).
   if (typeof window !== 'undefined') {
     const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1') {
+    if (isBrowserLocalDevHost(host)) {
       return 'http://localhost:4000/api';
     }
   }
@@ -57,28 +60,26 @@ function isRateLimited(endpoint: string): boolean {
   return false;
 }
 
-// Helper function to build API URLs
+/**
+ * Builds absolute or same-origin API URLs.
+ * On localhost in the browser, returns `/api/...` so requests go through the Next.js proxy
+ * (`app/api/[...path]/route.ts`) to `BACKEND_URL`, avoiding mismatched ports and stale direct URLs.
+ */
 export const buildApiUrl = (endpoint: string): string => {
-  try {
-    console.log('buildApiUrl called with endpoint:', endpoint);
-    console.log('API_BASE_URL:', API_BASE_URL);
-    console.log('env.API_BASE_URL:', env.API_BASE_URL);
-    console.log('process.env.BACKEND_URL:', process.env.BACKEND_URL);
-    console.log('process.env.NEXT_PUBLIC_API_BASE_URL:', process.env.NEXT_PUBLIC_API_BASE_URL);
-    
-    // Remove leading slash if present to avoid double slashes
-    const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-    // Remove 'api/' prefix from endpoint if API_BASE_URL already includes '/api'
-    const finalEndpoint = API_BASE_URL.includes('/api') && cleanEndpoint.startsWith('api/') 
-      ? cleanEndpoint.slice(4) 
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
+  const finalEndpoint =
+    API_BASE_URL.includes('/api') && cleanEndpoint.startsWith('api/')
+      ? cleanEndpoint.slice(4)
       : cleanEndpoint;
-    const url = `${API_BASE_URL}/${finalEndpoint}`;
-    console.log('Final URL:', url);
-    return url;
-  } catch (error) {
-    console.error('Error building API URL:', error);
-    throw error;
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    if (isBrowserLocalDevHost(host)) {
+      return `/api/${finalEndpoint}`;
+    }
   }
+
+  return `${API_BASE_URL}/${finalEndpoint}`;
 };
 
 // Helper function for API requests with common headers and caching

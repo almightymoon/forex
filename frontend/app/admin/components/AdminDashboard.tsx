@@ -23,6 +23,7 @@ import UserManagement from './UserManagement';
 import PaymentManagement from './PaymentManagement';
 import CommissionManagement from './CommissionManagement';
 import PackageManagement from './PackageManagement';
+import MonthlyFeeManagement from './MonthlyFeeManagement';
 import PromoCodeManagement from './PromoCodeManagement';
 import Analytics from './Analytics';
 import Settings from './Settings';
@@ -902,6 +903,7 @@ export default function AdminDashboard() {
                   { id: 'overview', label: 'Overview', icon: BarChart3 },
                   { id: 'users', label: 'Users', icon: Users },
                   { id: 'payments', label: 'Payments', icon: DollarSign },
+                  { id: 'monthly-fee', label: 'Monthly Fee', icon: CreditCard },
                   { id: 'commissions', label: 'Commissions', icon: Share2 },
                   { id: 'packages', label: 'Packages', icon: CreditCard },
                   { id: 'analytics', label: 'Analytics', icon: TrendingUp },
@@ -967,6 +969,10 @@ export default function AdminDashboard() {
             onExportPayments={handleExportPayments}
             onRefresh={refreshData}
           />
+        )}
+
+        {activeTab === 'monthly-fee' && (
+          <MonthlyFeeManagement payments={payments || []} onRefresh={refreshData} />
         )}
 
         {activeTab === 'commissions' && (

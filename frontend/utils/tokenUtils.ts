@@ -1,4 +1,5 @@
 import { buildApiUrl } from './api';
+import { clearMonthlyFeeAccessLock } from './monthlyFeeAccessLock';
 
 interface TokenRefreshResponse {
   success: boolean;
@@ -16,6 +17,7 @@ export const handleSessionExpiration = (message?: string) => {
   // Clear all authentication data
   localStorage.removeItem('token');
   localStorage.removeItem('user');
+  clearMonthlyFeeAccessLock();
   
   // Clear token cookie
   document.cookie = 'token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT';

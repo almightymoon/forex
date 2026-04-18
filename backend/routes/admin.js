@@ -19,6 +19,12 @@ const referralService = require('../services/referralService');
 const { body, validationResult } = require('express-validator');
 const adminProductsRouter = require('./adminProducts');
 const ActivityLog = require('../models/ActivityLog');
+const {
+  listPendingMonthlyFeeStudents,
+  getMonthlyFeeStatusForUser,
+  feeMonthCoveredForPaymentDate,
+  resolvePackageFromPayment
+} = require('../utils/monthlyFeeStatus');
 
 const router = express.Router();
 
@@ -421,6 +427,91 @@ router.get('/users/:id/transactions', async (req, res) => {
   }
 });
 
+// @route   GET /api/admin/users/:id/monthly-fee-status
+// @desc    Monthly fee policy + grace / overdue (aligned with student auth)
+// @access  Private (Admin)
+router.get('/users/:id/monthly-fee-status', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid user id' });
+    }
+    const status = await getMonthlyFeeStatusForUser(req.params.id);
+    res.json(status);
+  } catch (error) {
+    console.error('Get monthly fee status error:', error);
+    res.status(500).json({ error: 'Failed to fetch monthly fee status' });
+  }
+});
+
+// @route   GET /api/admin/users/:id/monthly-fee-history
+// @desc    Monthly fee payments with inferred "fee for month" (UTC) + current policy snapshot
+// @access  Private (Admin)
+router.get('/users/:id/monthly-fee-history', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ error: 'Invalid user id' });
+    }
+    const userId = req.params.id;
+    const user = await User.findById(userId).select('firstName lastName email role').lean();
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    const payments = await Payment.find({ user: userId, type: 'monthly_fee' })
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean();
+
+    const policy = await getMonthlyFeeStatusForUser(userId, new Date());
+
+    const entries = payments.map((p) => {
+      const { feeForMonthStart, feeForMonthLabel } = feeMonthCoveredForPaymentDate(p.createdAt);
+      return {
+        paymentId: p._id,
+        status: p.status,
+        amount: p.finalAmount ?? p.amount,
+        currency: p.currency || 'USD',
+        createdAt: p.createdAt,
+        feeForMonthStart,
+        feeForMonthLabel,
+        transactionId: p.transactionId || null,
+        transactionHash: p.binanceWallet?.transactionHash || null,
+        adminConfirmed: !!p.adminConfirmed,
+        paymentMethod: p.paymentMethod,
+        description: p.description || null
+      };
+    });
+
+    const latestPackage = await Payment.findOne({ user: userId, type: 'package', status: 'completed' })
+      .sort({ createdAt: -1 })
+      .select('createdAt package finalAmount')
+      .lean();
+
+    res.json({
+      user: {
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role
+      },
+      policy,
+      latestPackagePayment: latestPackage
+        ? {
+            purchasedAt: latestPackage.createdAt,
+            packageName: latestPackage.package?.name,
+            price: latestPackage.package?.price,
+            finalAmount: latestPackage.finalAmount
+          }
+        : null,
+      entries
+    });
+  } catch (error) {
+    console.error('Get monthly fee history error:', error);
+    res.status(500).json({ error: 'Failed to fetch monthly fee history' });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Packages (admin-managed)
 // ---------------------------------------------------------------------------
@@ -438,6 +529,42 @@ router.get('/packages', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch packages' });
   }
 });
+
+// Shared: students with unpaid monthly fee this cycle (grace, overdue, or payment pending confirmation)
+// Query: status=all|in_grace|grace|overdue|pending_confirmation, packageName (partial), referenceDate (ISO), dueMonth=YYYY-MM
+async function getMonthlyFeePendingStudentsList(req, res) {
+  try {
+    const { referenceDate, status, packageName, pkg, dueMonth } = req.query;
+    let now = new Date();
+    if (referenceDate && String(referenceDate).trim()) {
+      const d = new Date(String(referenceDate));
+      if (!Number.isNaN(d.getTime())) now = d;
+    } else if (dueMonth && /^\d{4}-\d{2}$/.test(String(dueMonth))) {
+      const [y, mHuman] = String(dueMonth).split('-').map(Number);
+      if (y && mHuman >= 1 && mHuman <= 12) {
+        now = new Date(Date.UTC(y, mHuman, 15, 12, 0, 0));
+      }
+    }
+    const pkgFilter = (packageName || pkg || '').toString().trim();
+    const includeNoFeeTiers = req.query.includeNoFee !== 'false';
+    const result = await listPendingMonthlyFeeStudents({
+      now,
+      status: (status || 'all').toString(),
+      packageName: pkgFilter,
+      includeNoFeeTiers
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('Get monthly fee pending students error:', error);
+    res.status(500).json({ error: 'Failed to fetch pending monthly fee students' });
+  }
+}
+
+// @route   GET /api/admin/monthly-fee/overdue
+// @route   GET /api/admin/monthly-fee/pending
+// @desc    Same payload (pending + grace + overdue + pending review). Two paths so older frontends / proxies still work.
+router.get('/monthly-fee/overdue', getMonthlyFeePendingStudentsList);
+router.get('/monthly-fee/pending', getMonthlyFeePendingStudentsList);
 
 // @route   POST /api/admin/packages
 // @desc    Create a package (admin only)
@@ -645,6 +772,163 @@ router.post('/users/:id/bonus', [
     res.status(500).json({ 
       success: false,
       error: error.message || 'Failed to send bonus' 
+    });
+  }
+});
+
+// @route   POST /api/admin/users/:id/impose-monthly-fee
+// @desc    Create a pending monthly_fee payment (like student-initiated), optional immediate access block
+// @access  Private (Admin)
+router.post('/users/:id/impose-monthly-fee', [
+  body('amount').optional().isFloat({ min: 0.01, max: 100000 }).withMessage('Amount must be between 0.01 and 100000'),
+  body('notes').optional().trim().isLength({ max: 500 })
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const blockAccessUntilPaid =
+      req.body.blockAccessUntilPaid === true || req.body.blockAccessUntilPaid === 'true';
+    const force = req.body.forceWithoutMonthlyFeePackage === true || req.body.forceWithoutMonthlyFeePackage === 'true';
+
+    const targetUser = await User.findById(req.params.id).select('firstName lastName email role').lean();
+    if (!targetUser) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    if (['admin', 'teacher', 'instructor'].includes(targetUser.role)) {
+      return res.status(400).json({ success: false, error: 'Monthly fee cannot be imposed on staff or instructor accounts' });
+    }
+
+    const completedPackagePayment = await Payment.findOne({
+      user: req.params.id,
+      status: 'completed',
+      type: 'package'
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    if (!completedPackagePayment) {
+      return res.status(400).json({
+        success: false,
+        error: 'User has no completed package purchase. They must buy a package before a monthly fee can be imposed.'
+      });
+    }
+
+    const pkg = await resolvePackageFromPayment(completedPackagePayment);
+    if (!pkg && !force) {
+      return res.status(400).json({
+        success: false,
+        error: 'Could not resolve package from payment. Use force if you still need to impose a fee.'
+      });
+    }
+    if (pkg && !pkg.monthlyFeeEnabled && !force) {
+      return res.status(400).json({
+        success: false,
+        error: 'This user\'s package tier has monthly fee disabled. Pass forceWithoutMonthlyFeePackage: true to impose anyway.'
+      });
+    }
+
+    const existingPending = await Payment.findOne({
+      user: req.params.id,
+      status: 'pending',
+      type: 'monthly_fee'
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+    if (existingPending) {
+      return res.status(400).json({
+        success: false,
+        error: 'User already has a pending monthly fee payment. Complete or cancel it before imposing another.',
+        pendingPaymentId: existingPending._id
+      });
+    }
+
+    const pkgName = (completedPackagePayment.package?.name || '').trim() || (pkg?.name || '');
+    const defaultAmount = pkg ? Number(pkg.monthlyFeeAmount ?? 50) : 50;
+    const amount = req.body.amount != null && req.body.amount !== ''
+      ? Number(req.body.amount)
+      : defaultAmount;
+    if (!Number.isFinite(amount) || amount < 0.01) {
+      return res.status(400).json({ success: false, error: 'Invalid amount' });
+    }
+
+    const notes = (req.body.notes && String(req.body.notes).trim()) || '';
+
+    const metadata = new Map([
+      ['adminImposed', '1'],
+      ['accessBlockedUntilPaid', blockAccessUntilPaid ? '1' : '0'],
+      ['imposedByAdminId', String(req.user._id)],
+      ['imposedAt', new Date().toISOString()],
+      ['notes', notes.slice(0, 500)],
+      ['packageName', pkgName.slice(0, 120)]
+    ]);
+    if (force) {
+      metadata.set('forcedNonMonthlyPackage', '1');
+    }
+
+    const payment = new Payment({
+      user: req.params.id,
+      amount,
+      currency: 'USD',
+      paymentMethod: 'binance_wallet',
+      status: 'pending',
+      type: 'monthly_fee',
+      description: `Monthly fee (admin imposed) — $${amount.toFixed(2)}`,
+      discountAmount: 0,
+      finalAmount: amount,
+      metadata,
+      binanceWallet: {
+        walletAddress: 'TApaMK8BcN67GDRqVs45qnzbb4oQGt2Pna',
+        network: 'TRC20'
+      }
+    });
+    await payment.save();
+
+    try {
+      const admins = await User.find({ role: 'admin' });
+      for (const admin of admins) {
+        await notificationService.sendNotificationToUser(admin._id, 'admin', {
+          type: 'monthly_fee_pending',
+          paymentId: payment._id,
+          userId: req.params.id,
+          userName: `${targetUser.firstName} ${targetUser.lastName}`,
+          amount,
+          adminImposed: true
+        });
+      }
+    } catch (e) {
+      console.error('Admin impose monthly fee: notify admins', e);
+    }
+
+    try {
+      await notificationService.sendNotificationToUser(req.params.id, 'balance', {
+        title: 'Monthly fee required (admin)',
+        message: blockAccessUntilPaid
+          ? `Your administrator has added a monthly fee of $${amount.toFixed(
+              2
+            )} USDT. Open Monthly fee in the app and complete payment to restore full access.`
+          : `Your administrator has added a monthly fee of $${amount.toFixed(
+              2
+            )} USDT. Open the Monthly fee page when you are ready to pay.`,
+        transactionId: payment._id
+      });
+    } catch (e) {
+      console.error('Admin impose monthly fee: notify student', e);
+    }
+
+    res.status(201).json({
+      success: true,
+      message: 'Monthly fee payment created for this user.',
+      payment,
+      blockAccessUntilPaid
+    });
+  } catch (error) {
+    console.error('Impose monthly fee error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to impose monthly fee'
     });
   }
 });

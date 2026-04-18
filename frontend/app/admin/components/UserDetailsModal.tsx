@@ -7,9 +7,10 @@ import {
   DollarSign, CreditCard, Users, Package, TrendingUp, 
   Wallet, ArrowUpRight, CheckCircle, Clock, AlertCircle,
   Shield, Activity, Loader2, Plus, Minus, Gift, History,
-  MailX, Sparkles, Target
+  MailX, Sparkles, Target, CalendarClock, Receipt
 } from 'lucide-react';
 import EmailHistory from './EmailHistory';
+import MonthlyFeeHistoryPanel from './MonthlyFeeHistoryPanel';
 import { User } from './types';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
@@ -72,7 +73,9 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
   const [loading, setLoading] = useState(true);
   const [details, setDetails] = useState<UserDetails | null>(null);
   const [currentUser, setCurrentUser] = useState(user);
-  const [activeTab, setActiveTab] = useState<'overview' | 'payments' | 'withdrawals' | 'referrals' | 'transactions' | 'email'>('overview');
+  const [activeTab, setActiveTab] = useState<
+    'overview' | 'payments' | 'monthly_fee' | 'withdrawals' | 'referrals' | 'transactions' | 'email'
+  >('overview');
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [balanceAction, setBalanceAction] = useState<'credit' | 'debit' | 'bonus'>('credit');
   const [balanceForm, setBalanceForm] = useState({ amount: '', description: '', notes: '' });
@@ -80,6 +83,15 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
   const [showUnreachableModal, setShowUnreachableModal] = useState(false);
   const [unreachableReason, setUnreachableReason] = useState('');
   const [isUpdatingUnreachable, setIsUpdatingUnreachable] = useState(false);
+  const [monthlyFeeStatus, setMonthlyFeeStatus] = useState<Record<string, unknown> | null>(null);
+  const [showImposeMonthlyFeeModal, setShowImposeMonthlyFeeModal] = useState(false);
+  const [imposeMonthlyForm, setImposeMonthlyForm] = useState({
+    amount: '',
+    notes: '',
+    blockAccess: true,
+    forceWithoutMonthlyFee: false
+  });
+  const [isImposingMonthlyFee, setIsImposingMonthlyFee] = useState(false);
 
   useEffect(() => {
     fetchUserDetails();
@@ -93,7 +105,7 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
       console.log('[UserDetails] Fetching details for user:', user._id);
       
       // Fetch user details from multiple endpoints (including full user for emailUnreachable etc.)
-      const [userRes, paymentsRes, withdrawalsRes, referralsRes, transactionsRes, treeRes] = await Promise.all([
+      const [userRes, paymentsRes, withdrawalsRes, referralsRes, transactionsRes, treeRes, monthlyFeeRes] = await Promise.all([
         fetch(buildApiUrl(`api/admin/users/${user._id}`), {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
@@ -110,6 +122,9 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
           headers: { 'Authorization': `Bearer ${token}` }
         }),
         fetch(buildApiUrl(`api/admin/users/${user._id}/referral-tree`), {
+          headers: { 'Authorization': `Bearer ${token}` }
+        }),
+        fetch(buildApiUrl(`api/admin/users/${user._id}/monthly-fee-status`), {
           headers: { 'Authorization': `Bearer ${token}` }
         })
       ]);
@@ -141,6 +156,16 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
         }
       } else {
         console.error('[UserDetails] Failed to fetch referral tree:', treeRes.status, await treeRes.text().catch(() => ''));
+      }
+
+      if (monthlyFeeRes.ok) {
+        try {
+          setMonthlyFeeStatus(await monthlyFeeRes.json());
+        } catch {
+          setMonthlyFeeStatus(null);
+        }
+      } else {
+        setMonthlyFeeStatus(null);
       }
 
       console.log('[UserDetails] Fetched data:', {
@@ -180,6 +205,7 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
       });
     } catch (error) {
       console.error('Error fetching user details:', error);
+      setMonthlyFeeStatus(null);
       // Set empty details on error
       setDetails({
         payments: [],
@@ -249,6 +275,82 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
     setBalanceAction(action);
     setBalanceForm({ amount: '', description: '', notes: '' });
     setShowBalanceModal(true);
+  };
+
+  const monthlyStatusAny = monthlyFeeStatus as Record<string, unknown> | null;
+  const canImposeMonthlyFee =
+    !!monthlyStatusAny &&
+    monthlyStatusAny.found !== false &&
+    monthlyStatusAny.reason !== 'staff_exempt' &&
+    monthlyStatusAny.reason !== 'no_completed_package';
+  const imposeNeedsForceOption = !!(
+    monthlyStatusAny &&
+    monthlyStatusAny.reason !== 'no_completed_package' &&
+    monthlyStatusAny.reason !== 'staff_exempt' &&
+    (monthlyStatusAny.monthlyFeeEnabled === false || monthlyStatusAny.reason === 'package_config_missing')
+  );
+
+  const openImposeMonthlyFeeModal = () => {
+    const m = monthlyFeeStatus as Record<string, any> | null;
+    const def =
+      m && typeof m.monthlyFeeAmount === 'number' && Number.isFinite(m.monthlyFeeAmount)
+        ? String(m.monthlyFeeAmount)
+        : '50';
+    setImposeMonthlyForm({
+      amount: def,
+      notes: '',
+      blockAccess: true,
+      forceWithoutMonthlyFee: false
+    });
+    setShowImposeMonthlyFeeModal(true);
+  };
+
+  const handleImposeMonthlyFee = async () => {
+    const amt = parseFloat(imposeMonthlyForm.amount);
+    if (!Number.isFinite(amt) || amt < 0.01) {
+      showToast('Enter a valid amount (min 0.01)', 'error');
+      return;
+    }
+    if (imposeNeedsForceOption && !imposeMonthlyForm.forceWithoutMonthlyFee) {
+      showToast('This package has no recurring monthly fee in settings — enable “Impose anyway” or adjust the package first.', 'error');
+      return;
+    }
+
+    setIsImposingMonthlyFee(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`api/admin/users/${user._id}/impose-monthly-fee`), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          amount: amt,
+          notes: imposeMonthlyForm.notes.trim() || undefined,
+          blockAccessUntilPaid: imposeMonthlyForm.blockAccess,
+          forceWithoutMonthlyFeePackage: imposeMonthlyForm.forceWithoutMonthlyFee || undefined
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast((data as { error?: string }).error || 'Failed to impose monthly fee', 'error');
+        return;
+      }
+      showToast('Monthly fee payment created for this user.', 'success');
+      setShowImposeMonthlyFeeModal(false);
+      await fetchUserDetails();
+      const token2 = localStorage.getItem('token');
+      const mfRes = await fetch(buildApiUrl(`api/admin/users/${user._id}/monthly-fee-status`), {
+        headers: { Authorization: `Bearer ${token2}` }
+      });
+      if (mfRes.ok) setMonthlyFeeStatus(await mfRes.json());
+    } catch (e) {
+      console.error(e);
+      showToast('Error imposing monthly fee', 'error');
+    } finally {
+      setIsImposingMonthlyFee(false);
+    }
   };
 
   const handleEmailUnreachable = async (markUnreachable: boolean, reason?: string) => {
@@ -478,8 +580,25 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                 </button>
               </div>
 
-              {/* Stats Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+              {canImposeMonthlyFee && (
+                <div className="mb-6">
+                  <button
+                    type="button"
+                    onClick={openImposeMonthlyFeeModal}
+                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl hover:from-amber-700 hover:to-orange-700 transition-all duration-200 font-semibold border border-amber-500/30"
+                  >
+                    <Receipt className="w-5 h-5" />
+                    Impose monthly fee (pending payment)
+                  </button>
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
+                    Creates the same pending USDT monthly-fee record as when the student starts payment — for custom
+                    charges or corrections. Optional: block the app until it is paid.
+                  </p>
+                </div>
+              )}
+
+              {/* Stats row 1 — same card size as before */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
                   <div className="flex items-center justify-between mb-2">
                     <DollarSign className="w-8 h-8 text-blue-600 dark:text-blue-400" />
@@ -496,18 +615,18 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Available USDT</p>
                 </div>
 
-                  <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
-                    <div className="flex items-center justify-between mb-2">
-                      <TrendingUp className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-                      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">LIFETIME EARNED</span>
-                    </div>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                      ${Number((currentUser as any).lifetimeEarned || 0).toFixed(2)}
-                    </p>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Total credited to balance</p>
+                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <TrendingUp className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
+                    <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">LIFETIME EARNED</span>
                   </div>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
+                    ${Number((currentUser as any).lifetimeEarned || 0).toFixed(2)}
+                  </p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Total credited to balance</p>
+                </div>
 
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800 md:col-span-2 lg:col-span-1">
                   <div className="flex items-center justify-between mb-2">
                     <Users className="w-8 h-8 text-purple-600 dark:text-purple-400" />
                     <span className="text-xs font-medium text-purple-600 dark:text-purple-400">REFERRALS</span>
@@ -515,8 +634,17 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">{details.completedReferrals}</p>
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Active Referrals</p>
                 </div>
+              </div>
 
-                <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800">
+              {/* Stats row 2 — package + monthly fee, equal width like row 1 cards */}
+              <div
+                className={`grid gap-4 mb-6 ${
+                  monthlyFeeStatus && (monthlyFeeStatus as any).found !== false
+                    ? 'grid-cols-1 md:grid-cols-2'
+                    : 'grid-cols-1'
+                }`}
+              >
+                <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800 flex flex-col min-h-[120px]">
                   <div className="flex items-center justify-between mb-2">
                     <Package className="w-8 h-8 text-orange-600 dark:text-orange-400" />
                     <span className="text-xs font-medium text-orange-600 dark:text-orange-400">PACKAGE</span>
@@ -526,6 +654,123 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                     {details.package ? `$${details.package.price}` : 'No active package'}
                   </p>
                 </div>
+
+                {monthlyFeeStatus && (monthlyFeeStatus as any).found !== false && (
+                  <div className="bg-gradient-to-br from-amber-50 to-orange-100 dark:from-amber-900/20 dark:to-orange-800/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800 flex flex-col min-h-[120px]">
+                    <div className="flex items-center justify-between mb-2">
+                      <CreditCard className="w-8 h-8 text-amber-600 dark:text-amber-400" />
+                      <span className="text-xs font-medium text-amber-700 dark:text-amber-400">MONTHLY FEE</span>
+                    </div>
+                    <div className="flex justify-end mb-2 -mt-1">
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('monthly_fee')}
+                        className="text-[10px] sm:text-xs font-semibold text-amber-800 dark:text-amber-300 hover:underline inline-flex items-center gap-0.5"
+                        title="Payment history and actions"
+                      >
+                        <CalendarClock className="w-3.5 h-3.5 shrink-0" />
+                        <span className="hidden sm:inline">History &amp; actions</span>
+                        <span className="sm:hidden">History</span>
+                      </button>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-y-auto max-h-[200px] pr-1">
+                      {(() => {
+                        const m = monthlyFeeStatus as Record<string, any>;
+                        if (m.reason === 'staff_exempt') {
+                          return (
+                            <p className="text-xs text-gray-600 dark:text-gray-300 leading-snug">
+                              Not applicable for this role (admin / teacher / instructor).
+                            </p>
+                          );
+                        }
+                        if (m.reason === 'no_completed_package') {
+                          return (
+                            <p className="text-xs text-gray-600 dark:text-gray-300 leading-snug">
+                              No completed package purchase yet — monthly fee rules do not apply.
+                            </p>
+                          );
+                        }
+                        if (m.reason === 'package_config_missing') {
+                          return (
+                            <div className="space-y-1 text-xs leading-snug">
+                              <p className="text-amber-800 dark:text-amber-300 font-medium">Package config not found</p>
+                              <p className="text-gray-600 dark:text-gray-400">
+                                Name: <span className="font-mono">{m.packageNameFromPayment || '—'}</span>
+                              </p>
+                            </div>
+                          );
+                        }
+                        if (m.monthlyFeeEnabled === false) {
+                          return (
+                            <p className="text-xs text-gray-700 dark:text-gray-300 leading-snug">
+                              <span className="font-semibold text-gray-900 dark:text-white">{m.packageName || 'Package'}</span>{' '}
+                              — no monthly fee (lifetime or disabled in package settings).
+                            </p>
+                          );
+                        }
+                        return (
+                          <div className="space-y-2 text-xs">
+                            <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Amount</p>
+                                <p className="font-semibold text-gray-900 dark:text-white">
+                                  ${Number(m.monthlyFeeAmount ?? 50).toFixed(2)}/mo
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Grace</p>
+                                <p className="font-medium text-gray-900 dark:text-white">First {m.graceDays ?? 3}d UTC</p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Due</p>
+                                <p className="font-medium text-gray-900 dark:text-white">
+                                  {m.dueForMonth ? formatDate(m.dueForMonth) : '—'}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[10px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Paid cycle</p>
+                                <p className="font-medium text-gray-900 dark:text-white">
+                                  {m.paidForCurrentCycle ? (
+                                    <span className="text-green-600 dark:text-green-400">Yes</span>
+                                  ) : (
+                                    <span className="text-red-600 dark:text-red-400">No</span>
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                              {m.withinFullFreeWindow && (
+                                <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-200">
+                                  Free months
+                                </span>
+                              )}
+                              {m.requiredMonthWaived && !m.withinFullFreeWindow && (
+                                <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] bg-slate-100 text-slate-800 dark:bg-slate-800 dark:text-slate-200">
+                                  Waived
+                                </span>
+                              )}
+                              {m.withinGracePeriod && (
+                                <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] bg-yellow-100 text-yellow-900 dark:bg-yellow-900/40 dark:text-yellow-200">
+                                  Grace
+                                </span>
+                              )}
+                              {m.isOverdueForAdminList && (
+                                <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-200">
+                                  Overdue ({m.daysOverdue ?? 0}d)
+                                </span>
+                              )}
+                              {m.isAccessBlocked && (
+                                <span className="inline-flex px-1.5 py-0.5 rounded-full text-[10px] bg-red-200 text-red-900 dark:bg-red-900/50 dark:text-red-100">
+                                  Blocked
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* User Info */}
@@ -611,6 +856,7 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                     { id: 'overview', label: 'Overview', icon: Activity },
                     { id: 'transactions', label: 'Transactions', icon: History },
                     { id: 'payments', label: 'Payments', icon: CreditCard },
+                    { id: 'monthly_fee', label: 'Monthly fee', icon: CalendarClock },
                     { id: 'withdrawals', label: 'Withdrawals', icon: ArrowUpRight },
                     { id: 'referrals', label: 'Referrals', icon: Users },
                     { id: 'email', label: 'Email', icon: Mail }
@@ -718,6 +964,18 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                       No payments found
                     </div>
                   )}
+                </div>
+              )}
+
+              {activeTab === 'monthly_fee' && (
+                <div className="min-h-[200px]">
+                  <MonthlyFeeHistoryPanel
+                    userId={user._id}
+                    embedded
+                    onConfirmed={() => {
+                      void fetchUserDetails();
+                    }}
+                  />
                 </div>
               )}
 
@@ -1084,6 +1342,112 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                 {isUpdatingUnreachable ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 Mark unreachable
               </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Impose monthly fee modal */}
+      {showImposeMonthlyFeeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Receipt className="w-5 h-5 text-amber-600" />
+                Impose monthly fee
+              </h3>
+              <button
+                type="button"
+                onClick={() => !isImposingMonthlyFee && setShowImposeMonthlyFeeModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg"
+                disabled={isImposingMonthlyFee}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Adds a <strong>pending</strong> monthly fee payment. The student uses the Monthly fee / payment portal
+              (wallet, hash, screenshot) like a normal cycle fee.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Amount (USDT) *</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={imposeMonthlyForm.amount}
+                  onChange={(e) => setImposeMonthlyForm({ ...imposeMonthlyForm, amount: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  disabled={isImposingMonthlyFee}
+                />
+              </div>
+              <label className="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={imposeMonthlyForm.blockAccess}
+                  onChange={(e) => setImposeMonthlyForm({ ...imposeMonthlyForm, blockAccess: e.target.checked })}
+                  disabled={isImposingMonthlyFee}
+                  className="mt-1 rounded"
+                />
+                <span>
+                  <strong>Block platform access</strong> until this fee is completed (skips grace period for this
+                  charge). Leave off if they should only be billed on the normal schedule.
+                </span>
+              </label>
+              {imposeNeedsForceOption && (
+                <label className="flex items-start gap-2 text-sm text-amber-900 dark:text-amber-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={imposeMonthlyForm.forceWithoutMonthlyFee}
+                    onChange={(e) =>
+                      setImposeMonthlyForm({ ...imposeMonthlyForm, forceWithoutMonthlyFee: e.target.checked })
+                    }
+                    disabled={isImposingMonthlyFee}
+                    className="mt-1 rounded"
+                  />
+                  <span>
+                    <strong>Impose anyway</strong> —{' '}
+                    {(monthlyStatusAny as { reason?: string })?.reason === 'package_config_missing'
+                      ? 'the package row could not be matched from their payment (use for one-off charges).'
+                      : 'this package tier has monthly fee turned off in package settings. Only use for one-off administrative charges.'}
+                  </span>
+                </label>
+              )}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Notes (optional)</label>
+                <textarea
+                  value={imposeMonthlyForm.notes}
+                  onChange={(e) => setImposeMonthlyForm({ ...imposeMonthlyForm, notes: e.target.value })}
+                  rows={3}
+                  placeholder="Reason for this fee (stored on the payment record)"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  disabled={isImposingMonthlyFee}
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowImposeMonthlyFeeModal(false)}
+                  disabled={isImposingMonthlyFee}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleImposeMonthlyFee}
+                  disabled={isImposingMonthlyFee}
+                  className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-xl font-medium hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isImposingMonthlyFee ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}
+                  Create pending fee
+                </button>
+              </div>
             </div>
           </motion.div>
         </div>

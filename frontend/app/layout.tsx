@@ -9,6 +9,7 @@ import { WebSocketProvider } from '../context/WebSocketContext'
 import { GlobalSessionHandler } from '../components/GlobalSessionHandler'
 import { DevToolsProtection } from '../components/DevToolsProtection'
 import MaintenanceGate from '../components/MaintenanceGate'
+import PackageGuard from '../components/PackageGuard'
 
 export const metadata = {
   title: 'Forex Navigators - Master the Art of Forex Trading',
@@ -33,7 +34,9 @@ export default function RootLayout({
                     <AdminProvider>
                       <GlobalSessionHandler />
                       <MaintenanceGate>
-                        {children}
+                        <PackageGuard>
+                          {children}
+                        </PackageGuard>
                       </MaintenanceGate>
                     </AdminProvider>
                   </DashboardProvider>

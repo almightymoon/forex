@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { handleSessionExpiration } from '../utils/tokenUtils';
+import { isMonthlyFeeStudentExemptPath, setMonthlyFeeAccessLock } from '../utils/monthlyFeeAccessLock';
 import { useMaintenanceContext } from '../context/MaintenanceContext';
 
 /**
@@ -77,8 +78,9 @@ export function GlobalSessionHandler() {
 
           // Handle monthly fee restriction
           if (errorData.code === 'MONTHLY_FEE_REQUIRED') {
-            if (isOnPaymentPage) return response;
+            if (isOnPaymentPage || isMonthlyFeeStudentExemptPath(currentPath)) return response;
             console.log('Global session handler: Monthly fee required detected');
+            setMonthlyFeeAccessLock();
             router.push('/monthly-fee');
             return response;
           }

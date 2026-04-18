@@ -76,7 +76,7 @@ packageSchema.statics.ensureDefaults = async function ensureDefaults() {
       referralPoolPercentage: 0.4,
       commissionRates: { 1: 0.2, 2: 0.15, 3: 0.15, 4: 0.1, 5: 0.1 },
       monthlyFeeEnabled: true,
-      monthlyFeeAmount: 50,
+      monthlyFeeAmount: 100,
       monthlyFeeGraceDays: 3,
       monthlyFeeFreeMonths: 6
     },
@@ -106,10 +106,24 @@ packageSchema.statics.ensureDefaults = async function ensureDefaults() {
     }
   ];
 
-  // Insert-only defaults.
-  // Admins can customize packages in the Admin panel, so we must not overwrite existing rows.
+  // Insert-only defaults for full document (preserves admin edits to name/price/features on existing rows).
   for (const def of defaults) {
-    await this.updateOne({ name: def.name }, { $setOnInsert: { ...def, isActive: true, currency: def.currency || 'USD' } }, { upsert: true });
+    await this.updateOne(
+      { name: def.name },
+      { $setOnInsert: { ...def, isActive: true, currency: def.currency || 'USD' } },
+      { upsert: true }
+    );
+  }
+
+  // Sync monthly-fee policy from code defaults when the tier still has the same `price`
+  // (fixes older DBs where Launch/Scale were created before monthlyFeeEnabled existed).
+  const policyKeys = ['monthlyFeeEnabled', 'monthlyFeeAmount', 'monthlyFeeGraceDays', 'monthlyFeeFreeMonths'];
+  for (const def of defaults) {
+    const policyPatch = {};
+    for (const k of policyKeys) {
+      if (def[k] !== undefined) policyPatch[k] = def[k];
+    }
+    await this.updateOne({ name: def.name, price: def.price }, { $set: policyPatch });
   }
 };
 

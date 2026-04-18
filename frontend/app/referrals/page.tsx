@@ -655,46 +655,56 @@ export default function ReferralsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Header - Same as Dashboard */}
-      <header className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            <div className="flex items-center space-x-4">
+      {/* Header — aligned with dashboard: single row, no overflow on small screens */}
+      <header className="sticky top-0 z-50 border-b border-gray-200/50 bg-white/90 shadow-lg backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/90">
+        <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
+          <div className="flex min-h-[3.5rem] w-full flex-row flex-nowrap items-center justify-between gap-2 py-2 sm:min-h-[3.75rem] sm:gap-3 md:min-h-[5rem] md:gap-6 md:py-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 md:gap-4">
               <button
+                type="button"
                 onClick={handleBack}
-                className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                className="shrink-0 rounded-lg p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
                 title="Back"
                 aria-label="Back"
               >
-                <ArrowLeft className="w-5 h-5 text-gray-700 dark:text-gray-200" />
+                <ArrowLeft className="h-5 w-5 text-gray-700 dark:text-gray-200" />
               </button>
-              <div className="flex items-center space-x-4 group cursor-pointer" onClick={() => router.push('/dashboard')}>
-              <div className="relative">
-                <img 
-                  src="/all-07.svg" 
-                  alt={`${settings.platformName} Logo`} 
-                  className="w-14 h-14 object-contain dark:invert group-hover:scale-105 transition-transform duration-200"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
-              </div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent group-hover:from-blue-700 group-hover:to-purple-700 transition-all duration-200">
-                  {settings.platformName}
-                </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors duration-200">Referral Program</p>
-              </div>
+              <div
+                className="group flex min-w-0 flex-1 cursor-pointer items-center gap-2 sm:gap-4 md:max-w-[min(100%,28rem)]"
+                onClick={() => router.push('/dashboard')}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    router.push('/dashboard');
+                  }
+                }}
+                aria-label={`${settings.platformName} — Dashboard`}
+              >
+                <div className="relative shrink-0">
+                  <img
+                    src="/all-07.svg"
+                    alt=""
+                    className="h-10 w-10 object-contain transition-transform duration-200 group-hover:scale-105 dark:invert sm:h-12 sm:w-12 md:h-14 md:w-14"
+                  />
+                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
+                </div>
+                <div className="hidden min-w-0 flex-1 md:block">
+                  <h1 className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-base font-bold leading-tight text-transparent transition-all duration-200 group-hover:from-blue-700 group-hover:to-purple-700 sm:text-xl md:text-2xl">
+                    {settings.platformName}
+                  </h1>
+                  <p className="mt-0.5 line-clamp-2 text-xs text-gray-500 transition-colors duration-200 group-hover:text-gray-600 dark:text-gray-400 dark:group-hover:text-gray-300 sm:text-sm sm:line-clamp-none">
+                    Referral Program
+                  </p>
+                </div>
               </div>
             </div>
-            
-            <div className="flex items-center space-x-4">
-              {/* Dark Mode Toggle */}
+
+            <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1 sm:gap-2 md:gap-3 md:pl-2">
               <DarkModeToggle size="sm" />
-              
-              {/* Referral Badge - Only for students */}
               {user?.role === 'student' && <ReferralBadge />}
-              
-              {/* User Profile Dropdown */}
-              <div className="border-l border-gray-200 dark:border-gray-700 pl-4">
+              <div className="ml-0.5 border-l border-gray-200 pl-2 dark:border-gray-700 sm:ml-0 sm:pl-4">
                 <UserProfileDropdown user={user} />
               </div>
             </div>
@@ -716,12 +726,13 @@ export default function ReferralsPage() {
 
         {/* Tabs */}
         <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-          <nav className="flex space-x-8">
+          <nav className="-mx-1 flex gap-4 overflow-x-auto pb-px sm:gap-8 [scrollbar-width:thin]">
             {['overview', 'tree', 'earnings'].map((tab) => (
               <button
                 key={tab}
+                type="button"
                 onClick={() => setActiveTab(tab as any)}
-                className={`py-4 px-1 border-b-2 font-medium text-sm capitalize ${
+                className={`shrink-0 py-4 px-1 border-b-2 font-medium text-sm capitalize ${
                   activeTab === tab
                     ? 'border-blue-500 text-blue-600 dark:text-blue-400'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'

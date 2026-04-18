@@ -5,13 +5,38 @@ import { useRouter, usePathname } from 'next/navigation';
 import { buildApiUrl } from '../utils/api';
 import CoolLoader from './CoolLoader';
 import { useMaintenanceContext } from '../context/MaintenanceContext';
+import {
+  clearMonthlyFeeAccessLock,
+  hasMonthlyFeeAccessLock,
+  isMonthlyFeeStudentExemptPath,
+  setMonthlyFeeAccessLock
+} from '../utils/monthlyFeeAccessLock';
 
 interface PackageGuardProps {
   children: React.ReactNode;
-  allowedPaths?: string[]; // Paths that don't require package (e.g., /select-package, /payment)
+  /** @deprecated Paths are handled inside the guard; kept for compatibility. */
+  allowedPaths?: string[];
 }
 
-export default function PackageGuard({ children, allowedPaths = [] }: PackageGuardProps) {
+const PUBLIC_PATH_PREFIXES = [
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/faq',
+  '/about',
+  '/contact',
+  '/terms',
+  '/packages'
+];
+
+function isPublicMarketingPath(pathname: string | null): boolean {
+  if (!pathname) return false;
+  if (pathname === '/') return true;
+  return PUBLIC_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+export default function PackageGuard({ children }: PackageGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
   const { setFromResponse } = useMaintenanceContext();
@@ -19,91 +44,128 @@ export default function PackageGuard({ children, allowedPaths = [] }: PackageGua
   const [hasAccess, setHasAccess] = useState(false);
 
   useEffect(() => {
-    // Skip check for allowed paths
-    if (allowedPaths.some(path => pathname?.startsWith(path))) {
-      setHasAccess(true);
-      setIsChecking(false);
-      return;
-    }
-
-    // Skip check for admin/teacher routes (they have their own guards)
     if (pathname?.startsWith('/admin') || pathname?.startsWith('/teacher')) {
+      clearMonthlyFeeAccessLock();
       setHasAccess(true);
       setIsChecking(false);
       return;
     }
 
-    const checkPackageAccess = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          router.push('/login');
-          return;
-        }
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
 
-        // Try to access a protected API endpoint to check package status
-        const response = await fetch(buildApiUrl('api/courses'), {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+    if (!token) {
+      if (isPublicMarketingPath(pathname)) {
+        setHasAccess(true);
+      } else {
+        router.replace('/login');
+      }
+      setIsChecking(false);
+      return;
+    }
+
+    if (hasMonthlyFeeAccessLock()) {
+      if (!isMonthlyFeeStudentExemptPath(pathname)) {
+        router.replace('/monthly-fee');
+        setHasAccess(false);
+        setIsChecking(false);
+        return;
+      }
+      setHasAccess(true);
+      setIsChecking(false);
+      return;
+    }
+
+    const verify = async () => {
+      try {
+        const response = await fetch(buildApiUrl('api/users/profile/me'), {
+          headers: { Authorization: `Bearer ${token}` }
         });
 
         if (response.status === 503) {
           try {
-            const data = await response.json();
+            const data = await response.clone().json();
             if (data.maintenanceMode) {
               setFromResponse(true, data.message);
               setHasAccess(true);
-              setIsChecking(false);
               return;
             }
           } catch {
-            // ignore parse error
+            /* ignore */
           }
         }
 
         if (response.status === 403) {
-          const data = await response.json();
-          
+          const data = await response.json().catch(() => ({}));
+
+          if (data.code === 'MONTHLY_FEE_REQUIRED') {
+            setMonthlyFeeAccessLock();
+            if (!isMonthlyFeeStudentExemptPath(pathname)) {
+              router.replace('/monthly-fee');
+            }
+            setHasAccess(true);
+            return;
+          }
+
           if (data.code === 'PACKAGE_REQUIRED') {
-            router.push('/select-package');
+            clearMonthlyFeeAccessLock();
+            router.replace('/select-package');
+            setHasAccess(true);
             return;
-          } else if (data.code === 'MONTHLY_FEE_REQUIRED') {
-            router.push('/monthly-fee');
-            return;
-          } else if (data.code === 'PAYMENT_PENDING') {
+          }
+
+          if (data.code === 'PAYMENT_PENDING') {
+            clearMonthlyFeeAccessLock();
             if (data.redirectTo === '/payment' && data.paymentId) {
               const pkg = data.packageName ?? '';
               const amt = data.amount ?? 0;
-              router.push(`/payment?package=${encodeURIComponent(pkg)}&amount=${amt}&paymentId=${data.paymentId}`);
+              router.replace(
+                `/payment?package=${encodeURIComponent(pkg)}&amount=${amt}&paymentId=${data.paymentId}`
+              );
             } else {
-              router.push(data.redirectTo || '/payment-pending');
+              router.replace(data.redirectTo || '/payment-pending');
             }
+            setHasAccess(true);
+            return;
+          }
+
+          if (data.code === 'PAYMENT_REQUIRED') {
+            clearMonthlyFeeAccessLock();
+            router.replace(data.redirectTo || '/select-package');
+            setHasAccess(true);
+            return;
+          }
+
+          if (data.code === 'VERIFICATION_PENDING') {
+            clearMonthlyFeeAccessLock();
+            router.replace('/payment-pending');
+            setHasAccess(true);
             return;
           }
         }
 
-        if (!response.ok && response.status !== 403) {
-          // Other errors - might be auth issue
-          if (response.status === 401) {
-            router.push('/login');
-            return;
-          }
+        if (response.ok) {
+          clearMonthlyFeeAccessLock();
+          setHasAccess(true);
+          return;
         }
 
-        // If we get here, user has access (or it's a different error we'll handle)
+        if (response.status === 401) {
+          clearMonthlyFeeAccessLock();
+          router.replace('/login');
+          return;
+        }
+
         setHasAccess(true);
       } catch (error) {
         console.error('Error checking package access:', error);
-        // On error, allow access (fail open) - the backend will handle it
         setHasAccess(true);
       } finally {
         setIsChecking(false);
       }
     };
 
-    checkPackageAccess();
-  }, [pathname, router]);
+    verify();
+  }, [pathname, router, setFromResponse]);
 
   if (isChecking) {
     return (

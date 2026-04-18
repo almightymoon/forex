@@ -36,8 +36,15 @@ export interface Payment {
     email: string;
   };
   amount: number;
+  finalAmount?: number;
   currency: string;
   status: 'pending' | 'completed' | 'failed' | 'processing' | 'cancelled' | 'refunded';
+  type?: 'signup' | 'course' | 'session' | 'subscription' | 'signal' | 'package' | 'monthly_fee' | string;
+  description?: string;
+  package?: {
+    name?: string;
+    price?: number;
+  };
   paymentMethod: string;
   createdAt: string;
   transactionId?: string;

@@ -292,6 +292,30 @@ paymentSchema.statics.calculateRevenue = function(startDate, endDate) {
   ]);
 };
 
+// Admin dashboard: lightweight counts + revenue
+paymentSchema.statics.getStatistics = function() {
+  return this.aggregate([
+    {
+      $facet: {
+        completed: [
+          { $match: { status: 'completed' } },
+          { $group: { _id: null, count: { $sum: 1 }, revenue: { $sum: { $ifNull: ['$finalAmount', '$amount'] } } } }
+        ],
+        pending: [{ $match: { status: 'pending' } }, { $count: 'count' }],
+        failed: [{ $match: { status: 'failed' } }, { $count: 'count' }]
+      }
+    },
+    {
+      $project: {
+        completedCount: { $ifNull: [{ $arrayElemAt: ['$completed.count', 0] }, 0] },
+        totalRevenue: { $ifNull: [{ $arrayElemAt: ['$completed.revenue', 0] }, 0] },
+        pendingCount: { $ifNull: [{ $arrayElemAt: ['$pending.count', 0] }, 0] },
+        failedCount: { $ifNull: [{ $arrayElemAt: ['$failed.count', 0] }, 0] }
+      }
+    }
+  ]).then((rows) => rows[0] || { completedCount: 0, totalRevenue: 0, pendingCount: 0, failedCount: 0 });
+};
+
 // Pre-save middleware to calculate final amount
 paymentSchema.pre('save', function(next) {
   if (this.isModified('amount') || this.isModified('taxAmount') || this.isModified('discountAmount')) {

@@ -56,6 +56,49 @@ const nextConfig = {
       };
     }
 
+    // Workaround for a Next/webpack runtime mismatch observed in this repo:
+    // server chunks are emitted under `.next/server/chunks/<id>.js`, but the generated
+    // `.next/server/webpack-runtime.js` tries to `require("./<id>.js")`.
+    // Duplicating those numeric chunk files into `.next/server/` unblocks `next build`
+    // during "Collecting page data".
+    if (isServer) {
+      config.plugins = config.plugins || [];
+      config.plugins.push({
+        apply(compiler) {
+          compiler.hooks.afterEmit.tapPromise('CopyServerChunksToRoot', async () => {
+            try {
+              const fs = require('fs/promises');
+              const path = require('path');
+              const outDir = compiler.outputPath;
+              const chunksDir = path.join(outDir, 'chunks');
+              let names = [];
+              try {
+                names = await fs.readdir(chunksDir);
+              } catch {
+                return;
+              }
+              const numericChunkRe = /^[0-9]+\.js$/;
+              await Promise.all(
+                names
+                  .filter((n) => numericChunkRe.test(n))
+                  .map(async (n) => {
+                    const src = path.join(chunksDir, n);
+                    const dst = path.join(outDir, n);
+                    try {
+                      await fs.copyFile(src, dst);
+                    } catch {
+                      // best-effort; if it fails we let the build surface the error
+                    }
+                  })
+              );
+            } catch {
+              // ignore; build will fail naturally if this is required
+            }
+          });
+        },
+      });
+    }
+
     // Add support for SVG imports
     config.module.rules.push({
       test: /\.svg$/,

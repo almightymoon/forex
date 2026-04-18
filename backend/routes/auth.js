@@ -5,7 +5,7 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
 const PromoCode = require('../models/PromoCode');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requirePackageSubscription } = require('../middleware/auth');
 const { passwordPolicyMiddleware } = require('../middleware/passwordPolicy');
 const { loginSecurityMiddleware } = require('../middleware/loginSecurity');
 const { generateTokenWithTimeout } = require('../middleware/sessionTimeout');
@@ -445,7 +445,7 @@ router.post('/login', [
 // @route   GET /api/auth/me
 // @desc    Get current user profile
 // @access  Private
-router.get('/me', authenticateToken, async (req, res) => {
+router.get('/me', authenticateToken, requirePackageSubscription, async (req, res) => {
   try {
     // Ensure user has referral code
     const user = await User.findById(req.user._id);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Copy, Check, AlertCircle, ArrowLeft, Mail, Gift, Sparkles, Upload } from 'lucide-react';
 import Link from 'next/link';
@@ -34,13 +34,45 @@ export default function PaymentPage() {
   const packageName = searchParams?.get('package') || '';
   const amountParam = searchParams?.get('amount') || '0';
   const paymentId = searchParams?.get('paymentId') || searchParams?.get('paymentid') || '';
-  
-  // Calculate final amount (original - discount)
-  const finalAmount = (originalAmount || parseFloat(amountParam)) - promoDiscount;
-  const displayAmount = finalAmount > 0 ? finalAmount : parseFloat(amountParam);
+  const isMonthlyFeeFlow = searchParams?.get('type') === 'monthly_fee';
 
-  // Generate QR code data - format: wallet address
-  const qrValue = BINANCE_WALLET_ADDRESS;
+  const [loadedPayment, setLoadedPayment] = useState<{
+    finalAmount?: number;
+    amount?: number;
+    type?: string;
+    binanceWallet?: { walletAddress?: string; network?: string };
+    paymentScreenshotUrl?: string;
+    status?: string;
+  } | null>(null);
+  const [loadingPaymentDoc, setLoadingPaymentDoc] = useState(false);
+
+  const parseAmountParam = useCallback((v: string) => {
+    const n = parseFloat(v);
+    return Number.isFinite(n) ? n : 0;
+  }, []);
+
+  const displayAmount = (() => {
+    if (isMonthlyFeeFlow && loadedPayment) {
+      const n = Number(loadedPayment.finalAmount ?? loadedPayment.amount ?? 0);
+      return Number.isFinite(n) && n >= 0 ? n : 0;
+    }
+    const fromParam = parseAmountParam(amountParam);
+    const orig = originalAmount || fromParam;
+    const discounted = orig - promoDiscount;
+    return discounted > 0 ? discounted : fromParam;
+  })();
+
+  const walletAddressForQr =
+    isMonthlyFeeFlow && loadedPayment?.binanceWallet?.walletAddress
+      ? loadedPayment.binanceWallet.walletAddress
+      : BINANCE_WALLET_ADDRESS;
+  const qrValue = walletAddressForQr;
+
+  useEffect(() => {
+    if (isMonthlyFeeFlow && !paymentId) {
+      router.replace('/monthly-fee');
+    }
+  }, [isMonthlyFeeFlow, paymentId, router]);
 
   useEffect(() => {
     // Check if user is authenticated
@@ -50,10 +82,44 @@ export default function PaymentPage() {
       return;
     }
 
-    // Store original amount
-    const parsedAmount = parseFloat(amountParam);
-    if (parsedAmount > 0 && originalAmount === 0) {
-      setOriginalAmount(parsedAmount);
+    if (isMonthlyFeeFlow && paymentId) {
+      setLoadingPaymentDoc(true);
+      (async () => {
+        try {
+          setError('');
+          const res = await fetch(buildApiUrl(`api/payments/${paymentId}`), {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            setError((data as { error?: string }).error || 'Could not load payment');
+            setLoadingPaymentDoc(false);
+            return;
+          }
+          const p = (data as { payment?: typeof loadedPayment }).payment;
+          if (!p || p.type !== 'monthly_fee') {
+            setError('Invalid monthly fee payment.');
+            setLoadingPaymentDoc(false);
+            return;
+          }
+          setLoadedPayment(p);
+          setError('');
+          const amt = Number(p.finalAmount ?? p.amount ?? 0);
+          if (amt > 0) setOriginalAmount(amt);
+          if (p.paymentScreenshotUrl) {
+            setPaymentStatus('pending');
+          }
+        } catch {
+          setError('Could not load payment');
+        } finally {
+          setLoadingPaymentDoc(false);
+        }
+      })();
+    } else {
+      const parsedAmount = parseFloat(amountParam);
+      if (parsedAmount > 0 && originalAmount === 0) {
+        setOriginalAmount(parsedAmount);
+      }
     }
 
     // Pre-fill payer name and email from current user
@@ -78,7 +144,7 @@ export default function PaymentPage() {
       const interval = setInterval(checkPaymentStatus, 10000); // Check every 10 seconds
       return () => clearInterval(interval);
     }
-  }, [paymentId, router]);
+  }, [paymentId, router, isMonthlyFeeFlow, amountParam]);
 
   const checkPaymentStatus = async () => {
     if (!paymentId) return;
@@ -121,6 +187,7 @@ export default function PaymentPage() {
   };
 
   const validatePromoCode = async () => {
+    if (isMonthlyFeeFlow) return;
     if (!promoCode.trim() || !packageName || originalAmount === 0) return;
 
     setIsValidatingPromo(true);
@@ -242,10 +309,25 @@ export default function PaymentPage() {
         body: formData
       });
 
-      const data = await response.json();
+      const raw = await response.text();
+      let data: Record<string, unknown> = {};
+      if (raw.trim()) {
+        try {
+          data = JSON.parse(raw) as Record<string, unknown>;
+        } catch {
+          throw new Error('Server returned an invalid response. If you are on localhost, restart the dev server and try again.');
+        }
+      } else if (!response.ok) {
+        throw new Error(`Request failed (${response.status}). Please try again.`);
+      }
 
       if (!response.ok) {
-        const msg = data.errors?.[0]?.msg || data.error || data.message || 'Failed to submit payment';
+        const errors = data.errors as Array<{ msg?: string }> | undefined;
+        const msg =
+          (errors && errors[0]?.msg) ||
+          (data.error as string) ||
+          (data.message as string) ||
+          'Failed to submit payment';
         throw new Error(msg);
       }
 
@@ -257,7 +339,8 @@ export default function PaymentPage() {
       setScreenshotPreview(null);
 
       setTimeout(() => {
-        router.push(`/payment-pending?package=${encodeURIComponent(packageName)}&amount=${displayAmount}`);
+        const q = isMonthlyFeeFlow ? `from=monthly-fee&amount=${displayAmount}` : `package=${encodeURIComponent(packageName)}&amount=${displayAmount}`;
+        router.push(`/payment-pending?${q}`);
       }, 1500);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to submit payment. Please try again.';
@@ -288,6 +371,43 @@ export default function PaymentPage() {
     }
   };
 
+  if (isMonthlyFeeFlow && !paymentId) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <p className="text-sm text-gray-600 dark:text-gray-400">Returning to monthly fee…</p>
+      </div>
+    );
+  }
+
+  if (isMonthlyFeeFlow && paymentId && loadingPaymentDoc) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
+        <div className="text-gray-600 dark:text-gray-300 text-sm">Loading payment…</div>
+      </div>
+    );
+  }
+
+  if (isMonthlyFeeFlow && paymentId && !loadingPaymentDoc && !loadedPayment) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4 py-12">
+        <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
+          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Payment could not be opened</h2>
+          <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            {error || 'This payment link is invalid or you do not have access.'}
+          </p>
+          <Link
+            href="/monthly-fee"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-lg bg-violet-600 text-white text-sm font-medium hover:bg-violet-700"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to monthly fee
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (paymentStatus === 'completed') {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
@@ -312,7 +432,7 @@ export default function PaymentPage() {
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <Link 
-            href="/select-package"
+            href={isMonthlyFeeFlow ? '/monthly-fee' : '/select-package'}
             className="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors text-sm"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -326,15 +446,17 @@ export default function PaymentPage() {
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
-              Complete Payment
+              {isMonthlyFeeFlow ? 'Monthly fee payment' : 'Complete Payment'}
             </h1>
             <p className="text-gray-600 dark:text-gray-400 text-sm">
-              Send USDT to the address below to activate your account
+              {isMonthlyFeeFlow
+                ? 'Send USDT using the same steps as your signup payment. After admin confirms, your access is restored.'
+                : 'Send USDT to the address below to activate your account'}
             </p>
           </div>
 
-          {/* Package Info */}
-          {packageName && (
+          {/* Package Info (signup flow only) */}
+          {!isMonthlyFeeFlow && packageName && (
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-6 border border-gray-200 dark:border-gray-600">
               <div className="flex justify-between items-center mb-4">
                 <div>
@@ -419,17 +541,44 @@ export default function PaymentPage() {
             </div>
           )}
 
+          {isMonthlyFeeFlow && loadedPayment && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 rounded-lg p-4 mb-6 border border-amber-200 dark:border-amber-800">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-xs text-amber-800 dark:text-amber-200 mb-1">Payment type</p>
+                  <p className="text-base font-semibold text-gray-900 dark:text-white">Monthly fee</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-amber-800 dark:text-amber-200 mb-1">Amount</p>
+                  <p className="text-base font-semibold text-gray-900 dark:text-white">
+                    ${Number(loadedPayment.finalAmount ?? loadedPayment.amount ?? 0).toFixed(2)} USDT
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {isMonthlyFeeFlow && (
+            <div className="mb-4 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-800 px-4 py-3">
+              <p className="text-sm font-semibold text-violet-900 dark:text-violet-100">Step 1 — Send USDT</p>
+              <p className="text-xs text-violet-800/90 dark:text-violet-200/90 mt-1">
+                Scan the QR code or copy the wallet address below. Use the <strong>TRC20</strong> network only and send
+                exactly <strong>${displayAmount.toFixed(2)} USDT</strong> for this monthly fee.
+              </p>
+            </div>
+          )}
+
           {/* QR Code */}
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-              Wallet Address
+              Wallet address
             </label>
             <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 flex items-center justify-between border border-gray-200 dark:border-gray-600">
               <code className="text-sm text-gray-900 dark:text-white font-mono break-all flex-1 mr-3">
-                {BINANCE_WALLET_ADDRESS}
+                {walletAddressForQr}
               </code>
               <button
-                onClick={() => copyToClipboard(BINANCE_WALLET_ADDRESS)}
+                onClick={() => copyToClipboard(walletAddressForQr)}
                 className="flex-shrink-0 p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 transition-colors rounded"
                 title="Copy address"
               >
@@ -453,7 +602,12 @@ export default function PaymentPage() {
               </div>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-3 text-center">
-              Network: <span className="font-medium">Tron (TRC20)</span>
+              Network:{' '}
+              <span className="font-medium">
+                {isMonthlyFeeFlow && loadedPayment?.binanceWallet?.network
+                  ? loadedPayment.binanceWallet.network
+                  : NETWORK}
+              </span>
             </p>
           </div>
 
@@ -466,11 +620,26 @@ export default function PaymentPage() {
                 <ul className="space-y-1 text-xs">
                   <li>• Use <strong>TRC20</strong> network only</li>
                   <li>• Send exactly <strong>${displayAmount.toFixed(2)} USDT</strong></li>
-                  <li>• Your account will be activated after admin verification</li>
+                  <li>
+                    •{' '}
+                    {isMonthlyFeeFlow
+                      ? 'After you submit hash + screenshot below, an admin verifies your payment and restores your access.'
+                      : 'Your account will be activated after admin verification'}
+                  </li>
                 </ul>
               </div>
             </div>
           </div>
+
+          {isMonthlyFeeFlow && (
+            <div className="mb-4 rounded-xl bg-slate-50 dark:bg-slate-900/40 border border-slate-200 dark:border-slate-700 px-4 py-3">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">Step 2 — Submit proof for admin</p>
+              <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                Enter your transaction hash from the wallet, your name and email, upload a clear screenshot of the
+                transfer, then press submit. Admins are notified automatically to verify your monthly fee.
+              </p>
+            </div>
+          )}
 
           {/* Transaction ID Input */}
           <div className="mb-6">
@@ -577,7 +746,7 @@ export default function PaymentPage() {
             disabled={isSubmitting || paymentStatus === 'pending' || !transactionId.trim() || transactionId.trim().length < MIN_TRANSACTION_ID_LENGTH || !payerName.trim() || !payerEmail.trim() || !screenshotFile}
             className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmitting ? 'Submitting...' : 'Submit Payment'}
+            {isSubmitting ? 'Submitting…' : isMonthlyFeeFlow ? 'Submit to admin for verification' : 'Submit Payment'}
           </button>
 
           {/* Status Message */}

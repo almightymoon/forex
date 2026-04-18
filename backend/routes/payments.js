@@ -1,4 +1,5 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
@@ -7,6 +8,11 @@ const Payment = require('../models/Payment');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const PaymentProcessor = require('../services/paymentProcessor');
 const Package = require('../models/Package');
+const {
+  resolvePackageFromPayment,
+  getMonthlyFeeStatusForUser,
+  feeMonthCoveredForPaymentDate
+} = require('../utils/monthlyFeeStatus');
 const { uploadImage } = require('../config/cloudinary');
 const { logActivity } = require('../services/activityLogService');
 
@@ -59,6 +65,140 @@ router.get('/user', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Get user payments error:', error);
     res.status(500).json({ error: 'Failed to fetch payments' });
+  }
+});
+
+// @route   GET /api/payments/monthly-fee
+// @desc    Student: monthly fee policy snapshot + history + current pending (if any)
+// @access  Private — keep before GET /:id so "monthly-fee" is never parsed as an id
+router.get('/monthly-fee', authenticateToken, async (req, res) => {
+  try {
+    const policy = await getMonthlyFeeStatusForUser(req.user._id);
+    const userId = req.user._id;
+
+    const [entriesRaw, pendingPayment] = await Promise.all([
+      Payment.find({ user: userId, type: 'monthly_fee' }).sort({ createdAt: -1 }).limit(100).lean(),
+      Payment.findOne({ user: userId, status: 'pending', type: 'monthly_fee' }).sort({ createdAt: -1 }).lean()
+    ]);
+
+    const entries = entriesRaw.map((p) => {
+      const { feeForMonthStart, feeForMonthLabel } = feeMonthCoveredForPaymentDate(p.createdAt);
+      return {
+        paymentId: p._id,
+        status: p.status,
+        amount: p.finalAmount ?? p.amount,
+        currency: p.currency || 'USD',
+        createdAt: p.createdAt,
+        feeForMonthStart,
+        feeForMonthLabel,
+        transactionId: p.transactionId || null,
+        paymentScreenshotUrl: p.paymentScreenshotUrl || null,
+        adminConfirmed: !!p.adminConfirmed
+      };
+    });
+
+    const pendingRows = entries.filter((e) => e.status === 'pending');
+
+    let dueMonthLabel = null;
+    if (policy.dueForMonth) {
+      dueMonthLabel = new Intl.DateTimeFormat('en-US', {
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC'
+      }).format(new Date(policy.dueForMonth));
+    }
+
+    let cycleObligation = 'not_applicable';
+    const feePortalApplies =
+      policy.applies && (policy.monthlyFeeEnabled !== false || policy.adminImposedAccessBlock);
+    if (feePortalApplies) {
+      if (policy.paidForCurrentCycle) {
+        cycleObligation = 'paid';
+      } else if (pendingPayment?.paymentScreenshotUrl) {
+        cycleObligation = 'awaiting_admin';
+      } else if (pendingPayment) {
+        cycleObligation = 'portal_open';
+      } else if (policy.withinFullFreeWindow || policy.requiredMonthWaived) {
+        cycleObligation = 'waived_or_free_window';
+      } else {
+        cycleObligation = 'payment_needed';
+      }
+    }
+
+    const cycleSummary = {
+      dueMonthIso: policy.dueForMonth || null,
+      dueMonthLabel,
+      amountUsd: typeof policy.monthlyFeeAmount === 'number' ? policy.monthlyFeeAmount : null,
+      graceDays: policy.graceDays,
+      withinGracePeriod: !!policy.withinGracePeriod,
+      withinFullFreeWindow: !!policy.withinFullFreeWindow,
+      requiredMonthWaived: !!policy.requiredMonthWaived,
+      daysOverdue: policy.daysOverdue || 0,
+      isAccessBlocked: !!(policy.isAccessBlocked || policy.adminImposedAccessBlock),
+      paidForCurrentCycle: !!policy.paidForCurrentCycle,
+      obligation: cycleObligation,
+      pendingPaymentCount: pendingRows.length
+    };
+
+    res.json({ policy, entries, pendingPayment, cycleSummary, pendingRows });
+  } catch (error) {
+    console.error('Get student monthly fee summary error:', error);
+    res.status(500).json({ error: 'Failed to load monthly fee information' });
+  }
+});
+
+// @route   GET /api/payments/methods
+// @desc    Get available payment methods
+// @access  Public — must be before GET /:id
+router.get('/methods', async (req, res) => {
+  try {
+    const methods = [
+      {
+        id: 'stripe',
+        name: 'Credit/Debit Card',
+        description: 'Pay with Visa, Mastercard, or American Express',
+        icon: 'credit-card',
+        enabled: true,
+        currencies: ['USD', 'EUR', 'GBP', 'PKR']
+      },
+      {
+        id: 'jazzcash',
+        name: 'JazzCash',
+        description: 'Pay using JazzCash mobile wallet',
+        icon: 'mobile',
+        enabled: true,
+        currencies: ['PKR']
+      },
+      {
+        id: 'easypaisa',
+        name: 'EasyPaisa',
+        description: 'Pay using EasyPaisa mobile wallet',
+        icon: 'mobile',
+        enabled: true,
+        currencies: ['PKR']
+      }
+    ];
+
+    res.json({
+      success: true,
+      methods: methods.filter((method) => method.enabled)
+    });
+  } catch (error) {
+    console.error('Get payment methods error:', error);
+    res.status(500).json({ error: 'Failed to fetch payment methods' });
+  }
+});
+
+// @route   GET /api/payments/stats/summary
+// @desc    Get payment statistics (admin only)
+// @access  Private/Admin — must be before GET /:id
+router.get('/stats/summary', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const stats = await Payment.getStatistics();
+    res.json(stats);
+  } catch (error) {
+    console.error('Get stats error:', error);
+    res.status(500).json({ error: 'Failed to fetch statistics' });
   }
 });
 
@@ -254,7 +394,6 @@ router.post('/monthly-fee', authenticateToken, async (req, res) => {
   try {
     const User = require('../models/User');
     const notificationService = require('../services/notificationService');
-    const Package = require('../models/Package');
 
     const Payment = require('../models/Payment');
     const completedPackagePayment = await Payment.findOne({
@@ -271,8 +410,8 @@ router.post('/monthly-fee', authenticateToken, async (req, res) => {
       });
     }
 
-    const pkgName = completedPackagePayment.package?.name || '';
-    const pkg = pkgName ? await Package.findOne({ name: pkgName }).lean() : null;
+    const pkg = await resolvePackageFromPayment(completedPackagePayment);
+    const pkgName = (completedPackagePayment.package?.name || '').trim() || pkg?.name || '';
     if (!pkg || !pkg.monthlyFeeEnabled) {
       return res.status(400).json({
         error: 'Monthly fee not applicable',
@@ -372,7 +511,11 @@ router.post('/:id/submit-payment', authenticateToken, (req, res, next) => {
     if (!payment) {
       return res.status(404).json({ error: 'Payment not found' });
     }
-    if (payment.user.toString() !== req.user._id.toString()) {
+    const submitOwnerRaw = payment.user && typeof payment.user === 'object' && payment.user._id != null
+      ? payment.user._id
+      : payment.user;
+    const submitOwnerStr = submitOwnerRaw != null ? String(submitOwnerRaw) : '';
+    if (submitOwnerStr !== String(req.user._id)) {
       return res.status(403).json({ error: 'Access denied' });
     }
     if (payment.status === 'completed') {
@@ -447,18 +590,26 @@ router.post('/:id/submit-payment', authenticateToken, (req, res, next) => {
 // @access  Private
 router.get('/:id', authenticateToken, async (req, res) => {
   try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+
     const payment = await Payment.findById(req.params.id)
       .populate('user', 'firstName lastName email');
     
     if (!payment) {
       return res.status(404).json({ error: 'Payment not found' });
     }
-    
-    // Check if user owns the payment or is admin
-    if (payment.user._id.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
+
+    const ownerIdRaw = payment.user && typeof payment.user === 'object' && payment.user._id != null
+      ? payment.user._id
+      : payment.user;
+    const ownerStr = ownerIdRaw != null ? String(ownerIdRaw) : '';
+
+    if (ownerStr !== String(req.user._id) && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
-    
+
     res.json({ payment });
   } catch (error) {
     console.error('Get payment error:', error);
@@ -801,62 +952,6 @@ router.post('/easypaisa/webhook', async (req, res) => {
   }
 });
 
-// @route   GET /api/payments/methods
-// @desc    Get available payment methods
-// @access  Public
-router.get('/methods', async (req, res) => {
-  try {
-    const methods = [
-      {
-        id: 'stripe',
-        name: 'Credit/Debit Card',
-        description: 'Pay with Visa, Mastercard, or American Express',
-        icon: 'credit-card',
-        enabled: true,
-        currencies: ['USD', 'EUR', 'GBP', 'PKR']
-      },
-      {
-        id: 'jazzcash',
-        name: 'JazzCash',
-        description: 'Pay using JazzCash mobile wallet',
-        icon: 'mobile',
-        enabled: true,
-        currencies: ['PKR']
-      },
-      {
-        id: 'easypaisa',
-        name: 'EasyPaisa',
-        description: 'Pay using EasyPaisa mobile wallet',
-        icon: 'mobile',
-        enabled: true,
-        currencies: ['PKR']
-      }
-    ];
-
-    res.json({
-      success: true,
-      methods: methods.filter(method => method.enabled)
-    });
-
-  } catch (error) {
-    console.error('Get payment methods error:', error);
-    res.status(500).json({ error: 'Failed to fetch payment methods' });
-  }
-});
-
-// @route   GET /api/payments/stats/summary
-// @desc    Get payment statistics (admin only)
-// @access  Private/Admin
-router.get('/stats/summary', authenticateToken, requireAdmin, async (req, res) => {
-  try {
-    const stats = await Payment.getStatistics();
-    res.json(stats);
-  } catch (error) {
-    console.error('Get stats error:', error);
-    res.status(500).json({ error: 'Failed to fetch statistics' });
-  }
-});
-
 // @route   POST /api/payments/admin/confirm
 // @desc    Admin confirms Binance wallet payment (admin only)
 // @access  Private/Admin
@@ -896,9 +991,9 @@ router.post('/admin/confirm', [
     }
     await payment.save();
 
-    // Update user verification
+    // Load user (and only verify on initial package purchase)
     const user = await User.findById(payment.user._id);
-    if (user) {
+    if (user && payment.type === 'package') {
       user.isVerified = true;
       await user.save();
     }
@@ -1000,16 +1095,18 @@ router.post('/admin/confirm', [
         amount: payment.finalAmount,
         finalAmount: payment.finalAmount,
         currency: payment.currency || 'USD',
-        packageName: payment.package?.name || 'Premium Package',
+        packageName: payment.type === 'monthly_fee' ? 'Monthly Fee' : (payment.package?.name || 'Premium Package'),
         transactionId: payment.transactionId || payment._id.toString(),
         date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
         paymentId: payment._id
       });
 
       // Also send account verified email
-      await notificationService.sendNotificationToUser(user._id, 'account_verified', {
-        packageName: payment.package?.name || 'Premium Package'
-      });
+      if (payment.type === 'package') {
+        await notificationService.sendNotificationToUser(user._id, 'account_verified', {
+          packageName: payment.package?.name || 'Premium Package'
+        });
+      }
     } catch (emailError) {
       console.error('Error sending payment confirmation notification:', emailError);
       // Don't fail the request if notification fails

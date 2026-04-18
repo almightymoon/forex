@@ -283,7 +283,13 @@ app.post('/api/payments/:id/submit-payment', checkSessionTimeout, (req, res, nex
 app.use('/api/payments', checkSessionTimeout, paymentRoutes);
 
 // Package perks routes - allow access to check perks (requires auth but not package)
-app.use('/api/package-perks', checkSessionTimeout, authenticateToken, packagePerksRoutes);
+app.use(
+  '/api/package-perks',
+  checkSessionTimeout,
+  authenticateToken,
+  requirePackageSubscription,
+  packagePerksRoutes
+);
 
 // Public course routes - allow viewing available courses without package subscription
 const Course = require('./models/Course');
@@ -600,7 +606,13 @@ app.use('/api/upload', checkSessionTimeout, authenticateToken, requirePackageSub
 app.use('/api/mt5', checkSessionTimeout, authenticateToken, requirePackageSubscription, mt5Routes);
 app.use('/api/referrals', checkSessionTimeout, authenticateToken, requirePackageSubscription, referralRoutes);
 // Withdrawals routes - admin routes don't need package subscription
-app.use('/api/withdrawals', checkSessionTimeout, authenticateToken, withdrawalRoutes);
+app.use(
+  '/api/withdrawals',
+  checkSessionTimeout,
+  authenticateToken,
+  requirePackageSubscription,
+  withdrawalRoutes
+);
 app.use('/api/trades', checkSessionTimeout, authenticateToken, requirePackageSubscription, tradeRoutes);
 
 // Health check endpoint

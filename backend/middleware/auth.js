@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { resolvePackageFromPayment } = require('../utils/monthlyFeeStatus');
 
 // Middleware to verify JWT token
 const authenticateToken = async (req, res, next) => {
@@ -439,8 +440,7 @@ const requirePackageSubscription = async (req, res, next) => {
     }
 
     const Payment = require('../models/Payment');
-    const Package = require('../models/Package');
-    
+
     // Check if user has a completed package payment
     const completedPackagePayment = await Payment.findOne({
       user: req.user._id,
@@ -449,11 +449,42 @@ const requirePackageSubscription = async (req, res, next) => {
     }).sort({ createdAt: -1 });
 
     if (completedPackagePayment) {
-      // Enforce monthly fee policy based on package tier + purchase date.
-      const pkgName = completedPackagePayment.package?.name || '';
-      const pkg = pkgName ? await Package.findOne({ name: pkgName }).lean() : null;
+      const now = new Date();
+      const currentMonthStart = startOfUtcMonth(now);
+      const requiredMonthStart = addUtcMonths(currentMonthStart, -1);
+      const requiredMonthEnd = currentMonthStart;
 
-      // If package config missing, fail open (don't lock users out)
+      const pkg = await resolvePackageFromPayment(completedPackagePayment);
+      const defaultFeeAmount = pkg ? Number(pkg.monthlyFeeAmount ?? 50) : 50;
+
+      // Admin-imposed pending fee with "block until paid" must run BEFORE the
+      // `!monthlyFeeEnabled` shortcut — otherwise FX Legacy / no-fee tiers never hit this check.
+      const adminBlockingPending = await Payment.findOne({
+        user: req.user._id,
+        type: 'monthly_fee',
+        status: 'pending',
+        'metadata.accessBlockedUntilPaid': '1'
+      })
+        .sort({ createdAt: -1 })
+        .lean();
+
+      if (adminBlockingPending) {
+        const amt = Number(
+          adminBlockingPending.finalAmount ?? adminBlockingPending.amount ?? defaultFeeAmount
+        );
+        return res.status(403).json({
+          error: 'Monthly fee required',
+          message:
+            'Your administrator requires a monthly fee payment before you can continue. Please complete it on the Monthly fee page.',
+          code: 'MONTHLY_FEE_REQUIRED',
+          redirectTo: '/monthly-fee',
+          amount: amt,
+          dueForMonth: requiredMonthStart.toISOString(),
+          adminImposed: true
+        });
+      }
+
+      // If package config missing, fail open (don't lock users out) — except admin block above.
       if (!pkg) return next();
 
       const monthlyFeeEnabled = !!pkg.monthlyFeeEnabled;
@@ -461,22 +492,19 @@ const requirePackageSubscription = async (req, res, next) => {
       const graceDays = Number(pkg.monthlyFeeGraceDays ?? 3);
       const feeAmount = Number(pkg.monthlyFeeAmount ?? 50);
 
-      // Lifetime / no-fee packages
+      // Lifetime / no-fee packages (no recurring policy — admin one-off charges handled above)
       if (!monthlyFeeEnabled) return next();
 
       // Within free period after package purchase? (e.g. 6 months free)
       const purchasedAt = completedPackagePayment.createdAt ? new Date(completedPackagePayment.createdAt) : new Date();
       const freeUntil = addUtcMonths(startOfUtcMonth(purchasedAt), freeMonths);
-      const now = new Date();
       if (now < freeUntil) return next();
 
-      // Determine fee period we require:
-      // If today's UTC date <= graceDays, allow access if last month's fee is paid.
-      // Otherwise require current month's fee.
-      const currentMonthStart = startOfUtcMonth(now);
-      const requiresPreviousMonth = now.getUTCDate() <= graceDays;
-      const requiredMonthStart = requiresPreviousMonth ? addUtcMonths(currentMonthStart, -1) : currentMonthStart;
-      const requiredMonthEnd = addUtcMonths(requiredMonthStart, 1);
+      // If the required month falls inside the free period window, no fee required yet.
+      if (requiredMonthStart < freeUntil) return next();
+
+      // Still within grace days: don't block (but user can pay anytime).
+      if (now.getUTCDate() <= graceDays) return next();
 
       const paidFee = await Payment.findOne({
         user: req.user._id,

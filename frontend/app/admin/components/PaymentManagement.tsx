@@ -76,6 +76,7 @@ export default function PaymentManagement({
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
   const [withdrawalStatusFilter, setWithdrawalStatusFilter] = useState('all');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState<'all' | 'package' | 'monthly_fee'>('all');
   const [newBalance, setNewBalance] = useState('');
   const [balanceReason, setBalanceReason] = useState('');
   const [isUpdatingBalance, setIsUpdatingBalance] = useState(false);
@@ -127,8 +128,9 @@ export default function PaymentManagement({
     
     const matchesStatus = paymentStatusFilter === 'all' || payment.status === paymentStatusFilter;
     const matchesMethod = paymentMethodFilter === 'all' || payment.paymentMethod === paymentMethodFilter;
+    const matchesType = paymentTypeFilter === 'all' || (payment as any).type === paymentTypeFilter;
 
-    return matchesSearch && matchesStatus && matchesMethod;
+    return matchesSearch && matchesStatus && matchesMethod && matchesType;
   });
 
   // Filter withdrawals (exclude deleted ones immediately)
@@ -636,6 +638,16 @@ export default function PaymentManagement({
                 <option value="pending">Pending</option>
                 <option value="failed">Failed</option>
                 <option value="binance_wallet">Binance Wallet</option>
+              </select>
+
+              <select
+                value={paymentTypeFilter}
+                onChange={(e) => setPaymentTypeFilter(e.target.value as any)}
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              >
+                <option value="all">All Types</option>
+                <option value="package">Package</option>
+                <option value="monthly_fee">Monthly Fee</option>
               </select>
               
               <select

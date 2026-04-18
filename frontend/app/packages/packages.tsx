@@ -235,63 +235,65 @@ export default function Packages() {
                   w-[320px] sm:w-[360px] md:w-[380px]
                 `}
               >
-                {/* Image Section with zoom on hover */}
-                <div className="relative h-56 w-full overflow-hidden rounded-t-3xl group">
-                  <Image
-                    src={pkg.image || "/pkg1.jpg"}
-                    alt={pkg.name}
-                    fill
-                    className="object-cover transition-transform duration-500 group-hover:scale-110"
-                    priority
-                  />
-                  <div
-                    className={`absolute inset-0 bg-gradient-to-br ${accent.gradientFrom} ${accent.gradientVia} to-transparent`}
-                  />
-                </div>
-
-                {/* Content */}
-                <div className="relative p-8">
-                  {/* Badge */}
-                  {pkg.badge && (
-                    <span
-                      className={`inline-block mb-3 px-3 py-1 text-xs font-semibold rounded-full backdrop-blur ${accent.bg} ${accent.text} ${accent.darkBg} ${accent.darkText}`}
-                    >
-                      {pkg.badge}
-                    </span>
-                  )}
-
-                  <h3 className="text-2xl font-bold dark:text-white text-gray-900 leading-tight">
-                    {pkg.name}
-                  </h3>
-
-                  <p className="text-sm dark:text-gray-300 text-gray-700 mb-4">{pkg.subtitle}</p>
-
-                  <div className="text-5xl font-extrabold text-slate-600 mb-6 dark:text-white">
-                    ${Number(pkg.price || 0).toFixed(0)}
+                <div className="flex flex-col h-full">
+                  {/* Image Section with zoom on hover */}
+                  <div className="relative h-56 w-full overflow-hidden rounded-t-3xl group flex-shrink-0">
+                    <Image
+                      src={pkg.image || "/pkg1.jpg"}
+                      alt={pkg.name}
+                      fill
+                      className="object-cover transition-transform duration-500 group-hover:scale-110"
+                      priority
+                    />
+                    <div
+                      className={`absolute inset-0 bg-gradient-to-br ${accent.gradientFrom} ${accent.gradientVia} to-transparent`}
+                    />
                   </div>
 
-                  <ul className="space-y-3 mb-8">
-                    {pkg.features.map((feature, idx) => (
-                      <li
-                        key={idx}
-                        className="flex items-center gap-3 text-slate-600 dark:text-gray-300"
+                  {/* Content */}
+                  <div className="relative p-8 flex-1 flex flex-col">
+                    {/* Badge */}
+                    {pkg.badge && (
+                      <span
+                        className={`inline-block mb-3 px-3 py-1 text-xs font-semibold rounded-full backdrop-blur ${accent.bg} ${accent.text} ${accent.darkBg} ${accent.darkText}`}
                       >
-                        <Check className="w-5 h-5 text-green-500" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
+                        {pkg.badge}
+                      </span>
+                    )}
 
-                  <button
-                    onClick={() => router.push("/register")}
-                    className={`
-                      w-full py-3 rounded-xl font-semibold
-                      ${accent.button}
-                      text-white transition-transform transform hover:scale-105
-                    `}
-                  >
-                    Get Started
-                  </button>
+                    <h3 className="text-2xl font-bold dark:text-white text-gray-900 leading-tight">
+                      {pkg.name}
+                    </h3>
+
+                    <p className="text-sm dark:text-gray-300 text-gray-700 mb-4">{pkg.subtitle}</p>
+
+                    <div className="text-5xl font-extrabold text-slate-600 mb-6 dark:text-white">
+                      ${Number(pkg.price || 0).toFixed(0)}
+                    </div>
+
+                    <ul className="space-y-3 mb-8 flex-1">
+                      {pkg.features.map((feature, idx) => (
+                        <li
+                          key={idx}
+                          className="flex items-center gap-3 text-slate-600 dark:text-gray-300"
+                        >
+                          <Check className="w-5 h-5 text-green-500 flex-shrink-0" />
+                          <span className="leading-snug">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <button
+                      onClick={() => router.push("/register")}
+                      className={`
+                        w-full py-3 rounded-xl font-semibold mt-auto
+                        ${accent.button}
+                        text-white transition-transform transform hover:scale-105
+                      `}
+                    >
+                      Get Started
+                    </button>
+                  </div>
                 </div>
               </div>
             );
