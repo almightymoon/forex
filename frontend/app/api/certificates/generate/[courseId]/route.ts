@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { courseId: string } }
+  { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
     const token = request.headers.get('authorization');
@@ -16,7 +16,7 @@ export async function POST(
       return NextResponse.json({ error: 'Authorization token required' }, { status: 401 });
     }
 
-    const { courseId } = params;
+    const { courseId } = await params;
 
     const response = await fetch(`${BACKEND_URL}/api/certificates/generate/${courseId}`, {
       method: 'POST',

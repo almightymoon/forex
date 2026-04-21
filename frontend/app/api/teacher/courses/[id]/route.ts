@@ -3,10 +3,11 @@ import jwt from 'jsonwebtoken';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log(`GET /api/teacher/courses/${params.id} - Request received`);
+    const { id } = await params;
+    console.log(`GET /api/teacher/courses/${id} - Request received`);
     
     // Verify authentication
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -31,8 +32,8 @@ export async function GET(
     // Check if backend is accessible
     const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
     const backendUrl = BACKEND_URL.includes('/api') 
-      ? `${BACKEND_URL}/teacher/courses/${params.id}`
-      : `${BACKEND_URL}/api/teacher/courses/${params.id}`;
+      ? `${BACKEND_URL}/teacher/courses/${id}`
+      : `${BACKEND_URL}/api/teacher/courses/${id}`;
     
     // Proxy to your actual backend
     const backendResponse = await fetch(backendUrl, {
@@ -65,10 +66,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log(`PUT /api/teacher/courses/${params.id} - Request received`);
+    const { id } = await params;
+    console.log(`PUT /api/teacher/courses/${id} - Request received`);
     
     // Verify authentication
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -100,8 +102,8 @@ export async function PUT(
     // Check if backend is accessible
     const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
     const backendUrl = BACKEND_URL.includes('/api') 
-      ? `${BACKEND_URL}/teacher/courses/${params.id}`
-      : `${BACKEND_URL}/api/teacher/courses/${params.id}`;
+      ? `${BACKEND_URL}/teacher/courses/${id}`
+      : `${BACKEND_URL}/api/teacher/courses/${id}`;
     
     console.log(`Attempting to connect to backend at ${backendUrl}`);
     
@@ -141,14 +143,15 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Get query parameters from the request URL
     const { searchParams } = new URL(request.url);
     const forceDelete = searchParams.get('forceDelete');
     
-    console.log(`DELETE /api/teacher/courses/${params.id} - Request received, forceDelete: ${forceDelete}`);
+    console.log(`DELETE /api/teacher/courses/${id} - Request received, forceDelete: ${forceDelete}`);
     
     // Verify authentication
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -177,8 +180,8 @@ export async function DELETE(
     // Check if backend is accessible
     const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:4000';
     let backendUrl = BACKEND_URL.includes('/api') 
-      ? `${BACKEND_URL}/teacher/courses/${params.id}`
-      : `${BACKEND_URL}/api/teacher/courses/${params.id}`;
+      ? `${BACKEND_URL}/teacher/courses/${id}`
+      : `${BACKEND_URL}/api/teacher/courses/${id}`;
     
     // Forward query parameters
     if (forceDelete) {

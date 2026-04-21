@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log(`POST /api/courses/${params.id}/enroll - Request received`);
+    const { id } = await params;
+    console.log(`POST /api/courses/${id}/enroll - Request received`);
     
     // Get authorization token
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -30,8 +31,8 @@ export async function POST(
     // Build backend URL
     const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
     const backendUrl = BACKEND_URL.includes('/api') 
-      ? `${BACKEND_URL}/courses/${params.id}/enroll`
-      : `${BACKEND_URL}/api/courses/${params.id}/enroll`;
+      ? `${BACKEND_URL}/courses/${id}/enroll`
+      : `${BACKEND_URL}/api/courses/${id}/enroll`;
     
     console.log('Fetching from backend:', backendUrl);
     

@@ -4,10 +4,10 @@ const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const channelId = params.id;
+    const { id: channelId } = await params;
     const backendUrl = `${BACKEND_URL}/api/community/channels/${channelId}`;
     
     console.log(`Community channel delete API: DELETE ${backendUrl}`);

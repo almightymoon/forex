@@ -4,10 +4,10 @@ const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const channelId = params.id;
+    const { id: channelId } = await params;
     const backendUrl = `${BACKEND_URL}/api/community/channels/${channelId}/messages`;
     
     console.log(`Community messages API: GET ${backendUrl}`);
@@ -56,10 +56,10 @@ export async function GET(
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const channelId = params.id;
+    const { id: channelId } = await params;
     const backendUrl = `${BACKEND_URL}/api/community/channels/${channelId}/messages`;
     
     console.log(`Community messages API: POST ${backendUrl}`);

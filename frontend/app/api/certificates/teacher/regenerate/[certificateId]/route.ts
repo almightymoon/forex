@@ -4,7 +4,7 @@ const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { certificateId: string } }
+  { params }: { params: Promise<{ certificateId: string }> }
 ) {
   try {
     const token = request.headers.get('authorization');
@@ -13,7 +13,8 @@ export async function POST(
       return NextResponse.json({ error: 'No authorization token' }, { status: 401 });
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/certificates/regenerate/${params.certificateId}`, {
+    const { certificateId } = await params;
+    const response = await fetch(`${BACKEND_URL}/api/certificates/regenerate/${certificateId}`, {
       method: 'POST',
       headers: {
         'Authorization': token,

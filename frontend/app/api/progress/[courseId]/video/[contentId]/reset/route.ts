@@ -4,10 +4,11 @@ const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { courseId: string; contentId: string } }
+  { params }: { params: Promise<{ courseId: string; contentId: string }> }
 ) {
   try {
-    console.log(`DELETE /api/progress/${params.courseId}/video/${params.contentId}/reset - Request received`);
+    const { courseId, contentId } = await params;
+    console.log(`DELETE /api/progress/${courseId}/video/${contentId}/reset - Request received`);
     
     // Get authorization token
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -18,7 +19,7 @@ export async function DELETE(
     console.log('Token received, length:', token.length);
     
     // Proxy to backend
-    const backendResponse = await fetch(`${BACKEND_URL}/api/progress/${params.courseId}/video/${params.contentId}/reset`, {
+    const backendResponse = await fetch(`${BACKEND_URL}/api/progress/${courseId}/video/${contentId}/reset`, {
       method: 'DELETE',
       headers: {
         'Authorization': `Bearer ${token}`,

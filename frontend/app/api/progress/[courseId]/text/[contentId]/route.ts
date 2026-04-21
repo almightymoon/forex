@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { courseId: string; contentId: string } }
+  { params }: { params: Promise<{ courseId: string; contentId: string }> }
 ) {
   try {
-    const { courseId, contentId } = params;
+    const { courseId, contentId } = await params;
     const token = request.headers.get('authorization');
     
     if (!token) {

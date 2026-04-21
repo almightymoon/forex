@@ -4,10 +4,11 @@ const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log(`GET /api/courses/${params.id}/progress - Request received`);
+    const { id } = await params;
+    console.log(`GET /api/courses/${id}/progress - Request received`);
     
     // Get authorization token
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -18,7 +19,7 @@ export async function GET(
     console.log('Token received, length:', token.length);
     
     // Proxy to backend
-    const backendResponse = await fetch(`${BACKEND_URL}/api/courses/${params.id}/progress`, {
+    const backendResponse = await fetch(`${BACKEND_URL}/api/courses/${id}/progress`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -58,10 +59,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log(`PUT /api/courses/${params.id}/progress - Request received`);
+    const { id } = await params;
+    console.log(`PUT /api/courses/${id}/progress - Request received`);
     
     // Get authorization token
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -75,7 +77,7 @@ export async function PUT(
     const body = await request.json();
     
     // Proxy to backend
-    const backendResponse = await fetch(`${BACKEND_URL}/api/courses/${params.id}/progress`, {
+    const backendResponse = await fetch(`${BACKEND_URL}/api/courses/${id}/progress`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,

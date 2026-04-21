@@ -37,8 +37,9 @@ export async function GET(request: NextRequest) {
   try {
     console.log('GET /api/courses - Request received');
     
-    // Get client IP for rate limiting
-    const ip = request.ip || request.headers.get('x-forwarded-for') || 'unknown';
+    // Get client IP for rate limiting (NextRequest has no `ip` in Next 15)
+    const forwarded = request.headers.get('x-forwarded-for') || '';
+    const ip = forwarded.split(',')[0]?.trim() || 'unknown';
     
     // Check rate limiting
     if (isRateLimited(ip)) {

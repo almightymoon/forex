@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/teacher/messages/${params.id}/send`, {
+    const { id } = await params;
+    const response = await fetch(`${process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || ''}/api/teacher/messages/${id}/send`, {
       method: 'POST',
       headers: {
         'Authorization': request.headers.get('Authorization') || '',

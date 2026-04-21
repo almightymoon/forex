@@ -7,12 +7,13 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    console.log('GET /api/courses/[id] - Request received for course ID:', params.id);
+    const { id } = await params;
+    console.log('GET /api/courses/[id] - Request received for course ID:', id);
     
-    if (!params.id) {
+    if (!id) {
       return NextResponse.json(
         { error: 'Course ID is required' },
         { status: 400 }
@@ -20,7 +21,7 @@ export async function GET(
     }
     
     // Build backend URL
-    const backendUrl = `${BACKEND_URL}/api/courses/${params.id}`;
+    const backendUrl = `${BACKEND_URL}/api/courses/${id}`;
     
     console.log('Fetching from backend:', backendUrl);
     

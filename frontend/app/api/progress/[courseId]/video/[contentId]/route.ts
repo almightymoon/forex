@@ -4,10 +4,11 @@ const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { courseId: string; contentId: string } }
+  { params }: { params: Promise<{ courseId: string; contentId: string }> }
 ) {
   try {
-    console.log(`PUT /api/progress/${params.courseId}/video/${params.contentId} - Request received`);
+    const { courseId, contentId } = await params;
+    console.log(`PUT /api/progress/${courseId}/video/${contentId} - Request received`);
     
     // Get authorization token
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -21,7 +22,7 @@ export async function PUT(
     const body = await request.json();
     
     // Proxy to backend
-    const backendResponse = await fetch(`${BACKEND_URL}/api/progress/${params.courseId}/video/${params.contentId}`, {
+    const backendResponse = await fetch(`${BACKEND_URL}/api/progress/${courseId}/video/${contentId}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,

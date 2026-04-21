@@ -3,41 +3,41 @@ import { proxyToBackendApi } from '@/lib/apiBackendProxy';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> | { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const resolvedParams = await Promise.resolve(params);
+  const resolvedParams = await params;
   return handleRequest(request, resolvedParams, 'GET');
 }
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> | { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const resolvedParams = await Promise.resolve(params);
+  const resolvedParams = await params;
   return handleRequest(request, resolvedParams, 'POST');
 }
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> | { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const resolvedParams = await Promise.resolve(params);
+  const resolvedParams = await params;
   return handleRequest(request, resolvedParams, 'PUT');
 }
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> | { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const resolvedParams = await Promise.resolve(params);
+  const resolvedParams = await params;
   return handleRequest(request, resolvedParams, 'DELETE');
 }
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: Promise<{ path: string[] }> | { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const resolvedParams = await Promise.resolve(params);
+  const resolvedParams = await params;
   return handleRequest(request, resolvedParams, 'PATCH');
 }
 

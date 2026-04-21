@@ -4,10 +4,10 @@ const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const messageId = params.id;
+    const { id: messageId } = await params;
     const backendUrl = `${BACKEND_URL}/api/community/messages/${messageId}`;
     
     console.log(`Community message edit API: PUT ${backendUrl}`);
@@ -60,10 +60,10 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const messageId = params.id;
+    const { id: messageId } = await params;
     const backendUrl = `${BACKEND_URL}/api/community/messages/${messageId}`;
     
     console.log(`Community message delete API: DELETE ${backendUrl}`);

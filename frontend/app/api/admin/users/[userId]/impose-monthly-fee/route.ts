@@ -8,8 +8,8 @@ import { proxyToBackendApi } from '@/lib/apiBackendProxy';
  */
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ userId: string }> | { userId: string } }
+  context: { params: Promise<{ userId: string }> }
 ) {
-  const { userId } = await Promise.resolve(context.params);
+  const { userId } = await context.params;
   return proxyToBackendApi(request, `admin/users/${userId}/impose-monthly-fee`, 'POST');
 }

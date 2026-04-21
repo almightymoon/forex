@@ -4,10 +4,11 @@ const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { courseId: string } }
+  { params }: { params: Promise<{ courseId: string }> }
 ) {
   try {
-    console.log(`GET /api/progress/${params.courseId} - Request received`);
+    const { courseId } = await params;
+    console.log(`GET /api/progress/${courseId} - Request received`);
     
     // Get authorization token
     const token = request.headers.get('authorization')?.replace('Bearer ', '');
@@ -18,7 +19,7 @@ export async function GET(
     console.log('Token received, length:', token.length);
     
     // Proxy to backend
-    const backendResponse = await fetch(`${BACKEND_URL}/api/progress/${params.courseId}`, {
+    const backendResponse = await fetch(`${BACKEND_URL}/api/progress/${courseId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,

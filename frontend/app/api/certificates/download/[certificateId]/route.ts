@@ -4,10 +4,10 @@ const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { certificateId: string } }
+  { params }: { params: Promise<{ certificateId: string }> }
 ) {
   try {
-    const { certificateId } = params;
+    const { certificateId } = await params;
 
     const response = await fetch(`${BACKEND_URL}/api/certificates/download/${certificateId}`, {
       method: 'GET',
