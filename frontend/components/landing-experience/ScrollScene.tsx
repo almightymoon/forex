@@ -181,9 +181,9 @@ export default function ScrollScene() {
             <span className="hero-heading-row">of Forex Trading</span>
           </h1>
           <p className="hero-subheading">
-            Access elite-tier forex infrastructure.
-            <br />
-            Instant execution, institutional pricing.
+          Master elite-tier institutional strategies
+<br />
+Professional edge, decoded for the retail trader.
           </p>
         </div>
 
@@ -272,8 +272,8 @@ export default function ScrollScene() {
 
             <div className="scene-stats s2-item" style={{ '--i': 4 } as React.CSSProperties}>
               {[
-                { num: '10K+', lbl: 'Active Traders' },
-                { num: '94%', lbl: 'Signal Accuracy' },
+                { num: '2000+', lbl: 'Active Traders' },
+                { num: '90%', lbl: 'Signal Accuracy' },
                 { num: '28', lbl: 'Markets Covered' },
                 { num: '24/7', lbl: 'Live Analysis' },
               ].map((s) => (
