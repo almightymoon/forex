@@ -673,8 +673,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onKeyDown={handleKeyDown}
         tabIndex={0}
       >
-        {/* video area */}
-        <div className="w-full h-[420px] bg-black flex items-center justify-center relative">
+        {/* video area — h-full so parent can use aspect-video; min-h fallback if height not set */}
+        <div className="relative flex h-full min-h-[200px] w-full items-center justify-center bg-black sm:min-h-[240px]">
           {isExternal && isYouTube ? (
             <>
               <div className="absolute inset-0 yt-wrapper" />

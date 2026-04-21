@@ -29,7 +29,8 @@ const paymentSchema = new mongoose.Schema({
   status: {
     type: String,
     required: [true, 'Payment status is required'],
-    enum: ['pending', 'processing', 'completed', 'failed', 'cancelled', 'refunded'],
+    // `draft` = created (link opened) but user has not submitted required proof fields yet.
+    enum: ['draft', 'pending', 'processing', 'completed', 'failed', 'cancelled', 'refunded'],
     default: 'pending'
   },
   transactionId: {

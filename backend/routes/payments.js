@@ -239,17 +239,28 @@ router.post('/create', [
       });
     }
 
-    // Check if user already has a pending payment for this package
+    // Check if user already has a draft/pending payment for this package
     const existingPayment = await Payment.findOne({
       user: req.user._id,
-      status: 'pending',
+      status: { $in: ['draft', 'pending'] },
       'package.name': packageName
     });
 
     if (existingPayment) {
-      return res.status(400).json({ 
-        error: 'You already have a pending payment for this package',
-        payment: existingPayment
+      // Treat "already started" as success so the client can continue to the same checkout/paymentId
+      // (prevents spamming new draft records and avoids 400s on repeated clicks / reloads).
+      return res.status(200).json({
+        message: 'Payment already started.',
+        payment: {
+          _id: existingPayment._id,
+          amount: existingPayment.amount,
+          finalAmount: existingPayment.finalAmount,
+          currency: existingPayment.currency,
+          status: existingPayment.status,
+          package: existingPayment.package,
+          binanceWallet: existingPayment.binanceWallet,
+          createdAt: existingPayment.createdAt
+        }
       });
     }
 
@@ -288,7 +299,8 @@ router.post('/create', [
       amount: packagePrice,
       currency: 'USD',
       paymentMethod: paymentMethod || 'binance_wallet',
-      status: 'pending',
+      // IMPORTANT: don't alert admins until user submits proof fields.
+      status: 'draft',
       type: 'package',
       package: {
         name: packageName,
@@ -321,48 +333,9 @@ router.post('/create', [
       }
     });
 
-    // Send notification to admins
-    try {
-      const admins = await User.find({ role: 'admin' });
-      for (const admin of admins) {
-        await notificationService.sendNotificationToUser(admin._id, 'admin', {
-          type: 'payment_pending',
-          paymentId: payment._id,
-          userId: req.user._id,
-          userName: `${req.user.firstName} ${req.user.lastName}`,
-          packageName: packageName,
-          amount: finalAmount
-        });
-      }
-    } catch (notificationError) {
-      console.error('Error sending admin notification:', notificationError);
-    }
-
-    // Send beautiful email to user about payment pending using notification service
-    try {
-      console.log('[Payment Create] Sending payment_pending notification to user:', req.user._id);
-      console.log('[Payment Create] Payment data:', {
-        amount: finalAmount,
-        currency: payment.currency || 'USD',
-        packageName: packageName,
-        paymentId: payment._id
-      });
-      
-      const result = await notificationService.sendNotificationToUser(req.user._id, 'payment_pending', {
-        amount: finalAmount,
-        finalAmount: finalAmount,
-        currency: payment.currency || 'USD',
-        packageName: packageName,
-        paymentId: payment._id,
-        transactionId: payment._id.toString()
-      });
-      
-      console.log('[Payment Create] Notification result:', result);
-    } catch (emailError) {
-      console.error('[Payment Create] ❌ Error sending payment pending notification:', emailError);
-      console.error('[Payment Create] Error stack:', emailError.stack);
-      // Don't fail the request if notification fails
-    }
+    // IMPORTANT: Do not notify user/admin on create.
+    // Only notify admins (and optionally the user) after the user submits the required proof fields
+    // via POST /api/payments/:id/submit-payment.
 
     res.status(201).json({
       message: 'Payment created successfully. Please complete the payment.',
@@ -422,15 +395,15 @@ router.post('/monthly-fee', authenticateToken, async (req, res) => {
     const amount = Number(pkg.monthlyFeeAmount ?? 50);
     const graceDays = Number(pkg.monthlyFeeGraceDays ?? 3);
 
-    // Avoid duplicate pending monthly fee payments
+    // Avoid duplicate draft/pending monthly fee payments
     const existingPending = await Payment.findOne({
       user: req.user._id,
-      status: 'pending',
+      status: { $in: ['draft', 'pending'] },
       type: 'monthly_fee'
     }).sort({ createdAt: -1 });
     if (existingPending) {
       return res.status(200).json({
-        message: 'Monthly fee payment already pending.',
+        message: 'Monthly fee payment already started.',
         payment: existingPending
       });
     }
@@ -440,7 +413,8 @@ router.post('/monthly-fee', authenticateToken, async (req, res) => {
       amount,
       currency: 'USD',
       paymentMethod: 'binance_wallet',
-      status: 'pending',
+      // IMPORTANT: don't alert admins until user submits proof fields.
+      status: 'draft',
       type: 'monthly_fee',
       description: `Monthly fee payment ($${amount})`,
       discountAmount: 0,
@@ -457,22 +431,6 @@ router.post('/monthly-fee', authenticateToken, async (req, res) => {
     });
 
     await payment.save();
-
-    // Notify admins
-    try {
-      const admins = await User.find({ role: 'admin' });
-      for (const admin of admins) {
-        await notificationService.sendNotificationToUser(admin._id, 'admin', {
-          type: 'monthly_fee_pending',
-          paymentId: payment._id,
-          userId: req.user._id,
-          userName: `${req.user.firstName} ${req.user.lastName}`,
-          amount
-        });
-      }
-    } catch (notificationError) {
-      console.error('Error sending admin notification (monthly fee):', notificationError);
-    }
 
     res.status(201).json({
       message: 'Monthly fee payment created successfully.',
@@ -533,6 +491,7 @@ router.post('/:id/submit-payment', authenticateToken, (req, res, next) => {
     payment.payerName = payerName;
     payment.payerEmail = payerEmail;
     payment.paymentScreenshotUrl = paymentScreenshotUrl;
+    if (payment.status === 'draft') payment.status = 'pending';
     if (payment.paymentMethod === 'binance_wallet') {
       payment.binanceWallet = payment.binanceWallet || {};
       payment.binanceWallet.transactionHash = transactionId;
@@ -560,6 +519,22 @@ router.post('/:id/submit-payment', authenticateToken, (req, res, next) => {
       console.error('Error sending admin notification:', notificationError);
     }
 
+    // Optional: notify the user AFTER submission (so they get confirmation only when proof is actually submitted).
+    try {
+      const notificationService = require('../services/notificationService');
+      await notificationService.sendNotificationToUser(req.user._id, 'payment_pending', {
+        amount: payment.finalAmount,
+        finalAmount: payment.finalAmount,
+        currency: payment.currency || 'USD',
+        packageName: payment.package?.name || payment.metadata?.get?.('packageName') || '',
+        paymentId: payment._id,
+        transactionId: payment.transactionId
+      });
+    } catch (e) {
+      // Don't block submission if notification fails
+      console.error('Error sending user payment_pending notification (post-submit):', e);
+    }
+
     res.json({
       success: true,
       message: 'Payment submitted successfully. Waiting for admin confirmation.',
@@ -575,6 +550,142 @@ router.post('/:id/submit-payment', authenticateToken, (req, res, next) => {
   } catch (error) {
     console.error('Submit payment error:', error);
     res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to submit payment'
+    });
+  } finally {
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try { fs.unlinkSync(tempFilePath); } catch (e) { console.error('Cleanup temp file:', e); }
+    }
+  }
+});
+
+// @route   POST /api/payments/submit-package
+// @desc    Create + submit a package payment in one step (no draft created on package select)
+// @access  Private
+router.post('/submit-package', authenticateToken, (req, res, next) => {
+  paymentScreenshotUpload.single('screenshot')(req, res, (err) => {
+    if (err) return res.status(400).json({ errors: [{ msg: err.message || 'Invalid screenshot file' }] });
+    next();
+  });
+}, async (req, res) => {
+  let tempFilePath = null;
+  try {
+    const packageName = (req.body && req.body.packageName) ? String(req.body.packageName).trim() : '';
+    const transactionId = (req.body && req.body.transactionId) ? String(req.body.transactionId).trim() : '';
+    const payerName = (req.body && req.body.payerName) ? String(req.body.payerName).trim() : '';
+    const payerEmail = (req.body && req.body.payerEmail) ? String(req.body.payerEmail).trim() : '';
+    const errors = [];
+    if (!packageName) errors.push({ msg: 'Package name is required', path: 'packageName' });
+    if (!transactionId || transactionId.length < 10) errors.push({ msg: 'Transaction ID / hash is required (min 10 characters)', path: 'transactionId' });
+    if (!payerName) errors.push({ msg: 'Payer name is required', path: 'payerName' });
+    if (!payerEmail) errors.push({ msg: 'Payer email is required', path: 'payerEmail' });
+    if (!req.file) errors.push({ msg: 'Payment screenshot image is required', path: 'screenshot' });
+    if (errors.length) return res.status(400).json({ errors });
+
+    const pkg = await Package.findOne({ name: packageName, isActive: true }).lean();
+    if (!pkg) return res.status(400).json({ errors: [{ msg: 'Selected package is not available', path: 'packageName' }] });
+    const packagePrice = Number(pkg.price ?? 0);
+    if (!Number.isFinite(packagePrice) || packagePrice <= 0) {
+      return res.status(400).json({ errors: [{ msg: 'Package price is not configured correctly', path: 'packageName' }] });
+    }
+
+    // Prevent multiple simultaneous submissions for same package
+    const existing = await Payment.findOne({
+      user: req.user._id,
+      type: 'package',
+      'package.name': packageName,
+      status: { $in: ['pending', 'processing'] }
+    }).sort({ createdAt: -1 });
+    if (existing && existing.transactionId && existing.paymentScreenshotUrl) {
+      return res.status(200).json({
+        success: true,
+        message: 'Payment already submitted. Waiting for admin confirmation.',
+        payment: {
+          _id: existing._id,
+          status: existing.status,
+          transactionId: existing.transactionId,
+          payerName: existing.payerName,
+          payerEmail: existing.payerEmail,
+          paymentScreenshotUrl: existing.paymentScreenshotUrl
+        }
+      });
+    }
+
+    tempFilePath = req.file.path;
+    const uploadResult = await uploadImage(tempFilePath, 'forex/payment-screenshots');
+    const paymentScreenshotUrl = uploadResult && uploadResult.url ? uploadResult.url : null;
+    if (!paymentScreenshotUrl) return res.status(500).json({ error: 'Failed to upload payment screenshot' });
+
+    const payment = new Payment({
+      user: req.user._id,
+      amount: packagePrice,
+      finalAmount: packagePrice,
+      currency: 'USD',
+      paymentMethod: 'binance_wallet',
+      status: 'pending',
+      type: 'package',
+      package: { name: packageName, price: packagePrice },
+      description: `Package purchase: ${packageName}`,
+      transactionId,
+      payerName,
+      payerEmail,
+      paymentScreenshotUrl,
+      binanceWallet: { walletAddress: 'TApaMK8BcN67GDRqVs45qnzbb4oQGt2Pna', network: 'TRC20', transactionHash: transactionId }
+    });
+    await payment.save();
+
+    try {
+      const User = require('../models/User');
+      const notificationService = require('../services/notificationService');
+      const admins = await User.find({ role: 'admin' });
+      for (const admin of admins) {
+        await notificationService.sendNotificationToUser(admin._id, 'admin', {
+          type: 'transaction_submitted',
+          paymentId: payment._id,
+          transactionId,
+          userId: req.user._id,
+          userName: `${req.user.firstName} ${req.user.lastName}`,
+          amount: payment.finalAmount,
+          payerName,
+          payerEmail,
+          paymentScreenshotUrl
+        });
+      }
+    } catch (notificationError) {
+      console.error('Error sending admin notification:', notificationError);
+    }
+
+    // Optional: notify the user after submission
+    try {
+      const notificationService = require('../services/notificationService');
+      await notificationService.sendNotificationToUser(req.user._id, 'payment_pending', {
+        amount: payment.finalAmount,
+        finalAmount: payment.finalAmount,
+        currency: payment.currency || 'USD',
+        packageName,
+        paymentId: payment._id,
+        transactionId: payment.transactionId
+      });
+    } catch (e) {
+      console.error('Error sending user payment_pending notification (post-submit):', e);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Payment submitted successfully. Waiting for admin confirmation.',
+      payment: {
+        _id: payment._id,
+        status: payment.status,
+        transactionId: payment.transactionId,
+        payerName: payment.payerName,
+        payerEmail: payment.payerEmail,
+        paymentScreenshotUrl: payment.paymentScreenshotUrl
+      }
+    });
+  } catch (error) {
+    console.error('Submit package payment error:', error);
+    return res.status(500).json({
       success: false,
       error: error.message || 'Failed to submit payment'
     });

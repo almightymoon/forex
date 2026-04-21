@@ -127,17 +127,17 @@ const TextContent: React.FC<TextContentProps> = ({
   };
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-6">
       {/* Header with progress */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <BookOpen className="w-6 h-6 text-blue-600" />
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <BookOpen className="mt-0.5 h-6 w-6 shrink-0 text-blue-600 dark:text-blue-400" />
+          <h2 className="break-words text-xl font-bold text-gray-900 dark:text-white sm:text-2xl">
             {content.title}
           </h2>
         </div>
         
-        <div className="flex items-center space-x-4">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:gap-4">
           {/* Completion Status */}
           {isCompleted ? (
             <div className="flex items-center space-x-2 text-green-600">
@@ -180,13 +180,13 @@ const TextContent: React.FC<TextContentProps> = ({
       {/* Text Content */}
       <div 
         ref={textRef}
-        className="prose prose-lg max-w-none dark:prose-invert"
+        className="prose prose-lg max-w-none min-w-0 dark:prose-invert prose-p:break-words prose-li:break-words [&_*]:max-w-full"
       >
-        <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700">
+        <div className="overflow-x-auto rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800 sm:p-6">
           {textContent ? (
             <div 
               dangerouslySetInnerHTML={{ __html: textContent }}
-              className="text-gray-800 dark:text-gray-200 leading-relaxed"
+              className="break-words leading-relaxed text-gray-800 dark:text-gray-200 [&_img]:h-auto [&_img]:max-w-full [&_table]:max-w-full"
             />
           ) : (
             <div className="text-gray-500 dark:text-gray-400 italic text-center py-8">

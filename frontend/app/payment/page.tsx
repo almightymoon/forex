@@ -33,8 +33,9 @@ export default function PaymentPage() {
   
   const packageName = searchParams?.get('package') || '';
   const amountParam = searchParams?.get('amount') || '0';
-  const paymentId = searchParams?.get('paymentId') || searchParams?.get('paymentid') || '';
+  const paymentIdFromUrl = searchParams?.get('paymentId') || searchParams?.get('paymentid') || '';
   const isMonthlyFeeFlow = searchParams?.get('type') === 'monthly_fee';
+  const [activePaymentId, setActivePaymentId] = useState(paymentIdFromUrl);
 
   const [loadedPayment, setLoadedPayment] = useState<{
     finalAmount?: number;
@@ -69,10 +70,10 @@ export default function PaymentPage() {
   const qrValue = walletAddressForQr;
 
   useEffect(() => {
-    if (isMonthlyFeeFlow && !paymentId) {
+    if (isMonthlyFeeFlow && !activePaymentId) {
       router.replace('/monthly-fee');
     }
-  }, [isMonthlyFeeFlow, paymentId, router]);
+  }, [isMonthlyFeeFlow, activePaymentId, router]);
 
   useEffect(() => {
     // Check if user is authenticated
@@ -82,12 +83,12 @@ export default function PaymentPage() {
       return;
     }
 
-    if (isMonthlyFeeFlow && paymentId) {
+    if (isMonthlyFeeFlow && activePaymentId) {
       setLoadingPaymentDoc(true);
       (async () => {
         try {
           setError('');
-          const res = await fetch(buildApiUrl(`api/payments/${paymentId}`), {
+          const res = await fetch(buildApiUrl(`api/payments/${activePaymentId}`), {
             headers: { Authorization: `Bearer ${token}` }
           });
           const data = await res.json().catch(() => ({}));
@@ -139,20 +140,20 @@ export default function PaymentPage() {
     prefillPayer();
 
     // Check payment status periodically
-    if (paymentId) {
+    if (activePaymentId) {
       checkPaymentStatus();
       const interval = setInterval(checkPaymentStatus, 10000); // Check every 10 seconds
       return () => clearInterval(interval);
     }
-  }, [paymentId, router, isMonthlyFeeFlow, amountParam]);
+  }, [activePaymentId, router, isMonthlyFeeFlow, amountParam]);
 
   const checkPaymentStatus = async () => {
-    if (!paymentId) return;
+    if (!activePaymentId) return;
 
     setIsCheckingPayment(true);
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(buildApiUrl(`api/payments/${paymentId}`), {
+      const response = await fetch(buildApiUrl(`api/payments/${activePaymentId}`), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -213,8 +214,8 @@ export default function PaymentPage() {
         setPromoDiscount(data.promo.discount || 0);
         setError('');
         
-        // Update payment with promo code if paymentId exists
-        if (paymentId) {
+        // Update payment with promo code if paymentId exists (requires an existing payment record)
+        if (activePaymentId) {
           await updatePaymentWithPromoCode(promoCode, data.promo.discount || 0);
         }
       } else {
@@ -232,12 +233,12 @@ export default function PaymentPage() {
   };
 
   const updatePaymentWithPromoCode = async (code: string, discount: number) => {
-    if (!paymentId) return;
+    if (!activePaymentId) return;
 
     try {
       const token = localStorage.getItem('token');
       // Update payment via the create endpoint with promo code
-      const response = await fetch(buildApiUrl(`api/payments/${paymentId}`), {
+      const response = await fetch(buildApiUrl(`api/payments/${activePaymentId}`), {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -252,7 +253,7 @@ export default function PaymentPage() {
       if (response.ok) {
         // Update the amount in URL params for display
         const newAmount = originalAmount - discount;
-        const newUrl = `/payment?package=${encodeURIComponent(packageName)}&amount=${newAmount}&paymentId=${paymentId}`;
+        const newUrl = `/payment?package=${encodeURIComponent(packageName)}&amount=${newAmount}&paymentId=${activePaymentId}`;
         router.replace(newUrl);
       } else {
         console.error('Failed to update payment with promo code');
@@ -285,11 +286,6 @@ export default function PaymentPage() {
       return;
     }
 
-    if (!paymentId) {
-      setError('Payment ID is missing');
-      return;
-    }
-
     setIsSubmitting(true);
     setError('');
 
@@ -300,8 +296,16 @@ export default function PaymentPage() {
       formData.append('payerName', payerName.trim());
       formData.append('payerEmail', payerEmail.trim());
       formData.append('screenshot', screenshotFile);
+      if (!isMonthlyFeeFlow) {
+        formData.append('packageName', packageName);
+        formData.append('amount', String(displayAmount));
+      }
 
-      const response = await fetch(buildApiUrl(`api/payments/${paymentId}/submit-payment`), {
+      const submitUrl = activePaymentId
+        ? `api/payments/${activePaymentId}/submit-payment`
+        : 'api/payments/submit-package';
+
+      const response = await fetch(buildApiUrl(submitUrl), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -329,6 +333,15 @@ export default function PaymentPage() {
           (data.message as string) ||
           'Failed to submit payment';
         throw new Error(msg);
+      }
+
+      const paymentObj = (data.payment as { _id?: string } | undefined) || undefined;
+      if (paymentObj?._id) {
+        setActivePaymentId(paymentObj._id);
+        if (!paymentIdFromUrl) {
+          const base = `/payment?package=${encodeURIComponent(packageName)}&amount=${displayAmount}&paymentId=${paymentObj._id}`;
+          router.replace(base);
+        }
       }
 
       setPaymentStatus('pending');
@@ -371,7 +384,7 @@ export default function PaymentPage() {
     }
   };
 
-  if (isMonthlyFeeFlow && !paymentId) {
+  if (isMonthlyFeeFlow && !activePaymentId) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <p className="text-sm text-gray-600 dark:text-gray-400">Returning to monthly fee…</p>
@@ -379,7 +392,7 @@ export default function PaymentPage() {
     );
   }
 
-  if (isMonthlyFeeFlow && paymentId && loadingPaymentDoc) {
+  if (isMonthlyFeeFlow && activePaymentId && loadingPaymentDoc) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4">
         <div className="text-gray-600 dark:text-gray-300 text-sm">Loading payment…</div>
@@ -387,7 +400,7 @@ export default function PaymentPage() {
     );
   }
 
-  if (isMonthlyFeeFlow && paymentId && !loadingPaymentDoc && !loadedPayment) {
+  if (isMonthlyFeeFlow && activePaymentId && !loadingPaymentDoc && !loadedPayment) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4 py-12">
         <div className="w-full max-w-md bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-8 text-center">
@@ -428,7 +441,7 @@ export default function PaymentPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center p-4 py-12">
-      <div className="w-full max-w-2xl">
+      <div className="w-full max-w-2xl overflow-x-hidden">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <Link 
@@ -442,7 +455,7 @@ export default function PaymentPage() {
         </div>
 
         {/* Payment Card */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-8">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 p-5 sm:p-8">
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
@@ -573,8 +586,8 @@ export default function PaymentPage() {
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Wallet address
             </label>
-            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 flex items-center justify-between border border-gray-200 dark:border-gray-600">
-              <code className="text-sm text-gray-900 dark:text-white font-mono break-all flex-1 mr-3">
+            <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4 mb-4 flex min-w-0 items-center justify-between gap-3 border border-gray-200 dark:border-gray-600">
+              <code className="min-w-0 flex-1 text-sm text-gray-900 dark:text-white font-mono break-all">
                 {walletAddressForQr}
               </code>
               <button

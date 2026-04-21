@@ -15,9 +15,13 @@ import {
   ChevronUp,
   RefreshCw,
   Eye,
-  X
+  X,
+  Plus,
+  Minus,
+  Loader2
 } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
+import { showToast } from '../../../utils/toast';
 
 interface Commission {
   _id: string;
@@ -110,10 +114,50 @@ interface PlatformCommissionStats {
     referralPool: number;
     count: number;
   }>;
+  ledger?: {
+    currentBalance: number;
+  };
+}
+
+interface PlatformLedgerEntry {
+  _id: string;
+  type: 'credit' | 'debit';
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  description: string;
+  notes?: string;
+  createdAt: string;
+  performedBy?: {
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+  } | null;
+}
+
+interface MonthlyFeeDistributionRow {
+  paymentId: string;
+  createdAt: string;
+  confirmedAt?: string;
+  feeAmount: number;
+  user: {
+    _id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  } | null;
+  packageTierName: string;
+  referralPoolPercentage: number;
+  referralPool: number;
+  platformShare: number;
+  commissionTxnCount: number;
+  isDistributed: boolean;
+  metaDistributed: boolean;
+  resolveError: string | null;
 }
 
 export default function CommissionManagement() {
-  const [activeView, setActiveView] = useState<'referral' | 'platform'>('referral');
+  const [activeView, setActiveView] = useState<'referral' | 'platform' | 'monthly_fee'>('referral');
   const [commissions, setCommissions] = useState<Commission[]>([]);
   const [platformCommissions, setPlatformCommissions] = useState<PlatformCommission[]>([]);
   const [stats, setStats] = useState<CommissionStats | null>(null);
@@ -136,14 +180,30 @@ export default function CommissionManagement() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedCommission, setSelectedCommission] = useState<Commission | null>(null);
   const [expandedBuyers, setExpandedBuyers] = useState<Set<string>>(new Set());
+  const [ledgerEntries, setLedgerEntries] = useState<PlatformLedgerEntry[]>([]);
+  const [ledgerLoading, setLedgerLoading] = useState(false);
+  const [ledgerPagination, setLedgerPagination] = useState({ page: 1, limit: 25, total: 0, pages: 1 });
+  const [showPlatformLedgerModal, setShowPlatformLedgerModal] = useState(false);
+  const [platformLedgerAction, setPlatformLedgerAction] = useState<'credit' | 'debit'>('credit');
+  const [platformLedgerForm, setPlatformLedgerForm] = useState({ amount: '', description: '', notes: '' });
+  const [platformLedgerProcessing, setPlatformLedgerProcessing] = useState(false);
+  const [monthlyFeeRows, setMonthlyFeeRows] = useState<MonthlyFeeDistributionRow[]>([]);
+  const [monthlyFeeDistributingId, setMonthlyFeeDistributingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeView === 'referral') {
       fetchCommissions();
-    } else {
+    } else if (activeView === 'platform') {
       fetchPlatformCommissions();
+    } else {
+      fetchMonthlyFeeDistributions();
     }
   }, [pagination.page, filters, activeView]);
+
+  useEffect(() => {
+    if (activeView !== 'platform') return;
+    fetchPlatformLedger();
+  }, [activeView, ledgerPagination.page]);
 
   const fetchCommissions = async () => {
     try {
@@ -216,7 +276,15 @@ export default function CommissionManagement() {
       console.log('[Platform Commissions] Response:', data);
       console.log('[Platform Commissions] Commissions count:', data.commissions?.length || 0);
       setPlatformCommissions(data.commissions || []);
-      setPlatformStats(data.stats || null);
+      const stats = data.stats || null;
+      setPlatformStats(
+        stats
+          ? {
+              ...stats,
+              ledger: stats.ledger ?? { currentBalance: 0 }
+            }
+          : null
+      );
       setPagination(prev => ({
         ...prev,
         total: data.pagination?.total || 0,
@@ -227,6 +295,157 @@ export default function CommissionManagement() {
       console.error('[Platform Commissions] Error details:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMonthlyFeeDistributions = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams({
+        page: pagination.page.toString(),
+        limit: pagination.limit.toString(),
+        ...(filters.startDate && { startDate: filters.startDate }),
+        ...(filters.endDate && { endDate: filters.endDate })
+      });
+      const res = await fetch(buildApiUrl(`api/admin/monthly-fee-distributions?${params}`), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        throw new Error('Failed to fetch monthly fee distributions');
+      }
+      const data = await res.json();
+      setMonthlyFeeRows(data.rows || []);
+      setPagination((prev) => ({
+        ...prev,
+        total: data.pagination?.total || 0,
+        pages: data.pagination?.pages || 0
+      }));
+    } catch (error) {
+      console.error('[Monthly fee distributions] fetch error:', error);
+      showToast('Could not load monthly fee distributions', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleMonthlyFeeDistribute = async (paymentId: string) => {
+    if (
+      !window.confirm(
+        'Run distribution for this monthly fee? Referrers will be credited from the referral pool (same rules as package purchases).'
+      )
+    ) {
+      return;
+    }
+    setMonthlyFeeDistributingId(paymentId);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(
+        buildApiUrl(`api/admin/monthly-fee-distributions/${paymentId}/distribute`),
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast((data as { error?: string }).error || 'Distribution failed', 'error');
+        return;
+      }
+      showToast((data as { message?: string }).message || 'Distribution complete', 'success');
+      await fetchMonthlyFeeDistributions();
+    } catch (e) {
+      console.error(e);
+      showToast('Distribution request failed', 'error');
+    } finally {
+      setMonthlyFeeDistributingId(null);
+    }
+  };
+
+  const fetchPlatformLedger = async () => {
+    try {
+      setLedgerLoading(true);
+      const token = localStorage.getItem('token');
+      const params = new URLSearchParams({
+        page: ledgerPagination.page.toString(),
+        limit: ledgerPagination.limit.toString()
+      });
+      const res = await fetch(buildApiUrl(`api/admin/platform-commission-ledger?${params}`), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) {
+        throw new Error('Failed to fetch platform commission ledger');
+      }
+      const data = await res.json();
+      setLedgerEntries(data.entries || []);
+      setLedgerPagination((prev) => ({
+        ...prev,
+        total: data.pagination?.total ?? 0,
+        pages: data.pagination?.pages ?? 1
+      }));
+      if (typeof data.currentBalance === 'number') {
+        setPlatformStats((prev) =>
+          prev ? { ...prev, ledger: { currentBalance: data.currentBalance } } : prev
+        );
+      }
+    } catch (error) {
+      console.error('[Platform Commission Ledger] fetch error:', error);
+    } finally {
+      setLedgerLoading(false);
+    }
+  };
+
+  const openPlatformLedgerModal = (action: 'credit' | 'debit') => {
+    setPlatformLedgerAction(action);
+    setPlatformLedgerForm({ amount: '', description: '', notes: '' });
+    setShowPlatformLedgerModal(true);
+  };
+
+  const handlePlatformLedgerSubmit = async () => {
+    if (!platformLedgerForm.amount || !platformLedgerForm.description.trim()) {
+      showToast('Please enter amount and description', 'error');
+      return;
+    }
+    setPlatformLedgerProcessing(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(
+        buildApiUrl(`api/admin/platform-commission/${platformLedgerAction}`),
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(platformLedgerForm)
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg =
+          (data as { error?: string }).error ||
+          (Array.isArray((data as { errors?: { msg?: string }[] }).errors)
+            ? (data as { errors: { msg?: string }[] }).errors[0]?.msg
+            : null) ||
+          `Failed to ${platformLedgerAction} platform commission`;
+        showToast(msg, 'error');
+        return;
+      }
+      showToast(
+        platformLedgerAction === 'credit'
+          ? 'Platform commission credited successfully'
+          : 'Platform commission debited successfully',
+        'success'
+      );
+      setShowPlatformLedgerModal(false);
+      setPlatformLedgerForm({ amount: '', description: '', notes: '' });
+      await fetchPlatformCommissions();
+      await fetchPlatformLedger();
+    } catch (e) {
+      console.error(e);
+      showToast('Error updating platform commission ledger', 'error');
+    } finally {
+      setPlatformLedgerProcessing(false);
     }
   };
 
@@ -330,7 +549,14 @@ export default function CommissionManagement() {
     });
   };
 
-  if (loading && (activeView === 'referral' ? commissions.length === 0 : platformCommissions.length === 0)) {
+  if (
+    loading &&
+    (activeView === 'referral'
+      ? commissions.length === 0
+      : activeView === 'platform'
+        ? platformCommissions.length === 0
+        : monthlyFeeRows.length === 0)
+  ) {
     return (
       <div className="flex items-center justify-center py-12">
         <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
@@ -345,7 +571,10 @@ export default function CommissionManagement() {
         <div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Commission Distributions</h2>
           <p className="text-gray-600 dark:text-gray-400 mt-1">
-            View and manage all referral commission distributions
+            {activeView === 'referral' && 'View and manage all referral commission distributions'}
+            {activeView === 'platform' && 'Calculated platform share from package sales and manual platform ledger'}
+            {activeView === 'monthly_fee' &&
+              'Split completed monthly fees between the referral pool and platform using each student’s package tier'}
           </p>
         </div>
         <div className="flex items-center space-x-3">
@@ -353,8 +582,11 @@ export default function CommissionManagement() {
             onClick={() => {
               if (activeView === 'referral') {
                 fetchCommissions();
-              } else {
+              } else if (activeView === 'platform') {
                 fetchPlatformCommissions();
+                fetchPlatformLedger();
+              } else {
+                fetchMonthlyFeeDistributions();
               }
             }}
             className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors flex items-center space-x-2"
@@ -364,7 +596,8 @@ export default function CommissionManagement() {
           </button>
           <button
             onClick={exportCommissions}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
+            disabled={activeView !== 'referral'}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 disabled:opacity-40 disabled:pointer-events-none"
           >
             <Download className="w-4 h-4" />
             <span>Export CSV</span>
@@ -373,32 +606,49 @@ export default function CommissionManagement() {
       </div>
 
       {/* View Toggle */}
-      <div className="mb-6 flex gap-4 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
+      <div className="mb-6 flex flex-wrap gap-2 bg-gray-100 dark:bg-gray-800 p-1 rounded-lg w-fit">
         <button
           onClick={() => {
             setActiveView('referral');
             setPagination(prev => ({ ...prev, page: 1 }));
           }}
-          className={`px-6 py-2 rounded-md font-medium transition-all ${
+          className={`px-5 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
             activeView === 'referral'
               ? 'bg-blue-600 text-white shadow-md'
               : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
           }`}
         >
+          <Users className="w-4 h-4 shrink-0" />
           Referral Commissions
         </button>
         <button
           onClick={() => {
             setActiveView('platform');
             setPagination(prev => ({ ...prev, page: 1 }));
+            setLedgerPagination((p) => ({ ...p, page: 1 }));
           }}
-          className={`px-6 py-2 rounded-md font-medium transition-all ${
+          className={`px-5 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
             activeView === 'platform'
               ? 'bg-blue-600 text-white shadow-md'
               : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
           }`}
         >
+          <DollarSign className="w-4 h-4 shrink-0" />
           Platform Commissions
+        </button>
+        <button
+          onClick={() => {
+            setActiveView('monthly_fee');
+            setPagination(prev => ({ ...prev, page: 1 }));
+          }}
+          className={`px-5 py-2 rounded-md font-medium transition-all flex items-center gap-2 ${
+            activeView === 'monthly_fee'
+              ? 'bg-blue-600 text-white shadow-md'
+              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
+          }`}
+        >
+          <Calendar className="w-4 h-4 shrink-0" />
+          Monthly fee distribution
         </button>
       </div>
 
@@ -532,6 +782,166 @@ export default function CommissionManagement() {
         </div>
       )}
 
+      {activeView === 'platform' && platformStats && (
+        <div className="space-y-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                Platform commission ledger (manual)
+              </p>
+              <p className="text-3xl font-bold text-gray-900 dark:text-white mt-1">
+                ${(platformStats.ledger?.currentBalance ?? 0).toFixed(2)}{' '}
+                <span className="text-base font-normal text-gray-500 dark:text-gray-400">USDT</span>
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 max-w-xl">
+                Credit or debit this balance like a user wallet. Totals above remain the calculated company share
+                from completed package payments; this ledger is for adjustments, payouts, and reconciliation.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => openPlatformLedgerModal('credit')}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700 font-medium"
+              >
+                <Plus className="w-4 h-4" />
+                Credit
+              </button>
+              <button
+                type="button"
+                onClick={() => openPlatformLedgerModal('debit')}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 font-medium"
+              >
+                <Minus className="w-4 h-4" />
+                Debit
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Ledger history</h3>
+              {ledgerLoading && <Loader2 className="w-5 h-5 animate-spin text-gray-400" />}
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50 dark:bg-gray-700">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      Date
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      Type
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      Amount
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      Balance after
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      Description
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                      Admin
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {ledgerEntries.length === 0 && !ledgerLoading ? (
+                    <tr>
+                      <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                        No ledger entries yet. Use Credit or Debit to record adjustments.
+                      </td>
+                    </tr>
+                  ) : (
+                    ledgerEntries.map((row) => (
+                      <tr key={row._id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                          {formatDate(row.createdAt)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <span
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+                              row.type === 'credit'
+                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                : 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                            }`}
+                          >
+                            {row.type}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                          {row.type === 'credit' ? '+' : '-'}${row.amount.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                          ${row.balanceAfter.toFixed(2)}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 max-w-xs truncate" title={row.description}>
+                          {row.description}
+                        </td>
+                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                          {row.performedBy
+                            ? `${row.performedBy.firstName || ''} ${row.performedBy.lastName || ''}`.trim() ||
+                              row.performedBy.email
+                            : '—'}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+            {ledgerPagination.pages > 1 && (
+              <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Page {ledgerPagination.page} of {ledgerPagination.pages}
+                </span>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={ledgerPagination.page <= 1}
+                    onClick={() =>
+                      setLedgerPagination((p) => ({ ...p, page: Math.max(1, p.page - 1) }))
+                    }
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-sm disabled:opacity-50"
+                  >
+                    Previous
+                  </button>
+                  <button
+                    type="button"
+                    disabled={ledgerPagination.page >= ledgerPagination.pages}
+                    onClick={() =>
+                      setLedgerPagination((p) => ({ ...p, page: p.page + 1 }))
+                    }
+                    className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-sm disabled:opacity-50"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {activeView === 'monthly_fee' && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-sm text-amber-950 dark:text-amber-100">
+          <p className="font-semibold mb-2">How monthly fee distribution works</p>
+          <ul className="list-disc list-inside space-y-1 opacity-95">
+            <li>Lists completed monthly fee payments only.</li>
+            <li>
+              Referral pool percentage and per-level rates come from the student&apos;s current package tier
+              (same rules as one-time package purchases).
+            </li>
+            <li>
+              Run <strong>Distribute</strong> once per payment. If there is no referrer, default-referral-only signup,
+              or a zero pool, the row is marked done with no payouts.
+            </li>
+          </ul>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-4">
         <button
@@ -571,21 +981,23 @@ export default function CommissionManagement() {
               </div>
             )}
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Package
-              </label>
-              <select
-                value={filters.packageName}
-                onChange={(e) => handleFilterChange('packageName', e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              >
-                <option value="">All Packages</option>
-                <option value="FX Launch">FX Launch</option>
-                <option value="FX Scale">FX Scale</option>
-                <option value="FX Legacy">FX Legacy</option>
-              </select>
-            </div>
+            {activeView !== 'monthly_fee' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Package
+                </label>
+                <select
+                  value={filters.packageName}
+                  onChange={(e) => handleFilterChange('packageName', e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                >
+                  <option value="">All Packages</option>
+                  <option value="FX Launch">FX Launch</option>
+                  <option value="FX Scale">FX Scale</option>
+                  <option value="FX Legacy">FX Legacy</option>
+                </select>
+              </div>
+            )}
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -652,6 +1064,151 @@ export default function CommissionManagement() {
           </div>
         )}
       </div>
+
+      {/* Monthly fee distribution table */}
+      {activeView === 'monthly_fee' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 dark:bg-gray-700">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Date
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Student
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Fee
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Tier (pool rules)
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Referral pool
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Platform share
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Action
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                {monthlyFeeRows.length === 0 ? (
+                  <tr>
+                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                      No completed monthly fee payments found.
+                    </td>
+                  </tr>
+                ) : (
+                  monthlyFeeRows.map((row) => (
+                    <tr key={row.paymentId} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                        {formatDate(row.createdAt)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900 dark:text-white">
+                            {row.user
+                              ? `${row.user.firstName || ''} ${row.user.lastName || ''}`.trim() || '—'
+                              : '—'}
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">{row.user?.email}</p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                        ${row.feeAmount.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                        {row.packageTierName}
+                        <span className="block text-xs text-gray-500">
+                          Pool {row.referralPoolPercentage.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400">
+                        ${row.referralPool.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400">
+                        ${row.platformShare.toFixed(2)}
+                      </td>
+                      <td className="px-4 py-3 text-sm">
+                        {row.isDistributed ? (
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200">
+                            Done
+                            {row.commissionTxnCount > 0 ? ` (${row.commissionTxnCount} txns)` : ''}
+                          </span>
+                        ) : (
+                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-900 dark:bg-yellow-900/40 dark:text-yellow-100">
+                            Pending
+                          </span>
+                        )}
+                        {row.resolveError && (
+                          <p className="text-xs text-red-600 dark:text-red-400 mt-1 max-w-[200px]">{row.resolveError}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          disabled={
+                            row.isDistributed ||
+                            !!row.resolveError ||
+                            monthlyFeeDistributingId === row.paymentId
+                          }
+                          onClick={() => handleMonthlyFeeDistribute(row.paymentId)}
+                          className="px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1"
+                        >
+                          {monthlyFeeDistributingId === row.paymentId ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              …
+                            </>
+                          ) : (
+                            'Distribute'
+                          )}
+                        </button>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+          {pagination.pages > 1 && (
+            <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div className="text-sm text-gray-600 dark:text-gray-400">
+                Showing {(pagination.page - 1) * pagination.limit + 1} to{' '}
+                {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total}
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setPagination((prev) => ({ ...prev, page: prev.page - 1 }))}
+                  disabled={pagination.page === 1}
+                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-gray-600 dark:text-gray-400">
+                  Page {pagination.page} of {pagination.pages}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPagination((prev) => ({ ...prev, page: prev.page + 1 }))}
+                  disabled={pagination.page === pagination.pages}
+                  className="px-3 py-1 border border-gray-300 dark:border-gray-600 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Referral Commissions Table */}
       {activeView === 'referral' && (
@@ -1110,6 +1667,121 @@ export default function CommissionManagement() {
                     </p>
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPlatformLedgerModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white capitalize">
+                {platformLedgerAction} platform commission
+              </h3>
+              <button
+                type="button"
+                onClick={() => !platformLedgerProcessing && setShowPlatformLedgerModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg"
+                disabled={platformLedgerProcessing}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <p className="text-sm text-blue-900 dark:text-blue-200">
+                  <strong>Current ledger balance:</strong> $
+                  {(platformStats?.ledger?.currentBalance ?? 0).toFixed(2)} USDT
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Amount (USDT) *
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={platformLedgerForm.amount}
+                  onChange={(e) =>
+                    setPlatformLedgerForm({ ...platformLedgerForm, amount: e.target.value })
+                  }
+                  placeholder="Enter amount"
+                  disabled={platformLedgerProcessing}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Description *
+                </label>
+                <input
+                  type="text"
+                  value={platformLedgerForm.description}
+                  onChange={(e) =>
+                    setPlatformLedgerForm({ ...platformLedgerForm, description: e.target.value })
+                  }
+                  placeholder="Reason for this transaction"
+                  disabled={platformLedgerProcessing}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Notes (optional)
+                </label>
+                <textarea
+                  value={platformLedgerForm.notes}
+                  onChange={(e) =>
+                    setPlatformLedgerForm({ ...platformLedgerForm, notes: e.target.value })
+                  }
+                  rows={3}
+                  disabled={platformLedgerProcessing}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPlatformLedgerModal(false)}
+                  disabled={platformLedgerProcessing}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handlePlatformLedgerSubmit}
+                  disabled={platformLedgerProcessing}
+                  className={`flex-1 px-4 py-2 text-white rounded-xl font-medium flex items-center justify-center gap-2 disabled:opacity-50 ${
+                    platformLedgerAction === 'credit'
+                      ? 'bg-green-600 hover:bg-green-700'
+                      : 'bg-red-600 hover:bg-red-700'
+                  }`}
+                >
+                  {platformLedgerProcessing ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Processing…
+                    </>
+                  ) : (
+                    <>
+                      {platformLedgerAction === 'credit' ? (
+                        <Plus className="w-4 h-4" />
+                      ) : (
+                        <Minus className="w-4 h-4" />
+                      )}
+                      {platformLedgerAction === 'credit' ? 'Credit' : 'Debit'}
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>

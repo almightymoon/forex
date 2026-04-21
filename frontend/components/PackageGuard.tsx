@@ -36,6 +36,16 @@ function isPublicMarketingPath(pathname: string | null): boolean {
   return PUBLIC_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+function isPaymentFlowPath(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return (
+    pathname === '/payment' ||
+    pathname.startsWith('/payment/') ||
+    pathname === '/payment-pending' ||
+    pathname.startsWith('/payment-pending/')
+  );
+}
+
 export default function PackageGuard({ children }: PackageGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
@@ -108,7 +118,11 @@ export default function PackageGuard({ children }: PackageGuardProps) {
 
           if (data.code === 'PACKAGE_REQUIRED') {
             clearMonthlyFeeAccessLock();
-            router.replace('/select-package');
+            // IMPORTANT: allow users to stay on /payment to submit proof fields
+            // even though they don't have an active package yet.
+            if (!isPaymentFlowPath(pathname)) {
+              router.replace('/select-package');
+            }
             setHasAccess(true);
             return;
           }
@@ -130,7 +144,9 @@ export default function PackageGuard({ children }: PackageGuardProps) {
 
           if (data.code === 'PAYMENT_REQUIRED') {
             clearMonthlyFeeAccessLock();
-            router.replace(data.redirectTo || '/select-package');
+            if (!isPaymentFlowPath(pathname)) {
+              router.replace(data.redirectTo || '/select-package');
+            }
             setHasAccess(true);
             return;
           }

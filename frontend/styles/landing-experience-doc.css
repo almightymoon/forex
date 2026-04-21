@@ -1,0 +1,142 @@
+/* Active only while the home landing is mounted — toggled in LandingExperienceRoot */
+html.landing-experience-active {
+  /* `smooth` + scroll-snap both fight wheel/trackpad on long sticky sections */
+  scroll-behavior: auto;
+  scroll-padding-top: 84px;
+}
+
+html.landing-experience-active body {
+  overflow-x: hidden;
+}
+
+.nav-logo--text {
+  max-width: min(52vw, 420px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fixed scene header — larger type than base theme */
+html.landing-experience-active .scroll-scene__nav {
+  padding-top: 20px;
+  padding-bottom: 20px;
+}
+
+html.landing-experience-active .scroll-scene__nav .nav-logo {
+  font-size: clamp(15px, 1.45vw, 19px);
+  letter-spacing: 0.14em;
+}
+
+html.landing-experience-active .scroll-scene__nav .nav-pill {
+  padding: 15px 28px;
+  font-size: clamp(14px, 1.15vw, 16px);
+}
+
+html.landing-experience-active .scroll-scene__nav .pill-dot,
+html.landing-experience-active .scroll-scene__nav .pill-dots {
+  font-size: 15px;
+}
+
+@media (max-width: 768px) {
+  html.landing-experience-active .scroll-scene__nav .nav-signin {
+    display: none;
+  }
+}
+
+/*
+  Base theme uses 250vh for S3/S5 sticky “unpack” — that’s ~1.5 viewports of empty
+  scroll after the cards are on screen. Tighten while keeping enough maxScroll for
+  the RAF-driven flip / exit easing (~0.45–0.5 × viewport beyond one full pin).
+*/
+html.landing-experience-active .s3 {
+  min-height: 148vh;
+}
+
+html.landing-experience-active .s5:not(.s5--many) {
+  min-height: 148vh;
+}
+
+/* Was margin-top: -40vh; padding-top: 50vh; min-height: 160vh — vast white runway */
+html.landing-experience-active .lw {
+  margin-top: -18vh;
+  padding-top: 22vh;
+  min-height: 108vh;
+}
+
+/* More than three API packages: simpler strip instead of triple-deck spread */
+.s5.s5--many {
+  min-height: auto;
+}
+
+.s5.s5--many .s5__sticky {
+  position: relative;
+  height: auto;
+  min-height: min(100vh, 960px);
+  overflow: visible;
+  padding: 48px 0 72px;
+}
+
+.s5.s5--many .s5__cards {
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  overflow-x: auto;
+  gap: 20px;
+  padding: 12px 4px 28px;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+
+.s5.s5--many .s5-card {
+  flex: 0 0 min(300px, 86vw);
+  max-width: 320px;
+  transform: none !important;
+  scroll-snap-align: center;
+}
+
+.s5.s5--many .s5-card:nth-child(n) {
+  --ox: 0px;
+  --oy: 0px;
+  --or: 0deg;
+}
+
+.s5-card__blurb {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(0, 0, 0, 0.52);
+  max-width: 36ch;
+}
+
+.s5-card__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 16px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: #0b0b0f;
+  background: linear-gradient(90deg, #4ade80, #22c55e);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease, filter 0.2s ease;
+}
+
+.s5-card__cta:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.05);
+}
+
+/* Footer: Inter (reference-style) — variable from LandingExperienceRoot */
+html.landing-experience-active .site-footer {
+  font-family: var(--font-landing-footer), ui-sans-serif, system-ui, sans-serif;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html.landing-experience-active {
+    scroll-behavior: auto;
+  }
+}

@@ -1,110 +1,47 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  CheckCircle, 
-  ArrowLeft, 
-  Check, 
-  Sparkles, 
-  Zap, 
-  Crown,
-  TrendingUp,
-  Users,
-  BookOpen,
-  BarChart3,
-  Rocket,
-  Star,
-  Shield,
-  Award,
-  Loader2
-} from 'lucide-react';
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Crown, Loader2, Rocket, Star } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { buildApiUrl } from '@/utils/api';
 import DarkModeToggle from '../../components/DarkModeToggle';
+import { fetchMergedPublicPackages, getDefaultPackages, type UiPackage } from '../../lib/publicPackages';
 
-const fallbackPackages = [
-  { 
-    name: 'FX Launch', 
-    subtitle: 'Launch your trading journey',
-    price: 100, 
-    badge: 'Starter',
-    accent: 'emerald',
-    icon: Rocket,
-    gradient: 'from-emerald-500 via-green-500 to-teal-500',
-    bgGradient: 'from-emerald-50 via-green-50 to-teal-50',
-    darkBgGradient: 'from-emerald-900/20 via-green-900/20 to-teal-900/20',
-    features: [
-      'Forex Trading Signals',
-      'Forex Basic Mentorship',
-      'Premium Indicators',
-      'Auto Trading Access',
-      'Community Support',
-      'Email Support'
-    ],
-    image: '/pkg1.jpg'
+const accentMeta = {
+  emerald: {
+    ring: 'ring-emerald-400/35',
+    glow: 'shadow-emerald-500/20',
+    pill: 'bg-emerald-400/15 text-emerald-200 ring-emerald-400/30',
+    button: 'bg-emerald-500 hover:bg-emerald-400',
   },
-  { 
-    name: 'FX Scale', 
-    subtitle: 'Grow with structure',
-    price: 250, 
-    badge: 'Most Popular',
-    accent: 'blue',
-    icon: TrendingUp,
-    gradient: 'from-blue-500 via-indigo-500 to-purple-500',
-    bgGradient: 'from-blue-50 via-indigo-50 to-purple-50',
-    darkBgGradient: 'from-blue-900/20 via-indigo-900/20 to-purple-900/20',
-    highlight: true,
-    features: [
-      'Forex Trading Signals',
-      'Live Online Mentorship Sessions',
-      'Premium Indicators',
-      'Auto Trading Access',
-      'Priority Support',
-      'Weekly Market Analysis',
-      'Risk Management Strategies'
-    ],
-    image: '/pkg2.jpg'
+  blue: {
+    ring: 'ring-blue-400/35',
+    glow: 'shadow-blue-500/20',
+    pill: 'bg-blue-400/15 text-blue-200 ring-blue-400/30',
+    button: 'bg-blue-500 hover:bg-blue-400',
   },
-  { 
-    name: 'FX Legacy', 
-    subtitle: 'Trade for life',
-    price: 1000, 
-    badge: 'Elite Program',
-    accent: 'purple',
-    icon: Crown,
-    gradient: 'from-purple-500 via-pink-500 to-rose-500',
-    bgGradient: 'from-purple-50 via-pink-50 to-rose-50',
-    darkBgGradient: 'from-purple-900/20 via-pink-900/20 to-rose-900/20',
-    features: [
-      'Forex Trading Signals',
-      'Forex Pro Mentorship',
-      'Premium Indicators',
-      'Auto Trading Access',
-      'Physical (On-Ground) Classes',
-      '1-on-1 Coaching Sessions',
-      'Advanced Trading Strategies',
-      'Lifetime Access',
-      'VIP Community Access'
-    ],
-    image: '/pkg3.jpg'
-  }
-];
+  purple: {
+    ring: 'ring-purple-400/35',
+    glow: 'shadow-purple-500/20',
+    pill: 'bg-purple-400/15 text-purple-200 ring-purple-400/30',
+    button: 'bg-purple-500 hover:bg-purple-400',
+  },
+} as const;
 
-type PackageType = typeof fallbackPackages[0] & {
-  _id?: string;
-  isActive?: boolean;
-  sortOrder?: number;
-};
+type AccentKey = keyof typeof accentMeta;
 
 export default function SelectPackagePage() {
   const router = useRouter();
-  const [selectedPackage, setSelectedPackage] = useState<PackageType | null>(null);
-  const [packages, setPackages] = useState<PackageType[]>(fallbackPackages);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+  const [selectedPackage, setSelectedPackage] = useState<UiPackage | null>(null);
+  const [packages, setPackages] = useState<UiPackage[]>(() => getDefaultPackages());
   const [error, setError] = useState('');
   const [loadingPackageName, setLoadingPackageName] = useState<string | null>(null);
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const cardRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
     // Check if user is authenticated
@@ -113,402 +50,242 @@ export default function SelectPackagePage() {
       router.push('/login?redirect=/select-package');
       return;
     }
+    setCheckingAuth(false);
   }, [router]);
 
   useEffect(() => {
-    // Load packages from backend (admin-managed). Fallback to hardcoded if fetch fails.
-    const loadPackages = async () => {
-      try {
-        const res = await fetch(buildApiUrl('api/packages'), { cache: 'no-store' as any });
-        if (!res.ok) return;
-        const apiPkgs = await res.json();
-        if (!Array.isArray(apiPkgs) || apiPkgs.length === 0) return;
-
-        // Keep the existing UI look by mapping known packages to their visual styles.
-        const styleMap = new Map(fallbackPackages.map((p) => [p.name, p]));
-        const merged: PackageType[] = apiPkgs
-          .filter((p: any) => p && p.isActive !== false)
-          .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-          .map((p: any) => {
-            const base = styleMap.get(p.name) || fallbackPackages[0];
-            return {
-              ...base,
-              _id: p._id,
-              name: p.name ?? base.name,
-              subtitle: p.subtitle ?? base.subtitle,
-              price: Number(p.price ?? base.price),
-              features: Array.isArray(p.features) && p.features.length ? p.features : base.features,
-              image: p.image ?? base.image,
-              isActive: p.isActive
-            };
-          });
-
-        if (merged.length) {
-          setPackages(merged);
-          // If selected package no longer exists, clear it
-          setSelectedPackage((prev) => (prev && merged.some((m) => m.name === prev.name) ? prev : null));
-        }
-      } catch {
-        // keep fallback
-      }
+    let alive = true;
+    (async () => {
+      const merged = await fetchMergedPublicPackages();
+      if (!alive) return;
+      setPackages(merged);
+      setSelectedPackage((prev) => (prev && merged.some((m) => m.name === prev.name) ? prev : null));
+    })();
+    return () => {
+      alive = false;
     };
-    loadPackages();
   }, []);
-  const handlePackageSelect = async (pkg: PackageType) => {
+
+  const orderedPackages = useMemo(() => packages.filter((p) => p && p.name), [packages]);
+
+  const scrollToIndex = (idx: number) => {
+    if (!orderedPackages.length) return;
+    const clamped = ((idx % orderedPackages.length) + orderedPackages.length) % orderedPackages.length;
+    setActiveIndex(clamped);
+    const el = cardRefs.current[clamped];
+    if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+  };
+
+  const handlePackageSelect = async (pkg: UiPackage) => {
     if (!pkg) {
       setError('Please select a package to continue');
       return;
     }
 
-    setLoadingPackageName(pkg.name);
-    setError('');
-
-    try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        router.push('/login?redirect=/select-package');
-        return;
-      }
-
-      // Create payment record
-      const response = await fetch(buildApiUrl('api/payments/create'), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          packageName: pkg.name,
-          packagePrice: pkg.price,
-          paymentMethod: 'binance_wallet'
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Redirect to payment page with package info
-        router.push(`/payment?package=${encodeURIComponent(pkg.name)}&amount=${pkg.price}&paymentId=${data.payment._id}`);
-      } else {
-        setError(data.message || 'Failed to create payment. Please try again.');
-        setLoadingPackageName(null);
-      }
-    } catch (err) {
-      setError('Network error. Please check your connection.');
-      setLoadingPackageName(null);
-    }
+    // IMPORTANT: selecting a package should NOT create a payment record.
+    // The payment record is created only when the user submits the required proof fields on /payment.
+    router.push(`/payment?package=${encodeURIComponent(pkg.name)}&amount=${pkg.price}`);
   };
 
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-[#101012] text-white flex items-center justify-center">
+        <div className="inline-flex items-center gap-3 rounded-2xl border border-white/[0.08] bg-white/[0.04] px-5 py-4">
+          <Loader2 className="h-5 w-5 animate-spin text-white/80" aria-hidden />
+          <span className="text-sm font-medium text-white/70">Preparing packages…</span>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 relative overflow-hidden">
-      {/* Enhanced Animated Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          className="absolute -top-40 -right-40 w-96 h-96 bg-gradient-to-br from-blue-400/30 to-purple-400/30 rounded-full blur-3xl"
-          animate={{
-            scale: [1, 1.3, 1],
-            rotate: [0, 180, 360],
-            x: [0, 50, 0],
-            y: [0, 30, 0],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        />
-        <motion.div
-          className="absolute -bottom-40 -left-40 w-96 h-96 bg-gradient-to-br from-green-400/30 to-blue-400/30 rounded-full blur-3xl"
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [360, 180, 0],
-            x: [0, -50, 0],
-            y: [0, -30, 0],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        />
-        <motion.div
-          className="absolute top-1/2 left-1/2 w-64 h-64 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl"
-          animate={{
-            scale: [1, 1.5, 1],
-            rotate: [0, 360],
-          }}
-          transition={{
-            duration: 15,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        />
+    <div className="min-h-screen bg-[#101012] text-zinc-100">
+      {/* Ambient glows */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden" aria-hidden>
+        <div className="absolute -top-40 -right-40 h-[520px] w-[520px] rounded-full bg-[radial-gradient(circle_at_center,_rgba(99,102,241,0.28),_transparent_60%)] blur-2xl" />
+        <div className="absolute -bottom-48 -left-48 h-[560px] w-[560px] rounded-full bg-[radial-gradient(circle_at_center,_rgba(16,185,129,0.22),_transparent_60%)] blur-2xl" />
       </div>
 
-      {/* Floating Sparkles */}
-      {[...Array(6)].map((_, i) => (
-        <motion.div
-          key={i}
-          className="absolute w-2 h-2 bg-yellow-400 rounded-full opacity-60"
-          style={{
-            left: `${20 + i * 15}%`,
-            top: `${10 + i * 12}%`,
-          }}
-          animate={{
-            y: [0, -20, 0],
-            opacity: [0.3, 0.8, 0.3],
-            scale: [1, 1.5, 1],
-          }}
-          transition={{
-            duration: 3 + i,
-            repeat: Infinity,
-            delay: i * 0.5,
-          }}
-        />
-      ))}
-
-      <div className="relative z-10 container mx-auto px-4 py-12">
-        {/* Back Link and Dark Mode Toggle */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="mb-8 flex items-center justify-between"
-        >
-          <Link 
+      <div className="relative mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 sm:py-12">
+        <div className="mb-10 flex items-center justify-between gap-3">
+          <Link
             href="/dashboard"
-            className="inline-flex items-center gap-2 px-4 py-2 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-all hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg"
+            className="inline-flex items-center gap-2 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-2 text-[13px] font-semibold text-white/80 transition hover:bg-white/[0.06]"
           >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="font-medium">Back to Dashboard</span>
+            <ArrowLeft className="h-4 w-4" />
+            Back to dashboard
           </Link>
           <DarkModeToggle size="sm" />
-        </motion.div>
+        </div>
 
-        {/* Header Section */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="text-center mb-12"
-        >
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: "spring" }}
-            className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl mb-4 shadow-lg"
-          >
-            <Sparkles className="w-8 h-8 text-white" />
-          </motion.div>
-          <h1 className="text-5xl md:text-6xl font-extrabold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent mb-4">
-            Select Your Package
+        <div className="mb-8">
+          <h1 className="text-balance text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
+            Select your package
           </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-            Choose the perfect package to launch your forex trading journey with expert guidance
+          <p className="mt-2 max-w-2xl text-sm leading-relaxed text-white/55 sm:text-[15px]">
+            Pick the level that fits your trading journey. You can upgrade later.
           </p>
-        </motion.div>
+        </div>
 
-        {/* Error Message */}
-        <AnimatePresence>
-          {error && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              className="max-w-6xl mx-auto mb-6 p-4 bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 text-sm"
+        {error ? (
+          <div className="mb-6 rounded-2xl border border-red-500/25 bg-red-500/10 px-5 py-4 text-sm text-red-200">
+            {error}
+          </div>
+        ) : null}
+
+        {/* Mobile carousel controls */}
+        {orderedPackages.length > 1 ? (
+          <div className="mb-4 flex items-center justify-between gap-3 lg:hidden">
+            <button
+              type="button"
+              onClick={() => scrollToIndex(activeIndex - 1)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/80 transition hover:bg-white/[0.06]"
+              aria-label="Previous package"
             >
-              {error}
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <p className="text-xs font-medium text-white/55">
+              Swipe to compare
+            </p>
+            <button
+              type="button"
+              onClick={() => scrollToIndex(activeIndex + 1)}
+              className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-white/[0.08] bg-white/[0.04] text-white/80 transition hover:bg-white/[0.06]"
+              aria-label="Next package"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </div>
+        ) : null}
 
-        {/* Package Selection Grid */}
-        <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8 mb-12">
-          {packages.map((pkg, index) => {
-            const Icon = pkg.icon;
+        <div
+          ref={scrollerRef}
+          className="grid gap-5 lg:grid-cols-3 lg:gap-6 max-lg:flex max-lg:snap-x max-lg:snap-mandatory max-lg:overflow-x-auto max-lg:pb-3 max-lg:[scrollbar-width:none] max-lg:[-ms-overflow-style:none]"
+        >
+          {orderedPackages.map((pkg, idx) => {
             const isSelected = selectedPackage?.name === pkg.name;
-            
+            const accent = (pkg.accent ?? 'blue') as AccentKey;
+            const meta = accentMeta[accent] ?? accentMeta.blue;
+            const loading = loadingPackageName === pkg.name;
+            const badgeIcon =
+              pkg.badge === 'Most Popular' ? Star : pkg.badge === 'Elite Program' ? Crown : Rocket;
+            const BadgeIcon = badgeIcon;
+
             return (
-              <motion.div
-                key={pkg.name}
-                initial={{ opacity: 0, y: 50 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1, duration: 0.6 }}
-                whileHover={{ y: -8, scale: 1.02 }}
-                className={`relative group cursor-pointer ${
-                  ''
-                }`}
-                onClick={() => {
-                  setSelectedPackage(pkg);
-                  setError('');
+              <div
+                key={`${pkg._id ?? pkg.name}-${idx}`}
+                ref={(el) => {
+                  cardRefs.current[idx] = el;
                 }}
+                className="max-lg:snap-center"
               >
-                {/* Highlight Badge for Most Popular */}
-                {pkg.highlight && (
-                  <motion.div
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-20"
-                  >
-                    <div className="bg-gradient-to-r from-yellow-400 to-orange-500 text-white px-4 py-1 rounded-full text-xs font-bold shadow-lg flex items-center gap-1">
-                      <Star className="w-3 h-3 fill-current" />
-                      MOST POPULAR
-                    </div>
-                  </motion.div>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPackage(pkg);
+                    setError('');
+                    setActiveIndex(idx);
+                  }}
+                  className={[
+                    'group relative w-[min(92vw,420px)] text-left lg:w-full',
+                    'overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.03]',
+                    'ring-1 transition-shadow',
+                    isSelected ? `ring-2 ${meta.ring} shadow-2xl ${meta.glow}` : 'ring-white/[0.06] hover:bg-white/[0.045]',
+                  ].join(' ')}
+                >
+                  <div className="absolute inset-0 opacity-70 [background:radial-gradient(circle_at_top,_rgba(255,255,255,0.06),_transparent_55%)]" />
 
-                {/* Package Card */}
-                <div className={`
-                  relative h-full rounded-3xl overflow-hidden
-                  bg-white dark:bg-gray-800/90
-                  border-2 transition-all duration-300
-                  ${isSelected 
-                    ? pkg.accent === 'emerald' 
-                      ? 'border-emerald-500 dark:border-emerald-400 shadow-2xl shadow-emerald-500/50'
-                      : pkg.accent === 'blue'
-                      ? 'border-blue-500 dark:border-blue-400 shadow-2xl shadow-blue-500/50'
-                      : 'border-purple-500 dark:border-purple-400 shadow-2xl shadow-purple-500/50'
-                    : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                  }
-                  ${pkg.highlight ? 'shadow-xl shadow-blue-500/10 dark:shadow-blue-500/5' : ''}
-                `}>
-                  {/* Gradient Background Overlay */}
-                  <div className={`absolute inset-0 bg-gradient-to-br ${pkg.bgGradient} dark:${pkg.darkBgGradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
+                  <div className="relative">
+                    <div className="relative h-40 w-full overflow-hidden sm:h-44">
+                      <Image
+                        src={pkg.image || '/pkg1.jpg'}
+                        alt={pkg.name}
+                        fill
+                        className="object-cover opacity-85 transition-transform duration-500 group-hover:scale-[1.04]"
+                        sizes="(max-width: 1024px) 92vw, 33vw"
+                        priority={idx === 0}
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#101012] via-[#101012]/20 to-transparent" />
 
-                  {/* Image Section */}
-                  <div className="relative h-48 w-full overflow-hidden">
-                    <Image
-                      src={pkg.image}
-                      alt={pkg.name}
-                      fill
-                      className="object-cover transition-transform duration-500 group-hover:scale-110"
-                    />
-                    <div className={`absolute inset-0 bg-gradient-to-br ${pkg.gradient} opacity-20 group-hover:opacity-30 transition-opacity`} />
-                    
-                    {/* Badge */}
-                    <div className="absolute top-4 left-4">
-                      <span className={`
-                        inline-flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-full backdrop-blur-md
-                        ${pkg.badge === 'Most Popular'
-                          ? 'bg-blue-500/90 text-white'
-                          : pkg.badge === 'Elite Program'
-                          ? 'bg-purple-500/90 text-white'
-                          : 'bg-emerald-500/90 text-white'
-                        }
-                      `}>
-                        {pkg.badge === 'Most Popular' && <Star className="w-3 h-3 fill-current" />}
-                        {pkg.badge === 'Elite Program' && <Crown className="w-3 h-3 fill-current" />}
-                        {pkg.badge === 'Starter' && <Rocket className="w-3 h-3" />}
-                        {pkg.badge}
-                      </span>
-                    </div>
-
-                    {/* Selection Indicator */}
-                    {isSelected && (
-                      <motion.div
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        className="absolute top-4 right-4"
-                      >
-                        <div className="w-10 h-10 bg-green-500 rounded-full flex items-center justify-center shadow-lg">
-                          <CheckCircle className="w-6 h-6 text-white" />
+                      {pkg.badge ? (
+                        <div className="absolute left-4 top-4">
+                          <span
+                            className={[
+                              'inline-flex items-center gap-1 rounded-full px-3 py-1 text-[11px] font-semibold ring-1 backdrop-blur',
+                              meta.pill,
+                            ].join(' ')}
+                          >
+                            <BadgeIcon className="h-3.5 w-3.5" aria-hidden />
+                            {pkg.badge}
+                          </span>
                         </div>
-                      </motion.div>
-                    )}
+                      ) : null}
+                    </div>
 
-                    {/* Icon Overlay */}
-                    <div className="absolute bottom-4 right-4">
-                      <div className={`w-16 h-16 bg-gradient-to-br ${pkg.gradient} rounded-2xl flex items-center justify-center shadow-xl backdrop-blur-md bg-white/20`}>
-                        <Icon className="w-8 h-8 text-white" />
+                    <div className="p-5 sm:p-6">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-lg font-extrabold tracking-tight text-white">{pkg.name}</p>
+                          {pkg.subtitle ? (
+                            <p className="mt-1 text-sm text-white/55">{pkg.subtitle}</p>
+                          ) : null}
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-extrabold text-white">${pkg.price}</p>
+                          <p className="text-xs font-medium text-white/45">{pkg.currency || 'USD'} · USDT</p>
+                        </div>
                       </div>
-                    </div>
-                  </div>
 
-                  {/* Content Section */}
-                  <div className="relative p-6">
-                    {/* Title and Subtitle */}
-                    <div className="mb-4">
-                      <h3 className={`text-2xl font-bold mb-1 bg-gradient-to-r ${pkg.gradient} bg-clip-text text-transparent`}>
-                        {pkg.name}
-                      </h3>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">{pkg.subtitle}</p>
-                    </div>
+                      <ul className="mt-5 space-y-2.5">
+                        {(pkg.features || []).slice(0, 6).map((feature) => (
+                          <li key={feature} className="flex items-start gap-2.5 text-sm text-white/70">
+                            <span
+                              className={[
+                                'mt-0.5 inline-flex h-5 w-5 flex-none items-center justify-center rounded-full ring-1',
+                                meta.pill,
+                              ].join(' ')}
+                              aria-hidden
+                            >
+                              <Check className="h-3.5 w-3.5" />
+                            </span>
+                            <span className="leading-snug">{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
 
-                    {/* Price */}
-                    <div className="mb-6">
-                      <div className="flex items-baseline gap-2">
-                        <span className="text-4xl font-extrabold text-gray-900 dark:text-white">
-                          ${pkg.price}
-                        </span>
-                        <span className="text-gray-500 dark:text-gray-400 text-sm">USDT</span>
-                      </div>
-                    </div>
-
-                    {/* Features List */}
-                    <ul className="space-y-3 mb-6">
-                      {pkg.features.map((feature, idx) => (
-                        <motion.li
-                          key={idx}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: index * 0.1 + idx * 0.05 }}
-                          className="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300"
+                      <div className="mt-6">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handlePackageSelect(pkg);
+                          }}
+                          disabled={loadingPackageName !== null}
+                          className={[
+                            'inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl text-sm font-semibold transition',
+                            loadingPackageName !== null ? 'cursor-not-allowed opacity-60' : '',
+                            loading ? 'bg-white/[0.06] text-white/70' : meta.button + ' text-white',
+                          ].join(' ')}
                         >
-                          <div className={`flex-shrink-0 w-5 h-5 rounded-full bg-gradient-to-br ${pkg.gradient} flex items-center justify-center mt-0.5`}>
-                            <Check className="w-3 h-3 text-white" />
-                          </div>
-                          <span>{feature}</span>
-                        </motion.li>
-                      ))}
-                    </ul>
-
-                    {/* Select Button */}
-                    <motion.button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handlePackageSelect(pkg);
-                      }}
-                      disabled={loadingPackageName !== null}
-                      whileHover={loadingPackageName === null ? { scale: 1.05 } : {}}
-                      whileTap={loadingPackageName === null ? { scale: 0.95 } : {}}
-                      className={`
-                        w-full py-3 px-4 rounded-xl font-semibold text-center transition-all inline-flex items-center justify-center gap-2
-                        ${loadingPackageName === pkg.name
-                          ? 'bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-400 cursor-wait'
-                          : isSelected
-                          ? pkg.accent === 'emerald'
-                            ? 'bg-gradient-to-r from-emerald-500 via-green-500 to-teal-500 text-white shadow-lg'
-                            : pkg.accent === 'blue'
-                            ? 'bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500 text-white shadow-lg'
-                            : 'bg-gradient-to-r from-purple-500 via-pink-500 to-rose-500 text-white shadow-lg'
-                          : `bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 ${
-                            pkg.accent === 'emerald'
-                              ? 'group-hover:bg-gradient-to-r group-hover:from-emerald-500 group-hover:via-green-500 group-hover:to-teal-500 group-hover:text-white'
-                              : pkg.accent === 'blue'
-                              ? 'group-hover:bg-gradient-to-r group-hover:from-blue-500 group-hover:via-indigo-500 group-hover:to-purple-500 group-hover:text-white'
-                              : 'group-hover:bg-gradient-to-r group-hover:from-purple-500 group-hover:via-pink-500 group-hover:to-rose-500 group-hover:text-white'
-                            }`
-                        }
-                      `}
-                    >
-                      {loadingPackageName === pkg.name ? (
-                        <>
-                          <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" aria-hidden />
-                          <span>Loading…</span>
-                        </>
-                      ) : isSelected ? (
-                        'Selected ✓'
-                      ) : (
-                        'Select Package'
-                      )}
-                    </motion.button>
+                          {loading ? (
+                            <>
+                              <Loader2 className="h-4.5 w-4.5 animate-spin" aria-hidden />
+                              Creating checkout…
+                            </>
+                          ) : isSelected ? (
+                            'Continue with this package'
+                          ) : (
+                            'Choose this package'
+                          )}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </motion.div>
+                </button>
+              </div>
             );
           })}
         </div>
-
       </div>
     </div>
   );

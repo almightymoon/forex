@@ -1,5 +1,8 @@
+const path = require('path');
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  transpilePackages: ['@splinetool/react-spline', '@splinetool/runtime', 'three-globe'],
   // Remove console logs in production
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? {
@@ -11,7 +14,8 @@ const nextConfig = {
     domains: [
       'res.cloudinary.com',
       'localhost',
-      'your-domain.com'
+      'your-domain.com',
+      'randomuser.me',
     ],
     formats: ['image/webp', 'image/avif'],
   },
@@ -46,6 +50,23 @@ const nextConfig = {
     ];
   },
   webpack: (config, { isServer }) => {
+    // @splinetool/react-spline only declares an ESM "import" export; Next/webpack may
+    // resolve via CJS paths and fail with "Package path . is not exported". Alias the
+    // package entry to the built module directly.
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      '@splinetool/react-spline': path.resolve(
+        __dirname,
+        'node_modules/@splinetool/react-spline/dist/react-spline.js'
+      ),
+      // react-spline.js imports '@splinetool/runtime'; alias so resolution works when
+      // react-spline is mapped to dist/ (otherwise webpack can't resolve the peer).
+      '@splinetool/runtime': path.resolve(
+        __dirname,
+        'node_modules/@splinetool/runtime/build/runtime.js'
+      ),
+    };
+
     // Optimize bundle size
     if (!isServer) {
       config.resolve.fallback = {

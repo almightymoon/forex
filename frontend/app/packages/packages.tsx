@@ -3,10 +3,13 @@
 import Image from "next/image";
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
-import { buildApiUrl } from "../../utils/api";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useRef } from "react";
+import {
+  fetchMergedPublicPackages,
+  getDefaultPackages,
+  type UiPackage,
+} from "../../lib/publicPackages";
 
 const accentClasses = {
   emerald: {
@@ -40,119 +43,23 @@ const accentClasses = {
 
 type AccentKey = keyof typeof accentClasses;
 
-type UiPackage = {
-  _id?: string;
-  name: string;
-  subtitle?: string;
-  price: number;
-  currency?: string;
-  badge?: string;
-  image?: string;
-  accent: AccentKey;
-  highlight?: boolean;
-  features: string[];
-  sortOrder?: number;
-  isActive?: boolean;
-};
-
-const fallbackPackages: UiPackage[] = [
-  {
-    name: "FX Launch",
-    subtitle: "Launch your trading journey",
-    price: 100,
-    badge: "Starter",
-    image: "/pkg1.jpg",
-    accent: "emerald",
-    features: [
-      "Forex Trading Signals",
-      "Forex Basic Mentorship",
-      "Premium Indicators",
-      "Auto Trading Access",
-    ],
-  },
-  {
-    name: "FX Scale",
-    subtitle: "Grow with structure",
-    price: 600,
-    badge: "Most Popular",
-    image: "/pkg2.jpg",
-    accent: "blue",
-    highlight: true,
-    features: [
-      "Forex Trading Signals",
-      "Live Online Mentorship Sessions",
-      "Premium Indicators",
-      "Auto Trading Access",
-    ],
-  },
-  {
-    name: "FX Legacy",
-    subtitle: "Trade for life",
-    price: 1000,
-    badge: "Elite Program",
-    image: "/pkg3.jpg",
-    accent: "purple",
-    features: [
-      "Forex Trading Signals",
-      "Forex Pro Mentorship",
-      "Premium Indicators",
-      "Auto Trading Access",
-      "Physical (On-Ground) Classes",
-    ],
-  },
-];
-
 export default function Packages() {
   const router = useRouter();
-  const [packages, setPackages] = useState<UiPackage[]>(fallbackPackages);
-  const accentKeys = useMemo<AccentKey[]>(() => ["emerald", "blue", "purple"], []);
+  const [packages, setPackages] = useState<UiPackage[]>(() => getDefaultPackages());
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const cardRefs = useRef<Array<HTMLDivElement | null>>([]);
   const [activeIndex, setActiveIndex] = useState(0);
 
   useEffect(() => {
-    // Load packages from backend (admin-managed). Fallback to hardcoded if fetch fails.
-    const loadPackages = async () => {
-      try {
-        const res = await fetch(buildApiUrl("api/packages"), { cache: "no-store" as any });
-        if (!res.ok) return;
-        const apiPkgs = await res.json();
-        if (!Array.isArray(apiPkgs) || apiPkgs.length === 0) return;
-
-        const styleMap = new Map(fallbackPackages.map((p) => [p.name, p]));
-        const merged: UiPackage[] = apiPkgs
-          .filter((p: any) => p && p.isActive !== false)
-          .sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0))
-          .map((p: any, idx: number) => {
-            const base = styleMap.get(String(p.name || "")) || null;
-            const accent = (base?.accent ?? accentKeys[idx % accentKeys.length]) as AccentKey;
-            const badge = base?.badge ?? (idx === 1 ? "Most Popular" : idx === 0 ? "Starter" : "Elite Program");
-            const highlight = base?.highlight ?? idx === 1;
-
-            return {
-              _id: p._id,
-              name: String(p.name ?? base?.name ?? "Package"),
-              subtitle: String(p.subtitle ?? base?.subtitle ?? ""),
-              price: Number(p.price ?? base?.price ?? 0),
-              currency: String(p.currency ?? base?.currency ?? "USD"),
-              features: Array.isArray(p.features) && p.features.length ? p.features : base?.features ?? [],
-              image: String(p.image ?? base?.image ?? "/pkg1.jpg"),
-              accent,
-              highlight,
-              badge,
-              sortOrder: p.sortOrder,
-              isActive: p.isActive,
-            };
-          });
-
-        if (merged.length) setPackages(merged);
-      } catch {
-        // keep fallback
-      }
+    let alive = true;
+    (async () => {
+      const merged = await fetchMergedPublicPackages();
+      if (alive) setPackages(merged);
+    })();
+    return () => {
+      alive = false;
     };
-
-    loadPackages();
-  }, [accentKeys]);
+  }, []);
 
   const scrollToIndex = (idx: number) => {
     const clamped = ((idx % packages.length) + packages.length) % packages.length;

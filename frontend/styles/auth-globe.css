@@ -1,0 +1,88 @@
+/* Globe + labels for auth pages (subset of landing-experience-app.css) */
+.auth-globe-stage {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: #060b14;
+}
+
+.auth-globe-stage .globe-mount,
+.auth-globe-stage .globe-mount canvas {
+  pointer-events: auto;
+}
+
+.globe-mount {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.globe-mount:active {
+  cursor: grabbing;
+}
+
+.globe-mount canvas {
+  display: block;
+}
+
+.hub-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  pointer-events: none;
+  white-space: nowrap;
+  background: rgba(0, 0, 0, 0.5);
+  border-left: 1.5px solid;
+  border-radius: 0 3px 3px 0;
+  backdrop-filter: blur(6px);
+  transition: opacity 0.3s;
+  will-change: transform, opacity;
+}
+
+.hub-tooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: rgba(4, 8, 16, 0.94);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  padding: 14px 18px;
+  pointer-events: none;
+  z-index: 20;
+  min-width: 175px;
+  backdrop-filter: blur(20px);
+  box-shadow:
+    0 12px 40px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.tooltip-city {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin-bottom: 7px;
+  opacity: 0.9;
+}
+
+.tooltip-volume {
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffffff;
+  line-height: 1;
+  margin-bottom: 5px;
+  letter-spacing: -0.025em;
+}
+
+.tooltip-market {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.35);
+  letter-spacing: 0.06em;
+}

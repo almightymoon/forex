@@ -10,6 +10,7 @@ const PromoCode = require('../models/PromoCode');
 const Settings = require('../models/Settings');
 const Withdrawal = require('../models/Withdrawal');
 const BalanceTransaction = require('../models/BalanceTransaction');
+const PlatformCommissionLedger = require('../models/PlatformCommissionLedger');
 const Package = require('../models/Package');
 const fs = require('fs');
 const path = require('path');
@@ -190,11 +191,13 @@ router.get('/users', async (req, res) => {
     });
     const packageSet = new Set(packagePurchaserIds.map((id) => id.toString()));
 
-    // Compute "has initiated a package purchase" (pending/processing)
-    // Some flows use 'processing' while manual approvals start as 'pending'.
+    // Compute "has initiated a package purchase" ONLY after the user submits required proof fields.
+    // (We create `draft` payments when the checkout page is opened; those should not count as pending.)
     const pendingPackagePurchaserIds = await Payment.distinct('user', {
       status: { $in: ['pending', 'processing'] },
-      type: 'package'
+      type: 'package',
+      transactionId: { $exists: true, $ne: '' },
+      paymentScreenshotUrl: { $exists: true, $ne: '' }
     });
     const pendingPackageSet = new Set(pendingPackagePurchaserIds.map((id) => id.toString()));
 
@@ -1180,7 +1183,10 @@ router.delete('/users/:id', async (req, res) => {
 // @access  Private (Admin)
 router.get('/payments', async (req, res) => {
   try {
-    const payments = await Payment.find({})
+    // Hide `draft` payments by default (created when user opens checkout, before submitting proof).
+    const includeDraft = String(req.query.includeDraft || '').toLowerCase() === 'true';
+    const query = includeDraft ? {} : { status: { $ne: 'draft' } };
+    const payments = await Payment.find(query)
       .populate('user', 'firstName lastName email')
       .sort({ createdAt: -1 });
     
@@ -2252,6 +2258,160 @@ router.get('/commissions', async (req, res) => {
   }
 });
 
+// @route   GET /api/admin/monthly-fee-distributions
+// @desc    List completed monthly fee payments with pool/platform preview and distribution status
+// @access  Private (Admin)
+router.get('/monthly-fee-distributions', async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 100);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const skip = (page - 1) * limit;
+    const { startDate, endDate } = req.query;
+
+    const query = { type: 'monthly_fee', status: 'completed' };
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) query.createdAt.$lte = new Date(endDate);
+    }
+
+    const ReferralCommissionService = require('../services/referralCommissionService');
+    const commissionService = new ReferralCommissionService();
+
+    const [total, payments] = await Promise.all([
+      Payment.countDocuments(query),
+      Payment.find(query)
+        .populate('user', 'firstName lastName email')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
+
+    const ids = payments.map((p) => p._id);
+    const commissionCounts =
+      ids.length === 0
+        ? []
+        : await BalanceTransaction.aggregate([
+            { $match: { type: 'referral_commission', relatedPayment: { $in: ids } } },
+            { $group: { _id: '$relatedPayment', count: { $sum: 1 } } }
+          ]);
+    const countByPaymentId = new Map(commissionCounts.map((c) => [String(c._id), c.count]));
+
+    const rows = await Promise.all(
+      payments.map(async (p) => {
+        const uid = p.user?._id || p.user;
+        const commissionCount = countByPaymentId.get(String(p._id)) || 0;
+        const metaDone = ReferralCommissionService.monthlyFeeMetaIsDone(p.metadata);
+
+        const completedPackagePayment = await Payment.findOne({
+          user: uid,
+          status: 'completed',
+          type: 'package'
+        })
+          .sort({ createdAt: -1 })
+          .lean();
+
+        let packageTierName = '—';
+        let poolPct = 0;
+        let referralPool = 0;
+        let platformShare = 0;
+        let resolveError = null;
+
+        const feeAmount = Number(p.finalAmount ?? p.amount) || 0;
+
+        if (completedPackagePayment) {
+          const pkgDoc = await resolvePackageFromPayment(completedPackagePayment);
+          packageTierName =
+            p.metadata?.packageName ||
+            (typeof p.metadata?.get === 'function' ? p.metadata.get('packageName') : null) ||
+            completedPackagePayment.package?.name ||
+            pkgDoc?.name ||
+            'Unknown';
+          const cfg = await commissionService.getCommissionConfig(packageTierName);
+          poolPct = typeof cfg.referralPoolPercentage === 'number' ? cfg.referralPoolPercentage : 0;
+          referralPool = Math.round(feeAmount * poolPct * 100) / 100;
+          platformShare = Math.round(feeAmount * (1 - poolPct) * 100) / 100;
+        } else {
+          resolveError = 'No completed package for this user — cannot resolve pool %';
+        }
+
+        const isDistributed = commissionCount > 0 || metaDone;
+
+        return {
+          paymentId: p._id,
+          createdAt: p.createdAt,
+          confirmedAt: p.confirmedAt,
+          feeAmount,
+          user: p.user || null,
+          packageTierName,
+          referralPoolPercentage: poolPct * 100,
+          referralPool,
+          platformShare,
+          commissionTxnCount: commissionCount,
+          isDistributed,
+          metaDistributed: metaDone,
+          resolveError
+        };
+      })
+    );
+
+    res.json({
+      rows,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit) || 1
+      }
+    });
+  } catch (error) {
+    console.error('[Monthly fee distributions] list error:', error);
+    res.status(500).json({ error: 'Failed to list monthly fee distributions' });
+  }
+});
+
+// @route   POST /api/admin/monthly-fee-distributions/:paymentId/distribute
+// @desc    Split a completed monthly fee into referral pool payouts + platform share (same rules as package)
+// @access  Private (Admin)
+router.post('/monthly-fee-distributions/:paymentId/distribute', async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.paymentId);
+    if (!payment) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+    if (payment.type !== 'monthly_fee') {
+      return res.status(400).json({ success: false, error: 'Not a monthly fee payment' });
+    }
+    if (payment.status !== 'completed') {
+      return res.status(400).json({ success: false, error: 'Payment must be completed before distribution' });
+    }
+
+    const ReferralCommissionService = require('../services/referralCommissionService');
+    const commissionService = new ReferralCommissionService();
+    const commissions = await commissionService.distributeMonthlyFeeCommissions(payment);
+
+    res.json({
+      success: true,
+      message:
+        commissions.length > 0
+          ? `Distributed ${commissions.length} referral commission(s) from this monthly fee.`
+          : 'Distribution recorded. No referral payouts (no pool, no referrer, default referral, or already done).',
+      commissions,
+      count: commissions.length
+    });
+  } catch (error) {
+    console.error('[Monthly fee distributions] distribute error:', error);
+    const msg = error.message || 'Failed to distribute monthly fee';
+    const clientError =
+      /no positive amount|payer user not found|cannot resolve package tier/i.test(msg);
+    res.status(clientError ? 400 : 500).json({
+      success: false,
+      error: msg
+    });
+  }
+});
+
 // ---------------------------------------------------------------------------
 // Logs (admin-only)
 // ---------------------------------------------------------------------------
@@ -2430,6 +2590,8 @@ router.get('/platform-commissions', async (req, res) => {
       byPackage[pkgName].referralPool += refPool;
       byPackage[pkgName].count += 1;
     });
+
+    const ledgerBalance = await PlatformCommissionLedger.getCurrentBalance();
     
     res.json({
       commissions: platformCommissions,
@@ -2452,7 +2614,10 @@ router.get('/platform-commissions', async (req, res) => {
           platformCommission: Math.round(data.platformCommission * 100) / 100,
           referralPool: Math.round(data.referralPool * 100) / 100,
           count: data.count
-        }))
+        })),
+        ledger: {
+          currentBalance: ledgerBalance
+        }
       }
     });
   } catch (error) {
@@ -2461,6 +2626,120 @@ router.get('/platform-commissions', async (req, res) => {
     res.status(500).json({
       error: 'Failed to fetch platform commissions',
       message: error.message
+    });
+  }
+});
+
+// @route   GET /api/admin/platform-commission-ledger
+// @desc    Paginated manual platform commission ledger (admin credit/debit)
+// @access  Private (Admin)
+router.get('/platform-commission-ledger', async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const skip = (page - 1) * limit;
+
+    const [entries, total, currentBalance] = await Promise.all([
+      PlatformCommissionLedger.find()
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .populate('performedBy', 'firstName lastName email')
+        .lean(),
+      PlatformCommissionLedger.countDocuments(),
+      PlatformCommissionLedger.getCurrentBalance()
+    ]);
+
+    res.json({
+      currentBalance,
+      entries,
+      pagination: {
+        total,
+        page,
+        limit,
+        pages: Math.ceil(total / limit) || 1
+      }
+    });
+  } catch (error) {
+    console.error('[Platform Commission Ledger] List error:', error);
+    res.status(500).json({ error: 'Failed to fetch platform commission ledger' });
+  }
+});
+
+// @route   POST /api/admin/platform-commission/credit
+// @desc    Credit platform commission ledger (admin)
+// @access  Private (Admin)
+router.post('/platform-commission/credit', [
+  body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
+  body('description').notEmpty().trim().withMessage('Description is required'),
+  body('notes').optional().trim()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    const { amount, description, notes } = req.body;
+    const transaction = await PlatformCommissionLedger.createEntry({
+      type: 'credit',
+      amount: parseFloat(amount),
+      description,
+      notes,
+      performedBy: req.user._id
+    });
+    const populated = await PlatformCommissionLedger.findById(transaction._id)
+      .populate('performedBy', 'firstName lastName email')
+      .lean();
+    res.json({
+      success: true,
+      message: 'Platform commission credited successfully',
+      transaction: populated
+    });
+  } catch (error) {
+    console.error('[Platform Commission Ledger] Credit error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to credit platform commission'
+    });
+  }
+});
+
+// @route   POST /api/admin/platform-commission/debit
+// @desc    Debit platform commission ledger (admin)
+// @access  Private (Admin)
+router.post('/platform-commission/debit', [
+  body('amount').isFloat({ min: 0.01 }).withMessage('Amount must be greater than 0'),
+  body('description').notEmpty().trim().withMessage('Description is required'),
+  body('notes').optional().trim()
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+    const { amount, description, notes } = req.body;
+    const transaction = await PlatformCommissionLedger.createEntry({
+      type: 'debit',
+      amount: parseFloat(amount),
+      description,
+      notes,
+      performedBy: req.user._id
+    });
+    const populated = await PlatformCommissionLedger.findById(transaction._id)
+      .populate('performedBy', 'firstName lastName email')
+      .lean();
+    res.json({
+      success: true,
+      message: 'Platform commission debited successfully',
+      transaction: populated
+    });
+  } catch (error) {
+    console.error('[Platform Commission Ledger] Debit error:', error);
+    const msg = error.message || 'Failed to debit platform commission';
+    const status = msg.includes('Insufficient') ? 400 : 500;
+    res.status(status).json({
+      success: false,
+      error: msg
     });
   }
 });

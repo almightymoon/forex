@@ -2,13 +2,18 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Eye, EyeOff, Mail, Lock, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { buildApiUrl } from '@/utils/api';
 import { useSettings } from '../../context/SettingsContext';
 import { useMaintenanceContext } from '../../context/MaintenanceContext';
-import DarkModeToggle from '../../components/DarkModeToggle';
+import AuthPortalShell, {
+  authGhostLinkClass,
+  authInputClass,
+  authLabelClass,
+  authPrimaryButtonClass,
+} from '../../components/auth/AuthPortalShell';
 
 export default function LoginPage() {
   const [formData, setFormData] = useState({
@@ -29,10 +34,10 @@ export default function LoginPage() {
   // Prevent hydration mismatch by showing loading state
   if (settingsLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="flex min-h-screen items-center justify-center bg-[#101012]">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+          <div className="mx-auto mb-4 h-11 w-11 animate-spin rounded-full border-2 border-white/10 border-t-violet-400" />
+          <p className="text-[14px] font-medium text-white/45">Loading…</p>
         </div>
       </div>
     );
@@ -305,117 +310,70 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center p-4">
-      {/* Animated Background Elements */}
-      <div className="fixed inset-0 overflow-hidden pointer-events-none">
-        <motion.div
-          className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl"
-          animate={{
-            scale: [1, 1.2, 1],
-            rotate: [0, 180, 360],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        />
-        <motion.div
-          className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-green-400/20 to-blue-400/20 rounded-full blur-3xl"
-          animate={{
-            scale: [1.2, 1, 1.2],
-            rotate: [360, 180, 0],
-          }}
-          transition={{
-            duration: 25,
-            repeat: Infinity,
-            ease: "linear"
-          }}
-        />
-      </div>
-
-      <div className="w-full max-w-md relative z-10">
-        {/* Back to Home Link and Dark Mode Toggle */}
-        <motion.div
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="mb-6 flex items-center justify-between"
-        >
-          <Link 
-            href="/"
-            className="inline-flex items-center text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to Home
-          </Link>
-          <DarkModeToggle size="sm" />
-        </motion.div>
-
-        {/* Login Form Card */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-md rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/20 p-8"
-        >
-          {/* Logo and Title */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center mb-4">
-              <img 
-                src="/all-07.svg" 
-                alt="Forex Navigators Logo" 
-                className="w-32 h-32 object-contain dark:invert"
-              />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-              Welcome Back
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300">
-              Sign in to your Forex Navigators account
-            </p>
-          </div>
-
-          {/* Error Message */}
-          {error && (
+    <>
+      <AuthPortalShell
+        platformName={settings.platformName}
+        headline="Welcome!"
+        subhead={`Log in to THEFXNAVIGATOR to continue to ${settings.platformName}.`}
+        promo={{
+          lines: ['10K+ traders on the desk.', 'Signals · risk · execution — one workspace.'],
+          ctaLabel: 'Join now',
+          ctaHref: '/register',
+        }}
+        footer={
+          <p className="text-[12px] leading-relaxed text-white/35">
+            By signing in, you agree to our{' '}
+            <Link href="/terms" className="text-violet-300/90 underline underline-offset-2 hover:text-violet-200">
+              Terms of Service &amp; privacy
+            </Link>
+            .
+          </p>
+        }
+      >
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }}>
+          {error && !show2FA ? (
             <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl text-red-700 dark:text-red-400 text-sm"
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mb-6 rounded-xl border border-red-500/25 bg-red-950/50 px-4 py-3 text-[13px] leading-snug text-red-200"
+              role="alert"
             >
               {error}
             </motion.div>
-          )}
+          ) : null}
 
-          {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Email Field */}
+          <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Email Address
+              <label htmlFor="auth-email-input" className={authLabelClass}>
+                Email
               </label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+                <Mail className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/35" />
                 <input
                   type="email"
-                  id="email"
+                  id="auth-email-input"
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
                   required
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  placeholder="Enter your email"
+                  className={authInputClass}
+                  placeholder="Your email address"
+                  autoComplete="email"
                 />
               </div>
             </div>
 
-            {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Password
-              </label>
+              <div className="mb-1.5 flex items-center justify-between gap-3">
+                <label htmlFor="password" className="text-[13px] font-medium text-white/65">
+                  Password
+                </label>
+                <Link href="/forgot-password" className={authGhostLinkClass}>
+                  Forgot password?
+                </Link>
+              </div>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-5 h-5" />
+                <Lock className="pointer-events-none absolute left-4 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-white/35" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   id="password"
@@ -423,119 +381,80 @@ export default function LoginPage() {
                   value={formData.password}
                   onChange={handleChange}
                   required
-                  className="w-full pl-10 pr-12 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all bg-white/50 dark:bg-gray-700/50 backdrop-blur-sm text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  placeholder="Enter your password"
+                  className={`${authInputClass} pr-12`}
+                  placeholder="Your password"
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-white/40 transition-colors hover:bg-white/[0.06] hover:text-white/85"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
                 >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  {showPassword ? <EyeOff className="h-[18px] w-[18px]" /> : <Eye className="h-[18px] w-[18px]" />}
                 </button>
               </div>
             </div>
 
-            {/* Forgot Password Link */}
-            <div className="text-right">
-              <Link 
-                href="/forgot-password"
-                className="text-sm text-blue-600 hover:text-blue-700 transition-colors"
-              >
-                Forgot your password?
-              </Link>
-            </div>
-
-            {/* Submit Button */}
             <motion.button
               type="submit"
               disabled={isLoading}
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-6 rounded-xl font-semibold hover:from-blue-700 hover:to-purple-700 transition-all transform shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              whileHover={{ scale: 1.01 }}
+              whileTap={{ scale: 0.99 }}
+              className={authPrimaryButtonClass}
             >
               {isLoading ? (
-                <div className="flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                  Signing In...
-                </div>
+                <span className="inline-flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/20 border-t-white" />
+                  Signing in…
+                </span>
               ) : (
-                'Sign In'
+                'Log in'
               )}
             </motion.button>
           </form>
 
-          {/* Divider */}
-          <div className="my-8 flex items-center">
-            <div className="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
-            <span className="px-4 text-sm text-gray-500 dark:text-gray-400">or</span>
-            <div className="flex-1 border-t border-gray-300 dark:border-gray-600"></div>
-          </div>
-
-          {/* Sign Up Link */}
-          <div className="text-center">
-            <p className="text-gray-600 dark:text-gray-300 mb-4">
-              Don't have an account?{' '}
-              <Link 
-                href="/register"
-                className="text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 font-semibold transition-colors"
-              >
-                Sign up here
-              </Link>
-            </p>
-         
-          </div>
+          <p className="mt-10 text-center text-[14px] text-white/45">
+            Don&apos;t have an account?{' '}
+            <Link href="/register" className={`${authGhostLinkClass} font-semibold`}>
+              Sign up
+            </Link>
+          </p>
         </motion.div>
+      </AuthPortalShell>
 
-        {/* Additional Info */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.2 }}
-          className="mt-6 text-center text-sm text-gray-500 dark:text-gray-400"
-        >
-          <p>By signing in, you agree to our Terms of Service and Privacy Policy</p>
-        </motion.div>
-      </div>
-
-      {/* 2FA Modal */}
-      {show2FA && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      {show2FA ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]">
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
+            initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-md rounded-2xl p-6 w-full max-w-md"
+            className="w-full max-w-md rounded-[24px] border border-white/10 bg-zinc-900 p-6 text-white shadow-2xl sm:p-8"
           >
-            <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 text-center">
-              Two-Factor Authentication
-            </h3>
-            
-            <p className="text-gray-600 dark:text-gray-300 text-center mb-6">
-              Enter the 6-digit code from your authenticator app or use a backup code.
+            <h3 className="text-center text-xl font-bold tracking-tight">Two-factor authentication</h3>
+            <p className="mt-2 text-center text-[14px] leading-relaxed text-white/55">
+              Enter the 6-digit code from your authenticator app or a backup code.
             </p>
 
-            <form onSubmit={handle2FASubmit} className="space-y-4">
+            <form onSubmit={handle2FASubmit} className="mt-6 space-y-4">
               <input
                 type="text"
+                inputMode="numeric"
                 value={twoFactorCode}
                 onChange={(e) => setTwoFactorCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 placeholder="000000"
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-center text-lg font-mono bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                className="w-full rounded-2xl border border-white/12 bg-black/40 px-4 py-3.5 text-center font-mono text-xl tracking-[0.35em] text-white placeholder:text-white/25 focus:outline-none focus:ring-2 focus:ring-emerald-400/50"
                 maxLength={6}
                 required
+                autoComplete="one-time-code"
               />
 
-              {error && (
-                <motion.div
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl"
-                >
-                  <p className="text-red-600 dark:text-red-400 text-sm text-center">{error}</p>
-                </motion.div>
-              )}
+              {error ? (
+                <p className="rounded-xl border border-red-500/30 bg-red-950/50 px-3 py-2 text-center text-[13px] text-red-200">
+                  {error}
+                </p>
+              ) : null}
 
-              <div className="flex space-x-3">
+              <div className="flex gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => {
@@ -543,28 +462,27 @@ export default function LoginPage() {
                     setTwoFactorCode('');
                     setError('');
                   }}
-                  className="flex-1 px-4 py-3 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="h-11 flex-1 rounded-full border border-white/15 text-[13px] font-semibold text-white/85 transition-colors hover:bg-white/[0.06]"
                   disabled={isLoading}
                 >
                   Cancel
                 </button>
-                
                 <button
                   type="submit"
                   disabled={isLoading || twoFactorCode.length < 6}
-                  className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="h-11 flex-1 rounded-full bg-white text-[13px] font-semibold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  {isLoading ? 'Verifying...' : 'Verify'}
+                  {isLoading ? 'Verifying…' : 'Verify'}
                 </button>
               </div>
             </form>
 
-            <p className="text-xs text-gray-500 dark:text-gray-400 text-center mt-4">
-              Lost your device? Use one of your backup codes instead.
+            <p className="mt-5 text-center text-[11px] leading-relaxed text-white/40">
+              Lost your device? Use a backup code instead.
             </p>
           </motion.div>
         </div>
-      )}
-    </div>
+      ) : null}
+    </>
   );
 }
