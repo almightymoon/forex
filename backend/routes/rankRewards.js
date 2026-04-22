@@ -1,14 +1,14 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const User = require('../models/User');
-const BalanceTransaction = require('../models/BalanceTransaction');
 const RankRewardRule = require('../models/RankRewardRule');
 const RankRewardUnlock = require('../models/RankRewardUnlock');
+const { evaluateRankRewardsForUser } = require('../services/rankRewardService');
 
 const router = express.Router();
 
 // @route   GET /api/rank-rewards/progress
-// @desc    Student rank reward progress (rules + unlocks + lifetime earned)
+// @desc    Rank reward progress (rules + unlocks + direct referrals level 1)
 // @access  Private
 router.get('/progress', async (req, res) => {
   try {
@@ -17,24 +17,11 @@ router.get('/progress', async (req, res) => {
       return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    const userObjectId = new mongoose.Types.ObjectId(userId);
-
-    const [user, creditsAgg, withdrawalsAgg] = await Promise.all([
-      User.findById(userId).select('balance').lean(),
-      BalanceTransaction.aggregate([
-        { $match: { user: userObjectId, amount: { $gt: 0 } } },
-        { $group: { _id: null, total: { $sum: '$amount' } } }
-      ]),
-      BalanceTransaction.aggregate([
-        { $match: { user: userObjectId, type: 'withdrawal', amount: { $lt: 0 } } },
-        { $group: { _id: null, total: { $sum: { $multiply: ['$amount', -1] } } } }
-      ])
-    ]);
-
-    const creditsTotal = Number(creditsAgg?.[0]?.total || 0);
-    const withdrawnTotal = Number(withdrawalsAgg?.[0]?.total || 0);
-    const currentBalance = Number(user?.balance || 0);
-    const lifetimeEarned = creditsTotal > 0 ? creditsTotal : currentBalance + withdrawnTotal;
+    const user = await User.findById(userId).select('email referralCode').lean();
+    const referralCode = String(user?.referralCode || '').trim();
+    const directReferralCount = referralCode
+      ? await User.countDocuments({ parentReferralCode: referralCode })
+      : 0;
 
     const rules = await RankRewardRule.find({ isActive: true })
       .sort({ thresholdBalance: 1, sortOrder: 1, createdAt: 1 })
@@ -44,22 +31,33 @@ router.get('/progress', async (req, res) => {
       .select('rule status unlockedAt fulfilledAt thresholdBalance balanceAtUnlock fulfillmentNotes')
       .lean();
 
-    const earned = Number(lifetimeEarned) || 0;
+    const directReferrals = Number(directReferralCount) || 0;
     const sortedRules = Array.isArray(rules) ? rules : [];
     let currentRule = null;
     let nextRule = null;
 
     for (const r of sortedRules) {
       const thr = Number(r.thresholdBalance) || 0;
-      if (thr <= earned) currentRule = r;
-      if (thr > earned) {
+      if (thr <= directReferrals) currentRule = r;
+      if (thr > directReferrals) {
         nextRule = r;
         break;
       }
     }
 
+    // Best-effort: ensure unlocks are created when user crosses threshold via new referral.
+    try {
+      await evaluateRankRewardsForUser({
+        userId,
+        level1ReferralCount: directReferrals,
+        userEmail: user?.email
+      });
+    } catch {
+      // ignore
+    }
+
     res.json({
-      lifetimeEarned: Math.round(earned * 100) / 100,
+      level1ReferralCount: directReferrals,
       rules: sortedRules,
       unlocks,
       currentRule,

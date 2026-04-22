@@ -105,19 +105,8 @@ balanceTransactionSchema.statics.createTransaction = async function(data) {
   }
   await userDoc.save();
 
-  // Rank rewards: evaluate on positive balance changes (best-effort)
-  if (amount > 0) {
-    try {
-      const { evaluateRankRewardsForUser } = require('../services/rankRewardService');
-      await evaluateRankRewardsForUser({
-        userId: userDoc._id,
-        lifetimeEarned: userDoc.lifetimeEarned,
-        userEmail: userDoc.email
-      });
-    } catch (e) {
-      // ignore
-    }
-  }
+  // Rank rewards are based on direct referrals (level 1) only.
+  // Do not evaluate here on balance changes (commissions/fees).
   
   return transaction;
 };
