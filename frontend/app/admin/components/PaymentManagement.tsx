@@ -98,6 +98,11 @@ export default function PaymentManagement({
     'payment_complete_required' | 'payment_unable_verify' | 'payment_rejected_retry'
   >('payment_complete_required');
   const [emailNote, setEmailNote] = useState('');
+  const [emailMode, setEmailMode] = useState<'template' | 'custom'>('template');
+  const [emailSubjectOverride, setEmailSubjectOverride] = useState('');
+  const [emailMessageOverride, setEmailMessageOverride] = useState('');
+  const [customEmailSubject, setCustomEmailSubject] = useState('');
+  const [customEmailMessage, setCustomEmailMessage] = useState('');
   const [sendingEmail, setSendingEmail] = useState(false);
 
 
@@ -108,8 +113,13 @@ export default function PaymentManagement({
 
   const openEmailModal = (payment: Payment) => {
     setEmailTargetPayment(payment);
+    setEmailMode('template');
     setEmailTemplate('payment_complete_required');
     setEmailNote('');
+    setEmailSubjectOverride('');
+    setEmailMessageOverride('');
+    setCustomEmailSubject('');
+    setCustomEmailMessage('');
     setShowEmailModal(true);
   };
 
@@ -122,17 +132,34 @@ export default function PaymentManagement({
     try {
       setSendingEmail(true);
       const token = localStorage.getItem('token');
-      const res = await fetch(buildApiUrl(`api/admin/payments/${emailTargetPayment._id}/send-email`), {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          template: emailTemplate,
-          note: emailNote.trim() || undefined
-        })
-      });
+      const isCustom = emailMode === 'custom';
+      const res = await fetch(
+        buildApiUrl(
+          isCustom
+            ? `api/admin/payments/${emailTargetPayment._id}/send-custom-email`
+            : `api/admin/payments/${emailTargetPayment._id}/send-email`
+        ),
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(
+            isCustom
+              ? {
+                  subject: customEmailSubject.trim(),
+                  message: customEmailMessage.trim()
+                }
+              : {
+                  template: emailTemplate,
+                  note: emailNote.trim() || undefined,
+                  overrideSubject: emailSubjectOverride.trim() || undefined,
+                  overrideMessage: emailMessageOverride.trim() || undefined
+                }
+          )
+        }
+      );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         const msg =
@@ -146,6 +173,10 @@ export default function PaymentManagement({
       setShowEmailModal(false);
       setEmailTargetPayment(null);
       setEmailNote('');
+      setEmailSubjectOverride('');
+      setEmailMessageOverride('');
+      setCustomEmailSubject('');
+      setCustomEmailMessage('');
     } catch (e) {
       console.error(e);
       showToast('Failed to send email', 'error');
@@ -1647,33 +1678,128 @@ export default function PaymentManagement({
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Template</label>
-                <select
-                  value={emailTemplate}
-                  onChange={(e) => setEmailTemplate(e.target.value as any)}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              <div className="flex gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg w-fit">
+                <button
+                  type="button"
+                  onClick={() => setEmailMode('template')}
                   disabled={sendingEmail}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    emailMode === 'template'
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white'
+                  }`}
                 >
-                  <option value="payment_complete_required">Complete your payment</option>
-                  <option value="payment_unable_verify">Unable to verify your payment</option>
-                  <option value="payment_rejected_retry">Payment rejected (try again)</option>
-                </select>
+                  Template
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmailMode('custom')}
+                  disabled={sendingEmail}
+                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                    emailMode === 'custom'
+                      ? 'bg-blue-600 text-white shadow'
+                      : 'text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white'
+                  }`}
+                >
+                  Custom email
+                </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Optional note (shown in email)
-                </label>
-                <textarea
-                  value={emailNote}
-                  onChange={(e) => setEmailNote(e.target.value)}
-                  placeholder="e.g. Please resubmit with a clear transaction hash screenshot."
-                  rows={3}
-                  disabled={sendingEmail}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                />
-              </div>
+              {emailMode === 'template' ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Template</label>
+                    <select
+                      value={emailTemplate}
+                      onChange={(e) => setEmailTemplate(e.target.value as any)}
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      disabled={sendingEmail}
+                    >
+                      <option value="payment_complete_required">Complete your payment</option>
+                      <option value="payment_unable_verify">Unable to verify your payment</option>
+                      <option value="payment_rejected_retry">Payment rejected (try again)</option>
+                    </select>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      You can optionally override the subject/message below for this email only.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Optional note (shown in template)
+                    </label>
+                    <textarea
+                      value={emailNote}
+                      onChange={(e) => setEmailNote(e.target.value)}
+                      placeholder="e.g. Please resubmit with a clear transaction hash screenshot."
+                      rows={3}
+                      disabled={sendingEmail}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Override subject (optional)
+                    </label>
+                    <input
+                      type="text"
+                      value={emailSubjectOverride}
+                      onChange={(e) => setEmailSubjectOverride(e.target.value)}
+                      placeholder="Leave empty to use template subject"
+                      disabled={sendingEmail}
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Override message (optional)
+                    </label>
+                    <textarea
+                      value={emailMessageOverride}
+                      onChange={(e) => setEmailMessageOverride(e.target.value)}
+                      placeholder="Leave empty to use template email body"
+                      rows={4}
+                      disabled={sendingEmail}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Subject *
+                    </label>
+                    <input
+                      type="text"
+                      value={customEmailSubject}
+                      onChange={(e) => setCustomEmailSubject(e.target.value)}
+                      placeholder="Enter email subject"
+                      disabled={sendingEmail}
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Message *
+                    </label>
+                    <textarea
+                      value={customEmailMessage}
+                      onChange={(e) => setCustomEmailMessage(e.target.value)}
+                      placeholder="Write your email message..."
+                      rows={6}
+                      disabled={sendingEmail}
+                      className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      This sends a plain custom email (no payment template styling).
+                    </p>
+                  </div>
+                </>
+              )}
 
               <div className="flex gap-3 pt-2">
                 <button
@@ -1688,7 +1814,12 @@ export default function PaymentManagement({
                 </button>
                 <button
                   onClick={sendPaymentEmail}
-                  disabled={sendingEmail || !emailTargetPayment.user?._id}
+                  disabled={
+                    sendingEmail ||
+                    !emailTargetPayment.user?._id ||
+                    (emailMode === 'custom' &&
+                      (!customEmailSubject.trim() || !customEmailMessage.trim()))
+                  }
                   className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   {sendingEmail ? (

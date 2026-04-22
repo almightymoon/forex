@@ -1558,7 +1558,9 @@ router.post('/payments/:id/send-email', [
     .isString()
     .notEmpty()
     .withMessage('Template is required'),
-  body('note').optional().trim().isLength({ max: 500 }).withMessage('Note too long')
+  body('note').optional().trim().isLength({ max: 500 }).withMessage('Note too long'),
+  body('overrideSubject').optional().trim().isLength({ max: 200 }).withMessage('Subject too long'),
+  body('overrideMessage').optional().trim().isLength({ max: 5000 }).withMessage('Message too long')
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -1592,13 +1594,18 @@ router.post('/payments/:id/send-email', [
         : payment.package?.name || 'Premium Package';
 
     // Use FRONTEND_URL login page (user will be redirected by app logic if payment pending)
+    const overrideSubject = req.body.overrideSubject ? String(req.body.overrideSubject).trim() : '';
+    const overrideMessage = req.body.overrideMessage ? String(req.body.overrideMessage).trim() : '';
+
     const notificationPayload = {
       paymentId: payment._id,
       amount: payment.finalAmount ?? payment.amount ?? 0,
       finalAmount: payment.finalAmount ?? payment.amount ?? 0,
       currency: payment.currency || 'USD',
       packageName,
-      note
+      note,
+      title: overrideSubject || undefined,
+      message: overrideMessage || undefined
     };
 
     await notificationService.sendNotificationToUser(payment.user._id, template, notificationPayload);
@@ -1607,6 +1614,44 @@ router.post('/payments/:id/send-email', [
   } catch (error) {
     console.error('[Admin Payment Email] Error:', error);
     res.status(500).json({ error: error.message || 'Failed to send email' });
+  }
+});
+
+// @route   POST /api/admin/payments/:id/send-custom-email
+// @desc    Send a custom email (subject + message) to the payment user (admin only)
+// @access  Private (Admin)
+router.post('/payments/:id/send-custom-email', [
+  body('subject').isString().notEmpty().trim().isLength({ max: 200 }).withMessage('Subject is required'),
+  body('message').isString().notEmpty().trim().isLength({ max: 5000 }).withMessage('Message is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const payment = await Payment.findById(req.params.id).populate('user', 'firstName lastName email');
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+    if (!payment.user?._id) {
+      return res.status(400).json({ error: 'Payment has no user attached' });
+    }
+
+    const subject = String(req.body.subject).trim();
+    const message = String(req.body.message).trim();
+
+    // Use the default notification template path with explicit title/message.
+    await notificationService.sendNotificationToUser(payment.user._id, 'admin', {
+      title: subject,
+      message,
+      paymentId: payment._id
+    });
+
+    res.json({ success: true, message: 'Custom email sent successfully' });
+  } catch (error) {
+    console.error('[Admin Payment Custom Email] Error:', error);
+    res.status(500).json({ error: error.message || 'Failed to send custom email' });
   }
 });
 

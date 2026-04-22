@@ -39,6 +39,7 @@ interface TradingSignal {
   // Signal entry/exit prices
   entryPrice: number;
   targetPrice: number;
+  targets?: number[];
   stopLoss: number;
   // Risk management
   riskRewardRatio?: number;
@@ -82,7 +83,7 @@ interface CreateSignalData {
   priceChangePercent: number;
   // Signal entry/exit prices
   entryPrice: number;
-  targetPrice: number;
+  targets: number[];
   stopLoss: number;
   // Risk management
   positionSize?: number;
@@ -112,7 +113,7 @@ export default function TradingSignals() {
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [newSignal, setNewSignal] = useState<CreateSignalData>({
-    symbol: '',
+    symbol: 'SIGNAL',
     instrumentType: 'forex',
     type: 'buy',
     currentBid: 0,
@@ -122,7 +123,7 @@ export default function TradingSignals() {
     priceChange: 0,
     priceChangePercent: 0,
     entryPrice: 0,
-    targetPrice: 0,
+    targets: [0],
     stopLoss: 0,
     positionSize: 0,
     maxRisk: 0,
@@ -221,14 +222,17 @@ export default function TradingSignals() {
     
     try {
       // Validate required fields
-      if (!newSignal.symbol || !newSignal.description || newSignal.entryPrice <= 0 || newSignal.targetPrice <= 0 || newSignal.stopLoss <= 0) {
+      const targets = Array.isArray(newSignal.targets)
+        ? newSignal.targets.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0)
+        : [];
+      if (newSignal.entryPrice <= 0 || targets.length === 0 || newSignal.stopLoss <= 0) {
         showToast('Please fill in all required fields', 'error');
         return;
       }
 
       // Validate price logic based on signal type
       if (newSignal.type === 'buy') {
-        if (newSignal.targetPrice <= newSignal.entryPrice) {
+        if (targets[0] <= newSignal.entryPrice) {
           showToast('For BUY signals: Target price must be higher than entry price', 'error');
           return;
         }
@@ -237,7 +241,7 @@ export default function TradingSignals() {
           return;
         }
       } else if (newSignal.type === 'sell') {
-        if (newSignal.targetPrice >= newSignal.entryPrice) {
+        if (targets[0] >= newSignal.entryPrice) {
           showToast('For SELL signals: Target price must be lower than entry price', 'error');
           return;
         }
@@ -267,7 +271,7 @@ export default function TradingSignals() {
         setFieldErrors({});
         setShowCreateModal(false);
         setNewSignal({
-          symbol: '',
+          symbol: 'SIGNAL',
           instrumentType: 'forex',
           type: 'buy',
           currentBid: 0,
@@ -277,7 +281,7 @@ export default function TradingSignals() {
           priceChange: 0,
           priceChangePercent: 0,
           entryPrice: 0,
-          targetPrice: 0,
+          targets: [0],
           stopLoss: 0,
           positionSize: 0,
           maxRisk: 0,
@@ -654,115 +658,155 @@ export default function TradingSignals() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden"
+              className="rounded-2xl overflow-hidden border border-white/10 dark:border-white/10 bg-gradient-to-br from-slate-900/60 via-slate-900/40 to-slate-950/70 backdrop-blur-xl shadow-[0_20px_70px_-30px_rgba(0,0,0,0.8)]"
             >
-              <div className="p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">{signal.symbol}</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-300 line-clamp-2">{signal.description}</p>
+              <div className="relative p-6">
+                {/* soft glow */}
+                <div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-gradient-to-br from-emerald-400/25 via-cyan-400/15 to-indigo-500/20 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-gradient-to-tr from-fuchsia-500/15 via-indigo-500/10 to-sky-500/15 blur-3xl" />
+
+                {/* Header */}
+                <div className="relative flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-3xl font-semibold tracking-wide text-white truncate">
+                      {(signal.symbol || '').replace('/', ' ').trim()}
+                    </h3>
+                    <p className="mt-1 text-sm text-white/70 line-clamp-1">
+                      {signal.description || '—'}
+                    </p>
                   </div>
-                  <div className="flex flex-col items-end space-y-2">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(signal.status)}`}>
+
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-white border border-white/10">
+                      <span className="inline-block h-2 w-2 rounded-full bg-emerald-300/90" />
                       {signal.status}
                     </span>
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getTypeColor(signal.type)}`}>
+                    <span
+                      className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold border ${
+                        signal.type === 'buy' || signal.type === 'strong_buy'
+                          ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/20'
+                          : signal.type === 'sell' || signal.type === 'strong_sell'
+                            ? 'bg-rose-500/20 text-rose-200 border-rose-400/20'
+                            : 'bg-amber-500/15 text-amber-200 border-amber-400/20'
+                      }`}
+                    >
                       {signal.type.toUpperCase()}
+                      <span className="text-white/70">↗</span>
                     </span>
                   </div>
                 </div>
 
-                <div className="space-y-3 mb-4">
-                  <div className="grid grid-cols-3 gap-2 text-sm">
-                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                      <p className="text-gray-500 dark:text-gray-400 text-xs">Entry</p>
-                      <p className="font-semibold text-gray-900 dark:text-white">${signal.entryPrice}</p>
+                {/* Price tiles */}
+                <div className="relative mt-5 grid grid-cols-3 gap-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                    <p className="text-xs text-white/60">Entry</p>
+                    <p className="mt-1 text-2xl font-bold text-sky-200">${Number(signal.entryPrice || 0).toFixed(2)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-white/60">Target</p>
+                      {Array.isArray((signal as any).targets) && (signal as any).targets.length > 1 ? (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/70 border border-white/10">
+                          +{(signal as any).targets.length - 1}
+                        </span>
+                      ) : null}
                     </div>
-                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                      <p className="text-gray-500 dark:text-gray-400 text-xs">Target</p>
-                      <p className="font-semibold text-gray-900 dark:text-white">${signal.targetPrice}</p>
-                    </div>
-                    <div className="text-center p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                      <p className="text-gray-500 dark:text-gray-400 text-xs">Stop Loss</p>
-                      <p className="font-semibold text-gray-900 dark:text-white">${signal.stopLoss}</p>
+                    <p className="mt-1 text-2xl font-bold text-emerald-200">
+                      ${Number(signal.targetPrice || 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                    <p className="text-xs text-white/60">Stop Loss</p>
+                    <p className="mt-1 text-2xl font-bold text-rose-200">${Number(signal.stopLoss || 0).toFixed(2)}</p>
+                  </div>
+                </div>
+
+                {/* Meta */}
+                <div className="relative mt-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm text-white/80">
+                    <span>Confidence: {signal.confidence}%</span>
+                    <div className="h-1.5 w-28 rounded-full bg-white/10 overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-300 to-amber-300"
+                        style={{ width: `${Math.min(100, Math.max(0, Number(signal.confidence || 0)))}%` }}
+                      />
                     </div>
                   </div>
-                  
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-300">Confidence: {signal.confidence}%</span>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getRiskColor(signal.riskLevel)}`}>
-                      {signal.riskLevel}
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-white/80 border border-white/10">
+                    {signal.riskLevel}
+                  </span>
+                </div>
+
+                <div className="relative mt-3 flex items-center justify-between text-xs text-white/60">
+                  <span className="inline-flex items-center gap-2">
+                    Timeframe: {signal.timeframe}
+                    <span className="opacity-60">•</span>
+                    {new Date(signal.createdAt).toLocaleDateString()}
+                  </span>
+                  <span className="inline-flex items-center gap-4">
+                    <span className="inline-flex items-center gap-1">
+                      <Eye className="w-4 h-4" />
+                      {signal.views}
                     </span>
-                  </div>
+                    <span className="inline-flex items-center gap-1">
+                      <MessageSquare className="w-4 h-4" />
+                      {signal.comments.length}
+                    </span>
+                  </span>
                 </div>
 
-                <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300 mb-4">
-                  <span>Timeframe: {signal.timeframe}</span>
-                  <span>{new Date(signal.createdAt).toLocaleDateString()}</span>
-                </div>
-
-                <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-300 mb-4">
-                  <div className="flex items-center space-x-2">
-                    <Eye className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                    <span>{signal.views}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <MessageSquare className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                    <span>{signal.comments.length}</span>
-                  </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
+                {/* Actions */}
+                <div className="relative mt-5 flex items-center gap-2 flex-wrap">
                   {signal.status === 'active' && (
                     <>
                       <button
                         onClick={() => handleTogglePublish(signal._id, signal.isPublished)}
-                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${
-                          signal.isPublished 
-                            ? 'bg-yellow-600 text-white hover:bg-yellow-700' 
-                            : 'bg-green-600 text-white hover:bg-green-700'
+                        className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                          signal.isPublished
+                            ? 'bg-amber-500/20 text-amber-100 border border-amber-400/20 hover:bg-amber-500/30'
+                            : 'bg-emerald-500/20 text-emerald-100 border border-emerald-400/20 hover:bg-emerald-500/30'
                         }`}
                       >
                         {signal.isPublished ? 'Unpublish' : 'Publish'}
                       </button>
                       <button
                         onClick={() => handleCloseSignal(signal._id)}
-                        className="px-3 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700 transition-colors"
+                        className="px-4 py-2 rounded-xl text-sm font-semibold bg-sky-500/20 text-sky-100 border border-sky-400/20 hover:bg-sky-500/30"
                       >
                         Close Signal
                       </button>
                     </>
                   )}
-                  
-                  <button
-                    onClick={() => {
-                      setSelectedSignal(signal);
-                      setShowViewModal(true);
-                    }}
-                    className="px-3 py-2 text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 transition-colors"
-                    title="View Signal"
-                  >
-                    <Eye className="w-4 h-4" />
-                  </button>
-                  
-                  <button
-                    onClick={() => {
-                      setEditingSignal(signal);
-                      setShowEditModal(true);
-                    }}
-                    className="px-3 py-2 text-gray-600 hover:text-gray-900 transition-colors"
-                    title="Edit Signal"
-                  >
-                    <Edit className="w-4 h-4" />
-                  </button>
-                  
-                  <button
-                    onClick={() => handleDeleteSignal(signal._id)}
-                    className="px-3 py-2 text-red-600 hover:text-red-900 transition-colors"
-                    title="Delete Signal"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+
+                  <div className="ml-auto flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setSelectedSignal(signal);
+                        setShowViewModal(true);
+                      }}
+                      className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/90"
+                      title="View Signal"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingSignal(signal);
+                        setShowEditModal(true);
+                      }}
+                      className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/90"
+                      title="Edit Signal"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteSignal(signal._id)}
+                      className="px-3 py-2 rounded-xl bg-white/5 hover:bg-rose-500/20 border border-white/10 hover:border-rose-400/20 text-white/90"
+                      title="Delete Signal"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </motion.div>
@@ -929,7 +973,7 @@ export default function TradingSignals() {
       {/* Create Signal Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Create New Trading Signal</h3>
               <button
@@ -942,550 +986,78 @@ export default function TradingSignals() {
                 ✕
               </button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Symbol *</label>
-                <input
-                  type="text"
-                  value={newSignal.symbol}
-                  onChange={(e) => {
-                    setNewSignal({ ...newSignal, symbol: e.target.value.toUpperCase() });
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  placeholder="e.g., EUR/USD, BTC/USD"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Instrument Type *</label>
-                <select
-                  value={newSignal.instrumentType}
-                  onChange={(e) => setNewSignal({ ...newSignal, instrumentType: e.target.value as 'forex' | 'crypto' | 'stocks' | 'commodities' | 'indices' | 'futures' })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="forex">Forex</option>
-                  <option value="crypto">Cryptocurrency</option>
-                  <option value="stocks">Stocks</option>
-                  <option value="commodities">Commodities</option>
-                  <option value="indices">Indices</option>
-                  <option value="futures">Futures</option>
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Signal Type *</label>
-                <select
-                  value={newSignal.type}
-                  onChange={(e) => {
-                    const newType = e.target.value as 'buy' | 'sell' | 'hold' | 'strong_buy' | 'strong_sell';
-                    const updatedSignal = { ...newSignal, type: newType };
-                    
-                    // Re-suggest entry, target, and stop loss if bid is already set
-                    if (newSignal.currentBid > 0) {
-                      const suggestions = suggestValuesFromBid(newSignal.currentBid, newType, newSignal.instrumentType);
-                      if (suggestions) {
-                        // Update entry, target, and stop loss based on new signal type
-                        updatedSignal.entryPrice = suggestions.entryPrice;
-                        updatedSignal.targetPrice = suggestions.targetPrice;
-                        updatedSignal.stopLoss = suggestions.stopLoss;
-                      }
-                    }
-                    
-                    setNewSignal(updatedSignal);
-                  }}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="buy">Buy</option>
-                  <option value="sell">Sell</option>
-                  <option value="hold">Hold</option>
-                  <option value="strong_buy">Strong Buy</option>
-                  <option value="strong_sell">Strong Sell</option>
-                </select>
-              </div>
-              
-              {/* Current Market Prices Section */}
-              <div className="col-span-full mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-700">
-                <h4 className="font-semibold text-blue-800 dark:text-blue-300 mb-3">📊 Current Market Prices (MT5 Style)</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">Current Bid *</label>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      value={newSignal.currentBid}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        const updatedSignal = { ...newSignal, currentBid: value };
-                        
-                        // Suggest values if bid is valid
-                        if (value > 0) {
-                          const suggestions = suggestValuesFromBid(value);
-                          if (suggestions) {
-                            // Only auto-fill if fields are empty (0 or not set)
-                            if (newSignal.currentAsk === 0) {
-                              updatedSignal.currentAsk = suggestions.currentAsk;
-                            }
-                            if (newSignal.dailyHigh === 0) {
-                              updatedSignal.dailyHigh = suggestions.dailyHigh;
-                            }
-                            if (newSignal.dailyLow === 0) {
-                              updatedSignal.dailyLow = suggestions.dailyLow;
-                            }
-                            if (newSignal.entryPrice === 0) {
-                              updatedSignal.entryPrice = suggestions.entryPrice;
-                            }
-                            if (newSignal.targetPrice === 0) {
-                              updatedSignal.targetPrice = suggestions.targetPrice;
-                            }
-                            if (newSignal.stopLoss === 0) {
-                              updatedSignal.stopLoss = suggestions.stopLoss;
-                            }
-                            if (newSignal.priceChange === 0) {
-                              updatedSignal.priceChange = suggestions.priceChange;
-                            }
-                            if (newSignal.priceChangePercent === 0) {
-                              updatedSignal.priceChangePercent = suggestions.priceChangePercent;
-                            }
-                          }
-                        }
-                        
-                        setNewSignal(updatedSignal);
-                        // Clear error when user starts typing
-                        if (fieldErrors.currentBid) {
-                          const newErrors = { ...fieldErrors };
-                          delete newErrors.currentBid;
-                          setFieldErrors(newErrors);
-                        }
-                      }}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                        fieldErrors.currentBid 
-                          ? 'border-red-500 dark:border-red-500' 
-                          : 'border-blue-300 dark:border-blue-600'
-                      }`}
-                      placeholder="0.0000"
-                    />
-                    {fieldErrors.currentBid && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fieldErrors.currentBid}</p>
-                    )}
-                    {newSignal.currentBid > 0 && (
-                      <p className="mt-1 text-xs text-blue-600 dark:text-blue-400">
-                        💡 Values auto-suggested based on bid price
-                      </p>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">Current Ask *</label>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      value={newSignal.currentAsk}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        setNewSignal({ ...newSignal, currentAsk: value });
-                        // Clear error when user starts typing
-                        if (fieldErrors.currentAsk) {
-                          const newErrors = { ...fieldErrors };
-                          delete newErrors.currentAsk;
-                          setFieldErrors(newErrors);
-                        }
-                      }}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                        fieldErrors.currentAsk 
-                          ? 'border-red-500 dark:border-red-500' 
-                          : 'border-blue-300 dark:border-blue-600'
-                      }`}
-                      placeholder="0.0000"
-                    />
-                    {fieldErrors.currentAsk && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fieldErrors.currentAsk}</p>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">Daily High *</label>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      value={newSignal.dailyHigh}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        setNewSignal({ ...newSignal, dailyHigh: value });
-                        // Clear error when user starts typing
-                        if (fieldErrors.dailyHigh) {
-                          const newErrors = { ...fieldErrors };
-                          delete newErrors.dailyHigh;
-                          setFieldErrors(newErrors);
-                        }
-                      }}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                        fieldErrors.dailyHigh 
-                          ? 'border-red-500 dark:border-red-500' 
-                          : 'border-blue-300 dark:border-blue-600'
-                      }`}
-                      placeholder="0.0000"
-                    />
-                    {fieldErrors.dailyHigh && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fieldErrors.dailyHigh}</p>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">Daily Low *</label>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      value={newSignal.dailyLow}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        setNewSignal({ ...newSignal, dailyLow: value });
-                        // Clear error when user starts typing
-                        if (fieldErrors.dailyLow) {
-                          const newErrors = { ...fieldErrors };
-                          delete newErrors.dailyLow;
-                          setFieldErrors(newErrors);
-                        }
-                      }}
-                      className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 ${
-                        fieldErrors.dailyLow 
-                          ? 'border-red-500 dark:border-red-500' 
-                          : 'border-blue-300 dark:border-blue-600'
-                      }`}
-                      placeholder="0.0000"
-                    />
-                    {fieldErrors.dailyLow && (
-                      <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fieldErrors.dailyLow}</p>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">Price Change *</label>
-                    <input
-                      type="number"
-                      step="0.0001"
-                      value={newSignal.priceChange}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        setNewSignal({ ...newSignal, priceChange: value });
-                      }}
-                      className="w-full px-3 py-2 border border-blue-300 dark:border-blue-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                      placeholder="0.0000"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-blue-700 dark:text-blue-300 mb-2">Price Change % *</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newSignal.priceChangePercent}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        setNewSignal({ ...newSignal, priceChangePercent: value });
-                      }}
-                      className="w-full px-3 py-2 border border-blue-300 dark:border-blue-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                      placeholder="0.00"
-                    />
-                  </div>
-                </div>
-              </div>
-
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Entry Price *</label>
-                                  <input
-                    type="number"
-                    step="0.0001"
-                    value={newSignal.entryPrice}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
-                      setNewSignal({ ...newSignal, entryPrice: value });
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    placeholder="0.0000"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {newSignal.type === 'buy' ? 'Entry price for buying the asset' : 'Entry price for selling the asset'}
-                  </p>
-                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-1 font-medium">
-                    💡 This is your entry point into the trade
-                  </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Target Price *</label>
-                                  <input
-                    type="number"
-                    step="0.0001"
-                    value={newSignal.targetPrice}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
-                      setNewSignal({ ...newSignal, targetPrice: value });
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    placeholder="0.0000"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {newSignal.type === 'buy' 
-                      ? 'Target price (must be higher than entry for buy signals)' 
-                      : 'Target price (must be lower than entry for sell signals)'}
-                  </p>
-                  <p className="text-xs text-green-600 dark:text-green-400 mt-1 font-medium">
-                    🎯 {newSignal.type === 'buy' ? 'Set higher than entry for profit target' : 'Set lower than entry for profit target'}
-                  </p>
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={newSignal.entryPrice}
+                  onChange={(e) => setNewSignal({ ...newSignal, entryPrice: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="0.0000"
+                />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Stop Loss *</label>
-                                  <input
-                    type="number"
-                    step="0.0001"
-                    value={newSignal.stopLoss}
-                    onChange={(e) => {
-                      const value = parseFloat(e.target.value) || 0;
-                      setNewSignal({ ...newSignal, stopLoss: value });
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    placeholder="0.0000"
-                  />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                    {newSignal.type === 'buy' 
-                      ? 'Stop loss (must be lower than entry for buy signals)' 
-                      : 'Stop loss (must be higher than entry for sell signals)'}
-                  </p>
-                  <p className="text-xs text-red-600 dark:text-red-400 mt-1 font-medium">
-                    🛑 {newSignal.type === 'buy' ? 'Set lower than entry to limit losses' : 'Set higher than entry to limit losses'}
-                  </p>
-              </div>
-              
-              {/* Risk Management Section */}
-              <div className="col-span-full mt-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-700">
-                <h4 className="font-semibold text-green-800 dark:text-green-300 mb-3">🛡️ Risk Management</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-green-700 dark:text-green-300 mb-2">Position Size</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newSignal.positionSize}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        setNewSignal({ ...newSignal, positionSize: value });
-                      }}
-                      className="w-full px-3 py-2 border border-green-300 dark:border-green-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                      placeholder="0.00"
-                    />
-                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">Size of the position in lots/units</p>
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-green-700 dark:text-green-300 mb-2">Max Risk</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={newSignal.maxRisk}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value) || 0;
-                        setNewSignal({ ...newSignal, maxRisk: value });
-                      }}
-                      className="w-full px-3 py-2 border border-green-300 dark:border-green-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                      placeholder="0.00"
-                    />
-                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">Maximum risk amount in currency</p>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Debug Info - Remove this later */}
-              <div className="col-span-full mt-4 p-3 bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600">
-                <p className="text-sm font-mono text-gray-900 dark:text-gray-300">
-                  Debug: Entry={newSignal.entryPrice}, Target={newSignal.targetPrice}, StopLoss={newSignal.stopLoss}, Type={newSignal.type}
-                </p>
-              </div>
-              
-              {/* Price Validation Indicator */}
-              <div className="col-span-full mt-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
-                <h4 className="font-semibold text-gray-700 dark:text-gray-300 mb-3">💰 Price Validation</h4>
-                {newSignal.entryPrice > 0 && newSignal.targetPrice > 0 && newSignal.stopLoss > 0 ? (
-                  <div className={`p-4 rounded-lg border-2 ${
-                    (newSignal.type === 'buy' && newSignal.targetPrice > newSignal.entryPrice && newSignal.stopLoss < newSignal.entryPrice) ||
-                    (newSignal.type === 'sell' && newSignal.targetPrice < newSignal.entryPrice && newSignal.stopLoss > newSignal.entryPrice)
-                      ? 'bg-green-50 dark:bg-green-900/30 border-green-300 dark:border-green-700 text-green-800 dark:text-green-200'
-                      : 'bg-red-50 dark:bg-red-900/30 border-red-300 dark:border-red-700 text-red-800 dark:text-red-200'
-                  }`}>
-                    <div className="flex items-center mb-2">
-                      {(newSignal.type === 'buy' && newSignal.targetPrice > newSignal.entryPrice && newSignal.stopLoss < newSignal.entryPrice) ||
-                       (newSignal.type === 'sell' && newSignal.targetPrice < newSignal.entryPrice && newSignal.stopLoss > newSignal.entryPrice) ? (
-                        <>
-                          <svg className="w-6 h-6 text-green-600 dark:text-green-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                          </svg>
-                          <span className="text-lg font-semibold">✅ Price Validation PASSED!</span>
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-6 h-6 text-red-600 dark:text-red-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                          </svg>
-                          <span className="text-lg font-semibold">❌ Price Validation FAILED!</span>
-                        </>
-                      )}
-                    </div>
-                    <div className="text-sm">
-                      <p className="font-medium mb-1 dark:text-gray-200">Current Price Logic:</p>
-                      <p className="mb-1 dark:text-gray-300">
-                        {newSignal.type === 'buy' 
-                          ? `For BUY signals: Stop Loss (${newSignal.stopLoss}) < Entry (${newSignal.entryPrice}) < Target (${newSignal.targetPrice})`
-                          : `For SELL signals: Target (${newSignal.targetPrice}) < Entry (${newSignal.entryPrice}) < Stop Loss (${newSignal.stopLoss})`
-                        }
-                      </p>
-                      {newSignal.type === 'buy' ? (
-                        <div className="mt-2 space-y-1">
-                          {newSignal.targetPrice <= newSignal.entryPrice && (
-                            <p className="text-red-600 dark:text-red-400">⚠️ Target price must be HIGHER than entry price for BUY signals</p>
-                          )}
-                          {newSignal.stopLoss >= newSignal.entryPrice && (
-                            <p className="text-red-600 dark:text-red-400">⚠️ Stop loss must be LOWER than entry price for BUY signals</p>
-                          )}
-                        </div>
-                      ) : (
-                        <div className="mt-2 space-y-1">
-                          {newSignal.targetPrice >= newSignal.entryPrice && (
-                            <p className="text-red-600 dark:text-red-400">⚠️ Target price must be LOWER than entry price for SELL signals</p>
-                          )}
-                          {newSignal.stopLoss <= newSignal.entryPrice && (
-                            <p className="text-red-600 dark:text-red-400">⚠️ Stop loss must be HIGHER than entry price for SELL signals</p>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="p-4 bg-blue-50 dark:bg-blue-900/30 border-2 border-blue-300 dark:border-blue-700 rounded-lg text-blue-800 dark:text-blue-200">
-                    <div className="flex items-center mb-2">
-                      <svg className="w-6 h-6 text-blue-600 dark:text-blue-400 mr-3" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                      </svg>
-                      <span className="text-lg font-semibold">ℹ️ Price Validation Guide</span>
-                    </div>
-                    <div className="text-sm">
-                      <p className="font-medium mb-1 dark:text-gray-200">Fill in all three price fields to see validation:</p>
-                      <ul className="list-disc list-inside space-y-1 dark:text-gray-300">
-                        <li><strong>BUY signals:</strong> Stop Loss &lt; Entry &lt; Target</li>
-                        <li><strong>SELL signals:</strong> Target &lt; Entry &lt; Stop Loss</li>
-                      </ul>
-                    </div>
-                    <div className="mt-3 p-3 bg-blue-100 dark:bg-blue-900/50 rounded border border-blue-200 dark:border-blue-700">
-                      {newSignal.entryPrice > 0 ? (
-                        <>
-                          <p className="text-xs text-blue-700 dark:text-blue-300">
-                            <strong>Example for BUY:</strong> Entry: {newSignal.entryPrice}, Target: {(newSignal.entryPrice * 1.01).toFixed(4)}, Stop Loss: {(newSignal.entryPrice * 0.995).toFixed(4)}
-                          </p>
-                          <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                            <strong>Example for SELL:</strong> Entry: {newSignal.entryPrice}, Target: {(newSignal.entryPrice * 0.99).toFixed(4)}, Stop Loss: {(newSignal.entryPrice * 1.005).toFixed(4)}
-                          </p>
-                        </>
-                      ) : (
-                        <>
-                          <p className="text-xs text-blue-700 dark:text-blue-300">
-                            <strong>Example for BUY:</strong> Entry: 1.0850, Target: 1.0920, Stop Loss: 1.0800
-                          </p>
-                          <p className="text-xs text-blue-700 dark:text-blue-300 mt-1">
-                            <strong>Example for SELL:</strong> Entry: 1.0850, Target: 1.0800, Stop Loss: 1.0920
-                          </p>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Timeframe *</label>
-                <select
-                  value={newSignal.timeframe}
-                  onChange={(e) => setNewSignal({ ...newSignal, timeframe: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="1m">1 Minute</option>
-                  <option value="5m">5 Minutes</option>
-                  <option value="15m">15 Minutes</option>
-                  <option value="30m">30 Minutes</option>
-                  <option value="1h">1 Hour</option>
-                  <option value="4h">4 Hours</option>
-                  <option value="1d">1 Day</option>
-                  <option value="1w">1 Week</option>
-                  <option value="1M">1 Month</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Confidence Level *</label>
-                                  <input
-                    type="number"
-                    min="1"
-                    max="100"
-                    value={newSignal.confidence}
-                    onChange={(e) => {
-                      const value = parseInt(e.target.value) || 0;
-                      setNewSignal({ ...newSignal, confidence: value });
-                    }}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                    placeholder="50"
-                  />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Risk Level</label>
-                <select
-                  value={newSignal.riskLevel}
-                  onChange={(e) => setNewSignal({ ...newSignal, riskLevel: e.target.value as 'low' | 'medium' | 'high' })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Market Conditions</label>
-                <select
-                  value={newSignal.marketConditions}
-                  onChange={(e) => setNewSignal({ ...newSignal, marketConditions: e.target.value as 'bullish' | 'bearish' | 'sideways' | 'volatile' })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                >
-                  <option value="bullish">Bullish</option>
-                  <option value="bearish">Bearish</option>
-                  <option value="sideways">Sideways</option>
-                  <option value="volatile">Volatile</option>
-                </select>
-              </div>
-
-
-            </div>
-
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Description *</label>
-                              <textarea
-                  value={newSignal.description}
-                  onChange={(e) => {
-                    setNewSignal({ ...newSignal, description: e.target.value });
-                  }}
-                  rows={4}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                  placeholder="Provide detailed analysis and reasoning for this trading signal..."
+                <input
+                  type="number"
+                  step="0.0001"
+                  value={newSignal.stopLoss}
+                  onChange={(e) => setNewSignal({ ...newSignal, stopLoss: parseFloat(e.target.value) || 0 })}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  placeholder="0.0000"
                 />
-            </div>
+              </div>
 
-            <div className="mt-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Tags (comma-separated)</label>
-              <input
-                type="text"
-                value={newSignal.tags.join(', ')}
-                onChange={(e) => setNewSignal({ ...newSignal, tags: e.target.value.split(',').map(tag => tag.trim()).filter(tag => tag) })}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                placeholder="forex, technical analysis, support resistance"
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Target Prices *</label>
+                <div className="space-y-2">
+                  {(newSignal.targets || []).map((t, idx) => (
+                    <div key={`target-${idx}`} className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        step="0.0001"
+                        value={t}
+                        onChange={(e) => {
+                          const value = parseFloat(e.target.value) || 0;
+                          setNewSignal((prev) => {
+                            const nextTargets = [...(prev.targets || [])];
+                            nextTargets[idx] = value;
+                            return { ...prev, targets: nextTargets };
+                          });
+                        }}
+                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        placeholder="0.0000"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setNewSignal((prev) => {
+                            const nextTargets = [...(prev.targets || [])];
+                            nextTargets.splice(idx, 1);
+                            return { ...prev, targets: nextTargets.length ? nextTargets : [0] };
+                          });
+                        }}
+                        className="px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600"
+                        disabled={(newSignal.targets || []).length <= 1}
+                        title="Remove target"
+                      >
+                        <Minus className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setNewSignal((prev) => ({ ...prev, targets: [...(prev.targets || []), 0] }))}
+                  className="mt-2 inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add target
+                </button>
+              </div>
             </div>
 
             <div className="flex justify-end space-x-3 mt-6">

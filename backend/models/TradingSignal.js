@@ -3,9 +3,9 @@ const mongoose = require('mongoose');
 const tradingSignalSchema = new mongoose.Schema({
   symbol: {
     type: String,
-    required: [true, 'Trading symbol is required'],
     trim: true,
-    uppercase: true
+    uppercase: true,
+    default: 'SIGNAL'
   },
   instrumentType: {
     type: String,
@@ -22,39 +22,53 @@ const tradingSignalSchema = new mongoose.Schema({
   // Current market prices (like MT5 quotes)
   currentBid: {
     type: Number,
-    required: [true, 'Current bid price is required'],
-    min: [0, 'Bid price cannot be negative']
+    min: [0, 'Bid price cannot be negative'],
+    default: 0
   },
   currentAsk: {
     type: Number,
-    required: [true, 'Current ask price is required'],
-    min: [0, 'Ask price cannot be negative']
+    min: [0, 'Ask price cannot be negative'],
+    default: 0
   },
   // Daily high/low (like MT5 H:/L:)
   dailyHigh: {
     type: Number,
-    required: [true, 'Daily high is required'],
-    min: [0, 'Daily high cannot be negative']
+    min: [0, 'Daily high cannot be negative'],
+    default: 0
   },
   dailyLow: {
     type: Number,
-    required: [true, 'Daily low is required'],
-    min: [0, 'Daily low cannot be negative']
+    min: [0, 'Daily low cannot be negative'],
+    default: 0
   },
   // Price change (like MT5 change display)
   priceChange: {
     type: Number,
-    required: [true, 'Price change is required']
+    default: 0
   },
   priceChangePercent: {
     type: Number,
-    required: [true, 'Price change percentage is required']
+    default: 0
   },
   // Signal entry/exit prices
   entryPrice: {
     type: Number,
     required: [true, 'Entry price is required'],
     min: [0, 'Entry price cannot be negative']
+  },
+  // Multi-target support (teacher can set many targets).
+  // We keep `targetPrice` for backward compatibility as the first target.
+  targets: {
+    type: [Number],
+    default: undefined,
+    validate: {
+      validator: function (arr) {
+        if (arr == null) return true;
+        if (!Array.isArray(arr)) return false;
+        return arr.every((n) => typeof n === 'number' && Number.isFinite(n) && n >= 0);
+      },
+      message: 'Targets must be an array of non-negative numbers'
+    }
   },
   targetPrice: {
     type: Number,
@@ -81,20 +95,20 @@ const tradingSignalSchema = new mongoose.Schema({
   },
   description: {
     type: String,
-    required: [true, 'Signal description is required'],
     trim: true,
-    maxlength: [1000, 'Description cannot exceed 1000 characters']
+    maxlength: [1000, 'Description cannot exceed 1000 characters'],
+    default: ''
   },
   timeframe: {
     type: String,
-    required: [true, 'Timeframe is required'],
-    enum: ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M']
+    enum: ['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M'],
+    default: '1h'
   },
   confidence: {
     type: Number,
-    required: [true, 'Confidence level is required'],
     min: [1, 'Confidence must be at least 1%'],
-    max: [100, 'Confidence cannot exceed 100%']
+    max: [100, 'Confidence cannot exceed 100%'],
+    default: 50
   },
   teacher: {
     type: mongoose.Schema.Types.ObjectId,
@@ -226,19 +240,58 @@ tradingSignalSchema.methods.expireSignal = function() {
 
 // Pre-save middleware to validate prices and market data
 tradingSignalSchema.pre('save', function(next) {
-  // Validate bid/ask relationship
-  if (this.currentBid >= this.currentAsk) {
+  // Normalize multi-targets → ensure targetPrice mirrors the first target (if provided)
+  if (Array.isArray(this.targets) && this.targets.length > 0) {
+    const first = this.targets.find((n) => typeof n === 'number' && Number.isFinite(n));
+    if (typeof first === 'number') this.targetPrice = first;
+  } else if (typeof this.targetPrice === 'number' && Number.isFinite(this.targetPrice)) {
+    // Keep `targets` in sync for legacy clients
+    this.targets = [this.targetPrice];
+  }
+
+  // If market snapshot isn't provided, default it to sane values derived from entry.
+  const hasMarketSnapshot =
+    Number(this.currentBid) > 0 &&
+    Number(this.currentAsk) > 0 &&
+    Number(this.dailyHigh) > 0 &&
+    Number(this.dailyLow) > 0;
+  if (!hasMarketSnapshot && Number(this.entryPrice) > 0) {
+    const entry = Number(this.entryPrice);
+    const spread = Math.max(entry * 0.0002, 0.0001);
+    const bid = entry;
+    const ask = entry + spread;
+    this.currentBid = bid;
+    this.currentAsk = ask;
+    this.dailyHigh = Math.max(ask, entry * 1.01);
+    this.dailyLow = Math.min(bid, entry * 0.99);
+    this.priceChange = ask - bid;
+    this.priceChangePercent = bid > 0 ? ((ask - bid) / bid) * 100 : 0;
+  }
+
+  // Validate bid/ask relationship only when both are present
+  if (Number(this.currentBid) > 0 && Number(this.currentAsk) > 0 && this.currentBid >= this.currentAsk) {
     return next(new Error('Bid price must be lower than ask price'));
   }
-  
-  // Validate daily high/low relationship
-  if (this.dailyLow >= this.dailyHigh) {
+
+  // Validate daily high/low only when both are present
+  if (Number(this.dailyLow) > 0 && Number(this.dailyHigh) > 0 && this.dailyLow >= this.dailyHigh) {
     return next(new Error('Daily low must be lower than daily high'));
   }
-  
-  // Validate current prices are within daily range (with flexibility for market volatility and news events)
-  if (this.currentBid < this.dailyLow * 0.8 || this.currentAsk > this.dailyHigh * 1.2) {
-    return next(new Error('Current prices should be reasonably within daily high/low range (allowing 20% tolerance for market volatility and news events)'));
+
+  // Validate current prices are within daily range only when we have all four
+  if (
+    Number(this.currentBid) > 0 &&
+    Number(this.currentAsk) > 0 &&
+    Number(this.dailyLow) > 0 &&
+    Number(this.dailyHigh) > 0
+  ) {
+    if (this.currentBid < this.dailyLow * 0.8 || this.currentAsk > this.dailyHigh * 1.2) {
+      return next(
+        new Error(
+          'Current prices should be reasonably within daily high/low range (allowing 20% tolerance for market volatility and news events)'
+        )
+      );
+    }
   }
   
   // Validate signal prices based on type

@@ -49,21 +49,23 @@ router.get('/:id', async (req, res) => {
 router.post('/', [
   authenticateToken,
   requireTeacher,
-  body('symbol').trim().notEmpty().withMessage('Symbol is required'),
-  body('type').isIn(['buy', 'sell', 'hold', 'strong_buy', 'strong_sell']).withMessage('Invalid signal type'),
+  body('symbol').optional().trim(),
+  body('type').optional().isIn(['buy', 'sell', 'hold', 'strong_buy', 'strong_sell']).withMessage('Invalid signal type'),
   body('entryPrice').isFloat({ min: 0 }).withMessage('Entry price must be a positive number'),
-  body('targetPrice').isFloat({ min: 0 }).withMessage('Target price must be a positive number'),
+  body('targetPrice').optional().isFloat({ min: 0 }).withMessage('Target price must be a positive number'),
+  body('targets').optional().isArray({ min: 1 }).withMessage('Targets must be a non-empty array'),
+  body('targets.*').optional().isFloat({ min: 0 }).withMessage('Each target must be a positive number'),
   body('stopLoss').isFloat({ min: 0 }).withMessage('Stop loss must be a positive number'),
-  body('description').trim().notEmpty().withMessage('Description is required'),
-  body('timeframe').isIn(['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M']).withMessage('Invalid timeframe'),
-  body('confidence').isInt({ min: 1, max: 100 }).withMessage('Confidence must be between 1-100'),
-  body('instrumentType').isIn(['forex', 'crypto', 'stocks', 'commodities', 'indices', 'futures']).withMessage('Invalid instrument type'),
-  body('currentBid').isFloat({ min: 0 }).withMessage('Current bid price must be a positive number'),
-  body('currentAsk').isFloat({ min: 0 }).withMessage('Current ask price must be a positive number'),
-  body('dailyHigh').isFloat({ min: 0 }).withMessage('Daily high must be a positive number'),
-  body('dailyLow').isFloat({ min: 0 }).withMessage('Daily low must be a positive number'),
-  body('priceChange').isFloat().withMessage('Price change must be a number'),
-  body('priceChangePercent').isFloat().withMessage('Price change percentage must be a number'),
+  body('description').optional().trim(),
+  body('timeframe').optional().isIn(['1m', '5m', '15m', '30m', '1h', '4h', '1d', '1w', '1M']).withMessage('Invalid timeframe'),
+  body('confidence').optional().isInt({ min: 1, max: 100 }).withMessage('Confidence must be between 1-100'),
+  body('instrumentType').optional().isIn(['forex', 'crypto', 'stocks', 'commodities', 'indices', 'futures']).withMessage('Invalid instrument type'),
+  body('currentBid').optional().isFloat({ min: 0 }).withMessage('Current bid price must be a positive number'),
+  body('currentAsk').optional().isFloat({ min: 0 }).withMessage('Current ask price must be a positive number'),
+  body('dailyHigh').optional().isFloat({ min: 0 }).withMessage('Daily high must be a positive number'),
+  body('dailyLow').optional().isFloat({ min: 0 }).withMessage('Daily low must be a positive number'),
+  body('priceChange').optional().isFloat().withMessage('Price change must be a number'),
+  body('priceChangePercent').optional().isFloat().withMessage('Price change percentage must be a number'),
   body('positionSize').optional().isFloat({ min: 0 }).withMessage('Position size must be a positive number'),
   body('maxRisk').optional().isFloat({ min: 0 }).withMessage('Maximum risk must be a positive number'),
   body('riskRewardRatio').optional().isFloat({ min: 0 }).withMessage('Risk-reward ratio must be a positive number'),
@@ -86,8 +88,8 @@ router.post('/', [
     // Additional business logic validation
     const validationErrors = [];
 
-    // Validate bid/ask relationship
-    if (req.body.currentBid >= req.body.currentAsk) {
+    // Validate bid/ask relationship (only if both provided)
+    if (req.body.currentBid != null && req.body.currentAsk != null && req.body.currentBid >= req.body.currentAsk) {
       validationErrors.push({
         field: 'currentBid',
         message: 'Bid price must be lower than ask price',
@@ -95,8 +97,8 @@ router.post('/', [
       });
     }
 
-    // Validate daily high/low relationship
-    if (req.body.dailyLow >= req.body.dailyHigh) {
+    // Validate daily high/low relationship (only if both provided)
+    if (req.body.dailyLow != null && req.body.dailyHigh != null && req.body.dailyLow >= req.body.dailyHigh) {
       validationErrors.push({
         field: 'dailyLow',
         message: 'Daily low must be lower than daily high',
@@ -104,41 +106,71 @@ router.post('/', [
       });
     }
 
+    // Normalize targets
+    const targetsFromBody = Array.isArray(req.body.targets)
+      ? req.body.targets.map((v) => parseFloat(v)).filter((n) => Number.isFinite(n) && n >= 0)
+      : [];
+    const targetPriceNormalized =
+      req.body.targetPrice != null && req.body.targetPrice !== '' ? parseFloat(req.body.targetPrice) : undefined;
+    const resolvedTargets = targetsFromBody.length > 0
+      ? targetsFromBody
+      : Number.isFinite(targetPriceNormalized)
+        ? [targetPriceNormalized]
+        : [];
+    if (resolvedTargets.length === 0) {
+      validationErrors.push({
+        field: 'targets',
+        message: 'At least one target price is required',
+        value: req.body.targets ?? req.body.targetPrice
+      });
+    }
+
+    const entry = parseFloat(req.body.entryPrice);
+    const stop = parseFloat(req.body.stopLoss);
+    const firstTarget = resolvedTargets[0];
+
     // Validate signal prices based on type
-    if (req.body.type === 'buy' || req.body.type === 'strong_buy') {
-      if (req.body.targetPrice <= req.body.entryPrice) {
+    const sigType = req.body.type || 'buy';
+    if (sigType === 'buy' || sigType === 'strong_buy') {
+      if (firstTarget <= entry) {
         validationErrors.push({
-          field: 'targetPrice',
+          field: 'targets',
           message: 'Target price must be higher than entry price for buy signals',
-          value: { entry: req.body.entryPrice, target: req.body.targetPrice }
+          value: { entry, target: firstTarget }
         });
       }
-      if (req.body.stopLoss >= req.body.entryPrice) {
+      if (stop >= entry) {
         validationErrors.push({
           field: 'stopLoss',
           message: 'Stop loss must be lower than entry price for buy signals',
-          value: { entry: req.body.entryPrice, stopLoss: req.body.stopLoss }
+          value: { entry, stopLoss: stop }
         });
       }
-    } else if (req.body.type === 'sell' || req.body.type === 'strong_sell') {
-      if (req.body.targetPrice >= req.body.entryPrice) {
+    } else if (sigType === 'sell' || sigType === 'strong_sell') {
+      if (firstTarget >= entry) {
         validationErrors.push({
-          field: 'targetPrice',
+          field: 'targets',
           message: 'Target price must be lower than entry price for sell signals',
-          value: { entry: req.body.entryPrice, target: req.body.targetPrice }
+          value: { entry, target: firstTarget }
         });
       }
-      if (req.body.stopLoss <= req.body.entryPrice) {
+      if (stop <= entry) {
         validationErrors.push({
           field: 'stopLoss',
           message: 'Stop loss must be higher than entry price for sell signals',
-          value: { entry: req.body.entryPrice, stopLoss: req.body.stopLoss }
+          value: { entry, stopLoss: stop }
         });
       }
     }
 
     // Validate current prices are within daily range (with tolerance)
-    if (req.body.currentBid < req.body.dailyLow * 0.8 || req.body.currentAsk > req.body.dailyHigh * 1.2) {
+    if (
+      req.body.currentBid != null &&
+      req.body.currentAsk != null &&
+      req.body.dailyLow != null &&
+      req.body.dailyHigh != null &&
+      (req.body.currentBid < req.body.dailyLow * 0.8 || req.body.currentAsk > req.body.dailyHigh * 1.2)
+    ) {
       validationErrors.push({
         field: 'currentBid',
         message: 'Current prices should be reasonably within daily high/low range (allowing 20% tolerance for market volatility)',
@@ -183,7 +215,9 @@ router.post('/', [
     // Prepare signal data
     const signalData = {
       ...req.body,
-      teacher: req.user._id
+      teacher: req.user._id,
+      targets: resolvedTargets,
+      targetPrice: resolvedTargets[0]
     };
 
     // Convert string numbers to actual numbers if needed
