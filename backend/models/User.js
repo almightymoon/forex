@@ -242,6 +242,13 @@ const userSchema = new mongoose.Schema({
     default: 0,
     min: [0, 'Balance cannot be negative']
   },
+  // Lifetime earned (sum of all positive balance transactions).
+  // Used for rank rewards so withdrawals don't reduce progress.
+  lifetimeEarned: {
+    type: Number,
+    default: 0,
+    min: [0, 'Lifetime earned cannot be negative']
+  },
   // Selected package during registration
   selectedPackage: {
     packageName: {

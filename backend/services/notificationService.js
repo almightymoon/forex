@@ -579,6 +579,54 @@ class NotificationService {
       }
     }
 
+    const paymentAdminTemplates = new Set([
+      'payment_complete_required',
+      'payment_unable_verify',
+      'payment_rejected_retry'
+    ]);
+    if (paymentAdminTemplates.has(type)) {
+      try {
+        const paymentIdRaw = data.paymentId || data._id || data.payment?._id;
+        let paymentIdStr = 'N/A';
+        if (paymentIdRaw) {
+          const s = paymentIdRaw.toString();
+          paymentIdStr = s.length > 8 ? s.substring(0, 8) : s;
+        }
+        const template = emailTemplates.renderTemplate(type, {
+          userName: `${user.firstName} ${user.lastName}`,
+          amount: data.amount || data.finalAmount || 0,
+          currency: data.currency || 'USD',
+          packageName: data.packageName || 'Premium Package',
+          paymentId: paymentIdStr,
+          loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+          companyName: 'Forex Navigators',
+          note: data.note || ''
+        });
+        return {
+          subject: template.subject,
+          html: template.html,
+          text: template.text,
+          sms: template.text ? template.text.slice(0, 140) : 'Payment update. Please check your email.',
+          pushTitle: template.subject || 'Payment update',
+          pushBody: 'Please check your email for details'
+        };
+      } catch (error) {
+        console.error(`[Notification] ❌ Error rendering ${type} template:`, error);
+        const fallbackTitle = data?.title || 'Payment update';
+        const fallbackMessage =
+          data?.message ||
+          'Please check your payment details in the app and submit again if required.';
+        return {
+          subject: fallbackTitle,
+          html: `<p>Hello ${user.firstName},</p><p>${escapeHtml(fallbackMessage)}</p>`,
+          text: `Hello ${user.firstName},\n\n${fallbackMessage}`,
+          sms: fallbackMessage,
+          pushTitle: fallbackTitle,
+          pushBody: fallbackMessage
+        };
+      }
+    }
+
     // Handle account_verified dynamically
     if (type === 'account_verified') {
       try {

@@ -18,10 +18,26 @@ import {
   X,
   Plus,
   Minus,
-  Loader2
+  Loader2,
+  Save
 } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
+
+type CommissionRates = { 1: number; 2: number; 3: number; 4: number; 5: number };
+
+const defaultRates: CommissionRates = { 1: 0.2, 2: 0.15, 3: 0.15, 4: 0.1, 5: 0.1 };
+
+function toRates(input: Partial<CommissionRates> | undefined | null): CommissionRates {
+  const r = input || {};
+  return {
+    1: typeof r[1] === 'number' ? r[1] : defaultRates[1],
+    2: typeof r[2] === 'number' ? r[2] : defaultRates[2],
+    3: typeof r[3] === 'number' ? r[3] : defaultRates[3],
+    4: typeof r[4] === 'number' ? r[4] : defaultRates[4],
+    5: typeof r[5] === 'number' ? r[5] : defaultRates[5]
+  };
+}
 
 interface Commission {
   _id: string;
@@ -156,6 +172,16 @@ interface MonthlyFeeDistributionRow {
   resolveError: string | null;
 }
 
+interface AdminPackageTier {
+  _id: string;
+  name: string;
+  monthlyFeeAmount?: number;
+  referralPoolPercentage?: number;
+  commissionRates?: Partial<CommissionRates>;
+  monthlyFeeReferralPoolPercentage?: number | null;
+  monthlyFeeCommissionRates?: Partial<CommissionRates> | null;
+}
+
 export default function CommissionManagement() {
   const [activeView, setActiveView] = useState<'referral' | 'platform' | 'monthly_fee'>('referral');
   const [commissions, setCommissions] = useState<Commission[]>([]);
@@ -189,6 +215,12 @@ export default function CommissionManagement() {
   const [platformLedgerProcessing, setPlatformLedgerProcessing] = useState(false);
   const [monthlyFeeRows, setMonthlyFeeRows] = useState<MonthlyFeeDistributionRow[]>([]);
   const [monthlyFeeDistributingId, setMonthlyFeeDistributingId] = useState<string | null>(null);
+  const [tiers, setTiers] = useState<AdminPackageTier[]>([]);
+  const [tiersLoading, setTiersLoading] = useState(false);
+  const [settingsTierId, setSettingsTierId] = useState<string>('');
+  const [settingsPoolPct, setSettingsPoolPct] = useState<number>(0); // 0..1
+  const [settingsRates, setSettingsRates] = useState<CommissionRates>(defaultRates);
+  const [settingsSaving, setSettingsSaving] = useState(false);
 
   useEffect(() => {
     if (activeView === 'referral') {
@@ -199,6 +231,27 @@ export default function CommissionManagement() {
       fetchMonthlyFeeDistributions();
     }
   }, [pagination.page, filters, activeView]);
+
+  useEffect(() => {
+    if (activeView !== 'monthly_fee') return;
+    fetchMonthlyFeeTiers();
+  }, [activeView]);
+
+  useEffect(() => {
+    if (activeView !== 'monthly_fee') return;
+    if (!settingsTierId) return;
+    const t = tiers.find((x) => x._id === settingsTierId);
+    if (!t) return;
+    const pool =
+      typeof t.monthlyFeeReferralPoolPercentage === 'number'
+        ? t.monthlyFeeReferralPoolPercentage
+        : typeof t.referralPoolPercentage === 'number'
+          ? t.referralPoolPercentage
+          : 0;
+    const rates = toRates((t.monthlyFeeCommissionRates as any) ?? (t.commissionRates as any));
+    setSettingsPoolPct(pool);
+    setSettingsRates(rates);
+  }, [activeView, settingsTierId, tiers]);
 
   useEffect(() => {
     if (activeView !== 'platform') return;
@@ -326,6 +379,63 @@ export default function CommissionManagement() {
       showToast('Could not load monthly fee distributions', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchMonthlyFeeTiers = async () => {
+    try {
+      setTiersLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl('api/admin/packages'), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => []);
+      if (!res.ok || !Array.isArray(data)) {
+        throw new Error('Failed to fetch packages');
+      }
+      setTiers(data as AdminPackageTier[]);
+      if (!settingsTierId && data.length > 0) {
+        setSettingsTierId(String((data[0] as AdminPackageTier)._id));
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Could not load package tiers', 'error');
+    } finally {
+      setTiersLoading(false);
+    }
+  };
+
+  const saveMonthlyFeeSettings = async () => {
+    if (!settingsTierId) return;
+    const tier = tiers.find((t) => t._id === settingsTierId);
+    if (!tier) return;
+    try {
+      setSettingsSaving(true);
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`api/admin/packages/${tier._id}`), {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          monthlyFeeReferralPoolPercentage: Number(settingsPoolPct),
+          monthlyFeeCommissionRates: settingsRates
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast((data as any)?.error || 'Failed to save monthly fee distribution settings', 'error');
+        return;
+      }
+      showToast('Monthly fee distribution settings saved', 'success');
+      await fetchMonthlyFeeTiers();
+      await fetchMonthlyFeeDistributions();
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to save monthly fee distribution settings', 'error');
+    } finally {
+      setSettingsSaving(false);
     }
   };
 
@@ -931,14 +1041,114 @@ export default function CommissionManagement() {
           <ul className="list-disc list-inside space-y-1 opacity-95">
             <li>Lists completed monthly fee payments only.</li>
             <li>
-              Referral pool percentage and per-level rates come from the student&apos;s current package tier
-              (same rules as one-time package purchases).
+              Referral pool percentage and per-level rates come from the student&apos;s current package tier&apos;s
+              <strong> monthly fee distribution</strong> settings.
             </li>
             <li>
               Run <strong>Distribute</strong> once per payment. If there is no referrer, default-referral-only signup,
               or a zero pool, the row is marked done with no payouts.
             </li>
           </ul>
+        </div>
+      )}
+
+      {activeView === 'monthly_fee' && (
+        <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Monthly fee distribution settings</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Set how much of a monthly fee goes to <strong>referrals</strong> vs <strong>platform</strong>, and the level splits.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={saveMonthlyFeeSettings}
+              disabled={settingsSaving || tiersLoading || !settingsTierId}
+              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 inline-flex items-center gap-2"
+            >
+              {settingsSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Save
+            </button>
+          </div>
+
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Package tier</label>
+              <select
+                value={settingsTierId}
+                onChange={(e) => setSettingsTierId(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                disabled={tiersLoading}
+              >
+                {tiers.map((t) => (
+                  <option key={t._id} value={t._id}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              {tiersLoading && <p className="text-xs text-gray-500 mt-1">Loading tiers…</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Referral pool % (of monthly fee)
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={Math.round(settingsPoolPct * 100)}
+                onChange={(e) => setSettingsPoolPct(Number(e.target.value) / 100)}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Platform share will be <strong>{Math.max(0, 100 - Math.round(settingsPoolPct * 100))}%</strong>.
+              </p>
+            </div>
+
+            <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700 p-3">
+              {(() => {
+                const tier = tiers.find((t) => t._id === settingsTierId);
+                const exampleFee = Number(tier?.monthlyFeeAmount ?? 0) || 0;
+                const poolAmt = Math.round(exampleFee * settingsPoolPct * 100) / 100;
+                const platAmt = Math.round(exampleFee * (1 - settingsPoolPct) * 100) / 100;
+                return (
+                  <div className="text-sm text-gray-700 dark:text-gray-200">
+                    <p className="font-medium">Example (using tier monthly fee)</p>
+                    <p className="mt-1">
+                      Fee: <strong>${exampleFee.toFixed(2)}</strong> → Referrals: <strong>${poolAmt.toFixed(2)}</strong>, Platform:{' '}
+                      <strong>${platAmt.toFixed(2)}</strong>
+                    </p>
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Referral level rates (as % of referral pool)
+              </label>
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                {[1, 2, 3, 4, 5].map((lvl) => (
+                  <div key={`lvl-${lvl}`}>
+                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Level {lvl}</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={Math.round(settingsRates[lvl as 1] * 100)}
+                      onChange={(e) => {
+                        const pct = Number(e.target.value) / 100;
+                        setSettingsRates((p) => ({ ...p, [lvl]: pct } as CommissionRates));
+                      }}
+                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

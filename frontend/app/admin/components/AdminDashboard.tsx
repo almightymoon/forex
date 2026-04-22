@@ -25,6 +25,7 @@ import CommissionManagement from './CommissionManagement';
 import PackageManagement from './PackageManagement';
 import MonthlyFeeManagement from './MonthlyFeeManagement';
 import PromoCodeManagement from './PromoCodeManagement';
+import RankRewardsManagement from './RankRewardsManagement';
 import Analytics from './Analytics';
 import Settings from './Settings';
 import Notifications from './Notifications';
@@ -905,6 +906,7 @@ export default function AdminDashboard() {
                   { id: 'payments', label: 'Payments', icon: DollarSign },
                   { id: 'monthly-fee', label: 'Monthly Fee', icon: CreditCard },
                   { id: 'commissions', label: 'Commissions', icon: Share2 },
+                  { id: 'rank-rewards', label: 'Rank Rewards', icon: Award },
                   { id: 'packages', label: 'Packages', icon: CreditCard },
                   { id: 'analytics', label: 'Analytics', icon: TrendingUp },
                   { id: 'promocodes', label: 'Promo Codes', icon: Target },
@@ -977,6 +979,10 @@ export default function AdminDashboard() {
 
         {activeTab === 'commissions' && (
           <CommissionManagement />
+        )}
+
+        {activeTab === 'rank-rewards' && (
+          <RankRewardsManagement />
         )}
 
         {activeTab === 'packages' && (

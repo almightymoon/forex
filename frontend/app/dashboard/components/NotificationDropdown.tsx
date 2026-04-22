@@ -55,6 +55,7 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState<Notification | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -253,7 +254,10 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[55] bg-black/40 dark:bg-black/60"
-            onClick={onClose}
+            onClick={() => {
+              setSelected(null);
+              onClose();
+            }}
             aria-hidden
           />
           
@@ -318,11 +322,8 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
                       animate={{ opacity: 1, x: 0 }}
                       className={`border-l-4 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60 ${getPriorityColor(notification.priority)} ${!notification.read ? 'bg-blue-50 dark:bg-blue-950/35' : ''} ${notification.link ? 'cursor-pointer' : ''} ${notification.type === 'live_session' ? 'border-l-red-500 bg-red-50 dark:bg-red-950/30' : ''}`}
                       onClick={() => {
-                        if (notification.link) {
-                          markAsRead(notification._id);
-                          onClose();
-                          window.location.href = notification.link;
-                        }
+                        setSelected(notification);
+                        if (!notification.read) markAsRead(notification._id);
                       }}
                     >
                       <div className="flex items-start space-x-3">
@@ -401,6 +402,104 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
               </div>
             )}
           </motion.div>
+
+          {/* Notification details modal */}
+          <AnimatePresence>
+            {selected && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[70] flex items-center justify-center p-4"
+                onClick={() => setSelected(null)}
+              >
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.98, y: 10 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.98, y: 10 }}
+                  transition={{ duration: 0.15 }}
+                  className="w-full max-w-lg rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900 overflow-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-start justify-between gap-3 p-5 border-b border-gray-200 dark:border-gray-700">
+                    <div className="flex items-start gap-3 min-w-0">
+                      <div className="mt-0.5">{getNotificationIcon(selected.type)}</div>
+                      <div className="min-w-0">
+                        <p className="text-sm text-gray-500 dark:text-gray-400">{formatTime(selected.createdAt)}</p>
+                        <h4 className="text-lg font-semibold text-gray-900 dark:text-white truncate">{selected.title}</h4>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSelected(null)}
+                      className="rounded p-1 hover:bg-gray-100 dark:hover:bg-gray-800"
+                      aria-label="Close notification"
+                    >
+                      <X className="h-5 w-5 text-gray-500 dark:text-gray-400" />
+                    </button>
+                  </div>
+
+                  <div className="p-5">
+                    <p className="text-sm text-gray-700 dark:text-gray-200 whitespace-pre-wrap">
+                      {selected.message}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2 p-4 border-t border-gray-200 bg-gray-50 dark:border-gray-700 dark:bg-gray-800/70">
+                    <div className="flex items-center gap-2">
+                      {!selected.read && (
+                        <button
+                          type="button"
+                          onClick={() => markAsRead(selected._id)}
+                          className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                        >
+                          <Check className="h-4 w-4" />
+                          Mark read
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await deleteNotification(selected._id);
+                          setSelected(null);
+                        }}
+                        className="inline-flex items-center gap-1.5 text-sm font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {selected.link ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            window.location.href = selected.link!;
+                          }}
+                          className="text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg"
+                        >
+                          Open
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            onClose();
+                            window.location.href = '/notifications';
+                          }}
+                          className="text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg"
+                        >
+                          View all
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </>
       )}
     </AnimatePresence>

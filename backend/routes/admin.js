@@ -12,6 +12,8 @@ const Withdrawal = require('../models/Withdrawal');
 const BalanceTransaction = require('../models/BalanceTransaction');
 const PlatformCommissionLedger = require('../models/PlatformCommissionLedger');
 const Package = require('../models/Package');
+const RankRewardRule = require('../models/RankRewardRule');
+const RankRewardUnlock = require('../models/RankRewardUnlock');
 const fs = require('fs');
 const path = require('path');
 const NotificationTracking = require('../models/NotificationTracking');
@@ -265,7 +267,49 @@ router.get('/users/:id', async (req, res) => {
 
     const lifetimeEarned = creditsTotal > 0 ? creditsTotal : (currentBalance + withdrawnTotal);
 
-    res.json({ ...user, lifetimeEarned });
+    // Rank Rewards: compute current/next rank based on lifetime earned thresholds.
+    let rankRewards = { current: null, next: null };
+    try {
+      const rules = await RankRewardRule.find({ isActive: true })
+        .sort({ thresholdBalance: 1, sortOrder: 1, createdAt: 1 })
+        .select('name thresholdBalance rewardDescription rewardValue')
+        .lean();
+      if (Array.isArray(rules) && rules.length > 0) {
+        const earned = Number(lifetimeEarned) || 0;
+        let current = null;
+        let next = null;
+        for (const r of rules) {
+          const th = Number(r.thresholdBalance) || 0;
+          if (th <= earned) current = r;
+          if (th > earned) {
+            next = r;
+            break;
+          }
+        }
+        rankRewards = {
+          current: current
+            ? {
+                name: current.name,
+                threshold: Number(current.thresholdBalance) || 0,
+                rewardDescription: current.rewardDescription,
+                rewardValue: current.rewardValue || ''
+              }
+            : null,
+          next: next
+            ? {
+                name: next.name,
+                threshold: Number(next.thresholdBalance) || 0,
+                rewardDescription: next.rewardDescription,
+                rewardValue: next.rewardValue || ''
+              }
+            : null
+        };
+      }
+    } catch (e) {
+      // best-effort
+    }
+
+    res.json({ ...user, lifetimeEarned, rankRewards });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to fetch user' });
@@ -533,6 +577,149 @@ router.get('/packages', async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// Rank Rewards (admin-managed)
+// ---------------------------------------------------------------------------
+
+// @route   GET /api/admin/rank-rewards/rules
+// @desc    List rank reward rules (admin only)
+router.get('/rank-rewards/rules', async (_req, res) => {
+  try {
+    const rules = await RankRewardRule.find({}).sort({ sortOrder: 1, thresholdBalance: 1, createdAt: 1 }).lean();
+    res.json(rules);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch rank reward rules' });
+  }
+});
+
+// @route   POST /api/admin/rank-rewards/rules
+// @desc    Create a rank reward rule (admin only)
+router.post(
+  '/rank-rewards/rules',
+  [
+    body('name').notEmpty().trim(),
+    body('thresholdBalance').isFloat({ min: 0 }),
+    body('rewardDescription').notEmpty().trim(),
+    body('rewardValue').optional().trim(),
+    body('isActive').optional().isBoolean(),
+    body('sortOrder').optional().isInt()
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) return res.status(400).json({ errors: errors.array() });
+      const created = await RankRewardRule.create(req.body);
+      res.status(201).json(created);
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to create rank reward rule' });
+    }
+  }
+);
+
+// @route   PUT /api/admin/rank-rewards/rules/:id
+// @desc    Update a rank reward rule (admin only)
+router.put('/rank-rewards/rules/:id', async (req, res) => {
+  try {
+    const updated = await RankRewardRule.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
+      runValidators: true
+    }).lean();
+    if (!updated) return res.status(404).json({ error: 'Rule not found' });
+    res.json(updated);
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to update rank reward rule' });
+  }
+});
+
+// @route   DELETE /api/admin/rank-rewards/rules/:id
+// @desc    Delete a rank reward rule (admin only)
+router.delete('/rank-rewards/rules/:id', async (req, res) => {
+  try {
+    const deleted = await RankRewardRule.findByIdAndDelete(req.params.id).lean();
+    if (!deleted) return res.status(404).json({ error: 'Rule not found' });
+    res.json({ message: 'Rule deleted' });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to delete rank reward rule' });
+  }
+});
+
+// @route   GET /api/admin/rank-rewards/unlocks
+// @desc    List unlocked rewards (admin only). Query: status, userEmail, limit, page
+router.get('/rank-rewards/unlocks', async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const skip = (page - 1) * limit;
+    const status = (req.query.status || '').toString().trim();
+    const userEmail = (req.query.userEmail || '').toString().trim();
+
+    const query = {};
+    if (status) query.status = status;
+
+    const userMatch = userEmail
+      ? { email: new RegExp(userEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') }
+      : null;
+
+    const [total, rows] = await Promise.all([
+      RankRewardUnlock.countDocuments(query),
+      RankRewardUnlock.find(query)
+        .populate('user', 'firstName lastName email')
+        .populate('rule', 'name thresholdBalance rewardDescription rewardValue')
+        .sort({ unlockedAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+    ]);
+
+    const filtered =
+      userMatch && userEmail
+        ? rows.filter((r) => (r.user?.email || '').toLowerCase().includes(userEmail.toLowerCase()))
+        : rows;
+
+    res.json({
+      rows: filtered,
+      pagination: { total, page, limit, pages: Math.ceil(total / limit) || 1 }
+    });
+  } catch (e) {
+    res.status(500).json({ error: 'Failed to fetch rank reward unlocks' });
+  }
+});
+
+// @route   POST /api/admin/rank-rewards/unlocks/:id/fulfill
+// @desc    Mark unlocked reward as fulfilled (admin only)
+router.post(
+  '/rank-rewards/unlocks/:id/fulfill',
+  [body('notes').optional().trim().isLength({ max: 500 })],
+  async (req, res) => {
+    try {
+      const doc = await RankRewardUnlock.findById(req.params.id).populate('user', 'email firstName lastName').populate('rule', 'name').exec();
+      if (!doc) return res.status(404).json({ error: 'Unlock not found' });
+      if (doc.status !== 'unlocked') return res.status(400).json({ error: 'Unlock is not in unlocked status' });
+
+      doc.status = 'fulfilled';
+      doc.fulfilledAt = new Date();
+      doc.fulfilledBy = req.user?._id;
+      doc.fulfillmentNotes = (req.body?.notes || '').toString().slice(0, 500);
+      await doc.save();
+
+      // Notify user (best-effort)
+      try {
+        const notificationService = require('../services/notificationService');
+        await notificationService.createNotification({
+          user: doc.user?._id,
+          type: 'system',
+          title: 'Rank reward delivered',
+          message: `Your reward for "${doc.rule?.name || 'your rank'}" has been sent.`
+        });
+      } catch (e) {}
+
+      res.json({ success: true, unlock: doc });
+    } catch (e) {
+      res.status(500).json({ error: 'Failed to fulfill rank reward' });
+    }
+  }
+);
+
 // Shared: students with unpaid monthly fee this cycle (grace, overdue, or payment pending confirmation)
 // Query: status=all|in_grace|grace|overdue|pending_confirmation, packageName (partial), referenceDate (ISO), dueMonth=YYYY-MM
 async function getMonthlyFeePendingStudentsList(req, res) {
@@ -576,7 +763,9 @@ router.post(
   [
     body('name').notEmpty().trim(),
     body('price').isNumeric(),
-    body('referralPoolPercentage').optional().isFloat({ min: 0, max: 1 })
+    body('referralPoolPercentage').optional().isFloat({ min: 0, max: 1 }),
+    body('monthlyFeeReferralPoolPercentage').optional({ nullable: true }).isFloat({ min: 0, max: 1 }),
+    body('monthlyFeeCommissionRates').optional({ nullable: true }).isObject()
   ],
   async (req, res) => {
     try {
@@ -1216,6 +1405,66 @@ router.put('/payments/:id', async (req, res) => {
   } catch (error) {
     console.error('Update payment error:', error);
     res.status(500).json({ error: 'Failed to update payment' });
+  }
+});
+
+// @route   POST /api/admin/payments/:id/send-email
+// @desc    Send a templated payment email to the payment user (admin only)
+// @access  Private (Admin)
+router.post('/payments/:id/send-email', [
+  body('template')
+    .isString()
+    .notEmpty()
+    .withMessage('Template is required'),
+  body('note').optional().trim().isLength({ max: 500 }).withMessage('Note too long')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
+    }
+
+    const template = String(req.body.template || '').trim();
+    const note = String(req.body.note || '').trim();
+
+    const allowed = new Set([
+      'payment_complete_required',
+      'payment_unable_verify',
+      'payment_rejected_retry'
+    ]);
+    if (!allowed.has(template)) {
+      return res.status(400).json({ error: 'Invalid template' });
+    }
+
+    const payment = await Payment.findById(req.params.id).populate('user', 'firstName lastName email');
+    if (!payment) {
+      return res.status(404).json({ error: 'Payment not found' });
+    }
+    if (!payment.user?._id) {
+      return res.status(400).json({ error: 'Payment has no user attached' });
+    }
+
+    const packageName =
+      payment.type === 'monthly_fee'
+        ? 'Monthly Fee'
+        : payment.package?.name || 'Premium Package';
+
+    // Use FRONTEND_URL login page (user will be redirected by app logic if payment pending)
+    const notificationPayload = {
+      paymentId: payment._id,
+      amount: payment.finalAmount ?? payment.amount ?? 0,
+      finalAmount: payment.finalAmount ?? payment.amount ?? 0,
+      currency: payment.currency || 'USD',
+      packageName,
+      note
+    };
+
+    await notificationService.sendNotificationToUser(payment.user._id, template, notificationPayload);
+
+    res.json({ success: true, message: 'Email sent successfully' });
+  } catch (error) {
+    console.error('[Admin Payment Email] Error:', error);
+    res.status(500).json({ error: error.message || 'Failed to send email' });
   }
 });
 
@@ -2328,7 +2577,7 @@ router.get('/monthly-fee-distributions', async (req, res) => {
             completedPackagePayment.package?.name ||
             pkgDoc?.name ||
             'Unknown';
-          const cfg = await commissionService.getCommissionConfig(packageTierName);
+          const cfg = await commissionService.getMonthlyFeeCommissionConfig(packageTierName);
           poolPct = typeof cfg.referralPoolPercentage === 'number' ? cfg.referralPoolPercentage : 0;
           referralPool = Math.round(feeAmount * poolPct * 100) / 100;
           platformShare = Math.round(feeAmount * (1 - poolPct) * 100) / 100;

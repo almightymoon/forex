@@ -725,6 +725,168 @@ class EmailTemplateService {
         text: `Payment Received - Awaiting Admin Approval\n\nHello {{userName}},\n\nThank you for your payment! We have successfully received your payment request and it is currently being reviewed by our admin team.\n\nPayment Details:\nAmount: {{currency}} {{amount}}\nPackage: {{packageName}}\nPayment ID: #{{paymentId}}\nStatus: Pending Review\n\nWhat Happens Next?\n1. Our admin team will review your payment\n2. Once verified, your account will be activated\n3. You'll receive a confirmation email with full access details\n4. Access to Forex LMS will be opened for you\n\nOnce your payment is confirmed, you can access your account here:\n{{loginUrl}}\n\nWe'll notify you via email as soon as your account is activated. This usually takes 24-48 hours.\n\nBest regards,\nThe {{companyName}} Team`
       },
 
+      payment_complete_required: {
+        name: 'Complete Your Payment',
+        subject: 'Action Required: Complete Your Payment',
+        category: 'payments',
+        description: 'Admin reminder email when user has not completed payment submission (missing transaction ID/proof)',
+        channels: ['email'],
+        variables: ['userName', 'amount', 'currency', 'packageName', 'paymentId', 'loginUrl', 'companyName', 'note'],
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Complete Your Payment</title>
+            <style>
+              body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f3f4f6; }
+              .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
+              .header { background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 36px 28px; text-align: center; color: white; }
+              .header h1 { margin: 0; font-size: 26px; font-weight: 700; }
+              .content { padding: 28px; color: #111827; }
+              .card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin: 16px 0; }
+              .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #e5e7eb; }
+              .row:last-child { border-bottom: none; }
+              .label { color: #6b7280; font-weight: 600; }
+              .value { color: #111827; font-weight: 700; }
+              .cta { display: inline-block; background: #2563eb; color: white; padding: 14px 22px; border-radius: 999px; text-decoration: none; font-weight: 700; margin-top: 14px; }
+              .note { margin-top: 14px; padding: 12px 14px; border-left: 4px solid #2563eb; background: #eff6ff; border-radius: 8px; color: #1e3a8a; }
+              .footer { background: #111827; color: #9ca3af; padding: 18px 22px; text-align: center; font-size: 13px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>Action required: complete your payment</h1>
+              </div>
+              <div class="content">
+                <p>Hello <strong>{{userName}}</strong>,</p>
+                <p>We can’t verify your payment yet because we haven’t received the required details (transaction ID / proof).</p>
+                <div class="card">
+                  <div class="row"><span class="label">Amount</span><span class="value">{{currency}} {{amount}}</span></div>
+                  <div class="row"><span class="label">Package</span><span class="value">{{packageName}}</span></div>
+                  <div class="row"><span class="label">Payment ID</span><span class="value">#{{paymentId}}</span></div>
+                </div>
+                <p>Please complete your payment submission using the button below.</p>
+                <div style="text-align:center;">
+                  <a href="{{loginUrl}}" class="cta">Complete payment</a>
+                </div>
+                <div class="note"><strong>Note from admin:</strong> {{note}}</div>
+              </div>
+              <div class="footer">© 2026 {{companyName}}. All rights reserved.</div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `Action Required: Complete Your Payment\n\nHello {{userName}},\n\nWe can’t verify your payment yet because we haven’t received the required details (transaction ID / proof).\n\nAmount: {{currency}} {{amount}}\nPackage: {{packageName}}\nPayment ID: #{{paymentId}}\n\nPlease complete your payment submission here:\n{{loginUrl}}\n\nNote from admin: {{note}}\n\nBest regards,\nThe {{companyName}} Team`
+      },
+
+      payment_unable_verify: {
+        name: 'Unable to Verify Payment',
+        subject: 'We are unable to verify your payment',
+        category: 'payments',
+        description: 'Admin email when payment proof cannot be verified and user should submit again',
+        channels: ['email'],
+        variables: ['userName', 'amount', 'currency', 'packageName', 'paymentId', 'loginUrl', 'companyName', 'note'],
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Unable to Verify Payment</title>
+            <style>
+              body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fff7ed; }
+              .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
+              .header { background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 36px 28px; text-align: center; color: white; }
+              .header h1 { margin: 0; font-size: 26px; font-weight: 700; }
+              .content { padding: 28px; color: #111827; }
+              .card { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 12px; padding: 16px; margin: 16px 0; }
+              .cta { display: inline-block; background: #d97706; color: white; padding: 14px 22px; border-radius: 999px; text-decoration: none; font-weight: 700; margin-top: 14px; }
+              .note { margin-top: 14px; padding: 12px 14px; border-left: 4px solid #d97706; background: #fffbeb; border-radius: 8px; color: #92400e; }
+              .footer { background: #111827; color: #9ca3af; padding: 18px 22px; text-align: center; font-size: 13px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>We are unable to verify your payment</h1>
+              </div>
+              <div class="content">
+                <p>Hello <strong>{{userName}}</strong>,</p>
+                <p>We reviewed your submitted payment details, but we’re unable to verify them at this time.</p>
+                <div class="card">
+                  <p><strong>Payment ID:</strong> #{{paymentId}}</p>
+                  <p><strong>Amount:</strong> {{currency}} {{amount}}</p>
+                  <p><strong>Package:</strong> {{packageName}}</p>
+                </div>
+                <p>Please submit your payment again with a clear transaction ID / proof so we can verify it quickly.</p>
+                <div style="text-align:center;">
+                  <a href="{{loginUrl}}" class="cta">Submit payment again</a>
+                </div>
+                <div class="note"><strong>Note from admin:</strong> {{note}}</div>
+              </div>
+              <div class="footer">© 2026 {{companyName}}. All rights reserved.</div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `We are unable to verify your payment\n\nHello {{userName}},\n\nWe reviewed your submitted payment details, but we’re unable to verify them at this time.\n\nPayment ID: #{{paymentId}}\nAmount: {{currency}} {{amount}}\nPackage: {{packageName}}\n\nPlease submit your payment again here:\n{{loginUrl}}\n\nNote from admin: {{note}}\n\nBest regards,\nThe {{companyName}} Team`
+      },
+
+      payment_rejected_retry: {
+        name: 'Payment Rejected (Try Again)',
+        subject: 'Payment rejected — please try again',
+        category: 'payments',
+        description: 'Admin email when payment has been rejected and user should retry payment submission',
+        channels: ['email'],
+        variables: ['userName', 'amount', 'currency', 'packageName', 'paymentId', 'loginUrl', 'companyName', 'note'],
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Payment Rejected</title>
+            <style>
+              body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #fef2f2; }
+              .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.08); }
+              .header { background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); padding: 36px 28px; text-align: center; color: white; }
+              .header h1 { margin: 0; font-size: 26px; font-weight: 700; }
+              .content { padding: 28px; color: #111827; }
+              .card { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 12px; padding: 16px; margin: 16px 0; }
+              .cta { display: inline-block; background: #b91c1c; color: white; padding: 14px 22px; border-radius: 999px; text-decoration: none; font-weight: 700; margin-top: 14px; }
+              .note { margin-top: 14px; padding: 12px 14px; border-left: 4px solid #b91c1c; background: #fff1f2; border-radius: 8px; color: #7f1d1d; }
+              .footer { background: #111827; color: #9ca3af; padding: 18px 22px; text-align: center; font-size: 13px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>Your payment was rejected</h1>
+              </div>
+              <div class="content">
+                <p>Hello <strong>{{userName}}</strong>,</p>
+                <p>We were unable to accept your payment submission and it has been rejected. Please try again with correct details.</p>
+                <div class="card">
+                  <p><strong>Payment ID:</strong> #{{paymentId}}</p>
+                  <p><strong>Amount:</strong> {{currency}} {{amount}}</p>
+                  <p><strong>Package:</strong> {{packageName}}</p>
+                </div>
+                <div style="text-align:center;">
+                  <a href="{{loginUrl}}" class="cta">Try again</a>
+                </div>
+                <div class="note"><strong>Note from admin:</strong> {{note}}</div>
+              </div>
+              <div class="footer">© 2026 {{companyName}}. All rights reserved.</div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `Payment rejected — please try again\n\nHello {{userName}},\n\nWe were unable to accept your payment submission and it has been rejected. Please try again with correct details.\n\nPayment ID: #{{paymentId}}\nAmount: {{currency}} {{amount}}\nPackage: {{packageName}}\n\nTry again here:\n{{loginUrl}}\n\nNote from admin: {{note}}\n\nBest regards,\nThe {{companyName}} Team`
+      },
+
       withdrawal_request: {
         name: 'Withdrawal Request',
         subject: 'Withdrawal Request Submitted - Awaiting Admin Approval',

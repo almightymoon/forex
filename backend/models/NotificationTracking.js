@@ -16,7 +16,7 @@ const notificationTrackingSchema = new mongoose.Schema({
   // Type of notification
   type: {
     type: String,
-    enum: ['assignment', 'course', 'message', 'system', 'payment', 'payment_pending', 'payment_confirmed', 'account_verified', 'security', 'bulk', 'user_registration', 'referral', 'commission', 'balance', 'balance_credited', 'withdrawal', 'withdrawal_request', 'withdrawal_confirmed', 'admin', 'trade', 'live_session', 'password_reset'],
+    enum: ['assignment', 'course', 'message', 'system', 'payment', 'payment_pending', 'payment_confirmed', 'payment_complete_required', 'payment_unable_verify', 'payment_rejected_retry', 'account_verified', 'security', 'bulk', 'user_registration', 'referral', 'commission', 'balance', 'balance_credited', 'withdrawal', 'withdrawal_request', 'withdrawal_confirmed', 'admin', 'trade', 'live_session', 'password_reset'],
     required: true
   },
   // Channel used for delivery

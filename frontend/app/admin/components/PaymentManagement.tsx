@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { 
   Download, Search, Eye, CheckCircle, X, CreditCard, Wallet, 
   ArrowUpRight, Clock, AlertCircle, Edit, Save, XCircle, 
-  RefreshCw, Filter, DollarSign, User as UserIcon, Trash2, Loader2, ImageIcon
+  RefreshCw, Filter, DollarSign, User as UserIcon, Trash2, Loader2, ImageIcon, Mail
 } from 'lucide-react';
 import { Payment } from './types';
 import { buildApiUrl } from '../../../utils/api';
@@ -92,11 +92,66 @@ export default function PaymentManagement({
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'single' | 'bulk'; id?: string } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [emailTargetPayment, setEmailTargetPayment] = useState<Payment | null>(null);
+  const [emailTemplate, setEmailTemplate] = useState<
+    'payment_complete_required' | 'payment_unable_verify' | 'payment_rejected_retry'
+  >('payment_complete_required');
+  const [emailNote, setEmailNote] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
 
 
   const openPaymentModal = (payment: Payment) => {
     setSelectedPayment(payment);
     setShowPaymentModal(true);
+  };
+
+  const openEmailModal = (payment: Payment) => {
+    setEmailTargetPayment(payment);
+    setEmailTemplate('payment_complete_required');
+    setEmailNote('');
+    setShowEmailModal(true);
+  };
+
+  const sendPaymentEmail = async () => {
+    if (!emailTargetPayment) return;
+    if (!emailTargetPayment.user?._id) {
+      showToast('Payment has no user attached', 'error');
+      return;
+    }
+    try {
+      setSendingEmail(true);
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`api/admin/payments/${emailTargetPayment._id}/send-email`), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          template: emailTemplate,
+          note: emailNote.trim() || undefined
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg =
+          (data as any)?.error ||
+          (Array.isArray((data as any)?.errors) ? (data as any).errors[0]?.msg : null) ||
+          'Failed to send email';
+        showToast(msg, 'error');
+        return;
+      }
+      showToast('Email sent successfully', 'success');
+      setShowEmailModal(false);
+      setEmailTargetPayment(null);
+      setEmailNote('');
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to send email', 'error');
+    } finally {
+      setSendingEmail(false);
+    }
   };
 
   const openWithdrawalModal = (withdrawal: Withdrawal) => {
@@ -817,6 +872,15 @@ export default function PaymentManagement({
                             <X className="w-4 h-4" />
                           </button>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => openEmailModal(payment)}
+                          disabled={!payment.user?._id}
+                          className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                          title="Send email to user"
+                        >
+                          <Mail className="w-4 h-4" />
+                        </button>
                         <button 
                           onClick={() => handleDeleteClick('single', payment._id)}
                           className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
@@ -1534,6 +1598,108 @@ export default function PaymentManagement({
                     <>
                       <Trash2 className="w-4 h-4" />
                       Delete
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showEmailModal && emailTargetPayment && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Send payment email</h3>
+              <button
+                onClick={() => {
+                  if (sendingEmail) return;
+                  setShowEmailModal(false);
+                  setEmailTargetPayment(null);
+                }}
+                className="p-2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg transition-colors"
+                disabled={sendingEmail}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Recipient</label>
+                <p className="text-gray-900 dark:text-white">
+                  {emailTargetPayment.user?.firstName || 'Unknown'} {emailTargetPayment.user?.lastName || ''}
+                </p>
+                <p className="text-sm text-gray-500 dark:text-gray-400">{emailTargetPayment.user?.email || '—'}</p>
+              </div>
+
+              <div className="bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-300">Payment ID</span>
+                  <span className="font-mono text-gray-900 dark:text-white">{emailTargetPayment._id}</span>
+                </div>
+                <div className="flex justify-between text-sm mt-2">
+                  <span className="text-gray-600 dark:text-gray-300">Amount</span>
+                  <span className="font-semibold text-gray-900 dark:text-white">
+                    ${emailTargetPayment.finalAmount ?? emailTargetPayment.amount} {emailTargetPayment.currency}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Template</label>
+                <select
+                  value={emailTemplate}
+                  onChange={(e) => setEmailTemplate(e.target.value as any)}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  disabled={sendingEmail}
+                >
+                  <option value="payment_complete_required">Complete your payment</option>
+                  <option value="payment_unable_verify">Unable to verify your payment</option>
+                  <option value="payment_rejected_retry">Payment rejected (try again)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Optional note (shown in email)
+                </label>
+                <textarea
+                  value={emailNote}
+                  onChange={(e) => setEmailNote(e.target.value)}
+                  placeholder="e.g. Please resubmit with a clear transaction hash screenshot."
+                  rows={3}
+                  disabled={sendingEmail}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowEmailModal(false);
+                    setEmailTargetPayment(null);
+                  }}
+                  disabled={sendingEmail}
+                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={sendPaymentEmail}
+                  disabled={sendingEmail || !emailTargetPayment.user?._id}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {sendingEmail ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Mail className="w-4 h-4" />
+                      Send email
                     </>
                   )}
                 </button>

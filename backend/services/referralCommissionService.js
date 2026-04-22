@@ -110,6 +110,65 @@ class ReferralCommissionService {
   }
 
   /**
+   * Monthly-fee distribution config (per package tier).
+   * Falls back to the package's main referralPoolPercentage/commissionRates when monthly-fee overrides are not set.
+   */
+  async getMonthlyFeeCommissionConfig(packageNameRaw) {
+    const key = this.normalizePackageName(packageNameRaw);
+    if (key === 'Unknown') {
+      return {
+        packageName: key,
+        referralPoolPercentage: 0,
+        commissionRates: { ...this.commissionRates }
+      };
+    }
+
+    try {
+      const pkg = await Package.findOne({ name: key, isActive: true }).lean();
+      if (!pkg) {
+        return {
+          packageName: key,
+          referralPoolPercentage: 0,
+          commissionRates: { ...this.commissionRates }
+        };
+      }
+
+      const mainRates = pkg.commissionRates || {};
+      const monthlyRatesRaw =
+        pkg.monthlyFeeCommissionRates && typeof pkg.monthlyFeeCommissionRates === 'object'
+          ? pkg.monthlyFeeCommissionRates
+          : null;
+      const rates = monthlyRatesRaw || mainRates;
+
+      const commissionRates = {
+        1: typeof rates[1] === 'number' ? rates[1] : this.commissionRates[1],
+        2: typeof rates[2] === 'number' ? rates[2] : this.commissionRates[2],
+        3: typeof rates[3] === 'number' ? rates[3] : this.commissionRates[3],
+        4: typeof rates[4] === 'number' ? rates[4] : this.commissionRates[4],
+        5: typeof rates[5] === 'number' ? rates[5] : this.commissionRates[5]
+      };
+
+      const monthlyPool =
+        typeof pkg.monthlyFeeReferralPoolPercentage === 'number'
+          ? pkg.monthlyFeeReferralPoolPercentage
+          : null;
+      const pool = monthlyPool != null ? monthlyPool : (typeof pkg.referralPoolPercentage === 'number' ? pkg.referralPoolPercentage : 0);
+
+      return {
+        packageName: pkg.name,
+        referralPoolPercentage: typeof pool === 'number' && !Number.isNaN(pool) ? pool : 0,
+        commissionRates
+      };
+    } catch (e) {
+      return {
+        packageName: key,
+        referralPoolPercentage: 0,
+        commissionRates: { ...this.commissionRates }
+      };
+    }
+  }
+
+  /**
    * Distribute commissions for a package purchase up the referral chain
    * @param {Object} payment - The payment object
    * @returns {Promise<Array>} Array of commission transactions
@@ -393,7 +452,7 @@ class ReferralCommissionService {
         pkgDoc?.name ||
         'Unknown';
 
-      const cfg = await this.getCommissionConfig(packageNameRaw);
+      const cfg = await this.getMonthlyFeeCommissionConfig(packageNameRaw);
       const packageName = cfg.packageName || this.normalizePackageName(packageNameRaw);
       const poolPct = cfg.referralPoolPercentage || 0;
 
@@ -419,90 +478,86 @@ class ReferralCommissionService {
         return [];
       }
 
+      // Monthly fee commissions pay DIRECT referrer only (Level 1).
       const commissions = [];
-      let currentReferralCode = buyer.parentReferralCode;
-      let level = 1;
+      const level = 1;
       let totalCommissionsDistributed = 0;
 
-      while (currentReferralCode && level <= 5) {
-        const referrer = await User.findOne({ referralCode: currentReferralCode });
-        if (!referrer) {
-          console.log(`[MonthlyFeeCommission] Level ${level}: Referrer not found, ending chain`);
-          break;
+      const referrer = await User.findOne({ referralCode: buyer.parentReferralCode });
+      if (!referrer) {
+        console.log('[MonthlyFeeCommission] Level 1: Referrer not found, ending');
+        await this._markMonthlyFeeDistributionDone(payment._id);
+        return [];
+      }
+
+      const commissionRate = cfg.commissionRates?.[level] ?? this.commissionRates[level] ?? 0;
+      const commissionAmount = Math.round(referralPool * commissionRate * 100) / 100;
+      totalCommissionsDistributed += commissionAmount;
+
+      const transaction = await BalanceTransaction.createTransaction({
+        user: referrer._id,
+        type: 'referral_commission',
+        amount: commissionAmount,
+        description: `Level 1 referral commission from ${buyer.firstName} ${buyer.lastName}'s monthly fee (${packageName})`,
+        notes: `Monthly fee payment, Fee: $${feeAmount}, Referral pool: $${referralPool.toFixed(2)}, Platform share: $${companyShare.toFixed(2)}, Rate: ${(commissionRate * 100).toFixed(0)}% of pool`,
+        relatedPayment: payment._id,
+        metadata: {
+          level: '1',
+          packageName,
+          packageAmount: feeAmount.toString(),
+          referralPool: referralPool.toFixed(2),
+          companyShare: companyShare.toFixed(2),
+          buyerName: `${buyer.firstName} ${buyer.lastName}`,
+          buyerEmail: buyer.email,
+          commissionRate: (commissionRate * 100).toString(),
+          commissionFromPool: 'true',
+          paymentSource: 'monthly_fee'
         }
+      });
 
-        const commissionRate = cfg.commissionRates?.[level] ?? this.commissionRates[level] ?? 0;
-        const commissionAmount = Math.round(referralPool * commissionRate * 100) / 100;
-        totalCommissionsDistributed += commissionAmount;
+      commissions.push({
+        level: 1,
+        referrer: {
+          _id: referrer._id,
+          email: referrer.email,
+          name: `${referrer.firstName} ${referrer.lastName}`
+        },
+        amount: commissionAmount,
+        transactionId: transaction._id
+      });
 
-        const transaction = await BalanceTransaction.createTransaction({
-          user: referrer._id,
-          type: 'referral_commission',
+      if (!referrer.referralStats) {
+        referrer.referralStats = {
+          totalReferrals: 0,
+          totalEarnings: 0,
+          verifiedReferrals: 0,
+          level1Count: 0,
+          level2Count: 0,
+          level3Count: 0,
+          level4Count: 0,
+          level5Count: 0
+        };
+      }
+      if (typeof referrer.referralStats.verifiedReferrals !== 'number') {
+        referrer.referralStats.verifiedReferrals = 0;
+      }
+      referrer.referralStats.verifiedReferrals += 1;
+      referrer.referralStats.totalEarnings = (referrer.referralStats.totalEarnings || 0) + commissionAmount;
+      await referrer.save();
+
+      try {
+        const notificationService = require('./notificationService');
+        await notificationService.sendNotificationToUser(referrer._id, 'commission', {
+          title: 'Level 1 Commission (monthly fee)',
+          message: `You earned $${commissionAmount.toFixed(2)} USDT from ${buyer.firstName} ${buyer.lastName}'s monthly fee (${packageName})`,
           amount: commissionAmount,
-          description: `Level ${level} referral commission from ${buyer.firstName} ${buyer.lastName}'s monthly fee (${packageName})`,
-          notes: `Monthly fee payment, Fee: $${feeAmount}, Referral pool: $${referralPool.toFixed(2)}, Platform share: $${companyShare.toFixed(2)}, Rate: ${(commissionRate * 100).toFixed(0)}% of pool`,
-          relatedPayment: payment._id,
-          metadata: {
-            level: level.toString(),
-            packageName,
-            packageAmount: feeAmount.toString(),
-            referralPool: referralPool.toFixed(2),
-            companyShare: companyShare.toFixed(2),
-            buyerName: `${buyer.firstName} ${buyer.lastName}`,
-            buyerEmail: buyer.email,
-            commissionRate: (commissionRate * 100).toString(),
-            commissionFromPool: 'true',
-            paymentSource: 'monthly_fee'
-          }
+          level: 1,
+          buyerName: `${buyer.firstName} ${buyer.lastName}`,
+          packageName,
+          referralPool: referralPool.toFixed(2)
         });
-
-        commissions.push({
-          level,
-          referrer: {
-            _id: referrer._id,
-            email: referrer.email,
-            name: `${referrer.firstName} ${referrer.lastName}`
-          },
-          amount: commissionAmount,
-          transactionId: transaction._id
-        });
-
-        if (!referrer.referralStats) {
-          referrer.referralStats = {
-            totalReferrals: 0,
-            totalEarnings: 0,
-            verifiedReferrals: 0,
-            level1Count: 0,
-            level2Count: 0,
-            level3Count: 0,
-            level4Count: 0,
-            level5Count: 0
-          };
-        }
-        if (typeof referrer.referralStats.verifiedReferrals !== 'number') {
-          referrer.referralStats.verifiedReferrals = 0;
-        }
-        referrer.referralStats.verifiedReferrals += 1;
-        referrer.referralStats.totalEarnings = (referrer.referralStats.totalEarnings || 0) + commissionAmount;
-        await referrer.save();
-
-        try {
-          const notificationService = require('./notificationService');
-          await notificationService.sendNotificationToUser(referrer._id, 'commission', {
-            title: `Level ${level} Commission (monthly fee)`,
-            message: `You earned $${commissionAmount.toFixed(2)} USDT from ${buyer.firstName} ${buyer.lastName}'s monthly fee (${packageName})`,
-            amount: commissionAmount,
-            level,
-            buyerName: `${buyer.firstName} ${buyer.lastName}`,
-            packageName,
-            referralPool: referralPool.toFixed(2)
-          });
-        } catch (notifError) {
-          console.error(`[MonthlyFeeCommission] Level ${level}: notification failed:`, notifError.message);
-        }
-
-        currentReferralCode = referrer.parentReferralCode;
-        level++;
+      } catch (notifError) {
+        console.error('[MonthlyFeeCommission] Level 1: notification failed:', notifError.message);
       }
 
       console.log(

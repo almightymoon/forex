@@ -20,6 +20,8 @@ export interface AdminPackage {
   sortOrder?: number;
   referralPoolPercentage?: number;
   commissionRates?: Partial<CommissionRates>;
+  monthlyFeeReferralPoolPercentage?: number | null;
+  monthlyFeeCommissionRates?: Partial<CommissionRates> | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -68,6 +70,8 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
     sortOrder: 0,
     referralPoolPercentage: 0,
     commissionRates: defaultRates as CommissionRates,
+    monthlyFeeReferralPoolPercentage: null as number | null,
+    monthlyFeeCommissionRates: defaultRates as CommissionRates,
     featuresText: ''
   });
 
@@ -83,6 +87,8 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
       sortOrder: (sorted[sorted.length - 1]?.sortOrder ?? sorted.length) + 1,
       referralPoolPercentage: 0,
       commissionRates: defaultRates,
+      monthlyFeeReferralPoolPercentage: null,
+      monthlyFeeCommissionRates: defaultRates,
       featuresText: ''
     });
     setShowModal(true);
@@ -100,6 +106,11 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
       sortOrder: Number(p.sortOrder ?? 0),
       referralPoolPercentage: Number(p.referralPoolPercentage ?? 0),
       commissionRates: toRates(p.commissionRates),
+      monthlyFeeReferralPoolPercentage:
+        typeof p.monthlyFeeReferralPoolPercentage === 'number' ? Number(p.monthlyFeeReferralPoolPercentage) : null,
+      monthlyFeeCommissionRates: toRates(
+        (p.monthlyFeeCommissionRates as Partial<CommissionRates> | undefined) ?? (p.commissionRates as any)
+      ),
       featuresText: (p.features || []).join('\n')
     });
     setShowModal(true);
@@ -124,6 +135,11 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
         sortOrder: Number(form.sortOrder),
         referralPoolPercentage: Number(form.referralPoolPercentage),
         commissionRates: form.commissionRates,
+        monthlyFeeReferralPoolPercentage:
+          typeof form.monthlyFeeReferralPoolPercentage === 'number'
+            ? Number(form.monthlyFeeReferralPoolPercentage)
+            : null,
+        monthlyFeeCommissionRates: form.monthlyFeeCommissionRates,
         features: form.featuresText
           .split('\n')
           .map((s) => s.trim())
@@ -405,6 +421,66 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
                           setForm((p) => ({
                             ...p,
                             commissionRates: { ...p.commissionRates, [lvl]: pct } as CommissionRates
+                          }));
+                        }}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="md:col-span-2 border-t border-gray-200 dark:border-gray-700 pt-5">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Monthly fee distribution</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                  This controls how completed <span className="font-mono">monthly_fee</span> payments are split between the
+                  platform and referral pool, and how the pool is paid across referral levels.
+                </p>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Monthly Fee Referral Pool Percentage (0–100)
+                </label>
+                <input
+                  type="number"
+                  value={
+                    typeof form.monthlyFeeReferralPoolPercentage === 'number'
+                      ? Math.round(form.monthlyFeeReferralPoolPercentage * 100)
+                      : Math.round(form.referralPoolPercentage * 100)
+                  }
+                  onChange={(e) =>
+                    setForm((p) => ({
+                      ...p,
+                      monthlyFeeReferralPoolPercentage: Number(e.target.value) / 100
+                    }))
+                  }
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  If you leave this matching the package pool, monthly fees will distribute the same way as package purchases.
+                </p>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Monthly Fee Commission Rates by Level (as % of monthly-fee referral pool)
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {[1, 2, 3, 4, 5].map((lvl) => (
+                    <div key={`mf-${lvl}`}>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Level {lvl}</label>
+                      <input
+                        type="number"
+                        value={Math.round((form.monthlyFeeCommissionRates as any)[lvl] * 100)}
+                        onChange={(e) => {
+                          const pct = Number(e.target.value) / 100;
+                          setForm((p) => ({
+                            ...p,
+                            monthlyFeeCommissionRates: {
+                              ...(p.monthlyFeeCommissionRates as any),
+                              [lvl]: pct
+                            } as CommissionRates
                           }));
                         }}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"

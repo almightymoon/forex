@@ -598,7 +598,7 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
               )}
 
               {/* Stats row 1 — same card size as before */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                 <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
                   <div className="flex items-center justify-between mb-2">
                     <DollarSign className="w-8 h-8 text-blue-600 dark:text-blue-400" />
@@ -626,7 +626,25 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Total credited to balance</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800 md:col-span-2 lg:col-span-1">
+                <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-xl p-4 border border-indigo-200 dark:border-indigo-800">
+                  <div className="flex items-center justify-between mb-2">
+                    <Sparkles className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-400">RANK</span>
+                  </div>
+                  <p className="text-lg font-bold text-gray-900 dark:text-white">
+                    {(currentUser as any).rankRewards?.current?.name || '—'}
+                  </p>
+                  {(currentUser as any).rankRewards?.next?.threshold ? (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      Next: {(currentUser as any).rankRewards?.next?.name} @ $
+                      {Number((currentUser as any).rankRewards?.next?.threshold || 0).toFixed(0)}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">No next rank</p>
+                  )}
+                </div>
+
+                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
                   <div className="flex items-center justify-between mb-2">
                     <Users className="w-8 h-8 text-purple-600 dark:text-purple-400" />
                     <span className="text-xs font-medium text-purple-600 dark:text-purple-400">REFERRALS</span>

@@ -175,7 +175,7 @@ console.error = (...args) => {
 
 // Database connection with DB_NAME injection (keeps prod/local consistent)
 function getMongoUri() {
-  const uri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017/forex-lms';
+  const uri = process.env.MONGO_URI || process.env.MONGODB_URI || 'mongodb://localhost:27017';
   const dbName = (process.env.DB_NAME || '').trim();
   if (!dbName) return uri;
 

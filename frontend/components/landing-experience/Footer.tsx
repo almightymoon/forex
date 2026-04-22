@@ -7,8 +7,8 @@ const MAPS_ADDR =
   'https://www.google.com/maps/search/?api=1&query=Johar+Baru+Kuala+Lumpur+Malaysia';
 
 const BRAND_WORDMARK = 'thefxnavigator';
-const EMAIL_GENERAL = 'hello@thefxnavigator.com';
-const EMAIL_BUSINESS = 'business@thefxnavigator.com';
+const EMAIL_GENERAL = 'thefxnavigator@gmail.com';
+const EMAIL_BUSINESS = 'thefxnavigator@gmail.com';
 
 function IconArrowUp() {
   return (

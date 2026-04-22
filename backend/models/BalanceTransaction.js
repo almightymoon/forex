@@ -99,7 +99,25 @@ balanceTransactionSchema.statics.createTransaction = async function(data) {
   
   // Update user balance
   userDoc.balance = balanceAfter;
+  // Maintain lifetime earned as running sum of positive txns (withdrawals don't reduce this).
+  if (amount > 0) {
+    userDoc.lifetimeEarned = (Number(userDoc.lifetimeEarned) || 0) + amount;
+  }
   await userDoc.save();
+
+  // Rank rewards: evaluate on positive balance changes (best-effort)
+  if (amount > 0) {
+    try {
+      const { evaluateRankRewardsForUser } = require('../services/rankRewardService');
+      await evaluateRankRewardsForUser({
+        userId: userDoc._id,
+        lifetimeEarned: userDoc.lifetimeEarned,
+        userEmail: userDoc.email
+      });
+    } catch (e) {
+      // ignore
+    }
+  }
   
   return transaction;
 };
