@@ -112,6 +112,7 @@ export default function TradingSignals() {
   const [editingSignal, setEditingSignal] = useState<TradingSignal | null>(null);
   const [viewMode, setViewMode] = useState<'card' | 'list'>('card');
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [clientValidationEnabled, setClientValidationEnabled] = useState(true);
   const [newSignal, setNewSignal] = useState<CreateSignalData>({
     symbol: 'SIGNAL',
     instrumentType: 'forex',
@@ -139,6 +140,63 @@ export default function TradingSignals() {
   useEffect(() => {
     fetchSignals();
   }, []);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('teacherSignals.clientValidationEnabled');
+      if (raw === '0') setClientValidationEnabled(false);
+      if (raw === '1') setClientValidationEnabled(true);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  const persistClientValidationEnabled = (next: boolean) => {
+    setClientValidationEnabled(next);
+    try {
+      localStorage.setItem('teacherSignals.clientValidationEnabled', next ? '1' : '0');
+    } catch {
+      // ignore
+    }
+  };
+
+  const validateCreateSignalClientSide = () => {
+    const errors: Record<string, string> = {};
+
+    const entry = Number(newSignal.entryPrice);
+    const stop = Number(newSignal.stopLoss);
+    const targets = Array.isArray(newSignal.targets)
+      ? newSignal.targets.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0)
+      : [];
+
+    if (!Number.isFinite(entry) || entry <= 0) errors.entryPrice = 'Entry price must be a positive number.';
+    if (!Number.isFinite(stop) || stop <= 0) errors.stopLoss = 'Stop loss must be a positive number.';
+    if (targets.length === 0) errors.targets = 'At least one target price is required.';
+
+    const sigType = newSignal.type;
+    const firstTarget = targets[0];
+    const isBuy = sigType === 'buy' || sigType === 'strong_buy';
+    const isSell = sigType === 'sell' || sigType === 'strong_sell';
+
+    if (targets.length > 0 && Number.isFinite(entry) && entry > 0) {
+      // enforce direction for all targets (helps avoid partial mistakes)
+      const badTarget = targets.find((t) => (isBuy ? t <= entry : isSell ? t >= entry : false));
+      if (badTarget != null) {
+        errors.targets = isBuy
+          ? 'For BUY signals: all target prices must be higher than entry price.'
+          : isSell
+            ? 'For SELL signals: all target prices must be lower than entry price.'
+            : errors.targets;
+      }
+    }
+
+    if (Number.isFinite(entry) && entry > 0 && Number.isFinite(stop) && stop > 0) {
+      if (isBuy && stop >= entry) errors.stopLoss = 'For BUY signals: stop loss must be lower than entry price.';
+      if (isSell && stop <= entry) errors.stopLoss = 'For SELL signals: stop loss must be higher than entry price.';
+    }
+
+    return { errors, targets };
+  };
 
   // Function to suggest values based on current bid
   const suggestValuesFromBid = (bid: number, signalType?: 'buy' | 'sell' | 'hold' | 'strong_buy' | 'strong_sell', instrumentType?: string) => {
@@ -221,32 +279,12 @@ export default function TradingSignals() {
     setFieldErrors({});
     
     try {
-      // Validate required fields
-      const targets = Array.isArray(newSignal.targets)
-        ? newSignal.targets.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0)
-        : [];
-      if (newSignal.entryPrice <= 0 || targets.length === 0 || newSignal.stopLoss <= 0) {
-        showToast('Please fill in all required fields', 'error');
-        return;
-      }
-
-      // Validate price logic based on signal type
-      if (newSignal.type === 'buy') {
-        if (targets[0] <= newSignal.entryPrice) {
-          showToast('For BUY signals: Target price must be higher than entry price', 'error');
-          return;
-        }
-        if (newSignal.stopLoss >= newSignal.entryPrice) {
-          showToast('For BUY signals: Stop loss must be lower than entry price', 'error');
-          return;
-        }
-      } else if (newSignal.type === 'sell') {
-        if (targets[0] >= newSignal.entryPrice) {
-          showToast('For SELL signals: Target price must be lower than entry price', 'error');
-          return;
-        }
-        if (newSignal.stopLoss <= newSignal.entryPrice) {
-          showToast('For SELL signals: Stop loss must be higher than entry price', 'error');
+      if (clientValidationEnabled) {
+        const { errors } = validateCreateSignalClientSide();
+        if (Object.keys(errors).length > 0) {
+          setFieldErrors(errors);
+          const first = Object.values(errors)[0] || 'Please correct the validation errors below.';
+          showToast(first, 'error');
           return;
         }
       }
@@ -314,16 +352,19 @@ export default function TradingSignals() {
           if (errorData.errors && Array.isArray(errorData.errors)) {
             // Store field-specific errors for inline display
             errorData.errors.forEach((err: any) => {
-              if (err.field && err.message) {
+              const field = err?.field || err?.path || err?.param;
+              const message = err?.message || err?.msg;
+              if (field && message) {
                 // Store error by field name (use camelCase as key)
-                errorsMap[err.field] = err.message;
+                errorsMap[String(field)] = String(message);
               }
             });
             
             // Set field errors for inline display
             if (Object.keys(errorsMap).length > 0) {
               setFieldErrors(errorsMap);
-              showToast('Please correct the validation errors below', 'error');
+              const summary = Object.values(errorsMap).slice(0, 2).join(' | ');
+              showToast(summary || 'Please correct the validation errors below', 'error');
             } else {
               // Fallback if no field-specific errors
               const errorText = errorData.errors.map((err: any) => err.message || String(err)).join(' | ');
@@ -658,86 +699,91 @@ export default function TradingSignals() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.05 }}
-              className="rounded-2xl overflow-hidden border border-white/10 dark:border-white/10 bg-gradient-to-br from-slate-900/60 via-slate-900/40 to-slate-950/70 backdrop-blur-xl shadow-[0_20px_70px_-30px_rgba(0,0,0,0.8)]"
+              className="rounded-2xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-sm"
             >
-              <div className="relative p-6">
-                {/* soft glow */}
-                <div className="pointer-events-none absolute -top-24 -right-24 h-56 w-56 rounded-full bg-gradient-to-br from-emerald-400/25 via-cyan-400/15 to-indigo-500/20 blur-3xl" />
-                <div className="pointer-events-none absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-gradient-to-tr from-fuchsia-500/15 via-indigo-500/10 to-sky-500/15 blur-3xl" />
+              <div className="p-6">
 
                 {/* Header */}
-                <div className="relative flex items-start justify-between gap-3">
+                <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h3 className="text-3xl font-semibold tracking-wide text-white truncate">
+                    <h3 className="text-2xl font-semibold tracking-wide text-gray-900 dark:text-white truncate">
                       {(signal.symbol || '').replace('/', ' ').trim()}
                     </h3>
-                    <p className="mt-1 text-sm text-white/70 line-clamp-1">
+                    <p className="mt-1 text-sm text-gray-600 dark:text-gray-300 line-clamp-1">
                       {signal.description || '—'}
                     </p>
                   </div>
 
                   <div className="flex flex-col items-end gap-2 shrink-0">
-                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-white border border-white/10">
-                      <span className="inline-block h-2 w-2 rounded-full bg-emerald-300/90" />
+                    <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700">
+                      <span
+                        className={`inline-block h-2 w-2 rounded-full ${
+                          signal.status === 'active'
+                            ? 'bg-emerald-500'
+                            : signal.status === 'closed'
+                              ? 'bg-gray-400'
+                              : 'bg-amber-500'
+                        }`}
+                      />
                       {signal.status}
                     </span>
                     <span
                       className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold border ${
                         signal.type === 'buy' || signal.type === 'strong_buy'
-                          ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/20'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/20 dark:text-emerald-200 dark:border-emerald-800/50'
                           : signal.type === 'sell' || signal.type === 'strong_sell'
-                            ? 'bg-rose-500/20 text-rose-200 border-rose-400/20'
-                            : 'bg-amber-500/15 text-amber-200 border-amber-400/20'
+                            ? 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/20 dark:text-rose-200 dark:border-rose-800/50'
+                            : 'bg-amber-50 text-amber-800 border-amber-200 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-800/50'
                       }`}
                     >
                       {signal.type.toUpperCase()}
-                      <span className="text-white/70">↗</span>
+                      <span className="text-current/70">↗</span>
                     </span>
                   </div>
                 </div>
 
                 {/* Price tiles */}
-                <div className="relative mt-5 grid grid-cols-3 gap-3">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                    <p className="text-xs text-white/60">Entry</p>
-                    <p className="mt-1 text-2xl font-bold text-sky-200">${Number(signal.entryPrice || 0).toFixed(2)}</p>
+                <div className="mt-5 grid grid-cols-3 gap-3">
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Entry</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">${Number(signal.entryPrice || 0).toFixed(2)}</p>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-white/60">Target</p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Target</p>
                       {Array.isArray((signal as any).targets) && (signal as any).targets.length > 1 ? (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/70 border border-white/10">
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
                           +{(signal as any).targets.length - 1}
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-1 text-2xl font-bold text-emerald-200">
+                    <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
                       ${Number(signal.targetPrice || 0).toFixed(2)}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.06)]">
-                    <p className="text-xs text-white/60">Stop Loss</p>
-                    <p className="mt-1 text-2xl font-bold text-rose-200">${Number(signal.stopLoss || 0).toFixed(2)}</p>
+                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3">
+                    <p className="text-xs text-gray-500 dark:text-gray-400">Stop Loss</p>
+                    <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">${Number(signal.stopLoss || 0).toFixed(2)}</p>
                   </div>
                 </div>
 
                 {/* Meta */}
-                <div className="relative mt-4 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-sm text-white/80">
+                <div className="mt-4 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
                     <span>Confidence: {signal.confidence}%</span>
-                    <div className="h-1.5 w-28 rounded-full bg-white/10 overflow-hidden">
+                    <div className="h-1.5 w-28 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-lime-300 to-amber-300"
+                        className="h-full rounded-full bg-blue-500"
                         style={{ width: `${Math.min(100, Math.max(0, Number(signal.confidence || 0)))}%` }}
                       />
                     </div>
                   </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-white/10 text-white/80 border border-white/10">
+                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700">
                     {signal.riskLevel}
                   </span>
                 </div>
 
-                <div className="relative mt-3 flex items-center justify-between text-xs text-white/60">
+                <div className="mt-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
                   <span className="inline-flex items-center gap-2">
                     Timeframe: {signal.timeframe}
                     <span className="opacity-60">•</span>
@@ -756,22 +802,22 @@ export default function TradingSignals() {
                 </div>
 
                 {/* Actions */}
-                <div className="relative mt-5 flex items-center gap-2 flex-wrap">
+                <div className="mt-5 flex items-center gap-2 flex-wrap">
                   {signal.status === 'active' && (
                     <>
                       <button
                         onClick={() => handleTogglePublish(signal._id, signal.isPublished)}
                         className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
                           signal.isPublished
-                            ? 'bg-amber-500/20 text-amber-100 border border-amber-400/20 hover:bg-amber-500/30'
-                            : 'bg-emerald-500/20 text-emerald-100 border border-emerald-400/20 hover:bg-emerald-500/30'
+                            ? 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-800/50 dark:hover:bg-amber-900/30'
+                            : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-200 dark:border-emerald-800/50 dark:hover:bg-emerald-900/30'
                         }`}
                       >
                         {signal.isPublished ? 'Unpublish' : 'Publish'}
                       </button>
                       <button
                         onClick={() => handleCloseSignal(signal._id)}
-                        className="px-4 py-2 rounded-xl text-sm font-semibold bg-sky-500/20 text-sky-100 border border-sky-400/20 hover:bg-sky-500/30"
+                        className="px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
                       >
                         Close Signal
                       </button>
@@ -784,7 +830,7 @@ export default function TradingSignals() {
                         setSelectedSignal(signal);
                         setShowViewModal(true);
                       }}
-                      className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/90"
+                      className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 border border-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-700 dark:text-gray-200"
                       title="View Signal"
                     >
                       <Eye className="w-4 h-4" />
@@ -794,14 +840,14 @@ export default function TradingSignals() {
                         setEditingSignal(signal);
                         setShowEditModal(true);
                       }}
-                      className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white/90"
+                      className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 border border-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-700 dark:text-gray-200"
                       title="Edit Signal"
                     >
                       <Edit className="w-4 h-4" />
                     </button>
                     <button
                       onClick={() => handleDeleteSignal(signal._id)}
-                      className="px-3 py-2 rounded-xl bg-white/5 hover:bg-rose-500/20 border border-white/10 hover:border-rose-400/20 text-white/90"
+                      className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-rose-50 border border-gray-200 text-rose-700 dark:bg-gray-800 dark:hover:bg-rose-900/20 dark:border-gray-700 dark:text-rose-200"
                       title="Delete Signal"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -986,6 +1032,40 @@ export default function TradingSignals() {
                 ✕
               </button>
             </div>
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="text-sm text-gray-600 dark:text-gray-300">
+                <div className="font-medium text-gray-900 dark:text-white">Validation</div>
+                <div className="text-xs text-gray-500 dark:text-gray-400">
+                  Turn off to bypass frontend checks (backend validation still applies).
+                </div>
+              </div>
+              <label className="inline-flex items-center gap-2 select-none">
+                <input
+                  type="checkbox"
+                  checked={clientValidationEnabled}
+                  onChange={(e) => persistClientValidationEnabled(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 dark:border-gray-600"
+                />
+                <span className="text-sm text-gray-800 dark:text-gray-200">
+                  {clientValidationEnabled ? 'On' : 'Off'}
+                </span>
+              </label>
+            </div>
+
+            {Object.keys(fieldErrors).length > 0 && (
+              <div className="mb-4 rounded-lg border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-3">
+                <div className="text-sm font-semibold text-red-800 dark:text-red-200">
+                  Please correct the validation errors below
+                </div>
+                <ul className="mt-2 space-y-1 text-sm text-red-700 dark:text-red-200">
+                  {Object.entries(fieldErrors).map(([field, message]) => (
+                    <li key={field}>
+                      <span className="font-semibold">{field}</span>: {message}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Entry Price *</label>
@@ -994,9 +1074,14 @@ export default function TradingSignals() {
                   step="0.0001"
                   value={newSignal.entryPrice}
                   onChange={(e) => setNewSignal({ ...newSignal, entryPrice: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                    fieldErrors.entryPrice ? 'border-red-400 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                  }`}
                   placeholder="0.0000"
                 />
+                {fieldErrors.entryPrice ? (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-300">{fieldErrors.entryPrice}</p>
+                ) : null}
               </div>
 
               <div>
@@ -1006,9 +1091,14 @@ export default function TradingSignals() {
                   step="0.0001"
                   value={newSignal.stopLoss}
                   onChange={(e) => setNewSignal({ ...newSignal, stopLoss: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className={`w-full px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                    fieldErrors.stopLoss ? 'border-red-400 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                  }`}
                   placeholder="0.0000"
                 />
+                {fieldErrors.stopLoss ? (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-300">{fieldErrors.stopLoss}</p>
+                ) : null}
               </div>
 
               <div>
@@ -1028,7 +1118,9 @@ export default function TradingSignals() {
                             return { ...prev, targets: nextTargets };
                           });
                         }}
-                        className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        className={`flex-1 px-3 py-2 border rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white ${
+                          fieldErrors.targets ? 'border-red-400 dark:border-red-600' : 'border-gray-300 dark:border-gray-600'
+                        }`}
                         placeholder="0.0000"
                       />
                       <button
@@ -1057,6 +1149,9 @@ export default function TradingSignals() {
                   <Plus className="w-4 h-4" />
                   Add target
                 </button>
+                {fieldErrors.targets ? (
+                  <p className="mt-1 text-xs text-red-600 dark:text-red-300">{fieldErrors.targets}</p>
+                ) : null}
               </div>
             </div>
 

@@ -1640,9 +1640,14 @@ export default function PaymentManagement({
 
       {showEmailModal && emailTargetPayment && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Send payment email</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-4xl overflow-hidden shadow-2xl border border-gray-200/70 dark:border-gray-700">
+            <div className="px-6 py-5 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Send payment email</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                  Choose a template or write a custom email.
+                </p>
+              </div>
               <button
                 onClick={() => {
                   if (sendingEmail) return;
@@ -1656,56 +1661,76 @@ export default function PaymentManagement({
               </button>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Recipient</label>
-                <p className="text-gray-900 dark:text-white">
-                  {emailTargetPayment.user?.firstName || 'Unknown'} {emailTargetPayment.user?.lastName || ''}
-                </p>
-                <p className="text-sm text-gray-500 dark:text-gray-400">{emailTargetPayment.user?.email || '—'}</p>
-              </div>
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+              {/* Left summary panel */}
+              <div className="lg:col-span-4">
+                <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/20 p-5">
+                  <p className="text-xs font-semibold tracking-wide uppercase text-gray-500 dark:text-gray-400">
+                    Recipient
+                  </p>
+                  <p className="mt-2 text-base font-semibold text-gray-900 dark:text-white">
+                    {emailTargetPayment.user?.firstName || 'Unknown'} {emailTargetPayment.user?.lastName || ''}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 break-all">
+                    {emailTargetPayment.user?.email || '—'}
+                  </p>
 
-              <div className="bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-600 rounded-lg p-4">
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600 dark:text-gray-300">Payment ID</span>
-                  <span className="font-mono text-gray-900 dark:text-white">{emailTargetPayment._id}</span>
+                  <div className="mt-5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs text-gray-500 dark:text-gray-400">Payment ID</p>
+                        <p className="font-mono text-sm text-gray-900 dark:text-white break-all">
+                          {emailTargetPayment._id}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between">
+                      <p className="text-xs text-gray-500 dark:text-gray-400">Amount</p>
+                      <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                        ${emailTargetPayment.finalAmount ?? emailTargetPayment.amount} {emailTargetPayment.currency}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-5 text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
+                    Tip: Use <span className="font-medium">Template</span> for common scenarios. Use{' '}
+                    <span className="font-medium">Custom email</span> for one-off messages.
+                  </div>
                 </div>
-                <div className="flex justify-between text-sm mt-2">
-                  <span className="text-gray-600 dark:text-gray-300">Amount</span>
-                  <span className="font-semibold text-gray-900 dark:text-white">
-                    ${emailTargetPayment.finalAmount ?? emailTargetPayment.amount} {emailTargetPayment.currency}
-                  </span>
+              </div>
+
+              {/* Right compose panel */}
+              <div className="lg:col-span-8">
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                  <div className="flex gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg w-fit">
+                    <button
+                      type="button"
+                      onClick={() => setEmailMode('template')}
+                      disabled={sendingEmail}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                        emailMode === 'template'
+                          ? 'bg-blue-600 text-white shadow'
+                          : 'text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Template
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEmailMode('custom')}
+                      disabled={sendingEmail}
+                      className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
+                        emailMode === 'custom'
+                          ? 'bg-blue-600 text-white shadow'
+                          : 'text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white'
+                      }`}
+                    >
+                      Custom email
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              <div className="flex gap-2 bg-gray-100 dark:bg-gray-700 p-1 rounded-lg w-fit">
-                <button
-                  type="button"
-                  onClick={() => setEmailMode('template')}
-                  disabled={sendingEmail}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    emailMode === 'template'
-                      ? 'bg-blue-600 text-white shadow'
-                      : 'text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  Template
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEmailMode('custom')}
-                  disabled={sendingEmail}
-                  className={`px-4 py-2 rounded-md text-sm font-medium transition-all ${
-                    emailMode === 'custom'
-                      ? 'bg-blue-600 text-white shadow'
-                      : 'text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white'
-                  }`}
-                >
-                  Custom email
-                </button>
-              </div>
-
-              {emailMode === 'template' ? (
+                {emailMode === 'template' ? (
                 <>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Template</label>
@@ -1724,7 +1749,7 @@ export default function PaymentManagement({
                     </p>
                   </div>
 
-                  <div>
+                  <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Optional note (shown in template)
                     </label>
@@ -1738,7 +1763,7 @@ export default function PaymentManagement({
                     />
                   </div>
 
-                  <div>
+                  <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Override subject (optional)
                     </label>
@@ -1752,7 +1777,7 @@ export default function PaymentManagement({
                     />
                   </div>
 
-                  <div>
+                  <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Override message (optional)
                     </label>
@@ -1782,7 +1807,7 @@ export default function PaymentManagement({
                     />
                   </div>
 
-                  <div>
+                  <div className="mt-4">
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                       Message *
                     </label>
@@ -1800,41 +1825,42 @@ export default function PaymentManagement({
                   </div>
                 </>
               )}
+            </div>
+            </div>
 
-              <div className="flex gap-3 pt-2">
-                <button
-                  onClick={() => {
-                    setShowEmailModal(false);
-                    setEmailTargetPayment(null);
-                  }}
-                  disabled={sendingEmail}
-                  className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={sendPaymentEmail}
-                  disabled={
-                    sendingEmail ||
-                    !emailTargetPayment.user?._id ||
-                    (emailMode === 'custom' &&
-                      (!customEmailSubject.trim() || !customEmailMessage.trim()))
-                  }
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                >
-                  {sendingEmail ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <Mail className="w-4 h-4" />
-                      Send email
-                    </>
-                  )}
-                </button>
-              </div>
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-end">
+              <button
+                onClick={() => {
+                  setShowEmailModal(false);
+                  setEmailTargetPayment(null);
+                }}
+                disabled={sendingEmail}
+                className="px-5 py-2.5 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={sendPaymentEmail}
+                disabled={
+                  sendingEmail ||
+                  !emailTargetPayment.user?._id ||
+                  (emailMode === 'custom' &&
+                    (!customEmailSubject.trim() || !customEmailMessage.trim()))
+                }
+                className="px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {sendingEmail ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Send email
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

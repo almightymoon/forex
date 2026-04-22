@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, RefreshCw, Save, Trash2, CheckCircle, Loader2, Search } from 'lucide-react';
+import { Plus, RefreshCw, Save, Trash2, CheckCircle, Loader2, Search, ImageIcon } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
 
@@ -12,6 +12,7 @@ interface Rule {
   thresholdBalance: number;
   rewardDescription: string;
   rewardValue?: string;
+  imageUrl?: string;
   isActive: boolean;
   sortOrder?: number;
 }
@@ -43,9 +44,11 @@ export default function RankRewardsManagement() {
     thresholdBalance: 0,
     rewardDescription: '',
     rewardValue: '',
+    imageUrl: '',
     isActive: true,
     sortOrder: 0
   });
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   const [unlocks, setUnlocks] = useState<UnlockRow[]>([]);
   const [unlockStatus, setUnlockStatus] = useState<string>('unlocked');
@@ -102,6 +105,7 @@ export default function RankRewardsManagement() {
       thresholdBalance: 0,
       rewardDescription: '',
       rewardValue: '',
+      imageUrl: '',
       isActive: true,
       sortOrder: (rules[rules.length - 1]?.sortOrder ?? rules.length) + 1
     });
@@ -115,10 +119,39 @@ export default function RankRewardsManagement() {
       thresholdBalance: Number(r.thresholdBalance ?? 0),
       rewardDescription: r.rewardDescription || '',
       rewardValue: r.rewardValue || '',
+      imageUrl: r.imageUrl || '',
       isActive: !!r.isActive,
       sortOrder: Number(r.sortOrder ?? 0)
     });
     setShowRuleModal(true);
+  };
+
+  const uploadRuleImage = async (file: File) => {
+    try {
+      setUploadingImage(true);
+      const token = localStorage.getItem('token');
+      const form = new FormData();
+      form.append('image', file);
+      const res = await fetch(buildApiUrl('api/admin/rank-rewards/rules/upload-image'), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: form
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data?.error || 'Failed to upload image', 'error');
+        return;
+      }
+      if (data?.url) {
+        setRuleForm((prev) => ({ ...prev, imageUrl: String(data.url) }));
+        showToast('Image uploaded', 'success');
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to upload image', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
   };
 
   const saveRule = async () => {
@@ -140,6 +173,7 @@ export default function RankRewardsManagement() {
           thresholdBalance: Number(ruleForm.thresholdBalance),
           rewardDescription: ruleForm.rewardDescription.trim(),
           rewardValue: ruleForm.rewardValue.trim(),
+          imageUrl: ruleForm.imageUrl.trim(),
           isActive: !!ruleForm.isActive,
           sortOrder: Number(ruleForm.sortOrder)
         })
@@ -524,6 +558,69 @@ export default function RankRewardsManagement() {
                   onChange={(e) => setRuleForm((p) => ({ ...p, rewardValue: e.target.value }))}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Reward image (optional)
+                </label>
+                <div className="flex flex-col md:flex-row md:items-center gap-4">
+                  <div className="flex items-center gap-3">
+                    <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 cursor-pointer">
+                      {uploadingImage ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <ImageIcon className="w-4 h-4" />
+                      )}
+                      <span className="text-sm font-medium">
+                        {uploadingImage ? 'Uploading…' : 'Upload image'}
+                      </span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        disabled={uploadingImage}
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (!f) return;
+                          uploadRuleImage(f);
+                          e.currentTarget.value = '';
+                        }}
+                      />
+                    </label>
+                    {ruleForm.imageUrl?.trim() && (
+                      <button
+                        type="button"
+                        onClick={() => setRuleForm((p) => ({ ...p, imageUrl: '' }))}
+                        className="px-3 py-2 rounded-xl text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
+                  {ruleForm.imageUrl?.trim() ? (
+                    <div className="flex items-center gap-3">
+                      <div className="h-14 w-14 rounded-xl overflow-hidden border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 flex items-center justify-center">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={ruleForm.imageUrl}
+                          alt="Reward"
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 dark:text-white">Preview</p>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[360px]">
+                          {ruleForm.imageUrl}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      Upload an icon/banner for this reward (jpg/png/webp/gif, up to 5MB).
+                    </p>
+                  )}
+                </div>
               </div>
               <div className="md:col-span-2">
                 <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 select-none">

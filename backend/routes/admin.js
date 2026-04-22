@@ -20,6 +20,7 @@ const NotificationTracking = require('../models/NotificationTracking');
 const notificationService = require('../services/notificationService');
 const referralService = require('../services/referralService');
 const { body, validationResult } = require('express-validator');
+const multer = require('multer');
 const adminProductsRouter = require('./adminProducts');
 const ActivityLog = require('../models/ActivityLog');
 const {
@@ -28,6 +29,7 @@ const {
   feeMonthCoveredForPaymentDate,
   resolvePackageFromPayment
 } = require('../utils/monthlyFeeStatus');
+const { uploadImage } = require('../config/cloudinary');
 
 const router = express.Router();
 
@@ -581,6 +583,62 @@ router.get('/packages', async (req, res) => {
 // Rank Rewards (admin-managed)
 // ---------------------------------------------------------------------------
 
+// Upload (rank reward rule image)
+const rankRewardUploadDir = path.join(__dirname, '..', 'uploads', 'rank-rewards');
+if (!fs.existsSync(rankRewardUploadDir)) {
+  fs.mkdirSync(rankRewardUploadDir, { recursive: true });
+}
+const rankRewardImageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, rankRewardUploadDir),
+    filename: (_req, file, cb) => {
+      const timestamp = Date.now();
+      const safe = (file.originalname || 'image')
+        .replace(/\s+/g, '-')
+        .replace(/[^a-zA-Z0-9._-]/g, '')
+        .toLowerCase();
+      cb(null, `${timestamp}-${safe}`);
+    }
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (_req, file, cb) => {
+    const ok = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'].includes(file.mimetype);
+    if (!ok) return cb(new Error('Invalid file type. Upload jpg/png/gif/webp only.'));
+    cb(null, true);
+  }
+});
+
+// @route   POST /api/admin/rank-rewards/rules/upload-image
+// @desc    Upload a rank reward rule image (admin only)
+// @access  Private (Admin)
+router.post('/rank-rewards/rules/upload-image', rankRewardImageUpload.single('image'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No image uploaded' });
+
+    let url = `/uploads/rank-rewards/${req.file.filename}`;
+    const useCloudinary = !!(
+      process.env.CLOUDINARY_CLOUD_NAME &&
+      process.env.CLOUDINARY_API_KEY &&
+      process.env.CLOUDINARY_API_SECRET
+    );
+
+    if (useCloudinary) {
+      try {
+        const result = await uploadImage(req.file.path, 'forex/rank-rewards');
+        url = result.url;
+        try { fs.unlinkSync(req.file.path); } catch (_) {}
+      } catch (e) {
+        console.error('[RankReward Image] Cloudinary upload failed, using local:', e.message);
+      }
+    }
+
+    res.json({ success: true, url });
+  } catch (e) {
+    console.error('[RankReward Image] Upload error:', e);
+    res.status(500).json({ error: e.message || 'Failed to upload image' });
+  }
+});
+
 // @route   GET /api/admin/rank-rewards/rules
 // @desc    List rank reward rules (admin only)
 router.get('/rank-rewards/rules', async (_req, res) => {
@@ -601,6 +659,7 @@ router.post(
     body('thresholdBalance').isFloat({ min: 0 }),
     body('rewardDescription').notEmpty().trim(),
     body('rewardValue').optional().trim(),
+    body('imageUrl').optional().trim(),
     body('isActive').optional().isBoolean(),
     body('sortOrder').optional().isInt()
   ],
@@ -620,6 +679,9 @@ router.post(
 // @desc    Update a rank reward rule (admin only)
 router.put('/rank-rewards/rules/:id', async (req, res) => {
   try {
+    if (req.body && typeof req.body.imageUrl === 'string' && req.body.imageUrl.length > 2000) {
+      return res.status(400).json({ error: 'imageUrl too long' });
+    }
     const updated = await RankRewardRule.findByIdAndUpdate(req.params.id, req.body, {
       new: true,
       runValidators: true
