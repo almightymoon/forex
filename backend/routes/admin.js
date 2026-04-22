@@ -968,6 +968,148 @@ router.post('/users/:id/bonus', [
   }
 });
 
+// @route   POST /api/admin/users/:id/grant-package
+// @desc    Admin grants a package to a user and activates account
+// @access  Private (Admin)
+router.post(
+  '/users/:id/grant-package',
+  [
+    body('packageId').optional().isMongoId().withMessage('packageId must be a valid id'),
+    body('packageName').optional().trim().isLength({ min: 1 }).withMessage('packageName is required'),
+    body('reason').optional().trim().isLength({ max: 500 }),
+    body('activate').optional().isBoolean()
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const userId = req.params.id;
+      const { packageId, packageName, reason, activate } = req.body || {};
+
+      const user = await User.findById(userId);
+      if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+      if (['admin', 'teacher', 'instructor'].includes(user.role)) {
+        return res.status(400).json({ success: false, error: 'Cannot grant packages to staff accounts' });
+      }
+
+      const pkgQuery = packageId ? { _id: packageId } : { name: packageName };
+      const pkg = await Package.findOne({ ...pkgQuery, isActive: true }).lean();
+      if (!pkg) return res.status(404).json({ success: false, error: 'Package not found' });
+
+      const price = Number(pkg.price ?? 0);
+      if (!Number.isFinite(price) || price <= 0) {
+        return res.status(400).json({ success: false, error: 'Package price is not configured correctly' });
+      }
+
+      // Cancel any pending/draft package payments (avoid conflicting access state).
+      await Payment.updateMany(
+        { user: userId, type: 'package', status: { $in: ['draft', 'pending', 'processing'] } },
+        { $set: { status: 'cancelled', failureReason: 'Cancelled by admin (package granted)' } }
+      );
+
+      const now = new Date();
+      const metadata = new Map([
+        ['adminGranted', '1'],
+        ['grantedByAdminId', String(req.user._id)],
+        ['grantedAt', now.toISOString()],
+        ['reason', (reason || '').toString().slice(0, 500)]
+      ]);
+
+      const payment = await Payment.create({
+        user: userId,
+        amount: price,
+        currency: 'USD',
+        paymentMethod: 'promo_code',
+        status: 'completed',
+        type: 'package',
+        package: { name: pkg.name, price },
+        description: `Admin granted package: ${pkg.name}`,
+        discountAmount: price,
+        finalAmount: 0,
+        transactionId: `ADMIN-GRANT-${Date.now()}`,
+        adminConfirmed: true,
+        confirmedBy: req.user._id,
+        confirmedAt: now,
+        metadata
+      });
+
+      const shouldActivate = activate !== false;
+      if (shouldActivate) {
+        user.isActive = true;
+        user.isVerified = true;
+        await user.save();
+      }
+
+      // Auto-enroll user in all published courses (same behavior as payment confirmation).
+      try {
+        const publishedCourses = await Course.find({
+          $or: [{ isPublished: true }, { status: 'published' }]
+        }).lean();
+
+        for (const course of publishedCourses) {
+          try {
+            const courseDoc = await Course.findById(course._id);
+            if (!courseDoc) continue;
+            const isEnrolled = (courseDoc.enrolledStudents || []).some(
+              (enrollment) => enrollment.student.toString() === user._id.toString()
+            );
+            if (!isEnrolled) {
+              courseDoc.enrollStudent(user._id);
+              await courseDoc.save({ validateBeforeSave: false });
+            }
+
+            const isUserEnrolled = (user.enrolledCourses || []).some(
+              (enrollment) => enrollment.courseId.toString() === courseDoc._id.toString()
+            );
+            if (!isUserEnrolled) {
+              user.enrolledCourses.push({
+                courseId: courseDoc._id,
+                enrolledAt: now,
+                progress: 0,
+                completedLessons: 0,
+                totalLessons: courseDoc.content
+                  ? courseDoc.content.length
+                  : courseDoc.videos
+                    ? courseDoc.videos.length
+                    : 0,
+                lastAccessed: now
+              });
+            }
+          } catch (e) {
+            // best effort
+          }
+        }
+        await user.save();
+      } catch (e) {
+        // best effort
+      }
+
+      // Notify user
+      try {
+        await notificationService.sendNotificationToUser(userId, 'account_verified', {
+          packageName: pkg.name
+        });
+      } catch (e) {
+        // best effort
+      }
+
+      return res.status(201).json({
+        success: true,
+        message: 'Package granted successfully',
+        paymentId: payment._id,
+        package: { name: pkg.name, price },
+        user: { _id: user._id, isActive: user.isActive, isVerified: user.isVerified }
+      });
+    } catch (error) {
+      console.error('Grant package error:', error);
+      return res.status(500).json({ success: false, error: error.message || 'Failed to grant package' });
+    }
+  }
+);
+
 // @route   POST /api/admin/users/:id/impose-monthly-fee
 // @desc    Create a pending monthly_fee payment (like student-initiated), optional immediate access block
 // @access  Private (Admin)

@@ -175,6 +175,7 @@ interface MonthlyFeeDistributionRow {
 interface AdminPackageTier {
   _id: string;
   name: string;
+  monthlyFeeEnabled?: boolean;
   monthlyFeeAmount?: number;
   referralPoolPercentage?: number;
   commissionRates?: Partial<CommissionRates>;
@@ -220,6 +221,8 @@ export default function CommissionManagement() {
   const [settingsTierId, setSettingsTierId] = useState<string>('');
   const [settingsPoolPct, setSettingsPoolPct] = useState<number>(0); // 0..1
   const [settingsRates, setSettingsRates] = useState<CommissionRates>(defaultRates);
+  const [settingsMonthlyFeeEnabled, setSettingsMonthlyFeeEnabled] = useState<boolean>(true);
+  const [settingsMonthlyFeeAmount, setSettingsMonthlyFeeAmount] = useState<number>(50);
   const [settingsSaving, setSettingsSaving] = useState(false);
 
   useEffect(() => {
@@ -251,6 +254,10 @@ export default function CommissionManagement() {
     const rates = toRates((t.monthlyFeeCommissionRates as any) ?? (t.commissionRates as any));
     setSettingsPoolPct(pool);
     setSettingsRates(rates);
+    setSettingsMonthlyFeeEnabled(t.monthlyFeeEnabled !== false);
+    setSettingsMonthlyFeeAmount(
+      typeof t.monthlyFeeAmount === 'number' && Number.isFinite(t.monthlyFeeAmount) ? t.monthlyFeeAmount : 50
+    );
   }, [activeView, settingsTierId, tiers]);
 
   useEffect(() => {
@@ -419,6 +426,8 @@ export default function CommissionManagement() {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
+          monthlyFeeEnabled: !!settingsMonthlyFeeEnabled,
+          monthlyFeeAmount: settingsMonthlyFeeEnabled ? Number(settingsMonthlyFeeAmount) : 0,
           monthlyFeeReferralPoolPercentage: Number(settingsPoolPct),
           monthlyFeeCommissionRates: settingsRates
         })
@@ -1092,25 +1101,38 @@ export default function CommissionManagement() {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Referral pool % (of monthly fee)
+                Monthly fee amount (USD)
               </label>
               <input
                 type="number"
                 min={0}
-                max={100}
-                value={Math.round(settingsPoolPct * 100)}
-                onChange={(e) => setSettingsPoolPct(Number(e.target.value) / 100)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                step="0.01"
+                value={Number.isFinite(settingsMonthlyFeeAmount) ? settingsMonthlyFeeAmount : 0}
+                onChange={(e) => setSettingsMonthlyFeeAmount(Number(e.target.value))}
+                disabled={!settingsMonthlyFeeEnabled}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
               />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Platform share will be <strong>{Math.max(0, 100 - Math.round(settingsPoolPct * 100))}%</strong>.
-              </p>
+              <label className="mt-2 flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={settingsMonthlyFeeEnabled}
+                  onChange={(e) => setSettingsMonthlyFeeEnabled(e.target.checked)}
+                  className="mt-1 rounded"
+                />
+                <span>
+                  <strong>Monthly fee enabled</strong> (disable to not impose monthly fees for this package)
+                </span>
+              </label>
             </div>
 
             <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700 p-3">
               {(() => {
                 const tier = tiers.find((t) => t._id === settingsTierId);
-                const exampleFee = Number(tier?.monthlyFeeAmount ?? 0) || 0;
+                const exampleFee = settingsMonthlyFeeEnabled
+                  ? Number.isFinite(settingsMonthlyFeeAmount)
+                    ? Number(settingsMonthlyFeeAmount) || 0
+                    : 0
+                  : 0;
                 const poolAmt = Math.round(exampleFee * settingsPoolPct * 100) / 100;
                 const platAmt = Math.round(exampleFee * (1 - settingsPoolPct) * 100) / 100;
                 return (
@@ -1123,6 +1145,24 @@ export default function CommissionManagement() {
                   </div>
                 );
               })()}
+            </div>
+
+            <div className="md:col-span-3">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Referral pool % (of monthly fee)
+              </label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={Math.round(settingsPoolPct * 100)}
+                onChange={(e) => setSettingsPoolPct(Number(e.target.value) / 100)}
+                disabled={!settingsMonthlyFeeEnabled}
+                className="w-full md:max-w-sm px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
+              />
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Platform share will be <strong>{Math.max(0, 100 - Math.round(settingsPoolPct * 100))}%</strong>.
+              </p>
             </div>
 
             <div className="md:col-span-3">
@@ -1142,6 +1182,7 @@ export default function CommissionManagement() {
                         const pct = Number(e.target.value) / 100;
                         setSettingsRates((p) => ({ ...p, [lvl]: pct } as CommissionRates));
                       }}
+                      disabled={!settingsMonthlyFeeEnabled}
                       className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                     />
                   </div>

@@ -92,6 +92,11 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
     forceWithoutMonthlyFee: false
   });
   const [isImposingMonthlyFee, setIsImposingMonthlyFee] = useState(false);
+  const [showGrantPackageModal, setShowGrantPackageModal] = useState(false);
+  const [grantPackages, setGrantPackages] = useState<Array<{ _id: string; name: string; price: number; isActive?: boolean }>>([]);
+  const [grantPackageId, setGrantPackageId] = useState<string>('');
+  const [grantReason, setGrantReason] = useState('');
+  const [isGrantingPackage, setIsGrantingPackage] = useState(false);
 
   useEffect(() => {
     fetchUserDetails();
@@ -220,6 +225,61 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openGrantPackageModal = async () => {
+    setShowGrantPackageModal(true);
+    setGrantReason('');
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl('api/admin/packages'), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const rows = await res.json();
+        const active = Array.isArray(rows) ? rows.filter((p: any) => p && p.isActive !== false) : [];
+        setGrantPackages(active);
+        if (!grantPackageId && active.length) setGrantPackageId(active[0]._id);
+      }
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleGrantPackage = async () => {
+    if (!grantPackageId) {
+      showToast('Select a package', 'error');
+      return;
+    }
+    setIsGrantingPackage(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`api/admin/users/${user._id}/grant-package`), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          packageId: grantPackageId,
+          reason: grantReason.trim() || undefined,
+          activate: true
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast((data as any)?.error || 'Failed to grant package', 'error');
+        return;
+      }
+      showToast('Package granted and account activated', 'success');
+      setShowGrantPackageModal(false);
+      await fetchUserDetails();
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to grant package', 'error');
+    } finally {
+      setIsGrantingPackage(false);
     }
   };
 
@@ -556,27 +616,35 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
           ) : details ? (
             <>
               {/* Balance Actions */}
-              <div className="flex gap-3 mb-6">
+              <div className="flex flex-wrap gap-3 mb-6">
                 <button
                   onClick={() => openBalanceModal('credit')}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 font-semibold"
+                  className="min-w-[220px] flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 font-semibold"
                 >
                   <Plus className="w-5 h-5" />
                   Credit Balance
                 </button>
                 <button
                   onClick={() => openBalanceModal('debit')}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 font-semibold"
+                  className="min-w-[220px] flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 font-semibold"
                 >
                   <Minus className="w-5 h-5" />
                   Debit Balance
                 </button>
                 <button
                   onClick={() => openBalanceModal('bonus')}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all duration-200 font-semibold"
+                  className="min-w-[220px] flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all duration-200 font-semibold"
                 >
                   <Gift className="w-5 h-5" />
                   Send Bonus
+                </button>
+                <button
+                  type="button"
+                  onClick={openGrantPackageModal}
+                  className="min-w-[220px] flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:from-blue-700 hover:to-indigo-800 transition-all duration-200 font-semibold"
+                >
+                  <Package className="w-5 h-5" />
+                  Grant Package
                 </button>
               </div>
 
@@ -1579,6 +1647,93 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                       {balanceAction === 'bonus' ? 'Send Bonus' : `${balanceAction.charAt(0).toUpperCase() + balanceAction.slice(1)} Balance`}
                     </>
                   )}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Grant Package Modal */}
+      {showGrantPackageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <Package className="w-5 h-5 text-blue-600" />
+                Grant package &amp; activate
+              </h3>
+              <button
+                type="button"
+                onClick={() => !isGrantingPackage && setShowGrantPackageModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg"
+                disabled={isGrantingPackage}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              This creates an admin-granted completed package payment (no referral commissions), verifies the account,
+              and enrolls the user in published courses.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Package *</label>
+                <select
+                  value={grantPackageId}
+                  onChange={(e) => setGrantPackageId(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  disabled={isGrantingPackage}
+                >
+                  {grantPackages.length === 0 ? (
+                    <option value="">No packages found</option>
+                  ) : (
+                    grantPackages.map((p) => (
+                      <option key={p._id} value={p._id}>
+                        {p.name} — ${Number(p.price || 0).toFixed(0)}
+                      </option>
+                    ))
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Reason (optional)
+                </label>
+                <textarea
+                  value={grantReason}
+                  onChange={(e) => setGrantReason(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Manual activation / scholarship"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  disabled={isGrantingPackage}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowGrantPackageModal(false)}
+                  disabled={isGrantingPackage}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleGrantPackage}
+                  disabled={isGrantingPackage || !grantPackageId}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isGrantingPackage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
+                  Grant package
                 </button>
               </div>
             </div>
