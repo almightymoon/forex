@@ -3,6 +3,10 @@ const User = require('../models/User');
 const { resolvePackageFromPayment } = require('../utils/monthlyFeeStatus');
 const { logActivity } = require('../services/activityLogService');
 
+function normalizeRole(r) {
+  return String(r || '').toLowerCase();
+}
+
 // Middleware to verify JWT token
 const authenticateToken = async (req, res, next) => {
   try {
@@ -54,8 +58,29 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    if (debugAuth) console.log('Auth middleware - Authentication successful for user:', user.email);
+    // Developer impersonation:
+    // A real developer (from DB) may carry an `effectiveRole` claim to temporarily act as
+    // student/teacher/admin for UI parity. This must NEVER apply to non-developers.
+    const realRole = normalizeRole(user.role);
+    let effectiveRole = realRole;
+    const claimedEffective = normalizeRole(decoded && decoded.effectiveRole);
+    const allowedEffective = ['student', 'teacher', 'admin'];
+    if (realRole === 'developer' && claimedEffective && allowedEffective.includes(claimedEffective)) {
+      effectiveRole = claimedEffective;
+    }
+
+    // Attach both realRole and effectiveRole for downstream checks/routes.
+    // Override `req.user.role` so existing `requireRole` checks work without refactors.
     req.user = user;
+    req.user.realRole = realRole;
+    req.user.effectiveRole = effectiveRole;
+    req.user.isImpersonating = realRole === 'developer' && effectiveRole !== realRole;
+    req.user.role = effectiveRole;
+
+    if (debugAuth) {
+      console.log('Auth middleware - Authentication successful for user:', user.email);
+      console.log('Auth middleware - realRole/effectiveRole:', realRole, effectiveRole);
+    }
     next();
   } catch (error) {
     const debugAuth = process.env.DEBUG_AUTH === 'true' && process.env.NODE_ENV === 'development';
@@ -113,7 +138,9 @@ const requireRole = (roles) => {
 };
 
 function isDeveloper(user) {
-  return !!user && String(user.role || '').toLowerCase() === 'developer';
+  // Prefer DB-backed `realRole` when present (dev impersonation overrides `user.role`)
+  const r = user && (user.realRole || user.role);
+  return !!user && normalizeRole(r) === 'developer';
 }
 
 // Middleware to check if user is teacher

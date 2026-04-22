@@ -11,7 +11,7 @@ interface User {
   firstName: string;
   lastName: string;
   email: string;
-  role: 'student' | 'instructor' | 'admin';
+  role: 'student' | 'instructor' | 'teacher' | 'admin' | 'developer';
   profileImage?: string;
   isVerified?: boolean;
   isActive?: boolean;

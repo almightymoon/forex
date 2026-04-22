@@ -31,6 +31,24 @@ export function usePackageSubscription() {
           return;
         }
 
+        // Staff (admin/teacher/developer/instructor) should never be forced into package flow.
+        // We must derive role from the backend (DB), not from a potentially stale JWT payload.
+        try {
+          const meRes = await fetch(buildApiUrl('api/auth/me'), {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (meRes.ok) {
+            const meData = await meRes.json().catch(() => ({}));
+            const role = String(meData?.user?.role || meData?.role || '').toLowerCase();
+            if (role && role !== 'student') {
+              setStatus({ hasPackage: true, isPending: false, isLoading: false });
+              return;
+            }
+          }
+        } catch {
+          // If role check fails, fall back to payment-based behavior below.
+        }
+
         // Check user's payments
         const response = await fetch(buildApiUrl('api/payments/user'), {
           headers: {

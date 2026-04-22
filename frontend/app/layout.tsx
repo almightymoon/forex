@@ -10,6 +10,7 @@ import { GlobalSessionHandler } from '../components/GlobalSessionHandler'
 import { DevToolsProtection } from '../components/DevToolsProtection'
 import MaintenanceGate from '../components/MaintenanceGate'
 import PackageGuard from '../components/PackageGuard'
+import ImpersonationBanner from '../components/ImpersonationBanner'
 
 export const metadata = {
   title: 'Forex Navigators - Master the Art of Forex Trading',
@@ -35,6 +36,7 @@ export default function RootLayout({
                       <GlobalSessionHandler />
                       <MaintenanceGate>
                         <PackageGuard>
+                          <ImpersonationBanner />
                           {children}
                         </PackageGuard>
                       </MaintenanceGate>

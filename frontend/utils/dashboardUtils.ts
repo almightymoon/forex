@@ -7,6 +7,8 @@ export const getDashboardRoute = (userRole: string): string => {
   switch (userRole?.toLowerCase()) {
     case 'admin':
       return '/admin';
+    case 'developer':
+      return '/admin';
     case 'teacher':
       return '/teacher';
     case 'student':

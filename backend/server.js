@@ -42,6 +42,7 @@ const tradeRoutes = require('./routes/trades');
 const packageRoutes = require('./routes/packages');
 const packagePerksRoutes = require('./routes/packagePerks');
 const rankRewardRoutes = require('./routes/rankRewards');
+const devRoutes = require('./routes/dev');
 const { initializeWebSocket } = require('./websocket');
 const { authenticateToken, requirePackageSubscription, requireAdmin } = require('./middleware/auth');
 
@@ -270,6 +271,7 @@ app.use('/api/packages', packageRoutes);
 app.use('/api/admin', checkSessionTimeout, adminRoutes);
 app.use('/api/admin/notifications', checkSessionTimeout, authenticateToken, requireAdmin, adminNotificationRoutes);
 app.use('/api/teacher', checkSessionTimeout, teacherRoutes);
+app.use('/api/dev', checkSessionTimeout, devRoutes);
 
 // Settings routes (public settings don't need package, but protected ones do)
 app.use('/api/settings', checkSessionTimeout, settingsRoutes);
