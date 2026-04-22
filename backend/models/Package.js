@@ -137,11 +137,23 @@ packageSchema.statics.ensureDefaults = async function ensureDefaults() {
     'monthlyFeeCommissionRates'
   ];
   for (const def of defaults) {
+    // IMPORTANT: do NOT overwrite admin-edited policy values.
+    // Only fill missing fields for existing rows that were created before these keys existed.
+    const existing = await this.findOne({ name: def.name, price: def.price })
+      .select(policyKeys.join(' '))
+      .lean();
+    if (!existing) continue;
+
     const policyPatch = {};
     for (const k of policyKeys) {
-      if (def[k] !== undefined) policyPatch[k] = def[k];
+      if (def[k] === undefined) continue;
+      const current = existing[k];
+      const isMissing = current === undefined || current === null;
+      if (isMissing) policyPatch[k] = def[k];
     }
-    await this.updateOne({ name: def.name, price: def.price }, { $set: policyPatch });
+    if (Object.keys(policyPatch).length > 0) {
+      await this.updateOne({ _id: existing._id }, { $set: policyPatch });
+    }
   }
 };
 
