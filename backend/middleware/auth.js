@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const { resolvePackageFromPayment } = require('../utils/monthlyFeeStatus');
+const { logActivity } = require('../services/activityLogService');
 
 // Middleware to verify JWT token
 const authenticateToken = async (req, res, next) => {
@@ -111,11 +112,15 @@ const requireRole = (roles) => {
   };
 };
 
+function isDeveloper(user) {
+  return !!user && String(user.role || '').toLowerCase() === 'developer';
+}
+
 // Middleware to check if user is teacher
-const requireTeacher = requireRole(['teacher', 'admin']);
+const requireTeacher = requireRole(['teacher', 'admin', 'developer', 'instructor']);
 
 // Middleware to check if user is admin
-const requireAdmin = requireRole(['admin']);
+const requireAdmin = requireRole(['admin', 'developer']);
 
 // Middleware to check if user owns resource or is admin
 const requireOwnership = (modelName) => {
@@ -128,8 +133,8 @@ const requireOwnership = (modelName) => {
         });
       }
 
-      // Admin can access everything
-      if (req.user.role === 'admin') {
+      // Admin/Developer can access everything
+      if (req.user.role === 'admin' || isDeveloper(req.user)) {
         return next();
       }
 
@@ -211,7 +216,7 @@ const requireEnrollment = async (req, res, next) => {
       enrollment => enrollment.student.toString() === req.user._id.toString()
     );
 
-    if (!isEnrolled && req.user.role !== 'admin') {
+    if (!isEnrolled && req.user.role !== 'admin' && !isDeveloper(req.user)) {
       return res.status(403).json({ 
         error: 'Enrollment required',
         message: 'You must be enrolled in this course to access this resource'
@@ -269,7 +274,7 @@ const requireSignalSubscription = async (req, res, next) => {
       sub => sub.student.toString() === req.user._id.toString() && sub.isActive
     );
 
-    if (!isSubscribed && req.user.role !== 'admin') {
+    if (!isSubscribed && req.user.role !== 'admin' && !isDeveloper(req.user)) {
       return res.status(403).json({ 
         error: 'Subscription required',
         message: 'You must be subscribed to this signal to access this resource'
@@ -298,8 +303,8 @@ const requireSubscription = async (req, res, next) => {
       });
     }
 
-    // Admin can access everything
-    if (req.user.role === 'admin') {
+    // Admin/Developer can access everything
+    if (req.user.role === 'admin' || isDeveloper(req.user)) {
       return next();
     }
 
@@ -332,8 +337,8 @@ const requireVerifiedPayment = async (req, res, next) => {
       });
     }
 
-    // Admin and teachers can access everything
-    if (req.user.role === 'admin' || req.user.role === 'teacher' || req.user.role === 'instructor') {
+    // Admin/Developer/Teachers can access everything
+    if (req.user.role === 'admin' || isDeveloper(req.user) || req.user.role === 'teacher' || req.user.role === 'instructor') {
       return next();
     }
 
@@ -434,8 +439,8 @@ const requirePackageSubscription = async (req, res, next) => {
       });
     }
 
-    // Admin and teachers can access everything without package
-    if (req.user.role === 'admin' || req.user.role === 'teacher' || req.user.role === 'instructor') {
+    // Admin/Developer/Teachers can access everything without package
+    if (req.user.role === 'admin' || isDeveloper(req.user) || req.user.role === 'teacher' || req.user.role === 'instructor') {
       return next();
     }
 
@@ -573,15 +578,74 @@ const validateUserRole = (req, res, next) => {
   if (req.method === 'POST' || req.method === 'PUT') {
     const { role } = req.body;
     
-    if (role && !['student', 'teacher', 'admin'].includes(role)) {
+    if (role && !['student', 'teacher', 'admin', 'developer', 'instructor'].includes(role)) {
       return res.status(400).json({
         error: 'Invalid role',
-        message: 'Role must be one of: student, teacher, admin'
+        message: 'Role must be one of: student, teacher, admin, developer'
+      });
+    }
+
+    // Only a developer can assign/remove developer role.
+    // Enforce server-side even if UI hides the option.
+    if (role && String(role).toLowerCase() === 'developer' && !isDeveloper(req.user)) {
+      logActivity({
+        req,
+        action: 'security.forbidden_role_assignment',
+        entity: { type: 'user_role', label: 'developer' },
+        metadata: { attemptedRole: role, targetUserId: req.params?.id }
+      });
+      return res.status(403).json({
+        error: 'Forbidden',
+        message: 'Only a developer can assign the developer role'
       });
     }
   }
   
   next();
+};
+
+// Prevent any non-developer from mutating a developer account.
+// Use on mutation endpoints (PUT/PATCH/DELETE) that target a user id in params.
+const protectDeveloperAccount = (options = {}) => {
+  const paramKey = options.paramKey || 'id';
+  return async (req, res, next) => {
+    try {
+      const targetId = req.params?.[paramKey];
+      if (!targetId) return next();
+
+      // Developers can mutate developer accounts (including other developers).
+      if (isDeveloper(req.user)) return next();
+
+      const target = await User.findById(targetId).select('email role').lean();
+      if (!target) return next();
+
+      if (String(target.role || '').toLowerCase() === 'developer') {
+        await logActivity({
+          req,
+          action: 'security.forbidden_developer_mutation',
+          entity: { type: 'user', id: targetId, label: target.email },
+          metadata: {
+            method: req.method,
+            path: req.path,
+            actorRole: req.user?.role,
+            targetRole: target.role
+          }
+        });
+        return res.status(403).json({
+          error: 'Forbidden',
+          message: 'Developer accounts are protected and cannot be modified'
+        });
+      }
+
+      return next();
+    } catch (error) {
+      console.error('protectDeveloperAccount error:', error);
+      return res.status(500).json({
+        error: 'Authorization error',
+        message: 'Internal server error during authorization check'
+      });
+    }
+  };
 };
 
 
@@ -596,5 +660,6 @@ module.exports = {
   requireSubscription,
   requireVerifiedPayment,
   requirePackageSubscription,
-  validateUserRole
+  validateUserRole,
+  protectDeveloperAccount
 };
