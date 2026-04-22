@@ -19,7 +19,8 @@ import {
   Plus,
   Minus,
   Loader2,
-  Save
+  Save,
+  Edit3
 } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
@@ -224,6 +225,7 @@ export default function CommissionManagement() {
   const [settingsMonthlyFeeEnabled, setSettingsMonthlyFeeEnabled] = useState<boolean>(true);
   const [settingsMonthlyFeeAmount, setSettingsMonthlyFeeAmount] = useState<number>(50);
   const [settingsSaving, setSettingsSaving] = useState(false);
+  const [showMonthlyFeeEditor, setShowMonthlyFeeEditor] = useState(false);
 
   useEffect(() => {
     if (activeView === 'referral') {
@@ -1070,126 +1072,233 @@ export default function CommissionManagement() {
                 Set how much of a monthly fee goes to <strong>referrals</strong> vs <strong>platform</strong>, and the level splits.
               </p>
             </div>
-            <button
-              type="button"
-              onClick={saveMonthlyFeeSettings}
-              disabled={settingsSaving || tiersLoading || !settingsTierId}
-              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 inline-flex items-center gap-2"
-            >
-              {settingsSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              Save
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowMonthlyFeeEditor(false)}
+                disabled={!showMonthlyFeeEditor || settingsSaving}
+                className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-40"
+              >
+                Close editor
+              </button>
+              <button
+                type="button"
+                onClick={saveMonthlyFeeSettings}
+                disabled={settingsSaving || tiersLoading || !settingsTierId || !showMonthlyFeeEditor}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-40 inline-flex items-center gap-2"
+              >
+                {settingsSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Save
+              </button>
+            </div>
           </div>
 
-          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Package tier</label>
-              <select
-                value={settingsTierId}
-                onChange={(e) => setSettingsTierId(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                disabled={tiersLoading}
-              >
-                {tiers.map((t) => (
-                  <option key={t._id} value={t._id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              {tiersLoading && <p className="text-xs text-gray-500 mt-1">Loading tiers…</p>}
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Monthly fee amount (USD)
-              </label>
-              <input
-                type="number"
-                min={0}
-                step="0.01"
-                value={Number.isFinite(settingsMonthlyFeeAmount) ? settingsMonthlyFeeAmount : 0}
-                onChange={(e) => setSettingsMonthlyFeeAmount(Number(e.target.value))}
-                disabled={!settingsMonthlyFeeEnabled}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
-              />
-              <label className="mt-2 flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={settingsMonthlyFeeEnabled}
-                  onChange={(e) => setSettingsMonthlyFeeEnabled(e.target.checked)}
-                  className="mt-1 rounded"
-                />
-                <span>
-                  <strong>Monthly fee enabled</strong> (disable to not impose monthly fees for this package)
+          {/* Saved settings list */}
+          <div className="mt-4 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+            <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900/40 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">Saved package settings</p>
+              {tiersLoading ? (
+                <span className="text-xs text-gray-500 inline-flex items-center gap-2">
+                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  Loading…
                 </span>
-              </label>
+              ) : (
+                <span className="text-xs text-gray-500">{tiers.length} package(s)</span>
+              )}
             </div>
-
-            <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700 p-3">
-              {(() => {
-                const tier = tiers.find((t) => t._id === settingsTierId);
-                const exampleFee = settingsMonthlyFeeEnabled
-                  ? Number.isFinite(settingsMonthlyFeeAmount)
-                    ? Number(settingsMonthlyFeeAmount) || 0
-                    : 0
-                  : 0;
-                const poolAmt = Math.round(exampleFee * settingsPoolPct * 100) / 100;
-                const platAmt = Math.round(exampleFee * (1 - settingsPoolPct) * 100) / 100;
-                return (
-                  <div className="text-sm text-gray-700 dark:text-gray-200">
-                    <p className="font-medium">Example (using tier monthly fee)</p>
-                    <p className="mt-1">
-                      Fee: <strong>${exampleFee.toFixed(2)}</strong> → Referrals: <strong>${poolAmt.toFixed(2)}</strong>, Platform:{' '}
-                      <strong>${platAmt.toFixed(2)}</strong>
-                    </p>
-                  </div>
-                );
-              })()}
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-white dark:bg-gray-800">
+                  <tr className="text-xs uppercase text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
+                    <th className="px-4 py-3 text-left">Package</th>
+                    <th className="px-4 py-3 text-left">Monthly fee</th>
+                    <th className="px-4 py-3 text-left">Pool %</th>
+                    <th className="px-4 py-3 text-left">Level rates (1–5)</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {tiers.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                        No packages found.
+                      </td>
+                    </tr>
+                  ) : (
+                    tiers.map((t) => {
+                      const enabled = t.monthlyFeeEnabled !== false;
+                      const feeAmt = enabled ? Number(t.monthlyFeeAmount ?? 0) || 0 : 0;
+                      const pool =
+                        typeof t.monthlyFeeReferralPoolPercentage === 'number'
+                          ? t.monthlyFeeReferralPoolPercentage
+                          : typeof t.referralPoolPercentage === 'number'
+                            ? t.referralPoolPercentage
+                            : 0;
+                      const rates = toRates((t.monthlyFeeCommissionRates as any) ?? (t.commissionRates as any));
+                      const rateStr = [1, 2, 3, 4, 5]
+                        .map((lvl) => `${Math.round((rates as any)[lvl] * 100)}%`)
+                        .join(' / ');
+                      return (
+                        <tr key={t._id} className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                          <td className="px-4 py-3 font-medium text-gray-900 dark:text-white whitespace-nowrap">
+                            {t.name}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {enabled ? (
+                              <span className="text-gray-900 dark:text-white">
+                                ${feeAmt.toFixed(2)}
+                                <span className="text-xs text-gray-500 dark:text-gray-400"> / mo</span>
+                              </span>
+                            ) : (
+                              <span className="inline-flex px-2 py-1 text-xs rounded-full bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200">
+                                Disabled
+                              </span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            {(pool * 100).toFixed(0)}%
+                          </td>
+                          <td className="px-4 py-3 text-gray-700 dark:text-gray-200 whitespace-nowrap">
+                            {rateStr}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSettingsTierId(String(t._id));
+                                setShowMonthlyFeeEditor(true);
+                                // scroll editor into view (best-effort)
+                                setTimeout(() => {
+                                  const el = document.getElementById('monthly-fee-settings-editor');
+                                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                }, 0);
+                              }}
+                              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                              Edit
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
+          </div>
 
-            <div className="md:col-span-3">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Referral pool % (of monthly fee)
-              </label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={Math.round(settingsPoolPct * 100)}
-                onChange={(e) => setSettingsPoolPct(Number(e.target.value) / 100)}
-                disabled={!settingsMonthlyFeeEnabled}
-                className="w-full md:max-w-sm px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
-              />
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                Platform share will be <strong>{Math.max(0, 100 - Math.round(settingsPoolPct * 100))}%</strong>.
-              </p>
-            </div>
+          {/* Editor (shown only after clicking Edit) */}
+          {showMonthlyFeeEditor && (
+            <div id="monthly-fee-settings-editor" className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Package tier</label>
+                <select
+                  value={settingsTierId}
+                  onChange={(e) => setSettingsTierId(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  disabled={tiersLoading}
+                >
+                  {tiers.map((t) => (
+                    <option key={t._id} value={t._id}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+                {tiersLoading && <p className="text-xs text-gray-500 mt-1">Loading tiers…</p>}
+              </div>
 
-            <div className="md:col-span-3">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Referral level rates (as % of referral pool)
-              </label>
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
-                {[1, 2, 3, 4, 5].map((lvl) => (
-                  <div key={`lvl-${lvl}`}>
-                    <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Level {lvl}</label>
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={Math.round(settingsRates[lvl as 1] * 100)}
-                      onChange={(e) => {
-                        const pct = Number(e.target.value) / 100;
-                        setSettingsRates((p) => ({ ...p, [lvl]: pct } as CommissionRates));
-                      }}
-                      disabled={!settingsMonthlyFeeEnabled}
-                      className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  </div>
-                ))}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Monthly fee amount (USD)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={Number.isFinite(settingsMonthlyFeeAmount) ? settingsMonthlyFeeAmount : 0}
+                  onChange={(e) => setSettingsMonthlyFeeAmount(Number(e.target.value))}
+                  disabled={!settingsMonthlyFeeEnabled}
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
+                />
+                <label className="mt-2 flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={settingsMonthlyFeeEnabled}
+                    onChange={(e) => setSettingsMonthlyFeeEnabled(e.target.checked)}
+                    className="mt-1 rounded"
+                  />
+                  <span>
+                    <strong>Monthly fee enabled</strong> (disable to not impose monthly fees for this package)
+                  </span>
+                </label>
+              </div>
+
+              <div className="rounded-lg bg-gray-50 dark:bg-gray-700/40 border border-gray-200 dark:border-gray-700 p-3">
+                {(() => {
+                  const exampleFee = settingsMonthlyFeeEnabled
+                    ? Number.isFinite(settingsMonthlyFeeAmount)
+                      ? Number(settingsMonthlyFeeAmount) || 0
+                      : 0
+                    : 0;
+                  const poolAmt = Math.round(exampleFee * settingsPoolPct * 100) / 100;
+                  const platAmt = Math.round(exampleFee * (1 - settingsPoolPct) * 100) / 100;
+                  return (
+                    <div className="text-sm text-gray-700 dark:text-gray-200">
+                      <p className="font-medium">Example (using tier monthly fee)</p>
+                      <p className="mt-1">
+                        Fee: <strong>${exampleFee.toFixed(2)}</strong> → Referrals: <strong>${poolAmt.toFixed(2)}</strong>, Platform:{' '}
+                        <strong>${platAmt.toFixed(2)}</strong>
+                      </p>
+                    </div>
+                  );
+                })()}
+              </div>
+
+              <div className="md:col-span-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Referral pool % (of monthly fee)
+                </label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={Math.round(settingsPoolPct * 100)}
+                  onChange={(e) => setSettingsPoolPct(Number(e.target.value) / 100)}
+                  disabled={!settingsMonthlyFeeEnabled}
+                  className="w-full md:max-w-sm px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white disabled:opacity-50"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Platform share will be <strong>{Math.max(0, 100 - Math.round(settingsPoolPct * 100))}%</strong>.
+                </p>
+              </div>
+
+              <div className="md:col-span-3">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Referral level rates (as % of referral pool)
+                </label>
+                <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                  {[1, 2, 3, 4, 5].map((lvl) => (
+                    <div key={`lvl-${lvl}`}>
+                      <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">Level {lvl}</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={Math.round(settingsRates[lvl as 1] * 100)}
+                        onChange={(e) => {
+                          const pct = Number(e.target.value) / 100;
+                          setSettingsRates((p) => ({ ...p, [lvl]: pct } as CommissionRates));
+                        }}
+                        disabled={!settingsMonthlyFeeEnabled}
+                        className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
