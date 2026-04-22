@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
@@ -26,6 +26,7 @@ import TradingViewWidget from '../../components/TradingViewWidget';
 import TradingViewTerminal from '../../components/TradingViewTerminal';
 import OpenPositions from '../../components/OpenPositions';
 import TradeHistory from './components/TradeHistory';
+import RankRewardsProgress from './components/RankRewardsProgress';
 import { 
   BookOpen, 
   TrendingUp, 
@@ -69,6 +70,7 @@ import Link from 'next/link';
 
 export default function Dashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   const [selectedSession, setSelectedSession] = useState<any>(null);
   const [showMeetingModal, setShowMeetingModal] = useState(false);
@@ -133,6 +135,28 @@ export default function Dashboard() {
       }
     }
   }, []);
+
+  // Deep link support: /dashboard?tab=rank-rewards
+  useEffect(() => {
+    const tab = searchParams?.get('tab');
+    if (!tab) return;
+    const allowed = new Set([
+      'overview',
+      'courses',
+      'browse',
+      'live-sessions',
+      'signals',
+      'tradingview',
+      'assignments',
+      'community',
+      'certificates',
+      'rank-rewards'
+    ]);
+    if (allowed.has(tab)) {
+      setActiveTab(tab);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   // Save favorites to localStorage whenever it changes
   useEffect(() => {
@@ -1109,7 +1133,8 @@ export default function Dashboard() {
                   { id: 'tradingview', label: 'TradingView', icon: BarChart3 },
                   { id: 'assignments', label: t('assignments'), icon: FileText },
                   { id: 'community', label: 'Community', icon: Users },
-                  { id: 'certificates', label: 'Certificates', icon: Award }
+                  { id: 'certificates', label: 'Certificates', icon: Award },
+                  { id: 'rank-rewards', label: 'Rank Rewards', icon: Trophy }
                 ].map((tab) => {
                   const Icon = tab.icon;
                   return (
@@ -1146,7 +1171,8 @@ export default function Dashboard() {
                   { id: 'tradingview', label: 'TradingView' },
                   { id: 'assignments', label: t('assignments') },
                   { id: 'community', label: 'Community' },
-                  { id: 'certificates', label: 'Certificates' }
+                  { id: 'certificates', label: 'Certificates' },
+                  { id: 'rank-rewards', label: 'Rank Rewards' }
                 ].map((tab) => (
                   <option key={tab.id} value={tab.id}>
                     {tab.label}
@@ -2584,6 +2610,10 @@ export default function Dashboard() {
 
         {activeTab === 'community' && (
           <Community />
+        )}
+
+        {activeTab === 'rank-rewards' && (
+          <RankRewardsProgress />
         )}
 
         {activeTab === 'certificates' && (

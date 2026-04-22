@@ -29,6 +29,7 @@ const adminRoutes = require('./routes/admin');
 const settingsRoutes = require('./routes/settings');
 const twoFactorRoutes = require('./routes/twoFactor');
 const notificationRoutes = require('./routes/notifications');
+const adminNotificationRoutes = require('./routes/adminNotifications');
 const teacherRoutes = require('./routes/teacher');
 const communityRoutes = require('./routes/community');
 const certificateRoutes = require('./routes/certificates');
@@ -40,8 +41,9 @@ const withdrawalRoutes = require('./routes/withdrawals');
 const tradeRoutes = require('./routes/trades');
 const packageRoutes = require('./routes/packages');
 const packagePerksRoutes = require('./routes/packagePerks');
+const rankRewardRoutes = require('./routes/rankRewards');
 const { initializeWebSocket } = require('./websocket');
-const { authenticateToken, requirePackageSubscription } = require('./middleware/auth');
+const { authenticateToken, requirePackageSubscription, requireAdmin } = require('./middleware/auth');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -266,6 +268,7 @@ app.use('/api/packages', packageRoutes);
 // Routes with session timeout check
 // Admin and teacher routes don't require package subscription
 app.use('/api/admin', checkSessionTimeout, adminRoutes);
+app.use('/api/admin/notifications', checkSessionTimeout, authenticateToken, requireAdmin, adminNotificationRoutes);
 app.use('/api/teacher', checkSessionTimeout, teacherRoutes);
 
 // Settings routes (public settings don't need package, but protected ones do)
@@ -605,6 +608,7 @@ app.use('/api/assignments', checkSessionTimeout, authenticateToken, requirePacka
 app.use('/api/upload', checkSessionTimeout, authenticateToken, requirePackageSubscription, uploadRoutes);
 app.use('/api/mt5', checkSessionTimeout, authenticateToken, requirePackageSubscription, mt5Routes);
 app.use('/api/referrals', checkSessionTimeout, authenticateToken, requirePackageSubscription, referralRoutes);
+app.use('/api/rank-rewards', checkSessionTimeout, authenticateToken, requirePackageSubscription, rankRewardRoutes);
 // Withdrawals routes - admin routes don't need package subscription
 app.use(
   '/api/withdrawals',

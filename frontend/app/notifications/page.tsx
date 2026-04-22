@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { 
   Bell, 
   Check, 
@@ -19,36 +20,55 @@ import {
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 import { buildApiUrl } from '../../utils/api';
+import type { NotificationType } from './constants';
+import { NOTIFICATION_TYPES } from './constants';
 
 interface Notification {
   _id: string;
-  type: 'assignment' | 'course' | 'message' | 'system' | 'payment' | 'security';
+  type: NotificationType;
   title: string;
   message: string;
   data: any;
   read: boolean;
   createdAt: string;
   priority: 'low' | 'medium' | 'high' | 'urgent';
+  link?: string;
 }
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [filterRead, setFilterRead] = useState('all');
+  const router = useRouter();
 
   useEffect(() => {
-    fetchNotifications();
+    fetchNotifications({ mode: 'replace' });
   }, []);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async ({ mode }: { mode: 'replace' | 'append' }) => {
     try {
-      setLoading(true);
+      if (mode === 'replace') {
+        setLoading(true);
+        setError(null);
+        setCursor(null);
+        setHasMore(true);
+      } else {
+        setLoadingMore(true);
+      }
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/notifications/user'), {
+      const qs = new URLSearchParams();
+      qs.set('limit', '30');
+      if (mode === 'append' && cursor) qs.set('cursor', cursor);
+
+      const response = await fetch(buildApiUrl(`api/notifications/user?${qs.toString()}`), {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -56,12 +76,19 @@ export default function NotificationsPage() {
 
       if (response.ok) {
         const data = await response.json();
-        setNotifications(data.notifications || []);
+        const next = (data.notifications || []) as Notification[];
+        setCursor(data.nextCursor || null);
+        setHasMore(!!(data.nextCursor && next.length > 0));
+        setNotifications((prev) => (mode === 'replace' ? next : [...prev, ...next]));
+      } else {
+        setError('Failed to load notifications');
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      setError('Failed to load notifications');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -70,25 +97,25 @@ export default function NotificationsPage() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/notifications/user/read'), {
+      // optimistic
+      setNotifications((prev) => prev.map((n) => (n._id === notificationId ? { ...n, read: true } : n)));
+
+      const response = await fetch(buildApiUrl(`api/notifications/user/${notificationId}/read`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ notificationIds: [notificationId] })
+        }
       });
 
       if (response.ok) {
-        setNotifications(prev => 
-          prev.map(n => 
-            n._id === notificationId ? { ...n, read: true } : n
-          )
-        );
         showToast('Notification marked as read', 'success');
+      } else {
+        setNotifications((prev) => prev.map((n) => (n._id === notificationId ? { ...n, read: false } : n)));
       }
     } catch (error) {
       console.error('Error marking notification as read:', error);
+      setNotifications((prev) => prev.map((n) => (n._id === notificationId ? { ...n, read: false } : n)));
     }
   };
 
@@ -118,6 +145,10 @@ export default function NotificationsPage() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
+      const removed = notifications.find((n) => n._id === notificationId);
+      const prev = notifications;
+      setNotifications((p) => p.filter((n) => n._id !== notificationId));
+
       const response = await fetch(buildApiUrl(`api/notifications/user/${notificationId}`), {
         method: 'DELETE',
         headers: {
@@ -126,8 +157,10 @@ export default function NotificationsPage() {
       });
 
       if (response.ok) {
-        setNotifications(prev => prev.filter(n => n._id !== notificationId));
         showToast('Notification deleted', 'success');
+      } else {
+        setNotifications(prev);
+        if (removed && !removed.read) showToast('Failed to delete notification', 'error');
       }
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -202,6 +235,24 @@ export default function NotificationsPage() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center px-4">
+        <div className="w-full max-w-md rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 p-6 text-center">
+          <p className="text-lg font-semibold text-gray-900 dark:text-white">Failed to load notifications</p>
+          <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{error}</p>
+          <button
+            type="button"
+            onClick={() => fetchNotifications({ mode: 'replace' })}
+            className="mt-4 inline-flex items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -224,7 +275,7 @@ export default function NotificationsPage() {
                 </button>
               )}
               <button
-                onClick={() => window.history.back()}
+                onClick={() => router.back()}
                 className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
               >
                 Back
@@ -297,12 +348,11 @@ export default function NotificationsPage() {
                 className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
               >
                 <option value="all">All Types</option>
-                <option value="assignment">Assignments</option>
-                <option value="course">Courses</option>
-                <option value="message">Messages</option>
-                <option value="system">System</option>
-                <option value="payment">Payments</option>
-                <option value="security">Security</option>
+                {NOTIFICATION_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {t.replace('_', ' ')}
+                  </option>
+                ))}
               </select>
               <select
                 value={filterRead}
@@ -379,6 +429,14 @@ export default function NotificationsPage() {
                           <span>Mark as read</span>
                         </button>
                       )}
+                      {notification.link ? (
+                        <button
+                          onClick={() => router.push(notification.link!)}
+                          className="text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white font-medium"
+                        >
+                          Open
+                        </button>
+                      ) : null}
                       <button
                         onClick={() => deleteNotification(notification._id)}
                         className="text-sm text-red-600 hover:text-red-800 font-medium flex items-center space-x-1"
@@ -393,6 +451,19 @@ export default function NotificationsPage() {
             ))
           )}
         </div>
+
+        {hasMore && !searchTerm && filterType === 'all' && filterRead === 'all' ? (
+          <div className="mt-8 flex justify-center">
+            <button
+              type="button"
+              onClick={() => fetchNotifications({ mode: 'append' })}
+              disabled={loadingMore}
+              className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+            >
+              {loadingMore ? 'Loading…' : 'Load more'}
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );

@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { NOTIFICATION_TYPES } = require('../constants/notificationTypes');
 
 const notificationSchema = new mongoose.Schema({
   userId: {
@@ -8,7 +9,7 @@ const notificationSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['assignment', 'course', 'message', 'system', 'payment', 'security', 'referral', 'commission', 'live_session'],
+    enum: NOTIFICATION_TYPES,
     required: true
   },
   title: {
@@ -53,7 +54,7 @@ notificationSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 // Static method to get user notifications
 notificationSchema.statics.getUserNotifications = function(userId, options = {}) {
-  const { limit = 50, unreadOnly = false, type } = options;
+  const { limit = 50, unreadOnly = false, type, cursorId } = options;
   
   let query = { userId };
   
@@ -64,10 +65,27 @@ notificationSchema.statics.getUserNotifications = function(userId, options = {})
   if (type) {
     query.type = type;
   }
+
+  // Cursor pagination: when cursorId is provided, return items older than the cursor doc.
+  // We use createdAt + _id as a stable sort key.
+  const buildQueryWithCursor = async () => {
+    if (!cursorId) return query;
+    const cursorDoc = await this.findOne({ _id: cursorId, userId }).select('_id createdAt').lean();
+    if (!cursorDoc) return query;
+    return {
+      ...query,
+      $or: [
+        { createdAt: { $lt: cursorDoc.createdAt } },
+        { createdAt: cursorDoc.createdAt, _id: { $lt: cursorDoc._id } }
+      ]
+    };
+  };
   
-  return this.find(query)
-    .sort({ createdAt: -1 })
-    .limit(limit);
+  return buildQueryWithCursor().then((q) =>
+    this.find(q)
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(limit)
+  );
 };
 
 // Static method to mark notifications as read
@@ -92,6 +110,14 @@ notificationSchema.statics.markAllAsRead = function(userId) {
       read: true, 
       readAt: new Date() 
     }
+  );
+};
+
+// Static method to mark a single notification as read
+notificationSchema.statics.markOneAsRead = function(userId, notificationId) {
+  return this.updateOne(
+    { userId, _id: notificationId },
+    { read: true, readAt: new Date() }
   );
 };
 

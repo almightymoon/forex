@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useRouter } from 'next/navigation';
 import { 
   Bell, 
   X, 
@@ -20,10 +21,11 @@ import {
 import { showToast } from '@/utils/toast';
 import { useLanguage } from '../../../context/LanguageContext';
 import { buildApiUrl } from '../../../utils/api';
+import type { NotificationType } from '../../notifications/constants';
 
 interface Notification {
   _id: string;
-  type: 'assignment' | 'course' | 'message' | 'system' | 'payment' | 'security' | 'referral' | 'commission' | 'live_session';
+  type: NotificationType;
   title: string;
   message: string;
   data: any;
@@ -41,6 +43,7 @@ interface NotificationDropdownProps {
 
 export default function NotificationDropdown({ isOpen, onClose, onRefresh }: NotificationDropdownProps) {
   const { t } = useLanguage();
+  const router = useRouter();
   
   // Safety check for t function
   const safeT = (key: string) => {
@@ -56,24 +59,24 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [selected, setSelected] = useState<Notification | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState<boolean>(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
-      fetchNotifications();
+      fetchNotifications({ mode: 'replace' });
     }
   }, [isOpen]);
 
-  // Listen for refresh events
   useEffect(() => {
-    const handleRefresh = () => {
-      fetchNotifications();
-    };
-
-    window.addEventListener('refreshNotifications', handleRefresh);
-    return () => {
-      window.removeEventListener('refreshNotifications', handleRefresh);
-    };
-  }, []);
+    if (!selected) return;
+    if (selected.read) return;
+    // Mark read when user opens details (professional behavior; avoids accidental read on list click)
+    void markAsRead(selected._id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected?._id]);
 
   // Listen for language changes
   useEffect(() => {
@@ -89,13 +92,28 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
     };
   }, [notifications]);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = async ({ mode }: { mode: 'replace' | 'append' }) => {
     try {
-      setLoading(true);
+      if (mode === 'replace') {
+        setLoading(true);
+        setError(null);
+        setCursor(null);
+        setHasMore(true);
+      } else {
+        setLoadingMore(true);
+      }
       const token = localStorage.getItem('token');
-      if (!token) return;
+      if (!token) {
+        setError('Authentication required');
+        return;
+      }
 
-      const response = await fetch(buildApiUrl(`api/notifications/user?t=${Date.now()}`), {
+      const qs = new URLSearchParams();
+      qs.set('limit', '20');
+      if (mode === 'append' && cursor) qs.set('cursor', cursor);
+      qs.set('t', String(Date.now()));
+
+      const response = await fetch(buildApiUrl(`api/notifications/user?${qs.toString()}`), {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Cache-Control': 'no-cache',
@@ -105,13 +123,18 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
 
       if (response.ok) {
         const data = await response.json();
-        setNotifications(data.notifications || []);
+        const next = (data.notifications || []) as Notification[];
         setUnreadCount(data.unreadCount || 0);
+        setCursor(data.nextCursor || null);
+        setHasMore(!!(data.nextCursor && next.length > 0));
+        setNotifications((prev) => (mode === 'replace' ? next : [...prev, ...next]));
       }
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      setError('Failed to load notifications');
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -120,28 +143,30 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(buildApiUrl('api/notifications/user/read'), {
+      // optimistic
+      setNotifications((prev) => prev.map((n) => (n._id === notificationId ? { ...n, read: true } : n)));
+
+      const response = await fetch(buildApiUrl(`api/notifications/user/${notificationId}/read`), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ notificationIds: [notificationId] })
+        }
       });
 
       if (response.ok) {
         const data = await response.json();
         setUnreadCount(data.unreadCount);
-        setNotifications(prev => 
-          prev.map(n => 
-            n._id === notificationId ? { ...n, read: true } : n
-          )
-        );
         // Call refresh function to update parent component
         if (onRefresh) onRefresh();
+      } else {
+        // rollback
+        setNotifications((prev) => prev.map((n) => (n._id === notificationId ? { ...n, read: false } : n)));
       }
     } catch (error) {
       console.error('Error marking notification as read:', error);
+      // rollback
+      setNotifications((prev) => prev.map((n) => (n._id === notificationId ? { ...n, read: false } : n)));
     }
   };
 
@@ -174,6 +199,12 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
       const token = localStorage.getItem('token');
       if (!token) return;
 
+      // optimistic remove
+      const prev = notifications;
+      const removed = notifications.find((n) => n._id === notificationId);
+      setNotifications((p) => p.filter((n) => n._id !== notificationId));
+      if (removed && !removed.read) setUnreadCount((c) => Math.max(0, c - 1));
+
       const response = await fetch(buildApiUrl(`api/notifications/user/${notificationId}`), {
         method: 'DELETE',
         headers: {
@@ -184,10 +215,13 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
       if (response.ok) {
         const data = await response.json();
         setUnreadCount(data.unreadCount);
-        setNotifications(prev => prev.filter(n => n._id !== notificationId));
         showToast('Notification deleted', 'success');
         // Call refresh function to update parent component
         if (onRefresh) onRefresh();
+      } else {
+        // rollback
+        setNotifications(prev);
+        if (removed && !removed.read) setUnreadCount((c) => c + 1);
       }
     } catch (error) {
       console.error('Error deleting notification:', error);
@@ -307,6 +341,18 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
                   <div className="mx-auto h-6 w-6 animate-spin rounded-full border-b-2 border-blue-600 dark:border-blue-400"></div>
                   <p className="mt-2">Loading notifications...</p>
                 </div>
+              ) : error ? (
+                <div className="p-6 text-center text-gray-600 dark:text-gray-300">
+                  <p className="font-medium">Failed to load notifications</p>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{error}</p>
+                  <button
+                    type="button"
+                    onClick={() => fetchNotifications({ mode: 'replace' })}
+                    className="mt-3 inline-flex items-center justify-center rounded-lg bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                  >
+                    Retry
+                  </button>
+                </div>
               ) : notifications.length === 0 ? (
                 <div className="p-8 text-center text-gray-500 dark:text-gray-400">
                   <Bell className="mx-auto mb-3 h-12 w-12 text-gray-300 dark:text-gray-600" />
@@ -323,7 +369,6 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
                       className={`border-l-4 p-4 transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/60 ${getPriorityColor(notification.priority)} ${!notification.read ? 'bg-blue-50 dark:bg-blue-950/35' : ''} ${notification.link ? 'cursor-pointer' : ''} ${notification.type === 'live_session' ? 'border-l-red-500 bg-red-50 dark:bg-red-950/30' : ''}`}
                       onClick={() => {
                         setSelected(notification);
-                        if (!notification.read) markAsRead(notification._id);
                       }}
                     >
                       <div className="flex items-start space-x-3">
@@ -349,9 +394,8 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  markAsRead(notification._id);
                                   onClose();
-                                  window.location.href = notification.link!;
+                                  router.push(notification.link!);
                                 }}
                                 className="text-xs bg-red-600 text-white px-2 py-1 rounded font-medium flex items-center space-x-1 hover:bg-red-700"
                               >
@@ -393,12 +437,27 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
             {/* Footer */}
             {notifications.length > 0 && (
               <div className="border-t border-gray-200 bg-gray-50 p-3 text-center dark:border-gray-700 dark:bg-gray-800/90">
-                <button
-                  onClick={() => window.location.href = '/notifications'}
-                  className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
-                >
-                  View all notifications
-                </button>
+                <div className="flex items-center justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => router.push('/notifications')}
+                    className="text-sm font-medium text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300"
+                  >
+                    View all
+                  </button>
+                  {hasMore ? (
+                    <button
+                      type="button"
+                      onClick={() => fetchNotifications({ mode: 'append' })}
+                      disabled={loadingMore}
+                      className="text-sm font-medium text-gray-700 hover:text-gray-900 dark:text-gray-200 dark:hover:text-white disabled:opacity-50"
+                    >
+                      {loadingMore ? 'Loading…' : 'Load more'}
+                    </button>
+                  ) : (
+                    <span className="text-xs text-gray-500 dark:text-gray-400">Up to date</span>
+                  )}
+                </div>
               </div>
             )}
           </motion.div>
@@ -476,7 +535,7 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
                           type="button"
                           onClick={() => {
                             onClose();
-                            window.location.href = selected.link!;
+                            router.push(selected.link!);
                           }}
                           className="text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg"
                         >
@@ -487,7 +546,7 @@ export default function NotificationDropdown({ isOpen, onClose, onRefresh }: Not
                           type="button"
                           onClick={() => {
                             onClose();
-                            window.location.href = '/notifications';
+                            router.push('/notifications');
                           }}
                           className="text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg"
                         >
