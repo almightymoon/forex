@@ -38,6 +38,7 @@ import UserProfileDropdown from '../../components/UserProfileDropdown';
 import DarkModeToggle from '../../../components/DarkModeToggle';
 import CoolLoader from '../../../components/CoolLoader';
 import NotificationDropdown from '../../dashboard/components/NotificationDropdown';
+import DeveloperRoleNav from '../../../components/DeveloperRoleNav';
 
 export default function AdminDashboard() {
   console.log('AdminDashboard - Component rendering...');
@@ -824,7 +825,7 @@ export default function AdminDashboard() {
       {/* Header */}
       <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
+          <div className="grid grid-cols-3 items-center h-20">
             <div className="flex items-center space-x-4">
               <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center">
                 <Shield className="w-8 h-8 text-white" />
@@ -838,8 +839,12 @@ export default function AdminDashboard() {
                 </p>
               </div>
             </div>
+
+            <div className="flex justify-center">
+              <DeveloperRoleNav />
+            </div>
             
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-4 justify-end">
               <DarkModeToggle size="sm" />
               <button 
                 onClick={handleRefreshData}

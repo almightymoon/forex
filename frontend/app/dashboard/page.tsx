@@ -27,6 +27,7 @@ import TradingViewTerminal from '../../components/TradingViewTerminal';
 import OpenPositions from '../../components/OpenPositions';
 import TradeHistory from './components/TradeHistory';
 import RankRewardsProgress from './components/RankRewardsProgress';
+import DeveloperRoleNav from '../../components/DeveloperRoleNav';
 import { 
   BookOpen, 
   TrendingUp, 
@@ -1000,6 +1001,10 @@ export default function Dashboard() {
               </div>
             </div>
             
+            <div className="flex-1 flex justify-center px-2">
+              <DeveloperRoleNav />
+            </div>
+
             <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1 sm:gap-2 md:gap-3 md:pl-2">
               {/* Join Telegram & WhatsApp — hidden on small screens to prevent header overlap */}
               {user?.role === 'student' && (

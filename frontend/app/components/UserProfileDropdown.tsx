@@ -36,7 +36,7 @@ export default function UserProfileDropdown({
   // Fetch user's subscription package
   useEffect(() => {
     const fetchSubscription = async () => {
-      if (!user || user.role === 'admin' || user.role === 'teacher') {
+      if (!user || user.role === 'admin' || user.role === 'teacher' || user.role === 'developer' || user.role === 'instructor') {
         return; // Admin/teacher don't need packages
       }
 
