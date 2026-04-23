@@ -14,9 +14,7 @@ import {
   CheckCircle,
   ArrowLeft,
   ShieldCheck,
-  ShieldOff,
-  Target,
-  Sparkles
+  ShieldOff
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -27,6 +25,7 @@ import DarkModeToggle from '../../components/DarkModeToggle';
 import { useSettings } from '../../context/SettingsContext';
 import { useDashboard } from '../../context/DashboardContext';
 import ReferralBadge from '../components/ReferralBadge';
+import RankRewardsProgress from '../dashboard/components/RankRewardsProgress';
 // @ts-ignore - react-d3-tree types
 import Tree from 'react-d3-tree';
 
@@ -798,68 +797,14 @@ export default function ReferralsPage() {
               )}
             </motion.div>
 
-            {/* Rank & Progress */}
-            {stats?.rank && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 }}
-                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
-              >
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-500" />
-                  Your Referral Rank
-                </h3>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                  <div
-                    className="inline-flex items-center gap-3 px-4 py-3 rounded-xl border-2"
-                    style={{ borderColor: stats.rank.current?.color || '#94a3b8', backgroundColor: `${stats.rank.current?.color || '#94a3b8'}15` }}
-                  >
-                    <span className="text-2xl" role="img" aria-hidden>{stats.rank.current?.icon || '🌱'}</span>
-                    <div>
-                      <p className="font-bold text-gray-900 dark:text-white">{stats.rank.current?.name || 'Starter'}</p>
-                      <p className="text-xs text-gray-600 dark:text-gray-400">{stats.rank.current?.description || 'Just getting started'}</p>
-                    </div>
-                  </div>
-                  {stats.rank.next && (
-                    <div className="flex-1 space-y-2">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-600 dark:text-gray-400">Progress to {stats.rank.next.name}</span>
-                        <span className="font-medium text-gray-900 dark:text-white">
-                          {(stats?.level1Count ?? stats?.directReferrals ?? 0)} / {stats.rank.next.minDirects ?? 0} directs · {stats?.totalReferrals || 0} / {stats.rank.next.minReferrals} total
-                        </span>
-                      </div>
-                      <div className="h-2.5 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${(stats.rank.progressToNext ?? 0) * 100}%` }}
-                          transition={{ duration: 0.6 }}
-                          className="h-full rounded-full"
-                          style={{ backgroundColor: stats.rank.next?.color || '#3b82f6' }}
-                        />
-                      </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        <Target className="w-4 h-4 inline mr-1" />
-                        Need{' '}
-                        <strong className="text-gray-900 dark:text-white">
-                          {Math.max(0, (stats.rank.next?.minDirects ?? 0) - (stats?.level1Count ?? stats?.directReferrals ?? 0))}
-                        </strong>{' '}
-                        more directs and{' '}
-                        <strong className="text-gray-900 dark:text-white">
-                          {Math.max(0, (stats.rank.next?.minReferrals ?? 0) - (stats?.totalReferrals || 0))}
-                        </strong>{' '}
-                        more total to reach {stats.rank.next?.name}
-                      </p>
-                    </div>
-                  )}
-                  {!stats.rank.next && (
-                    <p className="text-sm text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1">
-                      <Award className="w-4 h-4" /> You&apos;ve reached the top rank! Keep referring to maximize earnings.
-                    </p>
-                  )}
-                </div>
-              </motion.div>
-            )}
+            {/* Rank Rewards (direct referrals only) */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.05 }}
+            >
+              <RankRewardsProgress />
+            </motion.div>
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">

@@ -1198,6 +1198,29 @@ router.post('/admin/confirm', [
       }
     }
 
+    // Rank rewards: based on direct referral package business volume (best-effort).
+    // When a user completes a package purchase, attribute its amount to their DIRECT referrer only.
+    if (payment.type === 'package' && user) {
+      try {
+        const buyer = await User.findById(user._id).select('parentReferralCode email').lean();
+        const parentCode = String(buyer?.parentReferralCode || '').trim();
+        if (parentCode) {
+          const referrer = await User.findOne({ referralCode: parentCode }).select('_id email').lean();
+          if (referrer?._id) {
+            const { getDirectReferralBusinessVolumeUsd, evaluateRankRewardsForUser } = require('../services/rankRewardService');
+            const vol = await getDirectReferralBusinessVolumeUsd(referrer._id);
+            await evaluateRankRewardsForUser({
+              userId: referrer._id,
+              directBusinessVolumeUsd: vol,
+              userEmail: referrer.email
+            });
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+    }
+
     // Send notification and email to user
     const notificationService = require('../services/notificationService');
     try {

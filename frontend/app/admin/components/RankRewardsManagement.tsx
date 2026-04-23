@@ -359,7 +359,7 @@ export default function RankRewardsManagement() {
                     className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
                   >
                     <td className="py-4 px-4 font-medium text-gray-900 dark:text-white">{r.name}</td>
-                    <td className="py-4 px-4 text-gray-700 dark:text-gray-300">{Number(r.thresholdBalance)}</td>
+                    <td className="py-4 px-4 text-gray-700 dark:text-gray-300">${Number(r.thresholdBalance).toFixed(2)}</td>
                     <td className="py-4 px-4">
                       <span
                         className={`px-3 py-1 rounded-full text-xs font-medium ${
@@ -444,7 +444,7 @@ export default function RankRewardsManagement() {
                     <td className="py-4 px-4 text-sm text-gray-900 dark:text-white">
                       <div className="font-medium">{u.rule?.name || '—'}</div>
                       <div className="text-xs text-gray-500 dark:text-gray-400">
-                        Threshold {Number(u.rule?.thresholdBalance ?? u.thresholdBalance ?? 0)} direct(s)
+                        Threshold ${Number(u.rule?.thresholdBalance ?? u.thresholdBalance ?? 0).toFixed(2)}
                       </div>
                     </td>
                     <td className="py-4 px-4 text-sm text-gray-700 dark:text-gray-300">

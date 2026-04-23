@@ -209,23 +209,6 @@ class ReferralService {
     referrer.referralStats.totalReferrals += 1;
     referrer.referralStats[`level${level}Count`] += 1;
     await referrer.save();
-
-    // Rank rewards: based on direct referrals (level 1) only (best-effort).
-    if (level === 1) {
-      try {
-        const directCount = referrer.referralCode
-          ? await User.countDocuments({ parentReferralCode: referrer.referralCode })
-          : Number(referrer.referralStats?.level1Count || 0);
-        const { evaluateRankRewardsForUser } = require('./rankRewardService');
-        await evaluateRankRewardsForUser({
-          userId: referrer._id,
-          level1ReferralCount: directCount,
-          userEmail: referrer.email
-        });
-      } catch (e) {
-        // ignore
-      }
-    }
   }
 
   /**

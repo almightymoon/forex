@@ -3,12 +3,12 @@ const mongoose = require('mongoose');
 const User = require('../models/User');
 const RankRewardRule = require('../models/RankRewardRule');
 const RankRewardUnlock = require('../models/RankRewardUnlock');
-const { evaluateRankRewardsForUser } = require('../services/rankRewardService');
+const { evaluateRankRewardsForUser, getDirectReferralBusinessVolumeUsd } = require('../services/rankRewardService');
 
 const router = express.Router();
 
 // @route   GET /api/rank-rewards/progress
-// @desc    Rank reward progress (rules + unlocks + direct referrals level 1)
+// @desc    Rank reward progress (rules + unlocks + direct referral package business volume)
 // @access  Private
 router.get('/progress', async (req, res) => {
   try {
@@ -18,10 +18,7 @@ router.get('/progress', async (req, res) => {
     }
 
     const user = await User.findById(userId).select('email referralCode').lean();
-    const referralCode = String(user?.referralCode || '').trim();
-    const directReferralCount = referralCode
-      ? await User.countDocuments({ parentReferralCode: referralCode })
-      : 0;
+    const directBusinessVolumeUsd = await getDirectReferralBusinessVolumeUsd(userId);
 
     const rules = await RankRewardRule.find({ isActive: true })
       .sort({ thresholdBalance: 1, sortOrder: 1, createdAt: 1 })
@@ -31,15 +28,15 @@ router.get('/progress', async (req, res) => {
       .select('rule status unlockedAt fulfilledAt thresholdBalance balanceAtUnlock fulfillmentNotes')
       .lean();
 
-    const directReferrals = Number(directReferralCount) || 0;
+    const volumeUsd = Number(directBusinessVolumeUsd) || 0;
     const sortedRules = Array.isArray(rules) ? rules : [];
     let currentRule = null;
     let nextRule = null;
 
     for (const r of sortedRules) {
       const thr = Number(r.thresholdBalance) || 0;
-      if (thr <= directReferrals) currentRule = r;
-      if (thr > directReferrals) {
+      if (thr <= volumeUsd) currentRule = r;
+      if (thr > volumeUsd) {
         nextRule = r;
         break;
       }
@@ -49,7 +46,7 @@ router.get('/progress', async (req, res) => {
     try {
       await evaluateRankRewardsForUser({
         userId,
-        level1ReferralCount: directReferrals,
+        directBusinessVolumeUsd: volumeUsd,
         userEmail: user?.email
       });
     } catch {
@@ -57,7 +54,7 @@ router.get('/progress', async (req, res) => {
     }
 
     res.json({
-      level1ReferralCount: directReferrals,
+      directBusinessVolumeUsd: Math.round(volumeUsd * 100) / 100,
       rules: sortedRules,
       unlocks,
       currentRule,

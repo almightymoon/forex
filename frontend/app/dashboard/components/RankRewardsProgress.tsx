@@ -26,16 +26,16 @@ interface Unlock {
 }
 
 interface ProgressResponse {
-  level1ReferralCount: number;
+  directBusinessVolumeUsd: number;
   rules: Rule[];
   unlocks: Unlock[];
   currentRule: Rule | null;
   nextRule: Rule | null;
 }
 
-function formatCount(v: number) {
-  const n = Math.max(0, Math.floor(Number(v) || 0));
-  return n.toLocaleString();
+function formatMoney(v: number) {
+  const n = Number(v) || 0;
+  return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export default function RankRewardsProgress() {
@@ -78,21 +78,21 @@ export default function RankRewardsProgress() {
     return m;
   }, [data]);
 
-  const level1ReferralCount = Number(data?.level1ReferralCount || 0);
+  const directBusinessVolumeUsd = Number(data?.directBusinessVolumeUsd || 0);
   const rules = Array.isArray(data?.rules) ? data!.rules : [];
 
   const current = data?.currentRule || null;
   const next = data?.nextRule || null;
   const currentThreshold = Number(current?.thresholdBalance || 0);
   const nextThreshold = Number(next?.thresholdBalance || 0);
-  const remaining = next ? Math.max(0, nextThreshold - level1ReferralCount) : 0;
+  const remaining = next ? Math.max(0, nextThreshold - directBusinessVolumeUsd) : 0;
 
   const progressPct = useMemo(() => {
     if (!next) return 100;
     const span = Math.max(0.000001, nextThreshold - currentThreshold);
-    const raw = ((level1ReferralCount - currentThreshold) / span) * 100;
+    const raw = ((directBusinessVolumeUsd - currentThreshold) / span) * 100;
     return Math.max(0, Math.min(100, raw));
-  }, [next, nextThreshold, currentThreshold, level1ReferralCount]);
+  }, [next, nextThreshold, currentThreshold, directBusinessVolumeUsd]);
 
   if (loading) {
     return (
@@ -132,8 +132,8 @@ export default function RankRewardsProgress() {
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
         <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
           <div>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Direct referrals (Level 1)</p>
-            <p className="text-3xl font-bold text-gray-900 dark:text-white">{formatCount(level1ReferralCount)}</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Business volume (direct referrals)</p>
+            <p className="text-3xl font-bold text-gray-900 dark:text-white">${formatMoney(directBusinessVolumeUsd)} USDT</p>
             <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
               Current tier:{' '}
               <span className="font-semibold text-gray-900 dark:text-white">
@@ -150,7 +150,7 @@ export default function RankRewardsProgress() {
               <>
                 <p className="mt-2 text-base font-semibold text-gray-900 dark:text-white">{next.name}</p>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  Get <span className="font-semibold text-gray-900 dark:text-white">{formatCount(remaining)}</span> more direct referral(s)
+                  Get <span className="font-semibold text-gray-900 dark:text-white">${formatMoney(remaining)}</span> more business volume from direct referrals
                 </p>
               </>
             ) : (
@@ -164,8 +164,8 @@ export default function RankRewardsProgress() {
 
         <div className="mt-6">
           <div className="flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 mb-2">
-            <span>{formatCount(currentThreshold)}</span>
-            <span>{formatCount(next ? nextThreshold : currentThreshold)}</span>
+            <span>${formatMoney(currentThreshold)}</span>
+            <span>${formatMoney(next ? nextThreshold : currentThreshold)}</span>
           </div>
           <div className="h-3 rounded-full bg-gray-100 dark:bg-gray-700 overflow-hidden">
             <div
@@ -175,7 +175,7 @@ export default function RankRewardsProgress() {
           </div>
         </div>
 
-        {level1ReferralCount <= 0 && (
+        {directBusinessVolumeUsd <= 0 && (
           <div className="mt-5 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/20 p-4">
             <div className="flex items-start gap-3">
               <Sparkles className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
@@ -184,7 +184,7 @@ export default function RankRewardsProgress() {
                   Invite friends to unlock your first reward.
                 </p>
                 <p className="text-sm text-blue-800/80 dark:text-blue-200/80">
-                  Your progress updates automatically as you add direct referrals (Level 1).
+                  Your progress updates automatically as your direct referrals buy packages.
                 </p>
               </div>
             </div>
@@ -214,11 +214,11 @@ export default function RankRewardsProgress() {
           {rules.map((r) => {
             const unlock = unlockByRuleId.get(String(r._id));
             const thr = Number(r.thresholdBalance || 0);
-            const reached = level1ReferralCount >= thr;
+            const reached = directBusinessVolumeUsd >= thr;
             const isFulfilled = unlock?.status === 'fulfilled';
             const isUnlocked = unlock?.status === 'unlocked' || reached;
             const locked = !isUnlocked;
-            const need = Math.max(0, thr - level1ReferralCount);
+            const need = Math.max(0, thr - directBusinessVolumeUsd);
 
             return (
               <div
@@ -247,7 +247,7 @@ export default function RankRewardsProgress() {
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="text-base font-semibold text-gray-900 dark:text-white truncate">{r.name}</p>
                       <span className="text-xs px-2 py-1 rounded-full bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200">
-                        {formatCount(thr)} directs
+                        ${formatMoney(thr)}
                       </span>
                     </div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
@@ -282,8 +282,8 @@ export default function RankRewardsProgress() {
                   {locked && (
                     <div className="hidden md:flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
                       <span>Need</span>
-                      <span className="font-semibold text-gray-900 dark:text-white">{formatCount(need)}</span>
-                      <span>more direct(s)</span>
+                      <span className="font-semibold text-gray-900 dark:text-white">${formatMoney(need)}</span>
+                      <span>more volume</span>
                       <ArrowRight className="w-4 h-4" />
                     </div>
                   )}
