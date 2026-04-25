@@ -69,6 +69,16 @@ export default function ProfilePage() {
   const [editForm, setEditForm] = useState<Partial<UserProfile>>({});
   const [saving, setSaving] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [draftAvatarUrl, setDraftAvatarUrl] = useState<string | null>(null);
+  const [draftAvatarFile, setDraftAvatarFile] = useState<File | null>(null);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [cropSrc, setCropSrc] = useState<string | null>(null);
+  const [cropZoom, setCropZoom] = useState(1.2);
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [cropDragging, setCropDragging] = useState(false);
+  const cropDragStartRef = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+  const cropImgRef = useRef<HTMLImageElement | null>(null);
+  const cropCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [withdrawalWallet, setWithdrawalWallet] = useState('');
@@ -228,18 +238,41 @@ export default function ProfilePage() {
       const token = localStorage.getItem('token');
       if (!token) return;
 
+      // Backend validates ISO8601 when `dateOfBirth` is present; avoid sending empty strings.
+      const payload: any = { ...editForm };
+      Object.keys(payload).forEach((k) => {
+        if (payload[k] === '') delete payload[k];
+      });
+      if (payload.dateOfBirth != null && String(payload.dateOfBirth).trim() === '') {
+        delete payload.dateOfBirth;
+      }
+
       const response = await fetch(buildApiUrl('api/auth/profile'), {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(editForm)
+        body: JSON.stringify(payload)
       });
 
       if (response.ok) {
         const result = await response.json();
         setUser(result.user);
+
+        // Save avatar only when the user clicks "Save Changes"
+        if (draftAvatarFile) {
+          const avatarOk = await uploadProfileImage(draftAvatarFile);
+          if (!avatarOk) {
+            showToast('Profile saved, but profile photo failed to update. Please try again.', 'error');
+            return;
+          }
+        }
+
+        if (draftAvatarUrl) URL.revokeObjectURL(draftAvatarUrl);
+        setDraftAvatarUrl(null);
+        setDraftAvatarFile(null);
+
         setIsEditing(false);
         showToast('Profile updated successfully!', 'success');
       } else {
@@ -255,6 +288,9 @@ export default function ProfilePage() {
   };
 
   const handleCancel = () => {
+    if (draftAvatarUrl) URL.revokeObjectURL(draftAvatarUrl);
+    setDraftAvatarUrl(null);
+    setDraftAvatarFile(null);
     setEditForm({
       firstName: user?.firstName || '',
       lastName: user?.lastName || '',
@@ -288,23 +324,151 @@ export default function ProfilePage() {
     }));
   };
 
-  const uploadProfileImage = async (file: File) => {
+  const clampCropOffset = (offset: { x: number; y: number }, canvasSize: number) => {
+    const img = cropImgRef.current;
+    if (!img) return offset;
+
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if (!iw || !ih) return offset;
+
+    const baseScale = canvasSize / Math.min(iw, ih);
+    const scale = baseScale * Math.max(1, cropZoom);
+    const dw = iw * scale;
+    const dh = ih * scale;
+
+    const maxX = Math.max(0, (dw - canvasSize) / 2);
+    const maxY = Math.max(0, (dh - canvasSize) / 2);
+
+    return {
+      x: Math.max(-maxX, Math.min(maxX, offset.x)),
+      y: Math.max(-maxY, Math.min(maxY, offset.y)),
+    };
+  };
+
+  const drawCropPreview = () => {
+    const canvas = cropCanvasRef.current;
+    const img = cropImgRef.current;
+    if (!canvas || !img) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const size = canvas.width;
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if (!iw || !ih) return;
+
+    const baseScale = size / Math.min(iw, ih);
+    const scale = baseScale * Math.max(1, cropZoom);
+    const dw = iw * scale;
+    const dh = ih * scale;
+
+    const clamped = clampCropOffset(cropOffset, size);
+    if (clamped.x !== cropOffset.x || clamped.y !== cropOffset.y) {
+      // Avoid blank edges when dragging too far
+      setCropOffset(clamped);
+      return;
+    }
+
+    const dx = (size - dw) / 2 + clamped.x;
+    const dy = (size - dh) / 2 + clamped.y;
+
+    ctx.clearRect(0, 0, size, size);
+    ctx.drawImage(img, dx, dy, dw, dh);
+
+    // Subtle overlay + crop guide border
+    ctx.save();
+    ctx.strokeStyle = 'rgba(255,255,255,0.9)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(1, 1, size - 2, size - 2);
+    ctx.restore();
+  };
+
+  useEffect(() => {
+    if (!cropOpen) return;
+    drawCropPreview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cropOpen, cropZoom, cropOffset.x, cropOffset.y]);
+
+  const openCropForFile = async (file: File) => {
+    if (!file || uploadingAvatar) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('Please select an image file.', 'error');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showToast('Image must be under 10MB.', 'error');
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    setCropSrc(url);
+    setCropZoom(1.2);
+    setCropOffset({ x: 0, y: 0 });
+    setCropOpen(true);
+  };
+
+  const closeCrop = () => {
+    if (uploadingAvatar) return;
+    setCropOpen(false);
+    if (cropSrc) URL.revokeObjectURL(cropSrc);
+    setCropSrc(null);
+    cropImgRef.current = null;
+    cropDragStartRef.current = null;
+    setCropDragging(false);
+  };
+
+  const buildCroppedAvatarFile = async (outputSize = 512): Promise<File | null> => {
+    const img = cropImgRef.current;
+    if (!img) return null;
+
+    const iw = img.naturalWidth || img.width;
+    const ih = img.naturalHeight || img.height;
+    if (!iw || !ih) return null;
+
+    const baseScale = outputSize / Math.min(iw, ih);
+    const scale = baseScale * Math.max(1, cropZoom);
+    const dw = iw * scale;
+    const dh = ih * scale;
+
+    const clamped = clampCropOffset(cropOffset, outputSize);
+    const dx = (outputSize - dw) / 2 + clamped.x;
+    const dy = (outputSize - dh) / 2 + clamped.y;
+
+    const out = document.createElement('canvas');
+    out.width = outputSize;
+    out.height = outputSize;
+    const ctx = out.getContext('2d');
+    if (!ctx) return null;
+
+    ctx.drawImage(img, dx, dy, dw, dh);
+
+    const blob: Blob | null = await new Promise((resolve) =>
+      out.toBlob((b) => resolve(b), 'image/jpeg', 0.9)
+    );
+    if (!blob) return null;
+
+    return new File([blob], 'avatar.jpg', { type: 'image/jpeg' });
+  };
+
+  const uploadProfileImage = async (file: File): Promise<boolean> => {
     try {
-      if (!file) return;
+      if (!file) return false;
       if (!file.type.startsWith('image/')) {
         showToast('Please select an image file.', 'error');
-        return;
+        return false;
       }
       if (file.size > 5 * 1024 * 1024) {
         showToast('Image must be under 5MB.', 'error');
-        return;
+        return false;
       }
 
       const token = localStorage.getItem('token');
       if (!token) {
         showToast('Please login again.', 'error');
         router.push('/login');
-        return;
+        return false;
       }
 
       setUploadingAvatar(true);
@@ -323,7 +487,7 @@ export default function ProfilePage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         showToast((data as any)?.error || 'Failed to update profile image', 'error');
-        return;
+        return false;
       }
 
       const updatedUser = (data as any)?.user;
@@ -336,9 +500,11 @@ export default function ProfilePage() {
       await refreshUser();
       window.dispatchEvent(new Event('platform:userChanged'));
       showToast('Profile image updated!', 'success');
+      return true;
     } catch (e) {
       console.error('Profile image upload error:', e);
       showToast('Failed to update profile image', 'error');
+      return false;
     } finally {
       setUploadingAvatar(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
@@ -527,9 +693,9 @@ export default function ProfilePage() {
                 {/* Profile Image */}
                 <div className="relative inline-block mb-4">
                   <div className="w-32 h-32 bg-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">
-                    {user.profileImage ? (
+                    {(isEditing && draftAvatarUrl) || user.profileImage ? (
                       <img 
-                        src={user.profileImage} 
+                        src={(isEditing && draftAvatarUrl) ? draftAvatarUrl : (user.profileImage as string)} 
                         alt="Profile" 
                         className="w-32 h-32 rounded-full object-cover"
                       />
@@ -548,7 +714,7 @@ export default function ProfilePage() {
                         className="hidden"
                         onChange={(e) => {
                           const f = e.target.files?.[0];
-                          if (f) uploadProfileImage(f);
+                          if (f) openCropForFile(f);
                         }}
                       />
                       <button
@@ -681,6 +847,155 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* Crop Modal */}
+          {cropOpen && (
+            <div
+              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+              role="dialog"
+              aria-modal="true"
+              onClick={() => {
+                // Close only when clicking the backdrop (not the modal)
+                closeCrop();
+              }}
+            >
+              <div
+                className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Crop profile photo</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-400">Drag to reposition, use the slider to zoom.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      closeCrop();
+                    }}
+                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200"
+                    aria-label="Close"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="p-5">
+                  <div className="flex items-center justify-center">
+                    <div
+                      className="relative select-none"
+                      onMouseDown={(e) => {
+                        if (!cropOpen) return;
+                        setCropDragging(true);
+                        cropDragStartRef.current = { x: e.clientX, y: e.clientY, ox: cropOffset.x, oy: cropOffset.y };
+                      }}
+                      onMouseMove={(e) => {
+                        if (!cropDragging || !cropDragStartRef.current) return;
+                        const s = cropDragStartRef.current;
+                        const next = { x: s.ox + (e.clientX - s.x), y: s.oy + (e.clientY - s.y) };
+                        setCropOffset(next);
+                      }}
+                      onMouseUp={() => {
+                        setCropDragging(false);
+                        cropDragStartRef.current = null;
+                      }}
+                      onMouseLeave={() => {
+                        setCropDragging(false);
+                        cropDragStartRef.current = null;
+                      }}
+                      onTouchStart={(e) => {
+                        const t0 = e.touches[0];
+                        if (!t0) return;
+                        setCropDragging(true);
+                        cropDragStartRef.current = { x: t0.clientX, y: t0.clientY, ox: cropOffset.x, oy: cropOffset.y };
+                      }}
+                      onTouchMove={(e) => {
+                        const t0 = e.touches[0];
+                        if (!t0 || !cropDragging || !cropDragStartRef.current) return;
+                        const s = cropDragStartRef.current;
+                        const next = { x: s.ox + (t0.clientX - s.x), y: s.oy + (t0.clientY - s.y) };
+                        setCropOffset(next);
+                      }}
+                      onTouchEnd={() => {
+                        setCropDragging(false);
+                        cropDragStartRef.current = null;
+                      }}
+                    >
+                      <canvas
+                        ref={cropCanvasRef}
+                        width={320}
+                        height={320}
+                        className="w-80 h-80 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-grab active:cursor-grabbing touch-none"
+                      />
+                      {cropSrc && (
+                        <img
+                          src={cropSrc}
+                          alt="Crop source"
+                          className="hidden"
+                          onLoad={(e) => {
+                            cropImgRef.current = e.currentTarget;
+                            drawCropPreview();
+                          }}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-5">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                      Zoom
+                    </label>
+                    <input
+                      type="range"
+                      min={1}
+                      max={3}
+                      step={0.01}
+                      value={cropZoom}
+                      onChange={(e) => setCropZoom(parseFloat(e.target.value))}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+
+                <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end gap-3">
+                  <button
+                    type="button"
+                    onClick={closeCrop}
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={async (e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      try {
+                        const cropped = await buildCroppedAvatarFile(512);
+                        if (!cropped) {
+                          showToast('Failed to process image. Try a different photo.', 'error');
+                          return;
+                        }
+                        if (draftAvatarUrl) URL.revokeObjectURL(draftAvatarUrl);
+                        const previewUrl = URL.createObjectURL(cropped);
+                        setDraftAvatarFile(cropped);
+                        setDraftAvatarUrl(previewUrl);
+                        closeCrop();
+                      } catch (err) {
+                        console.error('Crop+upload error:', err);
+                        showToast('Failed to process image.', 'error');
+                      }
+                    }}
+                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                  >
+                    Done
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Profile Details */}
           <div className="lg:col-span-2 space-y-6">
