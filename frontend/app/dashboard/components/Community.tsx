@@ -732,7 +732,7 @@ export default function Community() {
 
         {/* Join WhatsApp - Forex Navigators Channel */}
         <a
-          href="https://whatsapp.com/channel/0029VbBfTBX002T10jodXM1w"
+          href="https://chat.whatsapp.com/HGYm1azZa9k8KeEZdGDQQS"
           target="_blank"
           rel="noopener noreferrer"
           className="mx-4 mt-3 flex items-center gap-3 rounded-xl border border-[#25D366]/30 bg-[#25D366]/10 p-3 text-[#25D366] dark:border-[#34e077]/30 dark:bg-[#25D366]/20 dark:text-[#34e077] hover:bg-[#25D366]/20 dark:hover:bg-[#25D366]/30 transition-colors"
