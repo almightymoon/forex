@@ -775,6 +775,46 @@ class NotificationService {
       }
     }
 
+    // Handle rank_reward_unlocked dynamically
+    if (type === 'rank_reward_unlocked') {
+      try {
+        console.log('[Notification] Processing rank_reward_unlocked notification');
+        const template = emailTemplates.renderTemplate('rank_reward_unlocked', {
+          userName: `${user.firstName} ${user.lastName}`.trim() || user.firstName || 'there',
+          ruleName: data.ruleName || 'New tier',
+          thresholdBalance: String(data.thresholdBalance ?? ''),
+          directBusinessVolumeUsdAtUnlock: String(data.directBusinessVolumeUsdAtUnlock ?? ''),
+          dashboardUrl: data.dashboardUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/rank-rewards`,
+          companyName: 'Forex Navigators'
+        });
+
+        return {
+          subject: template.subject || 'Rank reward unlocked — congratulations!',
+          html: template.html,
+          text: template.text,
+          sms: `Rank reward unlocked: ${data.ruleName || ''}`.trim(),
+          pushTitle: template.subject || 'Rank reward unlocked',
+          pushBody: `You unlocked "${data.ruleName || 'a new tier'}"`
+        };
+      } catch (error) {
+        console.error('[Notification] ❌ Error rendering rank_reward_unlocked template:', error);
+        const fallbackTitle = 'Rank reward unlocked';
+        const fallbackMessage =
+          data?.message ||
+          `Congratulations! You unlocked "${data?.ruleName || 'a new tier'}".`;
+        return {
+          subject: fallbackTitle,
+          html: `<p>Hello ${escapeHtml(user.firstName || 'there')},</p><p><strong>${escapeHtml(fallbackTitle)}</strong></p><p>${escapeHtml(
+            fallbackMessage
+          )}</p>`,
+          text: `Hello ${user.firstName || 'there'},\n\n${fallbackTitle}\n\n${fallbackMessage}`,
+          sms: fallbackMessage,
+          pushTitle: fallbackTitle,
+          pushBody: fallbackMessage
+        };
+      }
+    }
+
     // Default: use actual values only (no template placeholders) so variables never show in email
     const userName = [user.firstName, user.lastName].filter(Boolean).join(' ') || 'there';
     const notifTitle = (data && data.title) ? String(data.title) : 'New notification';

@@ -25,9 +25,14 @@ async function notifyUserUnlocked(userId, payload) {
 
   // Email/SMS/Push (best-effort, uses default template if no specific template)
   try {
-    await notificationService.sendNotificationToUser(userId, 'system_alert', {
+    const dashboardUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/dashboard/rank-rewards`;
+    await notificationService.sendNotificationToUser(userId, 'rank_reward_unlocked', {
       title,
-      message
+      message,
+      ruleName: payload?.data?.ruleName,
+      thresholdBalance: payload?.data?.thresholdBalance,
+      directBusinessVolumeUsdAtUnlock: payload?.data?.directBusinessVolumeUsdAtUnlock,
+      dashboardUrl
     });
   } catch (e) {
     // best-effort

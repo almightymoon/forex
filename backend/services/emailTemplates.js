@@ -277,6 +277,69 @@ class EmailTemplateService {
         text: `Scheduled Maintenance Notice\n\nHello {{userName}},\n\nWe want to inform you about scheduled maintenance to improve our platform.\n\nDate: {{maintenanceDate}}\nDuration: {{duration}}\nStatus: {{status}}\n\nAffected Services:\n{{affectedServices}}\n\nWe apologize for any inconvenience.\n\nBest regards,\nThe Forex Navigators Team`
       },
 
+      rank_reward_unlocked: {
+        name: 'Rank Reward Unlocked',
+        subject: 'Rank reward unlocked — congratulations!',
+        category: 'rewards',
+        description: 'Email sent when a user unlocks a rank reward tier',
+        channels: ['email'],
+        variables: ['userName', 'ruleName', 'thresholdBalance', 'directBusinessVolumeUsdAtUnlock', 'dashboardUrl', 'companyName'],
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Rank Reward Unlocked</title>
+            <style>
+              body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f3f4f6; }
+              .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 18px; overflow: hidden; box-shadow: 0 18px 40px rgba(0,0,0,0.10); }
+              .header { background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); padding: 38px 28px; text-align: center; color: white; }
+              .header h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -0.02em; }
+              .content { padding: 28px; color: #111827; }
+              .badge { display: inline-block; background: rgba(255,255,255,0.18); border: 1px solid rgba(255,255,255,0.25); color: white; padding: 8px 14px; border-radius: 999px; font-weight: 700; margin-top: 10px; }
+              .card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 14px; padding: 18px; margin: 18px 0; }
+              .row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid #e5e7eb; }
+              .row:last-child { border-bottom: none; }
+              .label { color: #6b7280; font-weight: 700; }
+              .value { color: #111827; font-weight: 800; text-align: right; }
+              .cta { display: inline-block; background: linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); color: white; padding: 14px 22px; border-radius: 999px; text-decoration: none; font-weight: 800; margin-top: 14px; }
+              .note { margin-top: 14px; padding: 14px 16px; border-left: 4px solid #2563eb; background: #eff6ff; border-radius: 10px; color: #1e3a8a; }
+              .footer { background: #111827; color: #9ca3af; padding: 18px 22px; text-align: center; font-size: 13px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>🏆 Rank reward unlocked</h1>
+                <div class="badge">{{ruleName}}</div>
+              </div>
+              <div class="content">
+                <p>Hello <strong>{{userName}}</strong>,</p>
+                <p>Congratulations — you’ve just unlocked a new rank reward tier!</p>
+
+                <div class="card">
+                  <div class="row"><span class="label">Tier</span><span class="value">{{ruleName}}</span></div>
+                  <div class="row"><span class="label">Threshold</span><span class="value">$ {{thresholdBalance}}</span></div>
+                  <div class="row"><span class="label">Your direct volume</span><span class="value">$ {{directBusinessVolumeUsdAtUnlock}}</span></div>
+                </div>
+
+                <div class="note">
+                  Our team will process and deliver your reward soon. You can track status anytime from your dashboard.
+                </div>
+
+                <div style="text-align:center;">
+                  <a href="{{dashboardUrl}}" class="cta">View rank rewards</a>
+                </div>
+              </div>
+              <div class="footer">© 2026 {{companyName}}. All rights reserved.</div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `Rank reward unlocked — congratulations!\n\nHello {{userName}},\n\nYou’ve unlocked a new rank reward tier: {{ruleName}}\n\nThreshold: $ {{thresholdBalance}}\nYour direct volume: $ {{directBusinessVolumeUsdAtUnlock}}\n\nOur team will process and deliver your reward soon. Track status here:\n{{dashboardUrl}}\n\nBest regards,\nThe {{companyName}} Team`
+      },
+
       trading_signal: {
         name: 'Trading Signal Alert',
         category: 'trading',
