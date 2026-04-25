@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { 
   User, 
@@ -68,6 +68,7 @@ export default function ProfilePage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState<Partial<UserProfile>>({});
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [withdrawalWallet, setWithdrawalWallet] = useState('');
@@ -75,6 +76,7 @@ export default function ProfilePage() {
   const [withdrawing, setWithdrawing] = useState(false);
 
   const [mounted, setMounted] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const router = useRouter();
   const { settings, loading: settingsLoading } = useSettings();
   const { t } = useLanguage();
@@ -286,6 +288,63 @@ export default function ProfilePage() {
     }));
   };
 
+  const uploadProfileImage = async (file: File) => {
+    try {
+      if (!file) return;
+      if (!file.type.startsWith('image/')) {
+        showToast('Please select an image file.', 'error');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        showToast('Image must be under 5MB.', 'error');
+        return;
+      }
+
+      const token = localStorage.getItem('token');
+      if (!token) {
+        showToast('Please login again.', 'error');
+        router.push('/login');
+        return;
+      }
+
+      setUploadingAvatar(true);
+
+      const form = new FormData();
+      form.append('image', file);
+
+      const res = await fetch(buildApiUrl('api/users/profile/me/profile-image'), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: form
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast((data as any)?.error || 'Failed to update profile image', 'error');
+        return;
+      }
+
+      const updatedUser = (data as any)?.user;
+      if (updatedUser) {
+        setUser(updatedUser);
+      } else if ((data as any)?.profileImage) {
+        setUser((prev) => (prev ? { ...prev, profileImage: (data as any).profileImage } : prev));
+      }
+
+      await refreshUser();
+      window.dispatchEvent(new Event('platform:userChanged'));
+      showToast('Profile image updated!', 'success');
+    } catch (e) {
+      console.error('Profile image upload error:', e);
+      showToast('Failed to update profile image', 'error');
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   // Safe date formatting to prevent hydration issues
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'Not provided';
@@ -481,9 +540,27 @@ export default function ProfilePage() {
                     )}
                   </div>
                   {isEditing && (
-                    <button className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors">
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/jpeg,image/png,image/gif,image/webp"
+                        className="hidden"
+                        onChange={(e) => {
+                          const f = e.target.files?.[0];
+                          if (f) uploadProfileImage(f);
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingAvatar}
+                        className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                        title={uploadingAvatar ? 'Uploading…' : 'Change profile picture'}
+                      >
                       <Camera className="w-4 h-4" />
-                    </button>
+                      </button>
+                    </>
                   )}
                   
                   {/* Status Badge */}

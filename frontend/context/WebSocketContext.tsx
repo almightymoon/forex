@@ -38,7 +38,12 @@ export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }
     }
 
     // Initialize socket connection
-    const newSocket = io(process.env.NEXT_PUBLIC_WS_URL || process.env.BACKEND_URL || '', {
+    const wsUrl =
+      (process.env.NEXT_PUBLIC_WS_URL || '').trim() ||
+      (process.env.BACKEND_URL || '').trim().replace(/\/api\/?$/, '') ||
+      'http://localhost:4000';
+
+    const newSocket = io(wsUrl, {
       auth: { token },
       transports: ['websocket', 'polling'],
       forceNew: false,

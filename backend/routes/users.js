@@ -1,9 +1,38 @@
 const express = require('express');
 const { body, validationResult } = require('express-validator');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const User = require('../models/User');
 const { authenticateToken, requireRole, requireAdmin } = require('../middleware/auth');
+const { uploadImage } = require('../config/cloudinary');
 
 const router = express.Router();
+
+const useCloudinary = !!(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
+
+// Profile image upload (local fallback if Cloudinary not configured)
+const profileUploadDir = path.join(__dirname, '..', 'uploads', 'profile-images');
+if (!fs.existsSync(profileUploadDir)) {
+  fs.mkdirSync(profileUploadDir, { recursive: true });
+}
+const profileImageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, profileUploadDir),
+    filename: (_req, file, cb) =>
+      cb(null, `avatar-${Date.now()}-${(file.originalname || 'image').replace(/\s+/g, '-')}`)
+  }),
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    cb(new Error('Only JPEG, PNG, GIF, or WebP images are allowed.'));
+  }
+});
 
 // @route   GET /api/users
 // @desc    Get all users (admin only)
@@ -154,6 +183,61 @@ router.put('/profile/me', [
   } catch (error) {
     console.error('Update profile error:', error);
     res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+// @route   POST /api/users/profile/me/profile-image
+// @desc    Upload/update current user's profile image
+// @access  Private
+router.post('/profile/me/profile-image', authenticateToken, (req, res, next) => {
+  profileImageUpload.single('image')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ error: err.message || 'Invalid image file' });
+    }
+    next();
+  });
+}, async (req, res) => {
+  let tempFilePath = null;
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No image uploaded' });
+    }
+
+    tempFilePath = req.file.path;
+    let imageUrl = `/uploads/profile-images/${req.file.filename}`;
+
+    if (useCloudinary) {
+      try {
+        const result = await uploadImage(tempFilePath, 'forex/profile-images');
+        if (result?.url) imageUrl = result.url;
+        try { fs.unlinkSync(tempFilePath); } catch (_) {}
+      } catch (cloudErr) {
+        // Keep local fallback if Cloudinary fails
+        console.error('Cloudinary profile image upload failed (using local):', cloudErr.message);
+      }
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { profileImage: imageUrl },
+      { new: true }
+    ).select('-password');
+
+    return res.json({
+      success: true,
+      message: 'Profile image updated successfully',
+      profileImage: imageUrl,
+      user
+    });
+  } catch (error) {
+    console.error('Upload profile image error:', error);
+    return res.status(500).json({ error: 'Failed to update profile image' });
+  } finally {
+    // If Cloudinary not used, keep file for local serving
+    // If Cloudinary used and unlink failed earlier, ensure we don't leak tmp files on errors
+    if (useCloudinary && tempFilePath && fs.existsSync(tempFilePath)) {
+      try { fs.unlinkSync(tempFilePath); } catch (_) {}
+    }
   }
 });
 
