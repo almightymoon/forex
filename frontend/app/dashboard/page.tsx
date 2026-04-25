@@ -1632,67 +1632,87 @@ export default function Dashboard() {
                   <p className="text-gray-500 dark:text-gray-400 text-sm mb-8 max-w-md mx-auto">{safeT('checkBackLater')}</p>
                 </div>
               ) : signalsViewMode === 'card' ? (
-                <div className="space-y-4">
-                  {signals.filter(signal => signal && signal._id).map((signal) => (
-                    <div key={signal._id} className="p-6 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-blue-900/20 rounded-2xl border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 transition-all duration-200">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center space-x-3">
-                          <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                            signal.type === 'buy' || signal.type === 'strong_buy' ? 'bg-gradient-to-br from-green-500 to-green-600' :
-                            signal.type === 'sell' || signal.type === 'strong_sell' ? 'bg-gradient-to-br from-red-500 to-red-600' :
-                            'bg-gradient-to-br from-yellow-500 to-yellow-600'
-                          }`}>
-                            <span className="text-white text-lg font-bold uppercase">
-                              {signal.type === 'strong_buy' ? 'STRONG BUY' : 
-                               signal.type === 'strong_sell' ? 'STRONG SELL' : 
-                               signal.type || 'hold'}
+                <div className="space-y-3">
+                  {signals.filter(signal => signal && signal._id).map((signal) => {
+                    const isBuy = signal.type === 'buy' || signal.type === 'strong_buy';
+                    const isSell = signal.type === 'sell' || signal.type === 'strong_sell';
+                    const typeLabel =
+                      signal.type === 'strong_buy'
+                        ? 'Strong Buy'
+                        : signal.type === 'strong_sell'
+                          ? 'Strong Sell'
+                          : signal.type
+                            ? signal.type.charAt(0).toUpperCase() + signal.type.slice(1)
+                            : 'Hold';
+
+                    return (
+                    <div
+                      key={signal._id}
+                      className="p-4 md:p-5 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-blue-900/20 rounded-2xl border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 transition-all duration-200"
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-3">
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white truncate">
+                              {signal.symbol || 'Unknown Symbol'}
+                            </h4>
+                            <span
+                              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                                isBuy
+                                  ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-200 border-green-200 dark:border-green-700'
+                                  : isSell
+                                    ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200 border-red-200 dark:border-red-700'
+                                    : 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-700'
+                              }`}
+                            >
+                              {typeLabel}
+                            </span>
+                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white/70 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
+                              {signal.instrumentType || 'forex'}
                             </span>
                           </div>
-                                                      <div>
-                              <h4 className="text-xl font-bold text-gray-900 dark:text-white">{signal.symbol || 'Unknown Symbol'}</h4>
-                              <div className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-300">
-                                <span className="px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded-full text-xs font-medium">
-                                  {signal.instrumentType || 'forex'}
-                                </span>
-                                <span>•</span>
-                                <span>Posted by {signal.teacher?.firstName || 'Unknown'} {signal.teacher?.lastName || 'Teacher'}</span>
-                              </div>
-                            </div>
+                          <div className="mt-1 text-xs md:text-sm text-gray-600 dark:text-gray-300 truncate">
+                            Posted by {signal.teacher?.firstName || 'Unknown'} {signal.teacher?.lastName || 'Teacher'}
+                          </div>
                         </div>
-                        <span className="text-gray-500 dark:text-gray-400 text-sm">{signal.createdAt ? new Date(signal.createdAt).toLocaleDateString() : 'Unknown Date'}</span>
+                        <span className="shrink-0 text-gray-500 dark:text-gray-400 text-xs md:text-sm">
+                          {signal.createdAt ? new Date(signal.createdAt).toLocaleDateString() : 'Unknown Date'}
+                        </span>
                       </div>
                       
-                      <p className="text-gray-700 dark:text-gray-300 mb-4 leading-relaxed">{signal.description || 'No description available'}</p>
+                      <p className="text-gray-700 dark:text-gray-300 mb-3 leading-relaxed text-sm line-clamp-2">
+                        {signal.description || 'No description available'}
+                      </p>
                       
                       {/* Current Market Prices (MT5 Style) */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                        <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+                        <div className="text-center p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200/70 dark:border-blue-700/70">
                           <p className="text-blue-600 dark:text-blue-400 text-xs font-medium">Current Bid</p>
-                          <p className="text-blue-900 dark:text-blue-200 font-bold">${signal.currentBid || 0}</p>
+                          <p className="text-blue-900 dark:text-blue-200 font-semibold tabular-nums">${signal.currentBid || 0}</p>
                         </div>
-                        <div className="text-center p-3 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200 dark:border-red-700">
+                        <div className="text-center p-2.5 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200/70 dark:border-red-700/70">
                           <p className="text-red-600 dark:text-red-400 text-xs font-medium">Current Ask</p>
-                          <p className="text-red-900 dark:text-red-200 font-bold">${signal.currentAsk || 0}</p>
+                          <p className="text-red-900 dark:text-red-200 font-semibold tabular-nums">${signal.currentAsk || 0}</p>
                         </div>
-                        <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-700">
+                        <div className="text-center p-2.5 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200/70 dark:border-green-700/70">
                           <p className="text-green-600 dark:text-green-400 text-xs font-medium">Daily High</p>
-                          <p className="text-green-900 dark:text-green-200 font-bold">${signal.dailyHigh || 0}</p>
+                          <p className="text-green-900 dark:text-green-200 font-semibold tabular-nums">${signal.dailyHigh || 0}</p>
                         </div>
-                        <div className="text-center p-3 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200 dark:border-orange-700">
+                        <div className="text-center p-2.5 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200/70 dark:border-orange-700/70">
                           <p className="text-orange-600 dark:text-orange-400 text-xs font-medium">Daily Low</p>
-                          <p className="text-orange-900 dark:text-orange-200 font-bold">${signal.dailyLow || 0}</p>
+                          <p className="text-orange-900 dark:text-orange-200 font-semibold tabular-nums">${signal.dailyLow || 0}</p>
                         </div>
                       </div>
                       
                       {/* Price Change Display */}
-                      <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
+                      <div className="mb-3 p-3 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-gray-200 dark:border-gray-600">
                         <div className="flex items-center justify-between">
-                          <span className="text-gray-600 dark:text-gray-300 text-sm font-medium">Price Change:</span>
+                          <span className="text-gray-600 dark:text-gray-300 text-sm font-medium">Price Change</span>
                           <div className={`flex items-center space-x-2 ${
                             (signal.priceChange || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
                           }`}>
-                            <span className="font-bold">${signal.priceChange || 0}</span>
-                            <span className="text-sm">({signal.priceChangePercent || 0}%)</span>
+                            <span className="font-semibold tabular-nums">${signal.priceChange || 0}</span>
+                            <span className="text-sm tabular-nums">({signal.priceChangePercent || 0}%)</span>
                             {(signal.priceChange || 0) >= 0 ? (
                               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
                                 <path fillRule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
@@ -1707,40 +1727,42 @@ export default function Dashboard() {
                       </div>
                       
                       {/* Signal Entry/Exit Prices */}
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                        <div className="text-center p-3 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        <div className="text-center p-2.5 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
                           <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Entry Price</p>
-                          <p className="text-gray-900 dark:text-white font-bold">${signal.entryPrice || 0}</p>
+                          <p className="text-gray-900 dark:text-white font-semibold tabular-nums">${signal.entryPrice || 0}</p>
                         </div>
-                        <div className="text-center p-3 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
+                        <div className="text-center p-2.5 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
                           <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Target</p>
-                          <p className="text-gray-900 dark:text-white font-bold">${signal.targetPrice || 0}</p>
+                          <p className="text-gray-900 dark:text-white font-semibold tabular-nums">${signal.targetPrice || 0}</p>
                         </div>
-                        <div className="text-center p-3 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
+                        <div className="text-center p-2.5 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
                           <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Stop Loss</p>
-                          <p className="text-gray-900 dark:text-white font-bold">${signal.stopLoss || 0}</p>
+                          <p className="text-gray-900 dark:text-white font-semibold tabular-nums">${signal.stopLoss || 0}</p>
                         </div>
                       </div>
                       
                       {/* Risk Management */}
-                      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                        <div className="text-center p-3 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
+                      <div className="grid grid-cols-3 gap-3 mb-3">
+                        <div className="text-center p-2.5 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
                           <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Confidence</p>
-                          <p className="text-gray-900 dark:text-white font-bold">{signal.confidence || 0}%</p>
+                          <p className="text-gray-900 dark:text-white font-semibold tabular-nums">{signal.confidence || 0}%</p>
                         </div>
-                        <div className="text-center p-3 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
+                        <div className="text-center p-2.5 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
                           <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Risk/Reward</p>
-                          <p className="text-gray-900 dark:text-white font-bold">{signal.riskRewardRatio ? signal.riskRewardRatio.toFixed(2) : 'N/A'}</p>
+                          <p className="text-gray-900 dark:text-white font-semibold tabular-nums">{signal.riskRewardRatio ? signal.riskRewardRatio.toFixed(2) : 'N/A'}</p>
                         </div>
-                        <div className="text-center p-3 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
+                        <div className="text-center p-2.5 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
                           <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Position Size</p>
-                          <p className="text-gray-900 dark:text-white font-bold">{signal.positionSize || 'N/A'}</p>
+                          <p className="text-gray-900 dark:text-white font-semibold tabular-nums">{signal.positionSize || 'N/A'}</p>
                         </div>
                       </div>
                       
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-gray-600 dark:text-gray-300 text-sm">Timeframe: {signal.timeframe || 'Unknown'}</span>
-                        <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 text-sm">
+                      <div className="flex items-center justify-between gap-3 mb-3">
+                        <span className="text-gray-600 dark:text-gray-300 text-sm">
+                          Timeframe: <span className="font-medium text-gray-800 dark:text-gray-100">{signal.timeframe || 'Unknown'}</span>
+                        </span>
+                        <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 text-sm shrink-0">
                           <MessageSquare className="w-4 h-4" />
                           <span>{signal.comments?.length || 0} comments</span>
                         </div>
@@ -1760,14 +1782,15 @@ export default function Dashboard() {
                             setActiveTab('tradingview');
                             showToast(`Opened TradingView chart for ${tvSymbol}`, 'success');
                           }}
-                          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium flex items-center space-x-2 transition-colors"
+                          className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center space-x-2 transition-colors"
                         >
                           <BarChart3 className="w-4 h-4" />
                           <span>View Chart</span>
                         </button>
                       </div>
                     </div>
-                  ))}
+                  );
+                  })}
                 </div>
               ) : (
                 // List View

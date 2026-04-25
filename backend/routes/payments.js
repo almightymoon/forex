@@ -696,6 +696,197 @@ router.post('/submit-package', authenticateToken, (req, res, next) => {
   }
 });
 
+// @route   POST /api/payments/submit-package-upgrade
+// @desc    Student: submit upgrade payment (pay full price of selected/next package tier)
+// @access  Private
+router.post('/submit-package-upgrade', authenticateToken, (req, res, next) => {
+  paymentScreenshotUpload.single('screenshot')(req, res, (err) => {
+    if (err) return res.status(400).json({ errors: [{ msg: err.message || 'Invalid screenshot file' }] });
+    next();
+  });
+}, async (req, res) => {
+  let tempFilePath = null;
+  try {
+    const targetPackageName = (req.body && req.body.targetPackageName) ? String(req.body.targetPackageName).trim() : '';
+    const transactionId = (req.body && req.body.transactionId) ? String(req.body.transactionId).trim() : '';
+    const payerName = (req.body && req.body.payerName) ? String(req.body.payerName).trim() : '';
+    const payerEmail = (req.body && req.body.payerEmail) ? String(req.body.payerEmail).trim() : '';
+    const errors = [];
+    if (!transactionId || transactionId.length < 10) errors.push({ msg: 'Transaction ID / hash is required (min 10 characters)', path: 'transactionId' });
+    if (!payerName) errors.push({ msg: 'Payer name is required', path: 'payerName' });
+    if (!payerEmail) errors.push({ msg: 'Payer email is required', path: 'payerEmail' });
+    if (!req.file) errors.push({ msg: 'Payment screenshot image is required', path: 'screenshot' });
+    if (errors.length) return res.status(400).json({ errors });
+
+    await Package.ensureDefaults();
+
+    const currentPayment = await Payment.findOne({
+      user: req.user._id,
+      status: 'completed',
+      type: 'package'
+    }).sort({ createdAt: -1 }).lean();
+
+    if (!currentPayment?.package?.name) {
+      return res.status(400).json({ errors: [{ msg: 'No active package found to upgrade from', path: 'package' }] });
+    }
+
+    const currentPkg =
+      (await Package.findOne({ name: currentPayment.package.name, isActive: true }).lean()) ||
+      (await Package.findOne({ price: Number(currentPayment.package.price || 0), isActive: true }).lean());
+    if (!currentPkg) {
+      return res.status(400).json({ errors: [{ msg: 'Current package is not available for upgrade', path: 'package' }] });
+    }
+
+    const baseQuery = {
+      isActive: true,
+      sortOrder: { $gt: Number(currentPkg.sortOrder || 0) }
+    };
+
+    const nextPkg = targetPackageName
+      ? await Package.findOne({ ...baseQuery, name: targetPackageName }).lean()
+      : await Package.findOne(baseQuery).sort({ sortOrder: 1, createdAt: 1 }).lean();
+
+    if (!nextPkg) {
+      return res.status(400).json({
+        errors: [
+          {
+            msg: targetPackageName
+              ? 'Selected package is not available for upgrade'
+              : 'No upgrade available (already on top tier)',
+            path: 'package'
+          }
+        ]
+      });
+    }
+
+    const upgradePrice = Number(nextPkg.price || 0);
+    if (!Number.isFinite(upgradePrice) || upgradePrice <= 0) {
+      return res.status(400).json({ errors: [{ msg: 'Selected package price is not configured correctly', path: 'package' }] });
+    }
+
+    // Prevent multiple simultaneous submissions for same upgrade target
+    const existing = await Payment.findOne({
+      user: req.user._id,
+      type: 'package',
+      status: { $in: ['pending', 'processing'] },
+      'package.name': nextPkg.name
+    }).sort({ createdAt: -1 }).lean();
+
+    if (existing && existing.transactionId && existing.paymentScreenshotUrl) {
+      return res.status(200).json({
+        success: true,
+        message: 'Upgrade payment already submitted. Waiting for admin confirmation.',
+        payment: {
+          _id: existing._id,
+          status: existing.status,
+          transactionId: existing.transactionId,
+          payerName: existing.payerName,
+          payerEmail: existing.payerEmail,
+          paymentScreenshotUrl: existing.paymentScreenshotUrl
+        }
+      });
+    }
+
+    tempFilePath = req.file.path;
+    const uploadResult = await uploadImage(tempFilePath, 'forex/payment-screenshots');
+    const paymentScreenshotUrl = uploadResult && uploadResult.url ? uploadResult.url : null;
+    if (!paymentScreenshotUrl) return res.status(500).json({ error: 'Failed to upload payment screenshot' });
+
+    const payment = new Payment({
+      user: req.user._id,
+      amount: upgradePrice,
+      finalAmount: upgradePrice,
+      currency: 'USD',
+      paymentMethod: 'binance_wallet',
+      status: 'pending',
+      type: 'package',
+      // IMPORTANT: embed target package so perks apply once this payment is completed.
+      package: { name: nextPkg.name, price: Number(nextPkg.price || 0) },
+      description: `Package upgrade: ${currentPkg.name} → ${nextPkg.name}`,
+      transactionId,
+      payerName,
+      payerEmail,
+      paymentScreenshotUrl,
+      binanceWallet: { walletAddress: 'TApaMK8BcN67GDRqVs45qnzbb4oQGt2Pna', network: 'TRC20', transactionHash: transactionId },
+      metadata: new Map([
+        ['isPackageUpgrade', '1'],
+        ['upgradeFromPackageName', String(currentPkg.name)],
+        ['upgradeFromPackagePrice', String(Number(currentPkg.price || 0))],
+        ['upgradeToPackageName', String(nextPkg.name)],
+        ['upgradeToPackagePrice', String(Number(nextPkg.price || 0))],
+        // Payment amount charged for the upgrade request
+        ['upgradePrice', String(upgradePrice)]
+      ])
+    });
+    await payment.save();
+
+    // Notify admins
+    try {
+      const User = require('../models/User');
+      const notificationService = require('../services/notificationService');
+      const admins = await User.find({ role: 'admin' });
+      for (const admin of admins) {
+        await notificationService.sendNotificationToUser(admin._id, 'admin', {
+          type: 'transaction_submitted',
+          paymentId: payment._id,
+          transactionId,
+          userId: req.user._id,
+          userName: `${req.user.firstName} ${req.user.lastName}`,
+          amount: payment.finalAmount,
+          payerName,
+          payerEmail,
+          paymentScreenshotUrl
+        });
+      }
+    } catch (notificationError) {
+      console.error('Error sending admin notification:', notificationError);
+    }
+
+    // Notify user after submission
+    try {
+      const notificationService = require('../services/notificationService');
+      await notificationService.sendNotificationToUser(req.user._id, 'payment_pending', {
+        amount: payment.finalAmount,
+        finalAmount: payment.finalAmount,
+        currency: payment.currency || 'USD',
+        packageName: nextPkg.name,
+        paymentId: payment._id,
+        transactionId: payment.transactionId
+      });
+    } catch (e) {
+      console.error('Error sending user payment_pending notification (upgrade post-submit):', e);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Upgrade payment submitted successfully. Waiting for admin confirmation.',
+      payment: {
+        _id: payment._id,
+        status: payment.status,
+        transactionId: payment.transactionId,
+        payerName: payment.payerName,
+        payerEmail: payment.payerEmail,
+        paymentScreenshotUrl: payment.paymentScreenshotUrl,
+        upgrade: {
+          from: { name: currentPkg.name, price: Number(currentPkg.price || 0) },
+          to: { name: nextPkg.name, price: Number(nextPkg.price || 0) },
+          upgradePrice
+        }
+      }
+    });
+  } catch (error) {
+    console.error('Submit package upgrade error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to submit package upgrade'
+    });
+  } finally {
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try { fs.unlinkSync(tempFilePath); } catch (e) { console.error('Cleanup temp file:', e); }
+    }
+  }
+});
+
 // @route   GET /api/payments/:id
 // @desc    Get payment by ID
 // @access  Private
@@ -1089,6 +1280,27 @@ router.post('/admin/confirm', [
 
     if (payment.status === 'completed') {
       return res.status(400).json({ error: 'Payment already confirmed' });
+    }
+
+    // If this is a package upgrade, ensure the embedded package reflects the UPGRADED tier
+    // BEFORE we save as completed (so downstream perks/badges use the right package).
+    try {
+      const isUpgrade = !!(payment.metadata && payment.metadata.get && payment.metadata.get('isPackageUpgrade') === '1');
+      if (payment.type === 'package' && isUpgrade) {
+        const upgradeToName = payment.metadata.get('upgradeToPackageName');
+        if (upgradeToName && (!payment.package || payment.package.name !== upgradeToName)) {
+          const nextPkg = await Package.findOne({ name: upgradeToName, isActive: true }).lean();
+          if (nextPkg) {
+            payment.package = { name: nextPkg.name, price: Number(nextPkg.price || 0) };
+          } else {
+            // Fallback to metadata price/name
+            const metaPrice = Number(payment.metadata.get('upgradeToPackagePrice') || 0);
+            payment.package = { name: upgradeToName, price: Number.isFinite(metaPrice) ? metaPrice : 0 };
+          }
+        }
+      }
+    } catch (e) {
+      // best-effort; don't block confirmation
     }
 
     // Update payment status

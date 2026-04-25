@@ -247,12 +247,18 @@ export default function SubscriptionPage() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex gap-4">
+                  <div className="flex gap-4 flex-col sm:flex-row">
                     <Link
                       href="/dashboard"
                       className="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors text-center"
                     >
                       Go to Dashboard
+                    </Link>
+                    <Link
+                      href="/subscription/upgrade"
+                      className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 transition-colors text-center"
+                    >
+                      Upgrade Package
                     </Link>
                     <Link
                       href="/select-package"

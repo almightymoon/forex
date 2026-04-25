@@ -188,10 +188,10 @@ export default function PackagePerksDisplay({
           </div>
           {disabledPerks.length > 4 && (
             <button
-              onClick={() => router.push('/select-package')}
+              onClick={() => router.push('/subscription')}
               className="w-full px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-colors font-semibold"
             >
-              Upgrade Package to Unlock All Features
+              Upgrade Package to Unlock More Features
             </button>
           )}
         </div>

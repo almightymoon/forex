@@ -29,13 +29,14 @@ export default function UserProfileDropdown({
 }: UserProfileDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [subscriptionPackage, setSubscriptionPackage] = useState<string | null>(null);
+  const [hasUpgradeAvailable, setHasUpgradeAvailable] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { t } = useLanguage();
 
   // Fetch user's subscription package
   useEffect(() => {
-    const fetchSubscription = async () => {
+    const fetchSubscriptionAndUpgrade = async () => {
       if (!user || user.role === 'admin' || user.role === 'teacher' || user.role === 'developer' || user.role === 'instructor') {
         return; // Admin/teacher don't need packages
       }
@@ -60,13 +61,25 @@ export default function UserProfileDropdown({
             setSubscriptionPackage(completedPayment.package.name);
           }
         }
+
+        // Best-effort: check if an upgrade is available (student only)
+        if (user.role === 'student' || !user.role || user.role === '') {
+          const upgradeRes = await fetch(buildApiUrl('api/packages/upgrade-options'), {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          const upgradeJson = await upgradeRes.json().catch(() => ({}));
+          setHasUpgradeAvailable(Boolean((upgradeJson as any)?.hasUpgrade));
+        } else {
+          setHasUpgradeAvailable(false);
+        }
       } catch (error) {
         console.error('Error fetching subscription:', error);
+        setHasUpgradeAvailable(false);
       }
     };
 
     if (isOpen && user) {
-      fetchSubscription();
+      fetchSubscriptionAndUpgrade();
     }
   }, [isOpen, user]);
 
@@ -193,7 +206,7 @@ export default function UserProfileDropdown({
 
           {/* Menu Items */}
           <div className="py-1">
-            {/* Subscription - Only for students with active subscription */}
+            {/* My Package - Only for students with active subscription */}
             {(user.role === 'student' || !user.role || user.role === '') && subscriptionPackage && (
               <button
                 onClick={() => {
@@ -203,7 +216,7 @@ export default function UserProfileDropdown({
                 className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
               >
                 <Package className="w-4 h-4 mr-3 text-blue-600 dark:text-blue-400" />
-                <span>Subscription</span>
+                <span>My Package</span>
               </button>
             )}
 
@@ -263,6 +276,8 @@ export default function UserProfileDropdown({
                 <span>Monthly Fee</span>
               </button>
             )}
+
+            {/* Upgrade happens inside "My Package" page */}
 
             {/* Withdrawal - Navigate to withdrawals page */}
             <button
