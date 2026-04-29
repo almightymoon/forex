@@ -311,7 +311,16 @@ router.get('/users/:id', async (req, res) => {
       // best-effort
     }
 
-    res.json({ ...user, lifetimeEarned, rankRewards });
+    // Direct business volume: total completed package volume brought by this user's DIRECT referrals.
+    let directBusinessVolumeUsd = 0;
+    try {
+      const { getDirectReferralBusinessVolumeUsd } = require('../services/rankRewardService');
+      directBusinessVolumeUsd = await getDirectReferralBusinessVolumeUsd(userObjectId);
+    } catch (e) {
+      // best-effort
+    }
+
+    res.json({ ...user, lifetimeEarned, rankRewards, directBusinessVolumeUsd });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to fetch user' });
@@ -1274,7 +1283,7 @@ router.post(
           for (const tx of commissionTxns) {
             // Idempotency: if we already created a rollback row for this tx, skip.
             const existingRollback = await BalanceTransaction.findOne({
-              type: 'adjustment',
+              type: 'referral_commission',
               relatedPayment: payment._id,
               'metadata.rollbackOfTransactionId': String(tx._id)
             })
@@ -1284,7 +1293,7 @@ router.post(
 
             await BalanceTransaction.createTransaction({
               user: tx.user,
-              type: 'adjustment',
+              type: 'referral_commission',
               amount: -Number(tx.amount || 0),
               description: 'Commission rollback (package revoked by admin)',
               relatedPayment: payment._id,

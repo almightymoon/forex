@@ -1060,7 +1060,8 @@ router.post('/refund', [
   requireAdmin,
   body('paymentId').notEmpty().withMessage('Payment ID is required'),
   body('amount').isNumeric().withMessage('Amount is required'),
-  body('reason').trim().notEmpty().withMessage('Reason is required')
+  body('reason').trim().notEmpty().withMessage('Reason is required'),
+  body('rollbackCommissions').optional().isBoolean()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -1068,7 +1069,7 @@ router.post('/refund', [
       return res.status(400).json({ errors: errors.array() });
     }
 
-    const { paymentId, amount, reason } = req.body;
+    const { paymentId, amount, reason, rollbackCommissions } = req.body;
 
     const payment = await Payment.findById(paymentId);
     if (!payment) {
@@ -1086,9 +1087,70 @@ router.post('/refund', [
 
     await payment.save();
 
+    // Optional: rollback referral commissions that were paid out due to this payment.
+    // IMPORTANT: Use negative `referral_commission` rows so admin commission reports net out correctly.
+    let rollback = { reversedCount: 0 };
+    if (rollbackCommissions === true && payment.type === 'package') {
+      try {
+        const BalanceTransaction = require('../models/BalanceTransaction');
+        const commissionTxns = await BalanceTransaction.find({
+          type: 'referral_commission',
+          relatedPayment: payment._id
+        })
+          .sort({ createdAt: 1 })
+          .lean();
+
+        let reversedCount = 0;
+        for (const tx of commissionTxns) {
+          const existingRollback = await BalanceTransaction.findOne({
+            type: 'referral_commission',
+            relatedPayment: payment._id,
+            'metadata.rollbackOfTransactionId': String(tx._id)
+          })
+            .select('_id')
+            .lean();
+          if (existingRollback?._id) continue;
+
+          await BalanceTransaction.createTransaction({
+            user: tx.user,
+            type: 'referral_commission',
+            amount: -Number(tx.amount || 0),
+            description: 'Commission rollback (payment refunded by admin)',
+            relatedPayment: payment._id,
+            notes: `Reversing referral commission of $${Number(tx.amount || 0).toFixed(2)} due to refund`,
+            performedBy: req.user._id,
+            metadata: new Map([
+              ['rollbackOfTransactionId', String(tx._id)],
+              ['rollbackSource', 'admin_refund_payment']
+            ])
+          });
+
+          // Best-effort: keep referralStats.totalEarnings aligned
+          try {
+            const User = require('../models/User');
+            const refUser = await User.findById(tx.user);
+            if (refUser?.referralStats) {
+              const cur = Number(refUser.referralStats.totalEarnings || 0);
+              refUser.referralStats.totalEarnings = Math.max(0, cur - Number(tx.amount || 0));
+              await refUser.save();
+            }
+          } catch (e) {
+            // ignore
+          }
+
+          reversedCount += 1;
+        }
+
+        rollback = { reversedCount };
+      } catch (e) {
+        // best-effort
+      }
+    }
+
     res.json({
       message: 'Refund processed successfully',
-      payment
+      payment,
+      rollback
     });
 
   } catch (error) {
