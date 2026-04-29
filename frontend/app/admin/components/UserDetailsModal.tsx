@@ -98,6 +98,10 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
   const [grantReason, setGrantReason] = useState('');
   const [isGrantingPackage, setIsGrantingPackage] = useState(false);
 
+  const [showRevokePackageModal, setShowRevokePackageModal] = useState(false);
+  const [revokeReason, setRevokeReason] = useState('');
+  const [isRevokingPackage, setIsRevokingPackage] = useState(false);
+
   useEffect(() => {
     fetchUserDetails();
   }, [user._id]);
@@ -280,6 +284,41 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
       showToast('Failed to grant package', 'error');
     } finally {
       setIsGrantingPackage(false);
+    }
+  };
+
+  const openRevokePackageModal = () => {
+    setRevokeReason('');
+    setShowRevokePackageModal(true);
+  };
+
+  const handleRevokePackage = async () => {
+    setIsRevokingPackage(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`api/admin/users/${user._id}/revoke-package`), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          reason: revokeReason.trim() || undefined
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast((data as any)?.error || 'Failed to revoke package', 'error');
+        return;
+      }
+      showToast('Package revoked successfully', 'success');
+      setShowRevokePackageModal(false);
+      await fetchUserDetails();
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to revoke package', 'error');
+    } finally {
+      setIsRevokingPackage(false);
     }
   };
 
@@ -645,6 +684,14 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                 >
                   <Package className="w-5 h-5" />
                   Grant Package
+                </button>
+                <button
+                  type="button"
+                  onClick={openRevokePackageModal}
+                  className="min-w-[220px] flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-rose-600 to-red-700 text-white rounded-xl hover:from-rose-700 hover:to-red-800 transition-all duration-200 font-semibold"
+                >
+                  <X className="w-5 h-5" />
+                  Revoke Package
                 </button>
               </div>
 
@@ -1678,8 +1725,8 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
             </div>
 
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              This creates an admin-granted completed package payment (no referral commissions), verifies the account,
-              and enrolls the user in published courses.
+              This creates an admin-granted completed package payment, verifies the account, enrolls the user in published
+              courses, and distributes referral commissions like a normal package purchase.
             </p>
 
             <div className="space-y-4">
@@ -1734,6 +1781,72 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                 >
                   {isGrantingPackage ? <Loader2 className="w-4 h-4 animate-spin" /> : <Package className="w-4 h-4" />}
                   Grant package
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Revoke Package Modal */}
+      {showRevokePackageModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <X className="w-5 h-5 text-red-600" />
+                Revoke granted package
+              </h3>
+              <button
+                type="button"
+                onClick={() => !isRevokingPackage && setShowRevokePackageModal(false)}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg"
+                disabled={isRevokingPackage}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              This revokes the most recent admin-granted package for this user and removes their package access.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Reason (optional)
+                </label>
+                <textarea
+                  value={revokeReason}
+                  onChange={(e) => setRevokeReason(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. Chargeback / mistake"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  disabled={isRevokingPackage}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRevokePackageModal(false)}
+                  disabled={isRevokingPackage}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRevokePackage}
+                  disabled={isRevokingPackage}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {isRevokingPackage ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                  Revoke package
                 </button>
               </div>
             </div>

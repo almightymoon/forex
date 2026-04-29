@@ -1077,7 +1077,9 @@ router.post(
         ['adminGranted', '1'],
         ['grantedByAdminId', String(req.user._id)],
         ['grantedAt', now.toISOString()],
-        ['reason', (reason || '').toString().slice(0, 500)]
+        ['reason', (reason || '').toString().slice(0, 500)],
+        // Keep revenue at $0 (discount = price), but still allow commission distribution using the package price.
+        ['commissionBaseAmount', String(price)]
       ]);
 
       const payment = await Payment.create({
@@ -1168,6 +1170,113 @@ router.post(
     } catch (error) {
       console.error('Grant package error:', error);
       return res.status(500).json({ success: false, error: error.message || 'Failed to grant package' });
+    }
+  }
+);
+
+// @route   POST /api/admin/users/:id/revoke-package
+// @desc    Admin revokes an admin-granted package from a user (refunds the admin-grant payment)
+// @access  Private (Admin)
+router.post(
+  '/users/:id/revoke-package',
+  [
+    body('paymentId').optional().isMongoId().withMessage('paymentId must be a valid id'),
+    body('reason').optional().trim().isLength({ max: 500 }),
+    body('deactivate').optional().isBoolean()
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+
+      const userId = req.params.id;
+      const { paymentId, reason, deactivate } = req.body || {};
+
+      const user = await User.findById(userId);
+      if (!user) return res.status(404).json({ success: false, error: 'User not found' });
+      if (['admin', 'teacher', 'instructor'].includes(user.role)) {
+        return res.status(400).json({ success: false, error: 'Cannot revoke packages from staff accounts' });
+      }
+
+      const baseQuery = {
+        user: userId,
+        type: 'package',
+        status: 'completed'
+      };
+      const payment = paymentId
+        ? await Payment.findOne({ ...baseQuery, _id: paymentId })
+        : await Payment.findOne(baseQuery).sort({ createdAt: -1 });
+
+      if (!payment) {
+        return res.status(404).json({ success: false, error: 'No completed package payment found for this user' });
+      }
+
+      const isAdminGranted =
+        !!(payment.metadata && typeof payment.metadata.get === 'function' && payment.metadata.get('adminGranted') === '1');
+      if (!isAdminGranted) {
+        return res.status(400).json({
+          success: false,
+          error: 'Only admin-granted packages can be revoked via this action'
+        });
+      }
+
+      const now = new Date();
+      payment.status = 'refunded';
+      payment.refundAmount = 0;
+      payment.refundReason = `Admin revoked granted package${reason ? `: ${String(reason).slice(0, 500)}` : ''}`;
+      payment.refundedAt = now;
+      payment.refundedBy = req.user._id;
+      if (!payment.metadata) payment.metadata = new Map();
+      payment.metadata.set('revokedByAdminId', String(req.user._id));
+      payment.metadata.set('revokedAt', now.toISOString());
+      if (reason) payment.metadata.set('revokeReason', String(reason).slice(0, 500));
+      payment.markModified('metadata');
+      await payment.save();
+
+      // Cancel any pending monthly fee payments for this user (package no longer active)
+      await Payment.updateMany(
+        { user: userId, type: 'monthly_fee', status: { $in: ['draft', 'pending', 'processing'] } },
+        { $set: { status: 'cancelled', failureReason: 'Cancelled by admin (package revoked)' } }
+      );
+
+      // Remove badge for this package if present (best-effort)
+      try {
+        const pkgName = payment.package?.name ? String(payment.package.name) : null;
+        if (pkgName && Array.isArray(user.badges) && user.badges.length) {
+          const idx = user.badges.findIndex((b) => b && b.packageName === pkgName);
+          if (idx >= 0) {
+            user.badges.splice(idx, 1);
+          }
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      // If user has no other completed package payments, mark unverified (access becomes inactive).
+      const remainingCompleted = await Payment.countDocuments({
+        user: userId,
+        type: 'package',
+        status: 'completed'
+      });
+      if (remainingCompleted <= 0) {
+        user.isVerified = false;
+      }
+      if (deactivate === true) {
+        user.isActive = false;
+      }
+      await user.save();
+
+      return res.json({
+        success: true,
+        message: 'Package revoked successfully',
+        refundedPaymentId: payment._id,
+        user: { _id: user._id, isActive: user.isActive, isVerified: user.isVerified }
+      });
+    } catch (error) {
+      console.error('Revoke package error:', error);
+      return res.status(500).json({ success: false, error: error.message || 'Failed to revoke package' });
     }
   }
 );

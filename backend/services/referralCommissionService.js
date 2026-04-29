@@ -207,7 +207,21 @@ class ReferralCommissionService {
         return [];
       }
 
-      const packageAmount = Number(payment.finalAmount ?? payment.amount) || 0;
+      const adminGranted = !!(payment?.metadata && typeof payment.metadata.get === 'function' && payment.metadata.get('adminGranted') === '1');
+      const commissionBaseRaw =
+        adminGranted && payment?.metadata && typeof payment.metadata.get === 'function'
+          ? payment.metadata.get('commissionBaseAmount')
+          : null;
+      const commissionBase = commissionBaseRaw != null ? Number(commissionBaseRaw) : null;
+
+      // Normal purchases: use finalAmount (after discounts) as base.
+      // Admin-granted packages: keep revenue at $0, but still distribute commissions from the package price
+      // using metadata.commissionBaseAmount.
+      const packageAmount = Number(
+        adminGranted && Number.isFinite(commissionBase) && commissionBase > 0
+          ? commissionBase
+          : (payment.finalAmount ?? payment.amount)
+      ) || 0;
       const packageNameRaw = payment.package?.name || 'Unknown';
       const normalized = this.normalizePackageName(packageNameRaw);
       const cfg = await this.getCommissionConfig(packageNameRaw);

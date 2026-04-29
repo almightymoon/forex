@@ -354,13 +354,9 @@ paymentSchema.post('save', async function(doc) {
 
       // Calculate and distribute referral commissions using referralCommissionService
       // This service correctly calculates from referral pool, not full payment amount.
-      // Skip commissions for admin-granted packages.
-      const adminGranted = !!(doc.metadata && doc.metadata.get && doc.metadata.get('adminGranted') === '1');
-      if (!adminGranted) {
-        const ReferralCommissionService = require('../services/referralCommissionService');
-        const commissionService = new ReferralCommissionService();
-        await commissionService.distributeCommissions(doc);
-      }
+      const ReferralCommissionService = require('../services/referralCommissionService');
+      const commissionService = new ReferralCommissionService();
+      await commissionService.distributeCommissions(doc);
       
       processingPayments.delete(doc._id.toString());
     } catch (error) {
