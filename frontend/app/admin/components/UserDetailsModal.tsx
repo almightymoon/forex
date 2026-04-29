@@ -101,6 +101,7 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
   const [showRevokePackageModal, setShowRevokePackageModal] = useState(false);
   const [revokeReason, setRevokeReason] = useState('');
   const [isRevokingPackage, setIsRevokingPackage] = useState(false);
+  const [rollbackCommissionsOnRevoke, setRollbackCommissionsOnRevoke] = useState(false);
 
   useEffect(() => {
     fetchUserDetails();
@@ -289,6 +290,7 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
 
   const openRevokePackageModal = () => {
     setRevokeReason('');
+    setRollbackCommissionsOnRevoke(false);
     setShowRevokePackageModal(true);
   };
 
@@ -303,7 +305,8 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          reason: revokeReason.trim() || undefined
+          reason: revokeReason.trim() || undefined,
+          rollbackCommissions: rollbackCommissionsOnRevoke
         })
       });
       const data = await res.json().catch(() => ({}));
@@ -1829,6 +1832,19 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                   disabled={isRevokingPackage}
                 />
               </div>
+
+              <label className="flex items-start gap-3 text-sm text-gray-700 dark:text-gray-300">
+                <input
+                  type="checkbox"
+                  checked={rollbackCommissionsOnRevoke}
+                  onChange={(e) => setRollbackCommissionsOnRevoke(e.target.checked)}
+                  disabled={isRevokingPackage}
+                  className="mt-1 h-4 w-4 rounded border-gray-300 dark:border-gray-600"
+                />
+                <span>
+                  Also rollback all commissions distributed from this package (creates reversing transactions).
+                </span>
+              </label>
 
               <div className="flex gap-3 pt-2">
                 <button

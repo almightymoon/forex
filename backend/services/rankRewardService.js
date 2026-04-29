@@ -67,7 +67,13 @@ async function getDirectReferralBusinessVolumeUsd(userId) {
     {
       $group: {
         _id: null,
-        total: { $sum: { $ifNull: ['$finalAmount', '$amount'] } }
+        // Normal package purchases: finalAmount is the amount paid.
+        // Admin-granted packages: finalAmount can be 0 (discounted), but should still count as package volume.
+        total: {
+          $sum: {
+            $cond: [{ $eq: ['$metadata.adminGranted', '1'] }, '$amount', { $ifNull: ['$finalAmount', '$amount'] }]
+          }
+        }
       }
     }
   ]);
