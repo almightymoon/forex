@@ -445,6 +445,23 @@ export default function SectionMonthlyProgress() {
           border-collapse: collapse;
           font-size: clamp(15px, 1.05vw, 17px);
         }
+        .fx-mp__table tbody tr {
+          transition: background-color 0.2s ease;
+        }
+        .fx-mp__table tbody tr:hover {
+          background-color: rgba(13, 148, 136, 0.075);
+        }
+        .fx-mp__table tbody tr:hover td:first-child {
+          color: #0f766e;
+        }
+        .fx-mp__table tbody tr:hover td.fx-mp__num--neg {
+          color: #b91c1c;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .fx-mp__table tbody tr {
+            transition: none;
+          }
+        }
         .fx-mp__table thead th {
           padding: 14px 18px 16px 0;
           text-align: right;
