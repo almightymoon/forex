@@ -265,6 +265,7 @@ app.use('/api', maintenanceMiddleware);
 app.use('/api/auth', authRoutes);
 app.use('/api/settings/public', require('./routes/settings'));
 app.use('/api/monthly-progress/public', require('./routes/monthlyProgressPublic'));
+app.use('/api/new-joiners/public', require('./routes/newJoinersPublic'));
 app.use('/api/packages', packageRoutes);
 
 // Routes with session timeout check

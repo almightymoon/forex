@@ -10,7 +10,8 @@ import {
   Lock, Bell, Smartphone, Server, Database, Key, Zap,
   Save, RotateCcw, Palette, Monitor, Languages, MapPin,
   RefreshCw, AlertCircle, Share2, ChevronLeft, ChevronRight,
-  LineChart
+  LineChart,
+  Users2
 } from 'lucide-react';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../components/Toast';
@@ -32,6 +33,7 @@ import Settings from './Settings';
 import Notifications from './Notifications';
 import LogsManagement from './LogsManagement';
 import MonthlyProgressLandingEditor from '../../../components/MonthlyProgressLandingEditor';
+import NewJoinersLandingEditor from '../../../components/NewJoinersLandingEditor';
 import { 
   User, Payment, Analytics as AnalyticsType, PromoCode, 
   AdminSettings, UserForm, PromoForm 
@@ -920,6 +922,7 @@ export default function AdminDashboard() {
                   { id: 'notifications', label: 'Notifications', icon: Mail },
                   { id: 'logs', label: 'Logs', icon: FileText },
                   { id: 'landing-progress', label: 'Landing progress', icon: LineChart },
+                  { id: 'landing-joiners', label: 'Landing joiners', icon: Users2 },
                   { id: 'settings', label: 'Settings', icon: SettingsIcon }
                 ].map((tab) => {
                   const Icon = tab.icon;
@@ -1020,6 +1023,10 @@ export default function AdminDashboard() {
 
         {activeTab === 'landing-progress' && (
           <MonthlyProgressLandingEditor apiRoot="api/admin/monthly-progress" />
+        )}
+
+        {activeTab === 'landing-joiners' && (
+          <NewJoinersLandingEditor apiRoot="api/admin/new-joiners" />
         )}
 
         {activeTab === 'settings' && (

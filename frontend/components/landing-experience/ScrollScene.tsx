@@ -44,7 +44,7 @@ const FEATURES_RIGHT = [
 ];
 
 /** Fixed wordmark in the fixed header (separate from admin-configured platform name). */
-const NAV_LOGO_MARK = 'THEFXNAVIGATOR';
+const NAV_LOGO_MARK = 'THEFXNAVIGATORS';
 
 export default function ScrollScene() {
   const { platformName } = useLandingExperience();

@@ -131,6 +131,7 @@ router.get('/debug-student-count', authenticateToken, requireTeacher, async (req
 router.use(authenticateToken);
 router.use(requireTeacher);
 router.use('/monthly-progress', require('./landingMonthlyProgressRoutes'));
+router.use('/new-joiners', require('./landingNewJoinersRoutes'));
 
 // Get teacher dashboard overview
 router.get('/dashboard', async (req, res) => {

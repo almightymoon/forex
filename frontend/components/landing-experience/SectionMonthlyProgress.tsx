@@ -99,12 +99,23 @@ function MonthlyProgressActiveSlice(props: Record<string, unknown>) {
   );
 }
 
+const COMPACT_MAX_WIDTH = 959;
+
 export default function SectionMonthlyProgress() {
   const [payload, setPayload] = useState<MonthlyProgressPublicPayload | null>(null);
   const [chartPlotPx, setChartPlotPx] = useState(360);
   const [pieHoverIndex, setPieHoverIndex] = useState<number | null>(null);
+  const [compactLayout, setCompactLayout] = useState(false);
   const chartMeasureRef = useRef<HTMLDivElement | null>(null);
   const splitDashRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const mq = window.matchMedia(`(max-width: ${COMPACT_MAX_WIDTH}px)`);
+    const sync = () => setCompactLayout(mq.matches);
+    sync();
+    mq.addEventListener('change', sync);
+    return () => mq.removeEventListener('change', sync);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,23 +163,37 @@ export default function SectionMonthlyProgress() {
       payload.rows.length > 0,
   );
 
+  /** Shorter fixed heights on narrow screens so the donut + legend fit without clipping */
+  const pieContainerHeight = useMemo(() => {
+    if (!fillsViewport) return compactLayout ? 300 : 380;
+    const floor = compactLayout ? 260 : 380;
+    const cap = compactLayout ? 340 : 620;
+    return Math.min(cap, Math.max(chartPlotPx, floor));
+  }, [fillsViewport, chartPlotPx, compactLayout]);
+
   useLayoutEffect(() => {
     if (!fillsViewport) return;
     const measureEl = chartMeasureRef.current;
     const splitEl = splitDashRef.current;
     const update = () => {
       const vh = typeof window !== 'undefined' ? window.innerHeight : 720;
+      const narrow =
+        typeof window !== 'undefined' && window.innerWidth <= COMPACT_MAX_WIDTH;
       /* Prefer space from the split row to the bottom of the viewport so the chart fills the screen */
       let fromViewportBottom = 0;
       if (splitEl) {
         const sr = splitEl.getBoundingClientRect();
-        const sectionBottomPad = 72;
+        const sectionBottomPad = narrow ? 48 : 72;
         fromViewportBottom = Math.max(
           0,
-          Math.min(Math.floor(vh * 0.82), Math.floor(vh - sr.top - sectionBottomPad)),
+          Math.min(Math.floor(vh * (narrow ? 0.65 : 0.82)), Math.floor(vh - sr.top - sectionBottomPad)),
         );
       }
-      const vhFloor = Math.max(280, Math.floor(vh * 0.58), fromViewportBottom);
+      let vhFloor = Math.max(280, Math.floor(vh * (narrow ? 0.42 : 0.58)), fromViewportBottom);
+      if (narrow) {
+        vhFloor = Math.min(vhFloor, Math.floor(vh * 0.45));
+        vhFloor = Math.max(220, vhFloor);
+      }
       let h = 0;
       if (measureEl) {
         const r = measureEl.getBoundingClientRect();
@@ -176,10 +201,12 @@ export default function SectionMonthlyProgress() {
       }
       if (h < 220 && splitEl) {
         const sr = splitEl.getBoundingClientRect();
-        const reserve = 100;
+        const reserve = narrow ? 72 : 100;
         h = Math.max(h, Math.floor(sr.height - reserve));
       }
-      setChartPlotPx(Math.max(240, h || 0, vhFloor));
+      let next = Math.max(240, h || 0, vhFloor);
+      if (narrow) next = Math.min(next, 380);
+      setChartPlotPx(next);
     };
     update();
     const roTargets = [measureEl, splitEl].filter(Boolean) as HTMLElement[];
@@ -217,6 +244,55 @@ export default function SectionMonthlyProgress() {
           background: #ffffff;
           box-sizing: border-box;
         }
+        @media (max-width: 959px) {
+          .fx-mp {
+            padding-top: clamp(72px, 14vw, 96px);
+            padding-left: clamp(14px, 4vw, 20px);
+            padding-right: clamp(14px, 4vw, 20px);
+            padding-bottom: clamp(28px, 6vh, 48px);
+            overflow-x: hidden;
+          }
+          .fx-mp.fx-mp--fill {
+            padding-top: clamp(72px, 12vw, 100px);
+            padding-bottom: clamp(24px, 5vh, 40px);
+          }
+          .fx-mp--fill .fx-mp__split.fx-mp__split--dash {
+            gap: clamp(24px, 6vw, 36px);
+          }
+          .fx-mp--fill .fx-mp__split--dash > .fx-mp__block:last-child .fx-mp__chart-shell {
+            width: 100%;
+            max-width: 100%;
+          }
+          .fx-mp__table-scroll {
+            max-width: 100%;
+          }
+          .fx-mp__table {
+            min-width: 0;
+            width: 100%;
+            font-size: clamp(13px, 3.5vw, 15px);
+          }
+          .fx-mp__table thead th {
+            padding: 10px 8px 12px 0;
+            font-size: 11px;
+            white-space: normal;
+            line-height: 1.25;
+            vertical-align: bottom;
+          }
+          .fx-mp__table tbody td {
+            padding: 12px 8px 12px 0;
+          }
+          .fx-mp__pie-source {
+            font-size: 12px;
+            line-height: 1.4;
+          }
+          .fx-mp__chart-inner--pie {
+            min-height: 240px;
+          }
+          .fx-mp--fill {
+            grid-template-rows: auto auto;
+            min-height: 0;
+          }
+        }
         .fx-mp.fx-mp--fill {
           padding-top: clamp(96px, 10vh, 132px);
           padding-bottom: clamp(32px, 5vh, 72px);
@@ -227,17 +303,21 @@ export default function SectionMonthlyProgress() {
         */
         .fx-mp--fill {
           box-sizing: border-box;
-          min-height: 100vh;
-          min-height: 100svh;
-          min-height: 100dvh;
           display: grid;
           grid-template-columns: minmax(0, 1fr);
-          grid-template-rows: minmax(0, 1fr);
         }
-        section#monthly-progress.fx-mp--fill {
-          min-height: 100vh;
-          min-height: 100svh;
-          min-height: 100dvh;
+        @media (min-width: 960px) {
+          .fx-mp--fill {
+            min-height: 100vh;
+            min-height: 100svh;
+            min-height: 100dvh;
+            grid-template-rows: minmax(0, 1fr);
+          }
+          section#monthly-progress.fx-mp--fill {
+            min-height: 100vh;
+            min-height: 100svh;
+            min-height: 100dvh;
+          }
         }
         /* styled-jsx leaves a <style> sibling — display:contents avoids stealing grid rows */
         .fx-mp:not(.fx-mp--fill) .fx-mp__viewport {
@@ -261,6 +341,16 @@ export default function SectionMonthlyProgress() {
           grid-template-columns: minmax(0, 1fr);
           grid-template-rows: auto minmax(0, 1fr);
           width: 100%;
+        }
+        @media (max-width: 959px) {
+          .fx-mp--fill .fx-mp__viewport {
+            grid-template-rows: auto auto;
+            height: auto;
+          }
+          .fx-mp--fill .fx-mp__viewport > .fx-mp__inner {
+            grid-template-rows: auto auto;
+            height: auto;
+          }
         }
         /*
           Fill mode: flex (not grid). Base .fx-mp__split uses align-items: start which keeps grid
@@ -679,19 +769,22 @@ export default function SectionMonthlyProgress() {
                 <div className="fx-mp__chart-inner fx-mp__chart-inner--pie">
                   <div className="fx-mp__chart-measure fx-mp__chart-measure--pie" ref={chartMeasureRef}>
                     {pieTotal > 0 ? (
-                    <ResponsiveContainer
-                      width="100%"
-                      height={fillsViewport ? Math.max(chartPlotPx, 380) : 380}
-                    >
-                      <PieChart margin={{ top: 10, right: 6, left: 6, bottom: 54 }}>
+                    <ResponsiveContainer width="100%" height={pieContainerHeight}>
+                      <PieChart
+                        margin={
+                          compactLayout
+                            ? { top: 8, right: 4, left: 4, bottom: 46 }
+                            : { top: 10, right: 6, left: 6, bottom: 54 }
+                        }
+                      >
                         <Pie
                           data={pieChartBundle.slices}
                           dataKey="value"
                           nameKey="name"
                           cx="50%"
-                          cy="44%"
-                          innerRadius="40%"
-                          outerRadius="71%"
+                          cy={compactLayout ? '45%' : '44%'}
+                          innerRadius={compactLayout ? '42%' : '40%'}
+                          outerRadius={compactLayout ? '68%' : '71%'}
                           paddingAngle={2}
                           stroke="#ffffff"
                           strokeWidth={2}

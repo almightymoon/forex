@@ -11,7 +11,8 @@ import {
   Award,
   ChevronLeft,
   ChevronRight,
-  LineChart
+  LineChart,
+  Users2
 } from 'lucide-react';
 
 interface NavigationProps {
@@ -30,6 +31,7 @@ const tabs = [
   { id: 'communications', name: 'Communications', icon: MessageSquare },
   { id: 'community', name: 'Community', icon: Users },
   { id: 'landing-progress', name: 'Landing progress', icon: LineChart },
+  { id: 'landing-joiners', name: 'Landing joiners', icon: Users2 },
   { id: 'certificates', name: 'Certificates', icon: Award }
 ];
 
