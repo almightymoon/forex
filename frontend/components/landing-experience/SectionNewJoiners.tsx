@@ -17,6 +17,45 @@ type NewJoinersPublicPayload =
   | { enabled: false }
   | { enabled: true; joiners: JoinerPublic[] };
 
+/** Shown when the API is off, empty, or still loading — keeps the block visible without admin setup. */
+const FALLBACK_JOINERS: JoinerPublic[] = [
+  {
+    name: 'Jordan Ellis',
+    country: 'United Kingdom',
+    pkg: 'Professional Package',
+    imageUrl: 'https://randomuser.me/api/portraits/men/75.jpg',
+    accentBg: '#c41e3a',
+  },
+  {
+    name: 'Maya Thompson',
+    country: 'United States',
+    pkg: 'Elite Signals Package',
+    imageUrl: 'https://randomuser.me/api/portraits/women/68.jpg',
+    accentBg: '#d4a012',
+  },
+  {
+    name: 'David Okoye',
+    country: 'Nigeria',
+    pkg: 'Starter Package',
+    imageUrl: 'https://randomuser.me/api/portraits/men/32.jpg',
+    accentBg: '#1e3a5f',
+  },
+  {
+    name: 'Sofia Andersson',
+    country: 'Sweden',
+    pkg: 'Institutional Desk Package',
+    imageUrl: 'https://randomuser.me/api/portraits/women/44.jpg',
+    accentBg: '#7c3aed',
+  },
+  {
+    name: 'Ryan Park',
+    country: 'South Korea',
+    pkg: 'Professional Package',
+    imageUrl: 'https://randomuser.me/api/portraits/men/22.jpg',
+    accentBg: '#0d9488',
+  },
+];
+
 async function fetchPublicNewJoiners(): Promise<NewJoinersPublicPayload> {
   const res = await fetch('/api/new-joiners/public', { cache: 'no-store' });
   if (!res.ok) return { enabled: false };
@@ -54,8 +93,9 @@ export default function SectionNewJoiners() {
     };
   }, []);
 
-  const joiners =
-    payload?.enabled && Array.isArray(payload.joiners) ? payload.joiners : [];
+  const apiJoiners =
+    payload?.enabled && Array.isArray(payload.joiners) && payload.joiners.length > 0 ? payload.joiners : null;
+  const joiners = apiJoiners ?? FALLBACK_JOINERS;
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -81,10 +121,6 @@ export default function SectionNewJoiners() {
     const step = (first?.offsetWidth ?? 300) + gap;
     rail.scrollBy({ left: dir * step, behavior: 'smooth' });
   }, []);
-
-  if (!payload || !payload.enabled || joiners.length === 0) {
-    return null;
-  }
 
   return (
     <>
@@ -379,6 +415,7 @@ export default function SectionNewJoiners() {
         id="new-joiners"
         className={`nj${entryVisible ? ' nj--entered' : ''}`}
         aria-labelledby="nj-title"
+        data-nav-surface="light"
       >
         <div className="nj__inner">
           <div className="nj__top">
@@ -416,7 +453,7 @@ export default function SectionNewJoiners() {
                   <div className="nj-card__img-wrap">
                     <img
                       className="nj-card__img"
-                      src={resolveBackendAssetUrl(j.imageUrl)}
+                      src={j.imageUrl ? resolveBackendAssetUrl(j.imageUrl) : ''}
                       alt=""
                       loading="lazy"
                     />

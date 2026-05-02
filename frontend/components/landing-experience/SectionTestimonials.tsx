@@ -477,6 +477,7 @@ export default function SectionTestimonials() {
         id="testimonials"
         className={`fx-testimonials${entryVisible ? ' fx-testimonials--entered' : ''}`}
         aria-labelledby="fx-testimonials-title"
+        data-nav-surface="light"
       >
         <div className="fx-testimonials__inner">
           <header className="fx-testimonials__header">
