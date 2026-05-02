@@ -314,7 +314,7 @@ export default function LoginPage() {
       <AuthPortalShell
         platformName={settings.platformName}
         headline="Welcome!"
-        subhead={`Log in to THEFXNAVIGATOR to continue to ${settings.platformName}.`}
+        subhead={`Log in to THEFXNAVIGATORS to continue to ${settings.platformName}.`}
         promo={{
           lines: ['10K+ traders on the desk.', 'Signals · risk · execution — one workspace.'],
           ctaLabel: 'Join now',
