@@ -10,7 +10,8 @@ import {
   FileText,
   Award,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  LineChart
 } from 'lucide-react';
 
 interface NavigationProps {
@@ -28,6 +29,7 @@ const tabs = [
   { id: 'analytics', name: 'Analytics', icon: TrendingUp },
   { id: 'communications', name: 'Communications', icon: MessageSquare },
   { id: 'community', name: 'Community', icon: Users },
+  { id: 'landing-progress', name: 'Landing progress', icon: LineChart },
   { id: 'certificates', name: 'Certificates', icon: Award }
 ];
 

@@ -9,7 +9,8 @@ import {
   Calendar, MessageSquare, Search, CreditCard, Globe, 
   Lock, Bell, Smartphone, Server, Database, Key, Zap,
   Save, RotateCcw, Palette, Monitor, Languages, MapPin,
-  RefreshCw, AlertCircle, Share2, ChevronLeft, ChevronRight
+  RefreshCw, AlertCircle, Share2, ChevronLeft, ChevronRight,
+  LineChart
 } from 'lucide-react';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../components/Toast';
@@ -30,6 +31,7 @@ import Analytics from './Analytics';
 import Settings from './Settings';
 import Notifications from './Notifications';
 import LogsManagement from './LogsManagement';
+import MonthlyProgressLandingEditor from '../../../components/MonthlyProgressLandingEditor';
 import { 
   User, Payment, Analytics as AnalyticsType, PromoCode, 
   AdminSettings, UserForm, PromoForm 
@@ -917,6 +919,7 @@ export default function AdminDashboard() {
                   { id: 'promocodes', label: 'Promo Codes', icon: Target },
                   { id: 'notifications', label: 'Notifications', icon: Mail },
                   { id: 'logs', label: 'Logs', icon: FileText },
+                  { id: 'landing-progress', label: 'Landing progress', icon: LineChart },
                   { id: 'settings', label: 'Settings', icon: SettingsIcon }
                 ].map((tab) => {
                   const Icon = tab.icon;
@@ -1013,6 +1016,10 @@ export default function AdminDashboard() {
 
         {activeTab === 'logs' && (
           <LogsManagement />
+        )}
+
+        {activeTab === 'landing-progress' && (
+          <MonthlyProgressLandingEditor apiRoot="api/admin/monthly-progress" />
         )}
 
         {activeTab === 'settings' && (

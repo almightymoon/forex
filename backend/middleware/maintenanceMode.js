@@ -24,6 +24,7 @@ const maintenanceMiddleware = async (req, res, next) => {
       '/api/auth/login',
       '/api/auth/register',
       '/api/settings/public',
+      '/api/monthly-progress/public',
       '/api/health'
     ];
 

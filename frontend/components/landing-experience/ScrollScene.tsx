@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useLandingExperience } from './LandingExperienceContext';
 import MarketChart from './MarketChart';
@@ -56,15 +57,15 @@ export default function ScrollScene() {
   const rafRef = useRef(0);
 
   useEffect(() => {
-    const onScroll = () => {
-      targetRef.current = Math.min(1, Math.max(0, window.scrollY / window.innerHeight));
-    };
+    const EPS = 0.0006;
 
-    const loop = () => {
+    const tick = () => {
+      rafRef.current = 0;
+
       const curr = progressRef.current;
       const tgt = targetRef.current;
       const next = curr + (tgt - curr) * 0.09;
-      progressRef.current = Math.abs(tgt - next) < 0.0006 ? tgt : next;
+      progressRef.current = Math.abs(tgt - next) < EPS ? tgt : next;
 
       const p = progressRef.current;
       const e = easeInOutQuart(p);
@@ -99,20 +100,32 @@ export default function ScrollScene() {
         s2El.style.display = scrollOutY >= vh ? 'none' : 'flex';
       }
 
-      rafRef.current = requestAnimationFrame(loop);
+      const animating = Math.abs(progressRef.current - tgt) > EPS;
+      if (animating) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
     };
 
-    window.addEventListener('scroll', onScroll, { passive: true });
-    rafRef.current = requestAnimationFrame(loop);
+    const scheduleTick = () => {
+      targetRef.current = Math.min(1, Math.max(0, window.scrollY / window.innerHeight));
+      if (!rafRef.current) {
+        rafRef.current = requestAnimationFrame(tick);
+      }
+    };
+
+    scheduleTick();
+    window.addEventListener('scroll', scheduleTick, { passive: true });
 
     return () => {
-      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('scroll', scheduleTick);
       cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
     };
   }, []);
 
   useEffect(() => {
     const bandBottom = 96;
+    let navRaf = 0;
 
     const updateNavOnLight = () => {
       const nodes = document.querySelectorAll<HTMLElement>('[data-nav-surface="light"]');
@@ -126,12 +139,21 @@ export default function ScrollScene() {
       document.documentElement.classList.toggle('nav-on-light', onLight);
     };
 
+    const scheduleNav = () => {
+      if (navRaf) return;
+      navRaf = requestAnimationFrame(() => {
+        navRaf = 0;
+        updateNavOnLight();
+      });
+    };
+
     updateNavOnLight();
-    window.addEventListener('scroll', updateNavOnLight, { passive: true });
-    window.addEventListener('resize', updateNavOnLight);
+    window.addEventListener('scroll', scheduleNav, { passive: true });
+    window.addEventListener('resize', scheduleNav);
     return () => {
-      window.removeEventListener('scroll', updateNavOnLight);
-      window.removeEventListener('resize', updateNavOnLight);
+      window.removeEventListener('scroll', scheduleNav);
+      window.removeEventListener('resize', scheduleNav);
+      cancelAnimationFrame(navRaf);
     };
   }, []);
 
@@ -243,12 +265,16 @@ Professional edge, decoded for the retail trader.
                 </div>
               </div>
 
-              <img
+              <Image
                 src="/landing/laptop.png"
+                width={705}
+                height={412}
                 className="scene-laptop__frame"
                 alt=""
                 aria-hidden
                 draggable={false}
+                sizes="(max-width: 1024px) 90vw, 560px"
+                priority={false}
               />
             </div>
           </div>

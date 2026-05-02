@@ -53,87 +53,114 @@ export default function MarketChart({ watermarkLabel = '' }: Props) {
   const chartRef = useRef<IChartApi | null>(null);
 
   const [seed] = useState(() => Math.floor(Math.random() * 10_000) || 1337);
-  const candles = useMemo(() => generateCandles(seed, 120), [seed]);
+  const candles = useMemo(() => generateCandles(seed, 72), [seed]);
 
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
 
-    const chart = createChart(el, {
-      width: el.clientWidth,
-      height: el.clientHeight,
-      layout: {
-        background: { type: ColorType.Solid, color: 'transparent' },
-        textColor: 'rgba(255,255,255,0.45)',
-        fontFamily: 'DM Sans, system-ui, sans-serif',
-      },
-      grid: {
-        vertLines: { color: 'rgba(255,255,255,0.05)' },
-        horzLines: { color: 'rgba(255,255,255,0.04)' },
-      },
-      rightPriceScale: {
-        borderColor: 'rgba(255,255,255,0.08)',
-        textColor: 'rgba(255,255,255,0.38)',
-      },
-      timeScale: {
-        borderColor: 'rgba(255,255,255,0.08)',
-        timeVisible: true,
-        secondsVisible: false,
-      },
-      crosshair: {
-        vertLine: { color: 'rgba(74,222,128,0.25)', labelBackgroundColor: 'rgba(74,222,128,0.85)' },
-        horzLine: { color: 'rgba(255,255,255,0.12)', labelBackgroundColor: 'rgba(255,255,255,0.15)' },
-      },
-      handleScroll: {
-        mouseWheel: true,
-        pressedMouseMove: true,
-        horzTouchDrag: true,
-        vertTouchDrag: false,
-      },
-      handleScale: {
-        mouseWheel: true,
-        pinch: true,
-        axisPressedMouseMove: true,
-      },
-    });
+    let mounted = false;
+    let chart: IChartApi | null = null;
+    let ro: ResizeObserver | undefined;
 
-    chartRef.current = chart;
+    const mountChart = () => {
+      if (mounted) return;
+      mounted = true;
 
-    const series = chart.addSeries(CandlestickSeries, {
-      upColor: 'rgba(74,222,128,0.95)',
-      downColor: 'rgba(248,113,113,0.9)',
-      borderUpColor: 'rgba(74,222,128,0.95)',
-      borderDownColor: 'rgba(248,113,113,0.9)',
-      wickUpColor: 'rgba(167,243,208,0.9)',
-      wickDownColor: 'rgba(254,202,202,0.8)',
-    });
-
-    series.setData(candles);
-
-    chart.timeScale().fitContent();
-    const pane = chart.panes()[0];
-    if (pane && watermarkLabel) {
-      createTextWatermark(pane, {
-        horzAlign: 'center',
-        vertAlign: 'center',
-        lines: [
-          {
-            text: watermarkLabel.slice(0, 48).toUpperCase(),
-            color: 'rgba(255,255,255,0.06)',
-            fontSize: 18,
-          },
-        ],
+      chart = createChart(el, {
+        width: el.clientWidth,
+        height: el.clientHeight,
+        layout: {
+          background: { type: ColorType.Solid, color: 'transparent' },
+          textColor: 'rgba(255,255,255,0.45)',
+          fontFamily: 'DM Sans, system-ui, sans-serif',
+        },
+        grid: {
+          vertLines: { color: 'rgba(255,255,255,0.05)' },
+          horzLines: { color: 'rgba(255,255,255,0.04)' },
+        },
+        rightPriceScale: {
+          borderColor: 'rgba(255,255,255,0.08)',
+          textColor: 'rgba(255,255,255,0.38)',
+        },
+        timeScale: {
+          borderColor: 'rgba(255,255,255,0.08)',
+          timeVisible: true,
+          secondsVisible: false,
+        },
+        crosshair: {
+          vertLine: { color: 'rgba(74,222,128,0.25)', labelBackgroundColor: 'rgba(74,222,128,0.85)' },
+          horzLine: { color: 'rgba(255,255,255,0.12)', labelBackgroundColor: 'rgba(255,255,255,0.15)' },
+        },
+        handleScroll: {
+          mouseWheel: true,
+          pressedMouseMove: true,
+          horzTouchDrag: true,
+          vertTouchDrag: false,
+        },
+        handleScale: {
+          mouseWheel: true,
+          pinch: true,
+          axisPressedMouseMove: true,
+        },
       });
+
+      chartRef.current = chart;
+
+      const series = chart.addSeries(CandlestickSeries, {
+        upColor: 'rgba(74,222,128,0.95)',
+        downColor: 'rgba(248,113,113,0.9)',
+        borderUpColor: 'rgba(74,222,128,0.95)',
+        borderDownColor: 'rgba(248,113,113,0.9)',
+        wickUpColor: 'rgba(167,243,208,0.9)',
+        wickDownColor: 'rgba(254,202,202,0.8)',
+      });
+
+      series.setData(candles);
+
+      chart.timeScale().fitContent();
+      const pane = chart.panes()[0];
+      if (pane && watermarkLabel) {
+        createTextWatermark(pane, {
+          horzAlign: 'center',
+          vertAlign: 'center',
+          lines: [
+            {
+              text: watermarkLabel.slice(0, 48).toUpperCase(),
+              color: 'rgba(255,255,255,0.06)',
+              fontSize: 18,
+            },
+          ],
+        });
+      }
+
+      ro = new ResizeObserver(() => {
+        chart?.applyOptions({ width: el.clientWidth, height: el.clientHeight });
+      });
+      ro.observe(el);
+    };
+
+    const io = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          mountChart();
+          io.disconnect();
+        }
+      },
+      { threshold: 0, rootMargin: '160px 0px' },
+    );
+    io.observe(el);
+
+    const r = el.getBoundingClientRect();
+    if (r.bottom > 0 && r.top < window.innerHeight + 200) {
+      mountChart();
+      io.disconnect();
     }
 
-    const ro = new ResizeObserver(() => {
-      chart.applyOptions({ width: el.clientWidth, height: el.clientHeight });
-    });
-    ro.observe(el);
-
     return () => {
-      ro.disconnect();
-      chart.remove();
+      io.disconnect();
+      ro?.disconnect();
+      chart?.remove();
       chartRef.current = null;
     };
   }, [candles, watermarkLabel]);

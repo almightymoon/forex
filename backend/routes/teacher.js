@@ -130,6 +130,7 @@ router.get('/debug-student-count', authenticateToken, requireTeacher, async (req
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
 router.use(requireTeacher);
+router.use('/monthly-progress', require('./landingMonthlyProgressRoutes'));
 
 // Get teacher dashboard overview
 router.get('/dashboard', async (req, res) => {

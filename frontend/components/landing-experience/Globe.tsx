@@ -107,7 +107,7 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
     const h = container.clientHeight;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isAuth ? 2 : 1.5));
     renderer.setSize(w, h);
     renderer.toneMapping = THREE.ReinhardToneMapping;
     renderer.toneMappingExposure = isAuth ? 1.14 : 0.75;
@@ -136,7 +136,7 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
     scene.add(rim);
 
     const starGeo = new THREE.BufferGeometry();
-    const starCount = 3200;
+    const starCount = 1400;
     const starPos = new Float32Array(starCount * 3);
     const starSizes = new Float32Array(starCount);
     for (let i = 0; i < starCount; i++) {
@@ -333,10 +333,18 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
 
     const labelPositions = HUBS.map((hub) => polar2Vec3(hub.lat, hub.lng, 0.16));
     const projVec = new THREE.Vector3();
+    const toCameraScratch = new THREE.Vector3();
 
-    let rafId: number;
-    const animate = () => {
-      rafId = requestAnimationFrame(animate);
+    /** Pause rendering when the globe scrolls off-screen (hero only) to cut main-thread/WebGL cost. */
+    const visibility = { heroVisible: isAuth };
+    let rafId = 0;
+
+    const pump = () => {
+      if (!isAuth && !visibility.heroVisible) {
+        rafId = 0;
+        return;
+      }
+      rafId = requestAnimationFrame(pump);
       controls.update();
       composer.render();
 
@@ -345,7 +353,7 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
       HUBS.forEach((_, i) => {
         const el = labelRefs.current[i];
         if (!el) return;
-        const toCamera = camera.position.clone().sub(hubWorldPositions[i]);
+        const toCamera = toCameraScratch.copy(camera.position).sub(hubWorldPositions[i]);
         if (toCamera.dot(hubWorldPositions[i]) <= 0) {
           el.style.opacity = '0';
           return;
@@ -358,9 +366,33 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
         el.style.opacity = '1';
       });
     };
-    animate();
+
+    const kick = () => {
+      if (!rafId) rafId = requestAnimationFrame(pump);
+    };
+
+    let io: IntersectionObserver | undefined;
+    if (!isAuth) {
+      const r = container.getBoundingClientRect();
+      visibility.heroVisible = r.bottom > -80 && r.top < window.innerHeight + 120;
+      io = new IntersectionObserver(
+        ([entry]) => {
+          visibility.heroVisible = entry.isIntersecting;
+          if (visibility.heroVisible) kick();
+          else {
+            cancelAnimationFrame(rafId);
+            rafId = 0;
+          }
+        },
+        { threshold: 0, rootMargin: '120px 0px' },
+      );
+      io.observe(container);
+    }
+
+    kick();
 
     return () => {
+      io?.disconnect();
       releaseGlobeTouchScroll?.();
       cancelAnimationFrame(rafId);
       clearTimeout(resumeTimer);

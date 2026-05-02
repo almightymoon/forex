@@ -69,6 +69,8 @@ router.use(async (req, _res, next) => {
   next();
 });
 
+router.use('/monthly-progress', require('./landingMonthlyProgressRoutes'));
+
 // @route   GET /api/admin/activity-logs
 // @desc    List activity/audit logs (admin only)
 // @access  Private (Admin)

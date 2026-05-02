@@ -14,6 +14,7 @@ import Community from './components/Community';
 import LiveSessions from './components/LiveSessions';
 import TradingSignals from './components/TradingSignals';
 import LoadingSpinner from './components/LoadingSpinner';
+import MonthlyProgressLandingEditor from '../../components/MonthlyProgressLandingEditor';
 import { Course, Student, LiveSession, Analytics as AnalyticsType } from './types';
 import { getStatusColor, getSessionStatusColor, calculateAnalytics } from './utils/helpers';
 import { useToast } from '../../components/Toast';
@@ -321,6 +322,10 @@ export default function TeacherDashboard() {
         <CertificateManagement />
       )}
 
+        {activeTab === 'landing-progress' && (
+          <MonthlyProgressLandingEditor apiRoot="api/teacher/monthly-progress" />
+        )}
+
         {/* Other tabs placeholder */}
         {activeTab !== 'overview' && 
          activeTab !== 'students' && 
@@ -331,6 +336,7 @@ export default function TeacherDashboard() {
          activeTab !== 'signals' && 
          activeTab !== 'communications' && 
          activeTab !== 'community' && 
+         activeTab !== 'landing-progress' &&
          activeTab !== 'certificates' && (
           <div className="text-center py-12">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">

@@ -11,6 +11,7 @@ const Section3 = lazy(() => import('../../components/landing-experience/Section3
 const Section4 = lazy(() => import('../../components/landing-experience/Section4'));
 const Section5 = lazy(() => import('../../components/landing-experience/Section5'));
 const SectionLetsWork = lazy(() => import('../../components/landing-experience/SectionLetsWork'));
+const SectionMonthlyProgress = lazy(() => import('../../components/landing-experience/SectionMonthlyProgress'));
 const SectionTestimonials = lazy(() => import('../../components/landing-experience/SectionTestimonials'));
 const Footer = lazy(() => import('../../components/landing-experience/Footer'));
 
@@ -40,6 +41,7 @@ export default function HomePage() {
           <Section3 />
           <Section4 />
           <Section5 />
+          <SectionMonthlyProgress />
           <SectionLetsWork />
           <SectionTestimonials />
           <Footer />
