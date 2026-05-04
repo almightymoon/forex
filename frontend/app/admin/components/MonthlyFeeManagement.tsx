@@ -2,7 +2,32 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { CheckCircle, Eye, History, Loader2, Search, UserCircle } from 'lucide-react';
+import {
+  CheckCircle,
+  Eye,
+  History,
+  Loader2,
+  Search,
+  UserCircle,
+  Unlock,
+  CalendarRange
+} from 'lucide-react';
+
+/** Due month ISO (UTC) → YYYY-MM of the following UTC month (billing anchor that waives the due month). */
+function nextUtcMonthYYYYMM(iso: string): string | null {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth();
+    const next = new Date(Date.UTC(y, m + 1, 1, 0, 0, 0, 0));
+    const Y = next.getUTCFullYear();
+    const Mo = String(next.getUTCMonth() + 1).padStart(2, '0');
+    return `${Y}-${Mo}`;
+  } catch {
+    return null;
+  }
+}
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
 import { Payment, User } from './types';
@@ -38,6 +63,10 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
   const [historyTarget, setHistoryTarget] = useState<{ id: string; label: string } | null>(null);
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [openingProfileId, setOpeningProfileId] = useState<string | null>(null);
+  const [selectedPendingIds, setSelectedPendingIds] = useState<Set<string>>(() => new Set());
+  const [bulkAnchorMonth, setBulkAnchorMonth] = useState('');
+  const [bulkBusy, setBulkBusy] = useState<'anchor' | 'clear' | 'unblock' | null>(null);
+  const [rowBusyKey, setRowBusyKey] = useState<string | null>(null);
 
   const loadOverdueUsers = useCallback(async () => {
     try {
@@ -174,6 +203,240 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
     loadOverdueUsers();
   }, [view, loadOverdueUsers]);
 
+  useEffect(() => {
+    if (overdueMeta.dueForMonth && typeof overdueMeta.dueForMonth === 'string') {
+      const ym = overdueMeta.dueForMonth.slice(0, 7);
+      if (/^\d{4}-\d{2}$/.test(ym)) setBulkAnchorMonth(ym);
+    }
+  }, [overdueMeta.dueForMonth]);
+
+  useEffect(() => {
+    const valid = new Set(
+      overdueUsers
+        .map((r: { user?: { _id?: string } }) => (r.user?._id ? String(r.user._id) : ''))
+        .filter(Boolean)
+    );
+    setSelectedPendingIds((prev) => new Set([...prev].filter((id) => valid.has(id))));
+  }, [overdueUsers]);
+
+  const selectablePendingIds = useMemo(
+    () =>
+      filteredPendingRows
+        .map((r: { user?: { _id?: string } }) => (r.user?._id ? String(r.user._id) : ''))
+        .filter(Boolean),
+    [filteredPendingRows]
+  );
+
+  const allVisibleSelected =
+    selectablePendingIds.length > 0 &&
+    selectablePendingIds.every((id) => selectedPendingIds.has(id));
+
+  const togglePendingRowSelected = (id: string) => {
+    setSelectedPendingIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllVisiblePending = () => {
+    setSelectedPendingIds((prev) => {
+      const next = new Set(prev);
+      if (allVisibleSelected) {
+        selectablePendingIds.forEach((id) => next.delete(id));
+      } else {
+        selectablePendingIds.forEach((id) => next.add(id));
+      }
+      return next;
+    });
+  };
+
+  const runBulkPutAnchor = async (month: string) => {
+    const ids = [...selectedPendingIds];
+    if (!ids.length) {
+      showToast('Select at least one user', 'error');
+      return;
+    }
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      showToast('Choose a valid month (YYYY-MM, UTC)', 'error');
+      return;
+    }
+    const token = localStorage.getItem('token');
+    setBulkBusy('anchor');
+    let ok = 0;
+    let fail = 0;
+    try {
+      for (const id of ids) {
+        try {
+          const res = await fetch(buildApiUrl(`api/admin/users/${id}/monthly-fee-billing-anchor`), {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ effectiveFromMonth: month })
+          });
+          if (res.ok) ok += 1;
+          else fail += 1;
+        } catch {
+          fail += 1;
+        }
+      }
+      showToast(
+        fail ? `Billing start set for ${ok} user(s), ${fail} failed.` : `Billing start set for ${ok} user(s).`,
+        fail && !ok ? 'error' : 'success'
+      );
+      setSelectedPendingIds(new Set());
+      await loadOverdueUsers();
+    } finally {
+      setBulkBusy(null);
+    }
+  };
+
+  const runBulkClearAnchors = async () => {
+    const ids = [...selectedPendingIds];
+    if (!ids.length) {
+      showToast('Select at least one user', 'error');
+      return;
+    }
+    const token = localStorage.getItem('token');
+    setBulkBusy('clear');
+    let ok = 0;
+    let fail = 0;
+    try {
+      for (const id of ids) {
+        try {
+          const res = await fetch(buildApiUrl(`api/admin/users/${id}/monthly-fee-billing-anchor`), {
+            method: 'PUT',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ clear: true })
+          });
+          if (res.ok) ok += 1;
+          else fail += 1;
+        } catch {
+          fail += 1;
+        }
+      }
+      showToast(
+        fail ? `Cleared anchor for ${ok} user(s), ${fail} failed.` : `Cleared billing anchor for ${ok} user(s).`,
+        fail && !ok ? 'error' : 'success'
+      );
+      setSelectedPendingIds(new Set());
+      await loadOverdueUsers();
+    } finally {
+      setBulkBusy(null);
+    }
+  };
+
+  const runBulkUnblockAccess = async () => {
+    const ids = [...selectedPendingIds];
+    if (!ids.length) {
+      showToast('Select at least one user', 'error');
+      return;
+    }
+    const token = localStorage.getItem('token');
+    setBulkBusy('unblock');
+    let ok = 0;
+    let skip = 0;
+    try {
+      for (const id of ids) {
+        try {
+          const res = await fetch(buildApiUrl(`api/admin/users/${id}/monthly-fee-clear-access-block`), {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ cancelPending: false })
+          });
+          if (res.ok) ok += 1;
+          else skip += 1;
+        } catch {
+          skip += 1;
+        }
+      }
+      showToast(
+        ok
+          ? `Removed access block for ${ok} user(s)${skip ? ` (${skip} had no admin block).` : '.'}`
+          : `No admin access blocks matched (${skip} user(s)).`,
+        ok ? 'success' : 'error'
+      );
+      setSelectedPendingIds(new Set());
+      await loadOverdueUsers();
+    } finally {
+      setBulkBusy(null);
+    }
+  };
+
+  const putBillingAnchorForUser = async (userId: string, effectiveFromMonth: string) => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(buildApiUrl(`api/admin/users/${userId}/monthly-fee-billing-anchor`), {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ effectiveFromMonth })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showToast((data as { error?: string }).error || 'Request failed', 'error');
+      return false;
+    }
+    showToast((data as { message?: string }).message || 'Saved', 'success');
+    return true;
+  };
+
+  const postClearAccessBlock = async (userId: string) => {
+    const token = localStorage.getItem('token');
+    const res = await fetch(buildApiUrl(`api/admin/users/${userId}/monthly-fee-clear-access-block`), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ cancelPending: false })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      showToast((data as { error?: string }).error || 'No admin block on this user', 'error');
+      return false;
+    }
+    showToast((data as { message?: string }).message || 'Unblocked', 'success');
+    return true;
+  };
+
+  const handleRowExtendFromDue = async (uid: string, dueForMonth?: string) => {
+    const ym = dueForMonth ? nextUtcMonthYYYYMM(dueForMonth) : null;
+    if (!ym) {
+      showToast('Could not derive next month from due date', 'error');
+      return;
+    }
+    setRowBusyKey(`${uid}:extend`);
+    try {
+      if (await putBillingAnchorForUser(uid, ym)) {
+        await loadOverdueUsers();
+      }
+    } finally {
+      setRowBusyKey(null);
+    }
+  };
+
+  const handleRowUnblock = async (uid: string) => {
+    setRowBusyKey(`${uid}:unblock`);
+    try {
+      if (await postClearAccessBlock(uid)) {
+        await loadOverdueUsers();
+      }
+    } finally {
+      setRowBusyKey(null);
+    }
+  };
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
@@ -280,6 +543,59 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                 ))}
               </select>
             </div>
+
+            {view === 'overdue' && !overdueLoading && !overdueError && overdueUsers.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 mb-4 p-3 rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/80 dark:bg-violet-950/30 text-violet-950 dark:text-violet-100">
+                <span className="text-sm font-semibold shrink-0">{selectedPendingIds.size} selected</span>
+                <button
+                  type="button"
+                  disabled={selectedPendingIds.size === 0}
+                  onClick={() => setSelectedPendingIds(new Set())}
+                  className="text-xs font-medium px-2 py-1 rounded-lg border border-violet-400 dark:border-violet-500 hover:bg-violet-100/80 dark:hover:bg-violet-900/40 disabled:opacity-40"
+                >
+                  Clear selection
+                </button>
+                <span className="hidden sm:inline h-6 w-px bg-violet-300 dark:bg-violet-600 shrink-0" aria-hidden />
+                <label className="flex flex-wrap items-center gap-2 text-xs font-medium text-violet-900 dark:text-violet-200">
+                  <span className="shrink-0">Billing starts (UTC)</span>
+                  <input
+                    type="month"
+                    value={bulkAnchorMonth}
+                    onChange={(e) => setBulkAnchorMonth(e.target.value)}
+                    className="rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm text-gray-900 dark:text-white"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={bulkBusy !== null || selectedPendingIds.size === 0}
+                  onClick={() => void runBulkPutAnchor(bulkAnchorMonth)}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+                >
+                  {bulkBusy === 'anchor' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CalendarRange className="w-3.5 h-3.5" />}
+                  Apply to selected
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkBusy !== null || selectedPendingIds.size === 0}
+                  onClick={() => void runBulkClearAnchors()}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-violet-500 text-violet-900 dark:text-violet-100 hover:bg-violet-100/80 dark:hover:bg-violet-900/40 disabled:opacity-50"
+                >
+                  {bulkBusy === 'clear' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                  Clear anchors
+                </button>
+                <button
+                  type="button"
+                  disabled={bulkBusy !== null || selectedPendingIds.size === 0}
+                  onClick={() => void runBulkUnblockAccess()}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-violet-500 text-violet-900 dark:text-violet-100 hover:bg-violet-100/80 dark:hover:bg-violet-900/40 disabled:opacity-50"
+                  title="Removes admin “block until paid” only when that pending fee exists"
+                >
+                  {bulkBusy === 'unblock' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Unlock className="w-3.5 h-3.5" />}
+                  Unblock access
+                </button>
+              </div>
+            )}
+
             {overdueMeta.note && (
               <p className="text-sm text-amber-700 dark:text-amber-300 mb-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl px-4 py-3">
                 {overdueMeta.note}
@@ -300,6 +616,24 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-gray-200 dark:border-gray-700">
+                      <th className="w-10 py-3 px-2 text-left">
+                        <input
+                          type="checkbox"
+                          className="rounded border-gray-400 text-violet-600 focus:ring-violet-500"
+                          checked={allVisibleSelected}
+                          ref={(el) => {
+                            if (el) {
+                              el.indeterminate =
+                                !allVisibleSelected &&
+                                selectablePendingIds.some((id) => selectedPendingIds.has(id));
+                            }
+                          }}
+                          onChange={toggleSelectAllVisiblePending}
+                          disabled={selectablePendingIds.length === 0}
+                          title="Select all rows in this list"
+                          aria-label="Select all rows"
+                        />
+                      </th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">User</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Package</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Due month</th>
@@ -333,11 +667,26 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                           ? 'bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300'
                           : 'bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200';
                       const uid = row.user?._id ? String(row.user._id) : '';
+                      const rowBusy = rowBusyKey?.startsWith(`${uid}:`) ?? false;
+                      const canQuickExtend =
+                        !!uid &&
+                        !!row.dueForMonth &&
+                        status !== 'no_fee_required';
                       return (
                         <tr
                           key={(row.user?._id || idx) as any}
                           className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
                         >
+                          <td className="py-4 px-2 w-10 align-middle">
+                            <input
+                              type="checkbox"
+                              className="rounded border-gray-400 text-violet-600 focus:ring-violet-500"
+                              checked={!!uid && selectedPendingIds.has(uid)}
+                              disabled={!uid}
+                              onChange={() => uid && togglePendingRowSelected(uid)}
+                              aria-label={`Select ${row.user?.firstName || ''} ${row.user?.lastName || ''}`}
+                            />
+                          </td>
                           <td className="py-4 px-4">
                             <div>
                               <p className="font-medium text-gray-900 dark:text-white">
@@ -389,6 +738,34 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                             <div className="flex items-center justify-end gap-1 flex-wrap">
                               {uid ? (
                                 <>
+                                  {canQuickExtend && (
+                                    <button
+                                      type="button"
+                                      onClick={() => void handleRowExtendFromDue(uid, row.dueForMonth)}
+                                      disabled={rowBusy}
+                                      className="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors disabled:opacity-50"
+                                      title="Defer cycle: set billing start to the UTC month after the due month"
+                                    >
+                                      {rowBusyKey === `${uid}:extend` ? (
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                      ) : (
+                                        <CalendarRange className="w-4 h-4" />
+                                      )}
+                                    </button>
+                                  )}
+                                  <button
+                                    type="button"
+                                    onClick={() => void handleRowUnblock(uid)}
+                                    disabled={rowBusy}
+                                    className="p-2 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors disabled:opacity-50"
+                                    title="Remove admin access block (if this user has a blocked admin-imposed fee)"
+                                  >
+                                    {rowBusyKey === `${uid}:unblock` ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : (
+                                      <Unlock className="w-4 h-4" />
+                                    )}
+                                  </button>
                                   <button
                                     type="button"
                                     onClick={() =>
@@ -439,7 +816,7 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                     })}
                     {filteredPendingRows.length === 0 && (
                       <tr>
-                        <td colSpan={7} className="py-12 text-center text-gray-500 dark:text-gray-400">
+                        <td colSpan={8} className="py-12 text-center text-gray-500 dark:text-gray-400">
                           {overdueUsers.length > 0 && pendingSearch.trim()
                             ? 'No rows match your search.'
                             : overdueUsers.length === 0
