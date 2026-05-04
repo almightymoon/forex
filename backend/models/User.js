@@ -268,7 +268,9 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [500, 'Reason cannot exceed 500 characters']
-  }
+  },
+  /** UTC first day of month: recurring monthly-fee rules apply only for “due” months on/after this (defers obligation). */
+  monthlyFeeBillingStartsMonthStart: Date
 }, {
   timestamps: true,
   toJSON: { virtuals: true },

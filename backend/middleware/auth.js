@@ -535,6 +535,13 @@ const requirePackageSubscription = async (req, res, next) => {
       // If the required month falls inside the free period window, no fee required yet.
       if (requiredMonthStart < freeUntil) return next();
 
+      // Admin-set billing start: no obligation for calendar months strictly before this UTC month.
+      const anchorRaw = req.user.monthlyFeeBillingStartsMonthStart;
+      if (anchorRaw) {
+        const billingStart = startOfUtcMonth(new Date(anchorRaw));
+        if (requiredMonthStart.getTime() < billingStart.getTime()) return next();
+      }
+
       // Still within grace days: don't block (but user can pay anytime).
       if (now.getUTCDate() <= graceDays) return next();
 

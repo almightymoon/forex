@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { Loader2, Copy, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2, Copy, CheckCircle, AlertCircle, RefreshCw, Unlock, CalendarRange } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
 
@@ -37,6 +37,15 @@ export default function MonthlyFeeHistoryPanel({ userId, onConfirmed, embedded, 
     entries: HistoryEntry[];
   } | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [anchorMonth, setAnchorMonth] = useState('');
+  const [reliefBusy, setReliefBusy] = useState<'unblock' | 'cancel' | 'anchor' | 'clearAnchor' | null>(null);
+
+  const isoToMonthInput = (iso: string) => {
+    const d = new Date(iso);
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -68,6 +77,15 @@ export default function MonthlyFeeHistoryPanel({ userId, onConfirmed, embedded, 
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    const iso = data?.policy?.monthlyFeeBillingStartsMonthStart;
+    if (typeof iso === 'string' && iso) {
+      setAnchorMonth(isoToMonthInput(iso));
+    } else {
+      setAnchorMonth('');
+    }
+  }, [data?.policy?.monthlyFeeBillingStartsMonthStart]);
 
   const copy = async (text: string, label: string) => {
     try {
@@ -120,7 +138,87 @@ export default function MonthlyFeeHistoryPanel({ userId, onConfirmed, embedded, 
     dueForMonth?: string;
     paidForCurrentCycle?: boolean;
     packageName?: string;
+    reason?: string;
+    adminImposedAccessBlock?: boolean;
+    monthlyFeeBillingStartsMonthStart?: string | null;
+    billingAnchorWaived?: boolean;
   };
+
+  const showAdminRelief =
+    policy &&
+    policy.reason !== 'staff_exempt' &&
+    policy.reason !== 'no_completed_package';
+
+  const canSetBillingAnchor =
+    !!showAdminRelief &&
+    (policy.monthlyFeeEnabled !== false || !!policy.monthlyFeeBillingStartsMonthStart);
+
+  const postRelief = async (
+    relativePath: string,
+    method: 'POST' | 'PUT',
+    body: object,
+    busy: typeof reliefBusy
+  ) => {
+    const token = localStorage.getItem('token');
+    setReliefBusy(busy);
+    try {
+      const res = await fetch(buildApiUrl(relativePath), {
+        method,
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast((json as { error?: string }).error || 'Request failed', 'error');
+        return;
+      }
+      showToast((json as { message?: string }).message || 'Saved', 'success');
+      onConfirmed?.();
+      await load();
+    } finally {
+      setReliefBusy(null);
+    }
+  };
+
+  const handleUnblockAccessOnly = () =>
+    postRelief(
+      `api/admin/users/${userId}/monthly-fee-clear-access-block`,
+      'POST',
+      { cancelPending: false },
+      'unblock'
+    );
+
+  const handleCancelBlockedPending = () =>
+    postRelief(
+      `api/admin/users/${userId}/monthly-fee-clear-access-block`,
+      'POST',
+      { cancelPending: true },
+      'cancel'
+    );
+
+  const handleSaveBillingAnchor = () => {
+    if (!anchorMonth || !/^\d{4}-\d{2}$/.test(anchorMonth)) {
+      showToast('Choose a month (UTC)', 'error');
+      return;
+    }
+    return postRelief(
+      `api/admin/users/${userId}/monthly-fee-billing-anchor`,
+      'PUT',
+      { effectiveFromMonth: anchorMonth },
+      'anchor'
+    );
+  };
+
+  const handleClearBillingAnchor = () =>
+    postRelief(
+      `api/admin/users/${userId}/monthly-fee-billing-anchor`,
+      'PUT',
+      { clear: true },
+      'clearAnchor'
+    );
 
   return (
     <div className="space-y-4">
@@ -185,8 +283,99 @@ export default function MonthlyFeeHistoryPanel({ userId, onConfirmed, embedded, 
                   </span>
                 </p>
               )}
+              {policy.monthlyFeeBillingStartsMonthStart && (
+                <p className="text-xs text-amber-800/90 dark:text-amber-200/90">
+                  Billing start (UTC):{' '}
+                  {new Date(policy.monthlyFeeBillingStartsMonthStart).toLocaleString(undefined, {
+                    month: 'long',
+                    year: 'numeric',
+                    timeZone: 'UTC'
+                  })}{' '}
+                  {policy.billingAnchorWaived ? '— obligation for earlier months is waived.' : ''}
+                </p>
+              )}
             </div>
           )}
+
+          {showAdminRelief && (
+            <div className="rounded-xl border border-violet-200 dark:border-violet-800 bg-violet-50/80 dark:bg-violet-950/30 px-4 py-3 text-sm text-violet-950 dark:text-violet-100 space-y-3">
+              <div className="flex items-center gap-2 font-medium text-violet-900 dark:text-violet-100">
+                <Unlock className="w-4 h-4 shrink-0" />
+                Admin: access &amp; billing
+              </div>
+              {policy.adminImposedAccessBlock && (
+                <div className="space-y-2">
+                  <p className="text-xs text-violet-800 dark:text-violet-200 leading-snug">
+                    This user is blocked until an admin-imposed monthly fee is paid. You can lift the block (they keep a
+                    pending fee) or cancel that pending fee entirely.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      disabled={reliefBusy !== null}
+                      onClick={() => void handleUnblockAccessOnly()}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+                    >
+                      {reliefBusy === 'unblock' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                      Unblock access (keep fee)
+                    </button>
+                    <button
+                      type="button"
+                      disabled={reliefBusy !== null}
+                      onClick={() => void handleCancelBlockedPending()}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-violet-400 text-violet-900 dark:text-violet-100 dark:border-violet-500 hover:bg-violet-100/80 dark:hover:bg-violet-900/40 disabled:opacity-50"
+                    >
+                      {reliefBusy === 'cancel' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                      Cancel pending fee
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {canSetBillingAnchor && (
+                <div className="pt-1 border-t border-violet-200/80 dark:border-violet-700/80 space-y-2">
+                  <div className="flex items-center gap-2 text-xs font-medium text-violet-900 dark:text-violet-100">
+                    <CalendarRange className="w-4 h-4 shrink-0" />
+                    Recurring fee starts (UTC month)
+                  </div>
+                  <p className="text-[11px] text-violet-800 dark:text-violet-200 leading-snug">
+                    Obligation applies only for fee months on or after this month (extends or resets the cycle). Uses the
+                    same UTC calendar rules as the rest of monthly billing.
+                  </p>
+                  <div className="flex flex-wrap items-end gap-2">
+                    <label className="flex flex-col gap-0.5 text-[11px] text-violet-800 dark:text-violet-300">
+                      <span>First billing month</span>
+                      <input
+                        type="month"
+                        value={anchorMonth}
+                        onChange={(e) => setAnchorMonth(e.target.value)}
+                        className="rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm text-gray-900 dark:text-white"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      disabled={reliefBusy !== null}
+                      onClick={() => void handleSaveBillingAnchor()}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-50"
+                    >
+                      {reliefBusy === 'anchor' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                      Save
+                    </button>
+                    <button
+                      type="button"
+                      disabled={reliefBusy !== null || !policy.monthlyFeeBillingStartsMonthStart}
+                      onClick={() => void handleClearBillingAnchor()}
+                      className="inline-flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-violet-400 text-violet-900 dark:text-violet-100 dark:border-violet-500 hover:bg-violet-100/80 dark:hover:bg-violet-900/40 disabled:opacity-50"
+                    >
+                      {reliefBusy === 'clearAnchor' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+                      Clear
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {data?.latestPackagePayment && (
             <div className="text-xs text-gray-500 dark:text-gray-400">
               Latest package: {(data.latestPackagePayment as { packageName?: string }).packageName} — purchased{' '}

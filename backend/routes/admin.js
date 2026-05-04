@@ -504,6 +504,158 @@ router.get('/users/:id/monthly-fee-status', async (req, res) => {
   }
 });
 
+function parseEffectiveFromMonthUtc(value) {
+  if (value == null || value === '') return { date: null };
+  const s = String(value).trim();
+  const m = /^(\d{4})-(\d{2})$/.exec(s);
+  if (!m) return { error: 'effectiveFromMonth must be YYYY-MM (UTC calendar month).' };
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  if (mo < 1 || mo > 12 || y < 2000 || y > 2100) return { error: 'Invalid effectiveFromMonth.' };
+  return { date: new Date(Date.UTC(y, mo - 1, 1, 0, 0, 0, 0)) };
+}
+
+// @route   POST /api/admin/users/:id/monthly-fee-clear-access-block
+// @desc    Remove “block until paid” from admin-imposed pending monthly fee; optionally cancel that pending payment
+// @access  Private (Admin)
+router.post('/users/:id/monthly-fee-clear-access-block', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid user id' });
+    }
+    const cancelPending =
+      req.body?.cancelPending === true || req.body?.cancelPending === 'true';
+
+    const target = await User.findById(req.params.id).select('role firstName lastName email').lean();
+    if (!target) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    if (['admin', 'teacher', 'instructor'].includes(target.role)) {
+      return res.status(400).json({ success: false, error: 'Not applicable for this account type' });
+    }
+
+    let pending = await Payment.findOne({
+      user: req.params.id,
+      type: 'monthly_fee',
+      status: 'pending',
+      'metadata.accessBlockedUntilPaid': '1'
+    })
+      .sort({ createdAt: -1 });
+
+    if (!pending && cancelPending) {
+      pending = await Payment.findOne({
+        user: req.params.id,
+        type: 'monthly_fee',
+        status: 'pending',
+        'metadata.adminImposed': '1'
+      })
+        .sort({ createdAt: -1 });
+    }
+
+    if (!pending) {
+      return res.status(404).json({
+        success: false,
+        error: cancelPending
+          ? 'No admin-imposed pending monthly fee found for this user.'
+          : 'No admin-blocked pending monthly fee found for this user.'
+      });
+    }
+
+    if (cancelPending) {
+      pending.status = 'cancelled';
+      pending.metadata = pending.metadata || new Map();
+      pending.metadata.set('cancelledByAdminId', String(req.user._id));
+      pending.metadata.set('cancelledAt', new Date().toISOString());
+      pending.metadata.set('cancelReason', 'admin_cancelled_pending');
+    } else {
+      pending.metadata = pending.metadata || new Map();
+      pending.metadata.set('accessBlockedUntilPaid', '0');
+      pending.metadata.set('accessBlockClearedByAdminId', String(req.user._id));
+      pending.metadata.set('accessBlockClearedAt', new Date().toISOString());
+    }
+    await pending.save();
+
+    res.json({
+      success: true,
+      message: cancelPending
+        ? 'Pending admin monthly fee was cancelled.'
+        : 'Access block removed; the user can use the app while the fee remains pending.',
+      paymentId: pending._id,
+      cancelled: cancelPending
+    });
+  } catch (error) {
+    console.error('Monthly fee clear access block error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to update payment' });
+  }
+});
+
+// @route   PUT /api/admin/users/:id/monthly-fee-billing-anchor
+// @desc    Set or clear UTC month when recurring monthly-fee obligation begins (defers prior months)
+// @access  Private (Admin)
+router.put('/users/:id/monthly-fee-billing-anchor', async (req, res) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({ success: false, error: 'Invalid user id' });
+    }
+
+    const target = await User.findById(req.params.id).select('role firstName lastName email').lean();
+    if (!target) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    if (['admin', 'teacher', 'instructor'].includes(target.role)) {
+      return res.status(400).json({ success: false, error: 'Not applicable for this account type' });
+    }
+
+    const clear =
+      req.body?.clear === true ||
+      req.body?.clear === 'true' ||
+      req.body?.effectiveFromMonth === null ||
+      req.body?.effectiveFromMonth === '';
+
+    if (clear) {
+      await User.findByIdAndUpdate(req.params.id, {
+        $unset: { monthlyFeeBillingStartsMonthStart: 1 }
+      });
+      return res.json({
+        success: true,
+        message: 'Monthly fee billing start cleared (default calendar rules).',
+        monthlyFeeBillingStartsMonthStart: null
+      });
+    }
+
+    const parsed = parseEffectiveFromMonthUtc(req.body?.effectiveFromMonth);
+    if (parsed.error) {
+      return res.status(400).json({ success: false, error: parsed.error });
+    }
+
+    const hasPackage = await Payment.exists({
+      user: req.params.id,
+      status: 'completed',
+      type: 'package'
+    });
+    if (!hasPackage) {
+      return res.status(400).json({
+        success: false,
+        error: 'User has no completed package purchase; billing anchor cannot be set.'
+      });
+    }
+
+    await User.findByIdAndUpdate(req.params.id, {
+      $set: { monthlyFeeBillingStartsMonthStart: parsed.date }
+    });
+
+    res.json({
+      success: true,
+      message:
+        'Monthly recurring fee will be enforced only for obligation months on or after this UTC month.',
+      monthlyFeeBillingStartsMonthStart: parsed.date.toISOString()
+    });
+  } catch (error) {
+    console.error('Monthly fee billing anchor error:', error);
+    res.status(500).json({ success: false, error: error.message || 'Failed to save billing anchor' });
+  }
+});
+
 // @route   GET /api/admin/users/:id/monthly-fee-history
 // @desc    Monthly fee payments with inferred "fee for month" (UTC) + current policy snapshot
 // @access  Private (Admin)

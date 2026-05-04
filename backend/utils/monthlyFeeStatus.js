@@ -74,7 +74,9 @@ function resolvePackageFromList(payment, packages) {
  * Monthly fee + overdue flags aligned with middleware/auth.js requirePackageSubscription.
  */
 async function getMonthlyFeeStatusForUser(userId, now = new Date()) {
-  const user = await User.findById(userId).select('role firstName lastName email').lean();
+  const user = await User.findById(userId)
+    .select('role firstName lastName email monthlyFeeBillingStartsMonthStart')
+    .lean();
   if (!user) {
     return { found: false, error: 'user_not_found' };
   }
@@ -146,12 +148,16 @@ async function getMonthlyFeeStatusForUser(userId, now = new Date()) {
     if (adminBlockingPending) {
       return adminImposedPolicy(adminBlockingPending);
     }
+    const anchorOnly = user.monthlyFeeBillingStartsMonthStart
+      ? startOfUtcMonth(new Date(user.monthlyFeeBillingStartsMonthStart))
+      : null;
     return {
       found: true,
       applies: true,
       reason: 'package_config_missing',
       packageNameFromPayment: (completedPackagePayment.package?.name || '').trim() || null,
       purchasedAt: completedPackagePayment.createdAt,
+      monthlyFeeBillingStartsMonthStart: anchorOnly ? anchorOnly.toISOString() : null,
       user: { firstName: user.firstName, lastName: user.lastName, email: user.email }
     };
   }
@@ -166,6 +172,9 @@ async function getMonthlyFeeStatusForUser(userId, now = new Date()) {
   const feeAmount = Number(pkg.monthlyFeeAmount ?? 50);
 
   if (!monthlyFeeEnabled) {
+    const anchorOnly = user.monthlyFeeBillingStartsMonthStart
+      ? startOfUtcMonth(new Date(user.monthlyFeeBillingStartsMonthStart))
+      : null;
     return {
       found: true,
       applies: true,
@@ -174,6 +183,7 @@ async function getMonthlyFeeStatusForUser(userId, now = new Date()) {
       packagePrice: pkg.price,
       message: 'No monthly fee for this package tier.',
       purchasedAt: completedPackagePayment.createdAt,
+      monthlyFeeBillingStartsMonthStart: anchorOnly ? anchorOnly.toISOString() : null,
       user: { firstName: user.firstName, lastName: user.lastName, email: user.email }
     };
   }
@@ -186,8 +196,16 @@ async function getMonthlyFeeStatusForUser(userId, now = new Date()) {
   const requiredMonthStart = addUtcMonths(currentMonthStart, -1);
   const requiredMonthEnd = currentMonthStart;
 
+  const billingAnchorStart = user.monthlyFeeBillingStartsMonthStart
+    ? startOfUtcMonth(new Date(user.monthlyFeeBillingStartsMonthStart))
+    : null;
+  const billingAnchorWaived = !!(
+    billingAnchorStart &&
+    requiredMonthStart.getTime() < billingAnchorStart.getTime()
+  );
+
   const withinFullFreeWindow = now < freeUntil;
-  const requiredMonthWaived = requiredMonthStart < freeUntil;
+  const requiredMonthWaived = requiredMonthStart < freeUntil || billingAnchorWaived;
 
   const paidFee = await Payment.findOne({
     user: userId,
@@ -226,6 +244,10 @@ async function getMonthlyFeeStatusForUser(userId, now = new Date()) {
     purchasedAt: purchasedAt.toISOString(),
     freeUntil: freeUntil.toISOString(),
     dueForMonth: requiredMonthStart.toISOString(),
+    monthlyFeeBillingStartsMonthStart: billingAnchorStart
+      ? billingAnchorStart.toISOString()
+      : null,
+    billingAnchorWaived,
     withinFullFreeWindow,
     requiredMonthWaived,
     withinGracePeriod: withinGrace,
@@ -278,7 +300,7 @@ async function listPendingMonthlyFeeStudents(opts = {}) {
 
   const userIds = packagePayments.map((p) => p._id).filter(Boolean);
   const students = await User.find({ _id: { $in: userIds }, role: 'student' })
-    .select('firstName lastName email isActive isVerified')
+    .select('firstName lastName email isActive isVerified monthlyFeeBillingStartsMonthStart')
     .lean();
   const userMap = new Map(students.map((u) => [u._id.toString(), u]));
 
@@ -324,6 +346,16 @@ async function listPendingMonthlyFeeStudents(opts = {}) {
     if (now < freeUntil) continue;
     // Still inside package free-months window for this billing month
     if (pastMonthStart < freeUntil) continue;
+
+    const billingAnchorStart = u.monthlyFeeBillingStartsMonthStart
+      ? startOfUtcMonth(new Date(u.monthlyFeeBillingStartsMonthStart))
+      : null;
+    if (
+      billingAnchorStart &&
+      pastMonthStart.getTime() < billingAnchorStart.getTime()
+    ) {
+      continue;
+    }
 
     const paid = await Payment.findOne({
       user: entry._id,
