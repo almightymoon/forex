@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { 
   Download, Search, Eye, CheckCircle, X, CreditCard, Wallet, 
   ArrowUpRight, Clock, AlertCircle, Edit, Save, XCircle, 
-  RefreshCw, Filter, DollarSign, User as UserIcon, Trash2, Loader2, ImageIcon, Mail
+  RefreshCw, Filter, DollarSign, User as UserIcon, Trash2, Loader2, ImageIcon, Mail, Copy
 } from 'lucide-react';
 import { Payment } from './types';
 import { buildApiUrl } from '../../../utils/api';
@@ -624,6 +624,44 @@ export default function PaymentManagement({
       setIsDeleting(false);
       setShowDeleteModal(false);
       setDeleteTarget(null);
+    }
+  };
+
+  const copyToClipboard = async (text: string) => {
+    const value = String(text ?? '');
+    if (!value.trim()) {
+      showToast('Nothing to copy', 'error');
+      return;
+    }
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        showToast('Copied to clipboard', 'success');
+        return;
+      }
+    } catch {
+      // fall through to legacy path
+    }
+
+    try {
+      const el = document.createElement('textarea');
+      el.value = value;
+      el.setAttribute('readonly', '');
+      el.style.position = 'fixed';
+      el.style.top = '-1000px';
+      el.style.left = '-1000px';
+      document.body.appendChild(el);
+      el.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(el);
+      if (ok) {
+        showToast('Copied to clipboard', 'success');
+      } else {
+        showToast('Copy failed', 'error');
+      }
+    } catch {
+      showToast('Copy failed', 'error');
     }
   };
 
@@ -1385,7 +1423,18 @@ export default function PaymentManagement({
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Wallet Address</label>
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Wallet Address</label>
+                  <button
+                    type="button"
+                    onClick={() => copyToClipboard(selectedWithdrawal.walletAddress)}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors text-sm"
+                    title="Copy wallet address"
+                  >
+                    <Copy className="w-4 h-4" />
+                    Copy
+                  </button>
+                </div>
                 <p className="text-gray-900 dark:text-white font-mono text-sm break-all bg-gray-50 dark:bg-gray-700 p-2 rounded">
                   {selectedWithdrawal.walletAddress}
                 </p>
