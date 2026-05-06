@@ -90,8 +90,17 @@ export default function Section5() {
 
     const loop = () => {
       if (rootRef.current && entryRef.current) {
-        const rect = rootRef.current.getBoundingClientRect();
         const vh = window.innerHeight;
+        const section = rootRef.current;
+
+        // Use document scroll position for robust progress (boundingClientRect can be skewed
+        // by transforms/overflow contexts and breaks the flip trigger on some layouts).
+        const start = section.offsetTop;
+        const maxScroll = Math.max(1, section.offsetHeight - vh);
+        const y = window.scrollY || window.pageYOffset || 0;
+        const raw = (y - start) / maxScroll;
+        const clamped = Math.max(0, Math.min(1, raw));
+        const rect = section.getBoundingClientRect();
 
         if (rect.top >= 0) {
           entryTgt.current = Math.max(0, Math.min(1, 1 - rect.top / vh));
@@ -106,19 +115,13 @@ export default function Section5() {
 
         const e = easeInOutQuart(entryProg.current);
 
-        let spreadTgt = 0;
-        let maxScroll = 0;
-        if (rect.top <= 0) {
-          maxScroll = rect.height - vh;
-          if (maxScroll > 0) {
-            spreadTgt = Math.max(0, Math.min(1, Math.abs(rect.top) / maxScroll));
-          }
-        }
+        // Spread + flip follow scroll progress while section is pinned.
+        // When not yet reached, keep at 0. When past end, clamp at 1.
+        const spreadTgt = clamped;
 
         let exitTgt = 0;
-        if (rect.top <= 0 && maxScroll > 1) {
-          const raw = Math.abs(rect.top) / maxScroll;
-          exitTgt = raw < 0.38 ? 0 : Math.min(1, (raw - 0.38) / 0.62);
+        if (spreadTgt > 0) {
+          exitTgt = spreadTgt < 0.38 ? 0 : Math.min(1, (spreadTgt - 0.38) / 0.62);
         }
         const edCurr = exitDepthProg.current;
         const edNext = edCurr + (exitTgt - edCurr) * 0.065;
