@@ -47,6 +47,7 @@ class ReferralCommissionService {
    */
   async getReferralPool(packageName, packageAmount) {
     const cfg = await this.getCommissionConfig(packageName);
+    if (cfg.packageCommissionEnabled === false) return 0;
     const poolPercentage = Number(cfg.referralPoolPercentage) || 0;
     return Math.round((packageAmount * poolPercentage) * 100) / 100;
   }
@@ -59,6 +60,7 @@ class ReferralCommissionService {
    */
   async getCompanyShare(packageName, packageAmount) {
     const cfg = await this.getCommissionConfig(packageName);
+    if (cfg.packageCommissionEnabled === false) return Math.round(packageAmount * 100) / 100;
     const poolPercentage = Number(cfg.referralPoolPercentage) || 0;
     return Math.round((packageAmount * (1 - poolPercentage)) * 100) / 100;
   }
@@ -68,6 +70,7 @@ class ReferralCommissionService {
     if (key === 'Unknown') {
       return {
         packageName: key,
+        packageCommissionEnabled: false,
         referralPoolPercentage: 0,
         commissionRates: { ...this.commissionRates }
       };
@@ -78,6 +81,7 @@ class ReferralCommissionService {
       if (!pkg) {
         return {
           packageName: key,
+          packageCommissionEnabled: false,
           referralPoolPercentage: 0,
           commissionRates: { ...this.commissionRates }
         };
@@ -94,6 +98,7 @@ class ReferralCommissionService {
 
       return {
         packageName: pkg.name,
+        packageCommissionEnabled: pkg.packageCommissionEnabled !== false,
         referralPoolPercentage:
           typeof pkg.referralPoolPercentage === 'number'
             ? pkg.referralPoolPercentage
@@ -103,6 +108,7 @@ class ReferralCommissionService {
     } catch (e) {
       return {
         packageName: key,
+        packageCommissionEnabled: false,
         referralPoolPercentage: 0,
         commissionRates: { ...this.commissionRates }
       };
@@ -226,6 +232,12 @@ class ReferralCommissionService {
       const normalized = this.normalizePackageName(packageNameRaw);
       const cfg = await this.getCommissionConfig(packageNameRaw);
       const packageName = cfg.packageName || normalized;
+
+      if (cfg.packageCommissionEnabled === false) {
+        console.log('[Commission] Package commission disabled for:', packageName, '- skipping distribution');
+        return [];
+      }
+
       const poolPct = cfg.referralPoolPercentage || 0;
 
       // Commission is ALWAYS from referral pool, never from package amount.

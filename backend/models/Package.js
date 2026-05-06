@@ -23,6 +23,7 @@ const packageSchema = new mongoose.Schema(
     sortOrder: { type: Number, default: 0 },
 
     // Commission configuration
+    packageCommissionEnabled: { type: Boolean, default: true },
     referralPoolPercentage: { type: Number, default: 0, min: 0, max: 1 },
     commissionRates: { type: commissionRatesSchema, default: () => ({}) },
 

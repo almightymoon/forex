@@ -1967,6 +1967,10 @@ html.scene-done .scroll-scene__layer {
   box-shadow: none;
   position: relative;
   overflow: hidden;
+  --ox: 0%;
+  --oy: 10px;
+  --or: 0deg;
+  z-index: 1;
 
   transform-origin: center center;
   transform: translate(

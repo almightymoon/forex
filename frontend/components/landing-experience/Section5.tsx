@@ -68,6 +68,23 @@ export default function Section5() {
 
   const many = plans.length > 3;
 
+  const getCardTransformVars = (idx: number, total: number) => {
+    if (total <= 1) {
+      return { ox: '0%', oy: '10px', or: '0deg', z: 1 };
+    }
+
+    const mid = (total - 1) / 2;
+    const d = mid - idx; // +right, -left
+    const abs = Math.abs(d);
+
+    const ox = `${d * 120}%`;
+    const oy = `${10 + abs * 34}px`;
+    const or = `${-d * 10}deg`;
+    const z = Math.round(10 - abs);
+
+    return { ox, oy, or, z };
+  };
+
   useEffect(() => {
     let rafId: number;
 
@@ -148,12 +165,22 @@ export default function Section5() {
             </div>
 
             <div className="s5__cards">
-              {plans.map((p, i) => (
-                <article
-                  key={p.id}
-                  className={`s5-card${p.badge ? ' s5-card--featured' : ''}`}
-                  style={{ '--fd': `${i * 0.1}` } as React.CSSProperties}
-                >
+              {plans.map((p, i) => {
+                const v = getCardTransformVars(i, plans.length);
+                return (
+                  <article
+                    key={p.id}
+                    className={`s5-card${p.badge ? ' s5-card--featured' : ''}`}
+                    style={
+                      {
+                        '--fd': `${i * 0.1}`,
+                        '--ox': v.ox,
+                        '--oy': v.oy,
+                        '--or': v.or,
+                        zIndex: v.z,
+                      } as React.CSSProperties
+                    }
+                  >
                   {p.badge && <div className="s5-card__badge">{p.badge}</div>}
 
                   <div className="s5-card__inner">
@@ -218,7 +245,8 @@ export default function Section5() {
                     </div>
                   </div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           </div>
         </div>

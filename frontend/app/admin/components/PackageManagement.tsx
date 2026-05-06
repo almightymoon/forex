@@ -18,6 +18,7 @@ export interface AdminPackage {
   image?: string;
   isActive: boolean;
   sortOrder?: number;
+  packageCommissionEnabled?: boolean;
   referralPoolPercentage?: number;
   commissionRates?: Partial<CommissionRates>;
   monthlyFeeReferralPoolPercentage?: number | null;
@@ -68,6 +69,7 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
     image: '',
     isActive: true,
     sortOrder: 0,
+    packageCommissionEnabled: true,
     referralPoolPercentage: 0,
     commissionRates: defaultRates as CommissionRates,
     monthlyFeeReferralPoolPercentage: null as number | null,
@@ -85,6 +87,7 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
       image: '',
       isActive: true,
       sortOrder: (sorted[sorted.length - 1]?.sortOrder ?? sorted.length) + 1,
+      packageCommissionEnabled: true,
       referralPoolPercentage: 0,
       commissionRates: defaultRates,
       monthlyFeeReferralPoolPercentage: null,
@@ -104,6 +107,7 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
       image: p.image || '',
       isActive: !!p.isActive,
       sortOrder: Number(p.sortOrder ?? 0),
+      packageCommissionEnabled: p.packageCommissionEnabled !== false,
       referralPoolPercentage: Number(p.referralPoolPercentage ?? 0),
       commissionRates: toRates(p.commissionRates),
       monthlyFeeReferralPoolPercentage:
@@ -133,6 +137,7 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
         image: form.image.trim(),
         isActive: !!form.isActive,
         sortOrder: Number(form.sortOrder),
+        packageCommissionEnabled: !!form.packageCommissionEnabled,
         referralPoolPercentage: Number(form.referralPoolPercentage),
         commissionRates: form.commissionRates,
         monthlyFeeReferralPoolPercentage:
@@ -391,6 +396,21 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
               </div>
 
               <div className="md:col-span-2">
+              <label className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 select-none">
+                <input
+                  type="checkbox"
+                  checked={form.packageCommissionEnabled}
+                  onChange={(e) => setForm((p) => ({ ...p, packageCommissionEnabled: e.target.checked }))}
+                  className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                />
+                Enable package commission distribution
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                When disabled, this package purchase won’t distribute referral commissions (platform keeps 100%).
+              </p>
+            </div>
+
+            <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Referral Pool Percentage (0–100)
                 </label>
@@ -398,6 +418,7 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
                   type="number"
                   value={Math.round(form.referralPoolPercentage * 100)}
                   onChange={(e) => setForm((p) => ({ ...p, referralPoolPercentage: Number(e.target.value) / 100 }))}
+                disabled={!form.packageCommissionEnabled}
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
@@ -423,6 +444,7 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
                             commissionRates: { ...p.commissionRates, [lvl]: pct } as CommissionRates
                           }));
                         }}
+                        disabled={!form.packageCommissionEnabled}
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                       />
                     </div>
