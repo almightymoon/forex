@@ -23,6 +23,7 @@ export interface AdminPackage {
   commissionRates?: Partial<CommissionRates>;
   monthlyFeeReferralPoolPercentage?: number | null;
   monthlyFeeCommissionRates?: Partial<CommissionRates> | null;
+  minWithdrawalAmount?: number | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -74,6 +75,7 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
     commissionRates: defaultRates as CommissionRates,
     monthlyFeeReferralPoolPercentage: null as number | null,
     monthlyFeeCommissionRates: defaultRates as CommissionRates,
+    minWithdrawalAmount: null as number | null,
     featuresText: ''
   });
 
@@ -92,6 +94,7 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
       commissionRates: defaultRates,
       monthlyFeeReferralPoolPercentage: null,
       monthlyFeeCommissionRates: defaultRates,
+      minWithdrawalAmount: null,
       featuresText: ''
     });
     setShowModal(true);
@@ -115,6 +118,10 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
       monthlyFeeCommissionRates: toRates(
         (p.monthlyFeeCommissionRates as Partial<CommissionRates> | undefined) ?? (p.commissionRates as any)
       ),
+      minWithdrawalAmount:
+        typeof p.minWithdrawalAmount === 'number' && Number.isFinite(p.minWithdrawalAmount)
+          ? Number(p.minWithdrawalAmount)
+          : null,
       featuresText: (p.features || []).join('\n')
     });
     setShowModal(true);
@@ -145,6 +152,10 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
             ? Number(form.monthlyFeeReferralPoolPercentage)
             : null,
         monthlyFeeCommissionRates: form.monthlyFeeCommissionRates,
+        minWithdrawalAmount:
+          typeof form.minWithdrawalAmount === 'number' && Number.isFinite(form.minWithdrawalAmount)
+            ? Number(form.minWithdrawalAmount)
+            : null,
         features: form.featuresText
           .split('\n')
           .map((s) => s.trim())
@@ -458,6 +469,31 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
                   This controls how completed <span className="font-mono">monthly_fee</span> payments are split between the
                   platform and referral pool, and how the pool is paid across referral levels.
                 </p>
+              </div>
+
+              <div className="md:col-span-2 border-t border-gray-200 dark:border-gray-700 pt-5">
+                <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Withdrawals</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                  Set a minimum withdrawal amount for users on this package. Leave empty to use the system default.
+                </p>
+              </div>
+
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Minimum withdrawal amount (USDT)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={typeof form.minWithdrawalAmount === 'number' ? form.minWithdrawalAmount : ''}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setForm((p) => ({ ...p, minWithdrawalAmount: v === '' ? null : Number(v) }));
+                  }}
+                  placeholder="(use default)"
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
               </div>
 
               <div className="md:col-span-2">

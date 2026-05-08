@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Wallet, ArrowUpRight, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { buildApiUrl } from '../../utils/api';
@@ -23,22 +23,44 @@ export default function WithdrawalModal({
   const [walletAddress, setWalletAddress] = useState('');
   const [network, setNetwork] = useState('TRC20');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [minWithdrawal, setMinWithdrawal] = useState<number | null>(null);
 
   if (!isOpen) return null;
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(buildApiUrl('api/withdrawals/min'), {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!cancelled && res.ok) {
+          const v = Number(data?.minWithdrawalAmount);
+          if (Number.isFinite(v)) setMinWithdrawal(v);
+        }
+      } catch {
+        // ignore; backend validation will still enforce
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const withdrawalAmount = parseFloat(amount);
-    const MIN_WITHDRAWAL_AMOUNT = 30;
     
     if (!withdrawalAmount || withdrawalAmount <= 0) {
       showToast('Please enter a valid amount', 'error');
       return;
     }
 
-    if (withdrawalAmount < MIN_WITHDRAWAL_AMOUNT) {
-      showToast(`Minimum withdrawal amount is $${MIN_WITHDRAWAL_AMOUNT}`, 'error');
+    if (typeof minWithdrawal === 'number' && withdrawalAmount < minWithdrawal) {
+      showToast(`Minimum withdrawal amount is $${minWithdrawal.toFixed(2)}`, 'error');
       return;
     }
 
@@ -158,6 +180,11 @@ export default function WithdrawalModal({
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
               Maximum withdrawal: ${userBalance.toFixed(2)} USDT
             </p>
+            {typeof minWithdrawal === 'number' && (
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Minimum withdrawal: ${minWithdrawal.toFixed(2)} USDT
+              </p>
+            )}
           </div>
 
           {/* Wallet Address */}

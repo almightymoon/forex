@@ -4,10 +4,46 @@ const Withdrawal = require('../models/Withdrawal');
 const User = require('../models/User');
 const mongoose = require('mongoose');
 const BalanceTransaction = require('../models/BalanceTransaction');
+const Payment = require('../models/Payment');
+const Package = require('../models/Package');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 const notificationService = require('../services/notificationService');
 
 const router = express.Router();
+
+async function resolveMinWithdrawalAmount(userId) {
+  const DEFAULT_MIN = 30;
+  try {
+    const latestPkgPayment = await Payment.findOne({
+      user: userId,
+      type: 'package',
+      status: 'completed'
+    })
+      .sort({ createdAt: -1 })
+      .lean();
+    const pkgName = latestPkgPayment?.package?.name;
+    if (!pkgName) return DEFAULT_MIN;
+    const pkg = await Package.findOne({ name: pkgName, isActive: true }).lean();
+    if (pkg && typeof pkg.minWithdrawalAmount === 'number' && Number.isFinite(pkg.minWithdrawalAmount)) {
+      return Number(pkg.minWithdrawalAmount);
+    }
+    return DEFAULT_MIN;
+  } catch {
+    return DEFAULT_MIN;
+  }
+}
+
+// @route   GET /api/withdrawals/min
+// @desc    Get minimum withdrawal amount for current user (based on package)
+// @access  Private
+router.get('/min', authenticateToken, async (req, res) => {
+  try {
+    const minWithdrawalAmount = await resolveMinWithdrawalAmount(req.user._id);
+    res.json({ success: true, minWithdrawalAmount });
+  } catch (e) {
+    res.status(500).json({ success: false, error: 'Failed to resolve min withdrawal amount' });
+  }
+});
 
 // @route   POST /api/withdrawals/request
 // @desc    Create withdrawal request
@@ -26,24 +62,27 @@ router.post('/request', [
 
     const { amount, walletAddress, network = 'TRC20' } = req.body;
 
-    // Minimum withdrawal limit
-    const MIN_WITHDRAWAL_AMOUNT = 30;
-    if (amount < MIN_WITHDRAWAL_AMOUNT) {  
-      return res.status(400).json({ 
-        error: 'Minimum withdrawal limit',
-        message: `Minimum withdrawal amount is $${MIN_WITHDRAWAL_AMOUNT}. You cannot withdraw $${amount.toFixed(2)}`
-      });
-    }
-
     const session = await mongoose.startSession();
     let withdrawal;
     let user;
+    let minWithdrawal = 30;
 
     await session.withTransaction(async () => {
       // Get user with balance (inside txn)
       user = await User.findById(req.user._id).session(session);
       if (!user) {
         throw Object.assign(new Error('User not found'), { statusCode: 404 });
+      }
+
+      minWithdrawal = await resolveMinWithdrawalAmount(user._id);
+
+      // Minimum withdrawal limit (package-specific)
+      if (amount < minWithdrawal) {
+        throw Object.assign(new Error('Minimum withdrawal limit'), {
+          statusCode: 400,
+          code: 'MIN_WITHDRAWAL',
+          minWithdrawal
+        });
       }
 
       // Check if user has sufficient balance
@@ -116,6 +155,13 @@ router.post('/request', [
     console.error('Create withdrawal request error:', error);
     if (error && error.statusCode === 404) {
       return res.status(404).json({ error: 'User not found' });
+    }
+    if (error && error.statusCode === 400 && error.code === 'MIN_WITHDRAWAL') {
+      const min = Number(error.minWithdrawal || 0);
+      return res.status(400).json({
+        error: 'Minimum withdrawal limit',
+        message: `Minimum withdrawal amount is $${min.toFixed(2)}. You cannot withdraw $${amount.toFixed(2)}`
+      });
     }
     if (error && error.statusCode === 400 && error.code === 'INSUFFICIENT_BALANCE') {
       return res.status(400).json({

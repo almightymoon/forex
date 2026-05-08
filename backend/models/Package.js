@@ -36,7 +36,11 @@ const packageSchema = new mongoose.Schema(
     // Monthly fee commission distribution (separate from one-time package purchase).
     // If not set, services fall back to the package's main referralPoolPercentage/commissionRates.
     monthlyFeeReferralPoolPercentage: { type: Number, default: null, min: 0, max: 1 },
-    monthlyFeeCommissionRates: { type: commissionRatesSchema, default: null }
+    monthlyFeeCommissionRates: { type: commissionRatesSchema, default: null },
+
+    // Withdrawals
+    // If null/undefined, system fallback is used.
+    minWithdrawalAmount: { type: Number, default: null, min: 0 }
   },
   { timestamps: true }
 );
