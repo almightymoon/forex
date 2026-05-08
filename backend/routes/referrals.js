@@ -104,7 +104,22 @@ router.get('/stats', authenticateToken, async (req, res) => {
     // Total earnings: sum from BalanceTransaction (referralCommissionService flow) – source of truth
     const BalanceTransaction = require('../models/BalanceTransaction');
     const totalEarningsAgg = await BalanceTransaction.aggregate([
-      { $match: { user: user._id, type: 'referral_commission' } },
+      {
+        $match: {
+          user: user._id,
+          $or: [
+            { type: 'referral_commission' },
+            {
+              type: 'adjustment',
+              $or: [
+                { description: { $regex: /commission rollback/i } },
+                { 'metadata.rollbackOfTransactionId': { $exists: true } },
+                { 'metadata.rollbackSource': { $exists: true } }
+              ]
+            }
+          ]
+        }
+      },
       { $group: { _id: null, total: { $sum: '$amount' } } }
     ]);
     const totalEarningsFromTx = totalEarningsAgg[0]?.total || 0;

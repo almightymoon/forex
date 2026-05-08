@@ -494,7 +494,24 @@ function computeLegacyReferralStatsFromTree(treeData) {
 
 async function computeReferralEarningsFromTx(userId) {
   const rows = await BalanceTransaction.aggregate([
-    { $match: { user: new mongoose.Types.ObjectId(userId), type: 'referral_commission' } },
+    {
+      $match: {
+        user: new mongoose.Types.ObjectId(userId),
+        $or: [
+          // Primary commission rows (positive and negative rollback rows in newer flows)
+          { type: 'referral_commission' },
+          // Legacy rollback rows were sometimes recorded as adjustments
+          {
+            type: 'adjustment',
+            $or: [
+              { description: { $regex: /commission rollback/i } },
+              { 'metadata.rollbackOfTransactionId': { $exists: true } },
+              { 'metadata.rollbackSource': { $exists: true } }
+            ]
+          }
+        ]
+      }
+    },
     { $group: { _id: null, total: { $sum: '$amount' } } }
   ]);
   return Number(rows?.[0]?.total || 0);
