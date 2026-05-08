@@ -4,7 +4,7 @@ import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Save, RotateCcw, Globe, Shield, Bell, CreditCard, Mail, 
-  Server, CheckCircle, User, Zap, AlertTriangle, Smartphone
+  Server, CheckCircle, User, Zap, AlertTriangle, Smartphone, Database
 } from 'lucide-react';
 import { AdminSettings } from './types';
 
@@ -21,6 +21,13 @@ interface SettingsProps {
   onClearUserData: (confirmText: string) => Promise<void>;
   onDownloadCoursesBackup: () => Promise<void>;
   onRestoreCoursesBackup: (backup: any, confirmText: string) => Promise<void>;
+  onDownloadFullBackup: () => Promise<void>;
+  onRestoreFullBackup: (file: File, confirmText: string) => Promise<void>;
+  onCreateStoredFullBackup: () => Promise<void>;
+  onListStoredFullBackups: () => Promise<{ success: boolean; backups?: any[] }>;
+  onDownloadStoredFullBackup: (fileName: string) => Promise<void>;
+  onRestoreStoredFullBackup: (fileName: string, confirmText: string) => Promise<void>;
+  onDeleteStoredFullBackup: (fileName: string) => Promise<void>;
 }
 
 export default function Settings({ 
@@ -35,7 +42,14 @@ export default function Settings({
   testingEmailConfig,
   onClearUserData,
   onDownloadCoursesBackup,
-  onRestoreCoursesBackup
+  onRestoreCoursesBackup,
+  onDownloadFullBackup,
+  onRestoreFullBackup,
+  onCreateStoredFullBackup,
+  onListStoredFullBackups,
+  onDownloadStoredFullBackup,
+  onRestoreStoredFullBackup,
+  onDeleteStoredFullBackup
 }: SettingsProps) {
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetConfirmText, setResetConfirmText] = useState('');
@@ -47,6 +61,28 @@ export default function Settings({
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const restoreFileInputRef = useRef<HTMLInputElement | null>(null);
+  const fullRestoreFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [fullRestoreConfirmText, setFullRestoreConfirmText] = useState('');
+  const [restoringFull, setRestoringFull] = useState(false);
+  const [fullRestoreError, setFullRestoreError] = useState<string | null>(null);
+  const [fullBackupError, setFullBackupError] = useState<string | null>(null);
+  const [storedBackups, setStoredBackups] = useState<any[]>([]);
+  const [loadingStoredBackups, setLoadingStoredBackups] = useState(false);
+  const [storedBackupError, setStoredBackupError] = useState<string | null>(null);
+  const [creatingStoredBackup, setCreatingStoredBackup] = useState(false);
+
+  const refreshStoredBackups = async () => {
+    setStoredBackupError(null);
+    setLoadingStoredBackups(true);
+    try {
+      const res = await onListStoredFullBackups();
+      setStoredBackups(Array.isArray((res as any)?.backups) ? (res as any).backups : []);
+    } catch (e: any) {
+      setStoredBackupError(e?.message || 'Failed to load stored backups.');
+    } finally {
+      setLoadingStoredBackups(false);
+    }
+  };
 
   // Ensure settings object exists with default values
   const safeSettings = settings || {
@@ -659,6 +695,205 @@ export default function Settings({
             </div>
           </div>
           <div className="flex flex-col gap-2">
+            <button
+              onClick={async () => {
+                setStoredBackupError(null);
+                try {
+                  setCreatingStoredBackup(true);
+                  await onCreateStoredFullBackup();
+                  await refreshStoredBackups();
+                } catch (err: any) {
+                  setStoredBackupError(err?.message || 'Failed to create stored backup.');
+                } finally {
+                  setCreatingStoredBackup(false);
+                }
+              }}
+              disabled={creatingStoredBackup}
+              className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Creates a full platform backup stored on the server"
+            >
+              <Database className={`w-4 h-4 ${creatingStoredBackup ? 'animate-pulse' : ''}`} />
+              {creatingStoredBackup ? 'Creating stored backup...' : 'Create stored full backup'}
+            </button>
+
+            <button
+              type="button"
+              onClick={refreshStoredBackups}
+              disabled={loadingStoredBackups}
+              className="px-4 py-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-100 rounded-xl transition-colors flex items-center gap-2 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/45 disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Refresh the list of stored backups"
+            >
+              <Database className={`w-4 h-4 ${loadingStoredBackups ? 'animate-spin' : ''}`} />
+              {loadingStoredBackups ? 'Loading backups...' : 'Refresh stored backups list'}
+            </button>
+
+            {storedBackupError && (
+              <div className="px-4 py-3 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20">
+                <p className="text-xs text-red-700 dark:text-red-300">{storedBackupError}</p>
+              </div>
+            )}
+
+            {storedBackups.length > 0 && (
+              <div className="px-4 py-3 rounded-xl border border-indigo-200 dark:border-indigo-900/40 bg-white/50 dark:bg-gray-900/20">
+                <p className="text-xs font-semibold text-indigo-900 dark:text-indigo-100 mb-2">
+                  Stored backups
+                </p>
+                <div className="space-y-2 max-h-[220px] overflow-y-auto pr-1">
+                  {storedBackups.map((b) => (
+                    <div
+                      key={b.fileName}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-indigo-100 dark:border-indigo-900/40 bg-white dark:bg-gray-900 px-3 py-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">
+                          {b.fileName}
+                        </p>
+                        <p className="text-[11px] text-gray-600 dark:text-gray-400">
+                          {b.exportedAt || b.createdAt || '—'} · {Math.round((Number(b.sizeBytes || 0) / 1024 / 1024) * 10) / 10} MB
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => onDownloadStoredFullBackup(b.fileName)}
+                          className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700"
+                          title="Download this backup"
+                        >
+                          Download
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            setFullRestoreError(null);
+                            const confirm = String(fullRestoreConfirmText || '').trim().toUpperCase();
+                            if (confirm !== 'RESTORE') {
+                              setFullRestoreError('Type RESTORE in the box below before restoring.');
+                              return;
+                            }
+                            try {
+                              setRestoringFull(true);
+                              await onRestoreStoredFullBackup(b.fileName, 'RESTORE');
+                            } catch (err: any) {
+                              setFullRestoreError(err?.message || 'Failed to restore stored backup.');
+                            } finally {
+                              setRestoringFull(false);
+                            }
+                          }}
+                          disabled={restoringFull}
+                          className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-semibold hover:bg-rose-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="Restore from this backup (replaces ALL data)"
+                        >
+                          Restore
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const ok = window.confirm(
+                              `Delete backup ${b.fileName}?\n\nThis only deletes the stored backup file.`
+                            );
+                            if (!ok) return;
+                            try {
+                              setStoredBackupError(null);
+                              await onDeleteStoredFullBackup(b.fileName);
+                              await refreshStoredBackups();
+                            } catch (err: any) {
+                              setStoredBackupError(err?.message || 'Failed to delete stored backup.');
+                            }
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-xs font-semibold hover:bg-gray-200 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700"
+                          title="Delete this stored backup"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-[11px] text-gray-600 dark:text-gray-400">
+                  Tip: type <span className="font-bold">RESTORE</span> once below, then you can restore any backup.
+                </p>
+              </div>
+            )}
+
+            <button
+              onClick={async () => {
+                setFullBackupError(null);
+                try {
+                  await onDownloadFullBackup();
+                } catch (err: any) {
+                  setFullBackupError(err?.message || 'Failed to download full backup.');
+                }
+              }}
+              className="px-4 py-2.5 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl transition-colors flex items-center gap-2"
+              title="Download a gzip backup of ALL collections (users, payments, balance transactions, referrals, etc.)"
+            >
+              <Database className="w-4 h-4" />
+              Download full platform backup
+            </button>
+            {fullBackupError && (
+              <div className="px-4 py-3 rounded-xl border border-red-200 dark:border-red-900/40 bg-red-50 dark:bg-red-900/20">
+                <p className="text-xs text-red-700 dark:text-red-300">{fullBackupError}</p>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => fullRestoreFileInputRef.current?.click()}
+              className="px-4 py-2.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-900 dark:text-indigo-100 rounded-xl transition-colors flex items-center gap-2 cursor-pointer border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 dark:hover:bg-indigo-900/45"
+              title="Upload a full backup to restore ALL data"
+            >
+              <Database className="w-4 h-4" />
+              Restore full platform backup
+            </button>
+            <input
+              ref={fullRestoreFileInputRef}
+              type="file"
+              accept="application/json,application/gzip,.json,.gz"
+              className="hidden"
+              onChange={async (e) => {
+                setFullRestoreError(null);
+                const inputEl = e.target as HTMLInputElement;
+                const file = inputEl.files?.[0];
+                if (!file) return;
+                try {
+                  setRestoringFull(true);
+                  const confirm = String(fullRestoreConfirmText || '').trim().toUpperCase();
+                  if (confirm !== 'RESTORE') {
+                    setFullRestoreError('Type RESTORE in the box below before uploading.');
+                    return;
+                  }
+                  await onRestoreFullBackup(file, 'RESTORE');
+                } catch (err: any) {
+                  setFullRestoreError(err?.message || 'Failed to restore full backup.');
+                } finally {
+                  try {
+                    inputEl.value = '';
+                  } catch {}
+                  setRestoringFull(false);
+                }
+              }}
+            />
+
+            <div className="px-4 py-3 rounded-xl border border-indigo-200 dark:border-indigo-900/40 bg-indigo-50/70 dark:bg-indigo-900/20">
+              <p className="text-xs text-indigo-900/80 dark:text-indigo-100/80">
+                To restore the full platform, type <span className="font-bold">RESTORE</span> then upload the backup file.
+                This replaces users, payments, referrals, balances, and everything else.
+              </p>
+              <input
+                value={fullRestoreConfirmText}
+                onChange={(e) => setFullRestoreConfirmText(e.target.value)}
+                placeholder="RESTORE"
+                className="mt-2 w-full px-3 py-2 border border-indigo-200 dark:border-indigo-900/40 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400"
+                disabled={restoringFull}
+              />
+              {fullRestoreError && (
+                <p className="mt-2 text-xs text-red-700 dark:text-red-300">{fullRestoreError}</p>
+              )}
+              {restoringFull && (
+                <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">Restoring full backup...</p>
+              )}
+            </div>
+
             <button
               onClick={async () => {
                 setBackupError(null);

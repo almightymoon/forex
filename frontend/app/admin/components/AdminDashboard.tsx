@@ -824,6 +824,130 @@ export default function AdminDashboard() {
     showToast('Courses restored successfully.', 'success');
   };
 
+  const handleDownloadFullBackup = async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(buildApiUrl('api/admin/backup/full'), {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || `HTTP ${response.status}: Failed to download full backup`);
+    }
+    const blob = await response.blob();
+    const disposition = response.headers.get('content-disposition') || '';
+    const match = disposition.match(/filename="([^"]+)"/i);
+    const name = match?.[1] || `full-backup-${new Date().toISOString().slice(0, 10)}.json.gz`;
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    showToast('Full backup downloaded.', 'success');
+  };
+
+  const handleRestoreFullBackup = async (file: File, confirmText: string) => {
+    const token = localStorage.getItem('token');
+    const form = new FormData();
+    form.append('confirmText', confirmText);
+    form.append('backup', file);
+
+    const response = await fetch(buildApiUrl('api/admin/restore/full'), {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: form
+    });
+
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || `HTTP ${response.status}: Failed to restore full backup`);
+    }
+
+    // The restore replaces all data, so refresh the admin context immediately.
+    await refreshData();
+    showToast('Full backup restored.', 'success');
+  };
+
+  const handleCreateStoredFullBackup = async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(buildApiUrl('api/admin/backups/full'), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || `HTTP ${response.status}: Failed to create stored backup`);
+    }
+    const data = await response.json().catch(() => ({}));
+    showToast(`Stored backup created${data?.backup?.fileName ? `: ${data.backup.fileName}` : ''}`, 'success');
+  };
+
+  const handleListStoredFullBackups = async () => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(buildApiUrl('api/admin/backups/full'), {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || `HTTP ${response.status}: Failed to list stored backups`);
+    }
+    return await response.json();
+  };
+
+  const handleDownloadStoredFullBackup = async (fileName: string) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(buildApiUrl(`api/admin/backups/full/${encodeURIComponent(fileName)}`), {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || `HTTP ${response.status}: Failed to download stored backup`);
+    }
+    const blob = await response.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleRestoreStoredFullBackup = async (fileName: string, confirmText: string) => {
+    const response = await apiRequest(
+      `api/admin/restore/full/${encodeURIComponent(fileName)}`,
+      { method: 'POST', body: JSON.stringify({ confirmText }) },
+      false
+    );
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || `HTTP ${response.status}: Failed to restore stored backup`);
+    }
+    await refreshData();
+    showToast('Stored backup restored.', 'success');
+  };
+
+  const handleDeleteStoredFullBackup = async (fileName: string) => {
+    const token = localStorage.getItem('token');
+    const response = await fetch(buildApiUrl(`api/admin/backups/full/${encodeURIComponent(fileName)}`), {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || err.message || `HTTP ${response.status}: Failed to delete stored backup`);
+    }
+    showToast('Stored backup deleted.', 'success');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
@@ -1043,6 +1167,13 @@ export default function AdminDashboard() {
             onClearUserData={handleClearUserData}
             onDownloadCoursesBackup={handleDownloadCoursesBackup}
             onRestoreCoursesBackup={handleRestoreCoursesBackup}
+            onDownloadFullBackup={handleDownloadFullBackup}
+            onRestoreFullBackup={handleRestoreFullBackup}
+            onCreateStoredFullBackup={handleCreateStoredFullBackup}
+            onListStoredFullBackups={handleListStoredFullBackups}
+            onDownloadStoredFullBackup={handleDownloadStoredFullBackup}
+            onRestoreStoredFullBackup={handleRestoreStoredFullBackup}
+            onDeleteStoredFullBackup={handleDeleteStoredFullBackup}
           />
                 )}
       </div>

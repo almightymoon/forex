@@ -100,8 +100,28 @@ balanceTransactionSchema.statics.createTransaction = async function(data) {
   // Update user balance
   userDoc.balance = balanceAfter;
   // Maintain lifetime earned as running sum of positive txns (withdrawals don't reduce this).
+  const curLifetime = Number(userDoc.lifetimeEarned) || 0;
   if (amount > 0) {
-    userDoc.lifetimeEarned = (Number(userDoc.lifetimeEarned) || 0) + amount;
+    userDoc.lifetimeEarned = curLifetime + amount;
+  } else if (amount < 0) {
+    // Rollbacks are not "earned" and should reduce lifetimeEarned (but never below 0).
+    // We detect rollbacks by description prefix or rollback metadata marker.
+    const md = metadata;
+    const hasRollbackMarker =
+      md &&
+      (md instanceof Map
+        ? md.has('rollbackOfTransactionId') || md.get('rollbackSource')
+        : typeof md.get === 'function'
+          ? md.get('rollbackOfTransactionId') || md.get('rollbackSource')
+          : md.rollbackOfTransactionId || md.rollbackSource);
+
+    const isRollbackDescription =
+      typeof description === 'string' &&
+      description.toLowerCase().includes('commission rollback');
+
+    if (hasRollbackMarker || isRollbackDescription) {
+      userDoc.lifetimeEarned = Math.max(0, curLifetime + amount); // amount is negative
+    }
   }
   await userDoc.save();
 

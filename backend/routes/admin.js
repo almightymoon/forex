@@ -23,6 +23,8 @@ const { body, validationResult } = require('express-validator');
 const multer = require('multer');
 const adminProductsRouter = require('./adminProducts');
 const ActivityLog = require('../models/ActivityLog');
+const zlib = require('zlib');
+const { EJSON } = require('bson');
 const {
   listPendingMonthlyFeeStudents,
   getMonthlyFeeStatusForUser,
@@ -2560,6 +2562,383 @@ router.post(
     } catch (error) {
       console.error('Courses restore error:', error);
       res.status(500).json({ error: 'Failed to restore courses', message: error.message });
+    }
+  }
+);
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Full platform backup/restore (all MongoDB collections)
+// ──────────────────────────────────────────────────────────────────────────────
+
+const FULL_BACKUP_DIR = path.join(__dirname, '..', 'backups', 'full');
+const fullBackupUpload = multer({ storage: multer.memoryStorage() });
+const FULL_BACKUP_KEEP_LAST = Number(process.env.FULL_BACKUP_KEEP_LAST || 20);
+
+function ensureDirExists(dir) {
+  try {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  } catch {
+    // ignore
+  }
+}
+
+function safeBackupFileName(name) {
+  const raw = String(name || '');
+  const base = path.basename(raw);
+  if (!base.endsWith('.json.gz')) return null;
+  if (!/^full-backup-\d{4}-\d{2}-\d{2}T/.test(base)) return null;
+  return base;
+}
+
+function listStoredFullBackupFiles() {
+  ensureDirExists(FULL_BACKUP_DIR);
+  return fs.readdirSync(FULL_BACKUP_DIR).filter((f) => f.endsWith('.json.gz'));
+}
+
+function getStoredBackupSortKey(fileName) {
+  // Prefer timestamp embedded in filename, else filesystem time.
+  const m = String(fileName).match(/^full-backup-(.+)\.json\.gz$/);
+  if (m && m[1]) return m[1];
+  try {
+    const stat = fs.statSync(path.join(FULL_BACKUP_DIR, fileName));
+    return stat.birthtime ? stat.birthtime.toISOString() : stat.mtime.toISOString();
+  } catch {
+    return '';
+  }
+}
+
+function pruneStoredFullBackups(keepLast) {
+  const k = Number(keepLast);
+  if (!Number.isFinite(k) || k <= 0) return { deleted: 0 };
+  const files = listStoredFullBackupFiles()
+    .sort((a, b) => String(getStoredBackupSortKey(b)).localeCompare(String(getStoredBackupSortKey(a))));
+  const toDelete = files.slice(k);
+  let deleted = 0;
+  for (const fileName of toDelete) {
+    const safe = safeBackupFileName(fileName);
+    if (!safe) continue;
+    const filePath = path.join(FULL_BACKUP_DIR, safe);
+    const metaPath = filePath + '.meta.json';
+    try {
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      if (fs.existsSync(metaPath)) fs.unlinkSync(metaPath);
+      deleted += 1;
+    } catch {
+      // ignore
+    }
+  }
+  return { deleted };
+}
+
+async function exportAllCollections() {
+  const db = mongoose.connection.db;
+  if (!db) throw new Error('DB not connected');
+
+  const collectionsInfo = await db.listCollections({}, { nameOnly: true }).toArray();
+  const collectionNames = (collectionsInfo || [])
+    .map((c) => c?.name)
+    .filter((n) => typeof n === 'string' && n.length > 0);
+
+  const collections = {};
+  const counts = {};
+
+  for (const name of collectionNames) {
+    const docs = await db.collection(name).find({}).toArray();
+    collections[name] = docs;
+    counts[name] = docs.length;
+  }
+
+  return { collectionNames, collections, counts };
+}
+
+async function restoreFromBackupObject(backup) {
+  if (!backup || backup.type !== 'full_backup' || !backup.collections || typeof backup.collections !== 'object') {
+    throw new Error('Invalid backup object (expected type full_backup)');
+  }
+
+  const db = mongoose.connection.db;
+  if (!db) throw new Error('DB not connected');
+
+  const collectionsObj = backup.collections;
+  const collectionNames = Object.keys(collectionsObj);
+
+  const restored = {};
+  for (const name of collectionNames) {
+    const docs = Array.isArray(collectionsObj[name]) ? collectionsObj[name] : [];
+    const coll = db.collection(name);
+
+    await coll.deleteMany({});
+
+    let inserted = 0;
+    const chunkSize = 1000;
+    for (let i = 0; i < docs.length; i += chunkSize) {
+      const chunk = docs.slice(i, i + chunkSize);
+      if (chunk.length === 0) continue;
+      await coll.insertMany(chunk, { ordered: false });
+      inserted += chunk.length;
+    }
+
+    restored[name] = inserted;
+  }
+  return restored;
+}
+
+// @route   GET /api/admin/backup/full
+// @desc    Download a full backup of all collections (admin only)
+// @access  Private (Admin)
+router.get('/backup/full', async (_req, res) => {
+  try {
+    const exportedAt = new Date().toISOString();
+    const { collectionNames, collections, counts } = await exportAllCollections();
+
+    const backup = {
+      type: 'full_backup',
+      version: 1,
+      exportedAt,
+      collections,
+      counts
+    };
+
+    const json = EJSON.stringify(backup);
+    const gz = zlib.gzipSync(Buffer.from(json, 'utf8'), { level: 9 });
+    const fileName = `full-backup-${exportedAt.replace(/[:.]/g, '-')}.json.gz`;
+
+    res.setHeader('Content-Type', 'application/gzip');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.setHeader('X-Backup-Collections', String(collectionNames.length));
+    res.send(gz);
+  } catch (error) {
+    console.error('Full backup error:', error);
+    res.status(500).json({ error: 'Failed to create full backup' });
+  }
+});
+
+// @route   POST /api/admin/backups/full
+// @desc    Create & store a full backup on the server (admin only)
+// @access  Private (Admin)
+router.post('/backups/full', async (_req, res) => {
+  try {
+    ensureDirExists(FULL_BACKUP_DIR);
+    const exportedAt = new Date().toISOString();
+    const { collectionNames, collections, counts } = await exportAllCollections();
+    const backup = { type: 'full_backup', version: 1, exportedAt, collections, counts };
+    const json = EJSON.stringify(backup);
+    const gz = zlib.gzipSync(Buffer.from(json, 'utf8'), { level: 9 });
+    const fileName = `full-backup-${exportedAt.replace(/[:.]/g, '-')}.json.gz`;
+    const filePath = path.join(FULL_BACKUP_DIR, fileName);
+    const metaPath = filePath + '.meta.json';
+
+    fs.writeFileSync(filePath, gz);
+    fs.writeFileSync(
+      metaPath,
+      JSON.stringify(
+        {
+          fileName,
+          exportedAt,
+          version: 1,
+          counts,
+          collectionsCount: collectionNames.length,
+          sizeBytes: gz.length
+        },
+        null,
+        2
+      )
+    );
+
+    // Retention: keep only the latest N backups
+    try {
+      pruneStoredFullBackups(FULL_BACKUP_KEEP_LAST);
+    } catch {
+      // ignore
+    }
+
+    res.json({
+      success: true,
+      backup: {
+        fileName,
+        exportedAt,
+        version: 1,
+        counts,
+        collectionsCount: collectionNames.length,
+        sizeBytes: gz.length
+      }
+    });
+  } catch (error) {
+    console.error('Create stored full backup error:', error);
+    res.status(500).json({ error: 'Failed to create stored full backup' });
+  }
+});
+
+// @route   GET /api/admin/backups/full
+// @desc    List stored full backups (admin only)
+// @access  Private (Admin)
+router.get('/backups/full', async (_req, res) => {
+  try {
+    ensureDirExists(FULL_BACKUP_DIR);
+    const entries = listStoredFullBackupFiles();
+    const backups = entries
+      .map((fileName) => {
+        const filePath = path.join(FULL_BACKUP_DIR, fileName);
+        const metaPath = filePath + '.meta.json';
+        let meta = null;
+        try {
+          if (fs.existsSync(metaPath)) {
+            meta = JSON.parse(fs.readFileSync(metaPath, 'utf8'));
+          }
+        } catch {
+          meta = null;
+        }
+        const stat = fs.statSync(filePath);
+        return {
+          fileName,
+          exportedAt: meta?.exportedAt || null,
+          version: meta?.version || 1,
+          counts: meta?.counts || null,
+          collectionsCount: meta?.collectionsCount || null,
+          sizeBytes: meta?.sizeBytes || stat.size,
+          createdAt: stat.birthtime ? stat.birthtime.toISOString() : null
+        };
+      })
+      .sort((a, b) => String(b.exportedAt || b.createdAt || '').localeCompare(String(a.exportedAt || a.createdAt || '')));
+
+    res.json({ success: true, backups });
+  } catch (error) {
+    console.error('List stored full backups error:', error);
+    res.status(500).json({ error: 'Failed to list stored full backups' });
+  }
+});
+
+// @route   DELETE /api/admin/backups/full/:fileName
+// @desc    Delete a stored full backup (admin only)
+// @access  Private (Admin)
+router.delete('/backups/full/:fileName', async (req, res) => {
+  try {
+    ensureDirExists(FULL_BACKUP_DIR);
+    const safe = safeBackupFileName(req.params.fileName);
+    if (!safe) return res.status(400).json({ error: 'Invalid backup file name' });
+    const filePath = path.join(FULL_BACKUP_DIR, safe);
+    const metaPath = filePath + '.meta.json';
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup not found' });
+    try {
+      fs.unlinkSync(filePath);
+    } catch (e) {
+      return res.status(500).json({ error: 'Failed to delete backup file' });
+    }
+    try {
+      if (fs.existsSync(metaPath)) fs.unlinkSync(metaPath);
+    } catch {
+      // ignore meta delete
+    }
+    res.json({ success: true, message: 'Backup deleted', fileName: safe });
+  } catch (error) {
+    console.error('Delete stored full backup error:', error);
+    res.status(500).json({ error: 'Failed to delete stored full backup' });
+  }
+});
+
+// @route   GET /api/admin/backups/full/:fileName
+// @desc    Download a stored full backup (admin only)
+// @access  Private (Admin)
+router.get('/backups/full/:fileName', async (req, res) => {
+  try {
+    ensureDirExists(FULL_BACKUP_DIR);
+    const safe = safeBackupFileName(req.params.fileName);
+    if (!safe) return res.status(400).json({ error: 'Invalid backup file name' });
+    const filePath = path.join(FULL_BACKUP_DIR, safe);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup not found' });
+
+    res.setHeader('Content-Type', 'application/gzip');
+    res.setHeader('Content-Disposition', `attachment; filename="${safe}"`);
+    fs.createReadStream(filePath).pipe(res);
+  } catch (error) {
+    console.error('Download stored full backup error:', error);
+    res.status(500).json({ error: 'Failed to download stored full backup' });
+  }
+});
+
+// @route   POST /api/admin/restore/full/:fileName
+// @desc    Restore from a stored backup file (admin only)
+// @access  Private (Admin)
+router.post(
+  '/restore/full/:fileName',
+  [body('confirmText').isString().trim().notEmpty().withMessage('confirmText is required')],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+      }
+
+      const confirmText = String(req.body.confirmText || '').trim().toUpperCase();
+      if (confirmText !== 'RESTORE') {
+        return res.status(400).json({ error: 'Confirmation text mismatch. Type RESTORE to continue.' });
+      }
+
+      ensureDirExists(FULL_BACKUP_DIR);
+      const safe = safeBackupFileName(req.params.fileName);
+      if (!safe) return res.status(400).json({ error: 'Invalid backup file name' });
+      const filePath = path.join(FULL_BACKUP_DIR, safe);
+      if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'Backup not found' });
+
+      const buf = fs.readFileSync(filePath);
+      const jsonText = zlib.gunzipSync(buf).toString('utf8');
+      const backup = EJSON.parse(jsonText);
+      const restoredCollections = await restoreFromBackupObject(backup);
+
+      res.json({
+        success: true,
+        message: 'Stored full backup restored.',
+        fileName: safe,
+        restoredCollections,
+        restoredAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Restore stored full backup error:', error);
+      res.status(500).json({ error: 'Failed to restore stored full backup', message: error.message });
+    }
+  }
+);
+
+// @route   POST /api/admin/restore/full
+// @desc    Restore full backup from uploaded file (admin only)
+// @access  Private (Admin)
+router.post(
+  '/restore/full',
+  fullBackupUpload.single('backup'),
+  [body('confirmText').isString().trim().notEmpty().withMessage('confirmText is required')],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+      }
+
+      const confirmText = String(req.body.confirmText || '').trim().toUpperCase();
+      if (confirmText !== 'RESTORE') {
+        return res.status(400).json({ error: 'Confirmation text mismatch. Type RESTORE to continue.' });
+      }
+
+      const file = req.file;
+      if (!file || !file.buffer) {
+        return res.status(400).json({ error: 'Missing backup file upload (field name: backup)' });
+      }
+
+      const buf = file.buffer;
+      const isGzip = buf.length >= 2 && buf[0] === 0x1f && buf[1] === 0x8b;
+      const jsonText = (isGzip ? zlib.gunzipSync(buf) : buf).toString('utf8');
+      const backup = EJSON.parse(jsonText);
+
+      const restored = await restoreFromBackupObject(backup);
+
+      res.json({
+        success: true,
+        message: 'Full backup restored.',
+        restoredCollections: restored,
+        restoredAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Full restore error:', error);
+      res.status(500).json({ error: 'Failed to restore full backup', message: error.message });
     }
   }
 );
