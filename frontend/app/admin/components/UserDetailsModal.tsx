@@ -7,7 +7,7 @@ import {
   DollarSign, CreditCard, Users, Package, TrendingUp, 
   Wallet, ArrowUpRight, CheckCircle, Clock, AlertCircle,
   Shield, Activity, Loader2, Plus, Minus, Gift, History,
-  MailX, Sparkles, Target, CalendarClock, Receipt
+  MailX, Sparkles, Target, CalendarClock, Receipt, RefreshCw
 } from 'lucide-react';
 import EmailHistory from './EmailHistory';
 import MonthlyFeeHistoryPanel from './MonthlyFeeHistoryPanel';
@@ -103,9 +103,72 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
   const [isRevokingPackage, setIsRevokingPackage] = useState(false);
   const [rollbackCommissionsOnRevoke, setRollbackCommissionsOnRevoke] = useState(false);
 
+  const [showReferralStatsRecalcModal, setShowReferralStatsRecalcModal] = useState(false);
+  const [isPreviewingReferralStats, setIsPreviewingReferralStats] = useState(false);
+  const [isApplyingReferralStats, setIsApplyingReferralStats] = useState(false);
+  const [referralStatsPreview, setReferralStatsPreview] = useState<{
+    user?: { _id: string; name: string; email: string; referralCode?: string };
+    changes: Array<{ field: string; oldValue: number; newValue: number; changed: boolean }>;
+    hasChanges: boolean;
+  } | null>(null);
+
   useEffect(() => {
     fetchUserDetails();
   }, [user._id]);
+
+  const previewReferralStatsRecalc = async () => {
+    try {
+      setIsPreviewingReferralStats(true);
+      setShowReferralStatsRecalcModal(true);
+      setReferralStatsPreview(null);
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`api/admin/users/${user._id}/referral-stats/preview`), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data?.error || 'Failed to preview referral stat changes', 'error');
+        setShowReferralStatsRecalcModal(false);
+        return;
+      }
+      setReferralStatsPreview({
+        user: data?.user,
+        changes: Array.isArray(data?.changes) ? data.changes : [],
+        hasChanges: !!data?.hasChanges
+      });
+    } catch (e) {
+      console.error('Preview referral stats error:', e);
+      showToast('Failed to preview referral stat changes', 'error');
+      setShowReferralStatsRecalcModal(false);
+    } finally {
+      setIsPreviewingReferralStats(false);
+    }
+  };
+
+  const applyReferralStatsRecalc = async () => {
+    try {
+      setIsApplyingReferralStats(true);
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`api/admin/users/${user._id}/referral-stats/apply`), {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data?.error || 'Failed to apply referral stat changes', 'error');
+        return;
+      }
+      showToast('Referral stats recalculated and saved', 'success');
+      setShowReferralStatsRecalcModal(false);
+      setReferralStatsPreview(null);
+      await fetchUserDetails();
+    } catch (e) {
+      console.error('Apply referral stats error:', e);
+      showToast('Failed to apply referral stat changes', 'error');
+    } finally {
+      setIsApplyingReferralStats(false);
+    }
+  };
 
   const fetchUserDetails = async () => {
     setLoading(true);
@@ -1162,6 +1225,24 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
 
               {activeTab === 'referrals' && (
                 <div className="space-y-6">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <h5 className="text-lg font-semibold text-gray-900 dark:text-white">Referrals</h5>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        Preview & save recalculated <span className="font-mono">user.referralStats</span> counters.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={previewReferralStatsRecalc}
+                      className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-2 text-sm"
+                      title="Preview recalculated referral stats"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Recalculate referral stats
+                    </button>
+                  </div>
+
                   {/* Referral Rank & Stats */}
                   {details.referralTree && details.referralTree.stats && (
                     <div className="space-y-4">
@@ -1877,6 +1958,116 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                 </button>
               </div>
             </div>
+          </motion.div>
+        </div>
+      )}
+
+      {/* Referral stats recalculation preview modal */}
+      {showReferralStatsRecalcModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.97 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Preview referral stat changes</h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  {referralStatsPreview?.user?.name || `${user.firstName} ${user.lastName}`} ({referralStatsPreview?.user?.email || user.email})
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (isApplyingReferralStats) return;
+                  setShowReferralStatsRecalcModal(false);
+                  setReferralStatsPreview(null);
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg"
+                disabled={isApplyingReferralStats}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {isPreviewingReferralStats && (
+              <div className="py-10 text-center text-gray-500 dark:text-gray-400 flex items-center justify-center gap-2">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Loading preview...
+              </div>
+            )}
+
+            {!isPreviewingReferralStats && referralStatsPreview && (
+              <>
+                <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-xl">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40">
+                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 dark:text-gray-200">Field</th>
+                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 dark:text-gray-200">Previous</th>
+                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 dark:text-gray-200">New</th>
+                        <th className="text-left py-2 px-3 text-xs font-semibold text-gray-700 dark:text-gray-200">Change</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(referralStatsPreview.changes || []).map((c) => (
+                        <tr key={c.field} className="border-b border-gray-100 dark:border-gray-700 last:border-b-0">
+                          <td className="py-2 px-3 text-sm text-gray-900 dark:text-white font-mono">{c.field}</td>
+                          <td className="py-2 px-3 text-sm text-gray-700 dark:text-gray-200">
+                            {Number(c.oldValue || 0).toFixed(2)}
+                          </td>
+                          <td className="py-2 px-3 text-sm text-gray-700 dark:text-gray-200">
+                            {Number(c.newValue || 0).toFixed(2)}
+                          </td>
+                          <td className="py-2 px-3 text-sm">
+                            {c.changed ? (
+                              <span className="text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-300">
+                                Will change
+                              </span>
+                            ) : (
+                              <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200">
+                                No change
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {!referralStatsPreview.hasChanges && (
+                  <p className="text-sm text-gray-600 dark:text-gray-300 mt-3">
+                    Nothing would change — current values already match the recalculated stats.
+                  </p>
+                )}
+
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (isApplyingReferralStats) return;
+                      setShowReferralStatsRecalcModal(false);
+                      setReferralStatsPreview(null);
+                    }}
+                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 font-medium hover:bg-gray-50 dark:hover:bg-gray-700"
+                    disabled={isApplyingReferralStats}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyReferralStatsRecalc}
+                    disabled={isApplyingReferralStats || !referralStatsPreview.hasChanges}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isApplyingReferralStats ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle className="w-4 h-4" />}
+                    Apply changes
+                  </button>
+                </div>
+              </>
+            )}
           </motion.div>
         </div>
       )}

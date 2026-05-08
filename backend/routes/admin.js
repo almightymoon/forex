@@ -471,6 +471,120 @@ router.get('/users/:id/referral-tree', async (req, res) => {
   }
 });
 
+function computeLegacyReferralStatsFromTree(treeData) {
+  const stats = treeData?.stats || {};
+  const tree = treeData?.tree || [];
+  const flat = referralService.flattenTree(tree);
+  const levelCounts = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  for (const n of flat) {
+    const lvl = Number(n.level);
+    if (lvl >= 1 && lvl <= 5) levelCounts[lvl] += 1;
+  }
+
+  return {
+    totalReferrals: Number(stats.totalReferrals || 0),
+    verifiedReferrals: Number(stats.verifiedReferrals || 0),
+    level1Count: levelCounts[1],
+    level2Count: levelCounts[2],
+    level3Count: levelCounts[3],
+    level4Count: levelCounts[4],
+    level5Count: levelCounts[5]
+  };
+}
+
+async function computeReferralEarningsFromTx(userId) {
+  const rows = await BalanceTransaction.aggregate([
+    { $match: { user: new mongoose.Types.ObjectId(userId), type: 'referral_commission' } },
+    { $group: { _id: null, total: { $sum: '$amount' } } }
+  ]);
+  return Number(rows?.[0]?.total || 0);
+}
+
+// @route   GET /api/admin/users/:id/referral-stats/preview
+// @desc    Preview recalculated referralStats for a user (admin only)
+// @access  Private (Admin)
+router.get('/users/:id/referral-stats/preview', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('firstName lastName email referralStats referralCode');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const treeData = await referralService.getReferralTree(user._id);
+    const recomputed = computeLegacyReferralStatsFromTree(treeData);
+    const totalEarnings = await computeReferralEarningsFromTx(user._id);
+    const nextStats = { ...recomputed, totalEarnings };
+
+    const cur = user.referralStats || {};
+    const fields = [
+      'totalReferrals',
+      'verifiedReferrals',
+      'level1Count',
+      'level2Count',
+      'level3Count',
+      'level4Count',
+      'level5Count',
+      'totalEarnings'
+    ];
+
+    const changes = fields.map((field) => {
+      const oldValue = Number(cur?.[field] || 0);
+      const newValue = Number(nextStats?.[field] || 0);
+      return { field, oldValue, newValue, changed: oldValue !== newValue };
+    });
+
+    res.json({
+      success: true,
+      user: {
+        _id: user._id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        referralCode: user.referralCode || ''
+      },
+      changes,
+      hasChanges: changes.some((c) => c.changed),
+      nextStats
+    });
+  } catch (error) {
+    console.error('Preview referral stats recalculation error:', error);
+    res.status(500).json({ error: 'Failed to preview referral stats recalculation' });
+  }
+});
+
+// @route   POST /api/admin/users/:id/referral-stats/apply
+// @desc    Apply recalculated referralStats for a user (admin only)
+// @access  Private (Admin)
+router.post('/users/:id/referral-stats/apply', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('referralStats firstName lastName email referralCode');
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const treeData = await referralService.getReferralTree(user._id);
+    const recomputed = computeLegacyReferralStatsFromTree(treeData);
+    const totalEarnings = await computeReferralEarningsFromTx(user._id);
+    const nextStats = { ...recomputed, totalEarnings };
+
+    user.referralStats = {
+      ...(user.referralStats || {}),
+      ...nextStats
+    };
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Referral stats recalculated and saved',
+      user: {
+        _id: user._id,
+        name: `${user.firstName} ${user.lastName}`,
+        email: user.email,
+        referralCode: user.referralCode || ''
+      },
+      referralStats: user.referralStats
+    });
+  } catch (error) {
+    console.error('Apply referral stats recalculation error:', error);
+    res.status(500).json({ error: 'Failed to apply referral stats recalculation' });
+  }
+});
+
 // @route   GET /api/admin/users/:id/transactions
 // @desc    Get user's balance transaction history (admin only)
 // @access  Private (Admin)
