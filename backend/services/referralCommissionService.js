@@ -27,7 +27,8 @@ class ReferralCommissionService {
   }
   
   /**
-   * Normalize package name to match our config (FX Launch, FX Scale, FX Legacy).
+   * Normalize package name for legacy aliases (FX Launch, FX Scale, FX Legacy).
+   * Unknown names are resolved via the Package collection using exact `name` first — see `_findActivePackageByName`.
    * Commission is always calculated from the REFERRAL POOL, never from package amount.
    */
   normalizePackageName(name) {
@@ -37,6 +38,23 @@ class ReferralCommissionService {
     if (n.includes('scale')) return 'FX Scale';
     if (n.includes('legacy')) return 'FX Legacy';
     return 'Unknown';
+  }
+
+  /**
+   * Resolve an active Package document: exact name match first, then legacy normalized aliases.
+   */
+  async _findActivePackageByName(packageNameRaw) {
+    const trimmed = typeof packageNameRaw === 'string' ? packageNameRaw.trim() : '';
+    if (!trimmed) return null;
+
+    let pkg = await Package.findOne({ name: trimmed, isActive: true }).lean();
+    if (pkg) return pkg;
+
+    const alias = this.normalizePackageName(trimmed);
+    if (alias !== 'Unknown') {
+      pkg = await Package.findOne({ name: alias, isActive: true }).lean();
+    }
+    return pkg || null;
   }
 
   /**
@@ -66,10 +84,10 @@ class ReferralCommissionService {
   }
 
   async getCommissionConfig(packageNameRaw) {
-    const key = this.normalizePackageName(packageNameRaw);
-    if (key === 'Unknown') {
+    const trimmed = typeof packageNameRaw === 'string' ? packageNameRaw.trim() : '';
+    if (!trimmed) {
       return {
-        packageName: key,
+        packageName: 'Unknown',
         packageCommissionEnabled: false,
         referralPoolPercentage: 0,
         commissionRates: { ...this.commissionRates }
@@ -77,10 +95,11 @@ class ReferralCommissionService {
     }
 
     try {
-      const pkg = await Package.findOne({ name: key, isActive: true }).lean();
+      const pkg = await this._findActivePackageByName(trimmed);
       if (!pkg) {
+        const fallbackKey = this.normalizePackageName(trimmed);
         return {
-          packageName: key,
+          packageName: fallbackKey === 'Unknown' ? trimmed : fallbackKey,
           packageCommissionEnabled: false,
           referralPoolPercentage: 0,
           commissionRates: { ...this.commissionRates }
@@ -107,7 +126,7 @@ class ReferralCommissionService {
       };
     } catch (e) {
       return {
-        packageName: key,
+        packageName: trimmed,
         packageCommissionEnabled: false,
         referralPoolPercentage: 0,
         commissionRates: { ...this.commissionRates }
@@ -120,20 +139,21 @@ class ReferralCommissionService {
    * Falls back to the package's main referralPoolPercentage/commissionRates when monthly-fee overrides are not set.
    */
   async getMonthlyFeeCommissionConfig(packageNameRaw) {
-    const key = this.normalizePackageName(packageNameRaw);
-    if (key === 'Unknown') {
+    const trimmed = typeof packageNameRaw === 'string' ? packageNameRaw.trim() : '';
+    if (!trimmed) {
       return {
-        packageName: key,
+        packageName: 'Unknown',
         referralPoolPercentage: 0,
         commissionRates: { ...this.commissionRates }
       };
     }
 
     try {
-      const pkg = await Package.findOne({ name: key, isActive: true }).lean();
+      const pkg = await this._findActivePackageByName(trimmed);
       if (!pkg) {
+        const fallbackKey = this.normalizePackageName(trimmed);
         return {
-          packageName: key,
+          packageName: fallbackKey === 'Unknown' ? trimmed : fallbackKey,
           referralPoolPercentage: 0,
           commissionRates: { ...this.commissionRates }
         };
@@ -167,11 +187,272 @@ class ReferralCommissionService {
       };
     } catch (e) {
       return {
-        packageName: key,
+        packageName: trimmed,
         referralPoolPercentage: 0,
         commissionRates: { ...this.commissionRates }
       };
     }
+  }
+
+  _paymentMetadataGet(payment, key) {
+    const m = payment?.metadata;
+    if (!m) return undefined;
+    if (m instanceof Map) return m.get(key);
+    if (typeof m.get === 'function') return m.get(key);
+    if (typeof m === 'object' && m !== null && Object.prototype.hasOwnProperty.call(m, key)) {
+      return m[key];
+    }
+    return undefined;
+  }
+
+  /**
+   * Same revenue base as {@link distributeCommissions} (admin-granted uses metadata commission base).
+   */
+  getPackageAmountForCommission(payment) {
+    const adminGranted = this._paymentMetadataGet(payment, 'adminGranted') === '1';
+    const commissionBaseRaw = adminGranted ? this._paymentMetadataGet(payment, 'commissionBaseAmount') : null;
+    const commissionBase = commissionBaseRaw != null ? Number(commissionBaseRaw) : null;
+    return (
+      Number(
+        adminGranted && Number.isFinite(commissionBase) && commissionBase > 0
+          ? commissionBase
+          : (payment.finalAmount ?? payment.amount)
+      ) || 0
+    );
+  }
+
+  /**
+   * Completed package payments with no referral_commission rows yet (candidates for backfill).
+   * @param {{ limit?: number, paymentIds?: string[] }} opts
+   */
+  async _findCompletedPackagePaymentsWithNoReferralCommissions(opts = {}) {
+    const mongoose = require('mongoose');
+    const Payment = require('../models/Payment');
+    const btColl = BalanceTransaction.collection.name;
+
+    const limit = Math.min(Math.max(parseInt(String(opts.limit || '200'), 10) || 200, 1), 500);
+    const match = { type: 'package', status: 'completed' };
+    if (opts.paymentIds && opts.paymentIds.length) {
+      const ids = opts.paymentIds
+        .filter((id) => mongoose.Types.ObjectId.isValid(id))
+        .map((id) => new mongoose.Types.ObjectId(id));
+      if (!ids.length) return [];
+      match._id = { $in: ids };
+    }
+
+    const pipeline = [
+      { $match: match },
+      { $sort: { createdAt: -1 } },
+      ...(opts.paymentIds && opts.paymentIds.length ? [] : [{ $limit: limit }]),
+      {
+        $lookup: {
+          from: btColl,
+          let: { pid: '$_id' },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [{ $eq: ['$relatedPayment', '$$pid'] }, { $eq: ['$type', 'referral_commission'] }]
+                }
+              }
+            }
+          ],
+          as: '_rc'
+        }
+      },
+      { $match: { _rc: { $size: 0 } } },
+      { $project: { _rc: 0 } }
+    ];
+
+    return Payment.aggregate(pipeline);
+  }
+
+  /**
+   * Preview what {@link distributeCommissions} would pay for payments that currently have no referral commissions.
+   */
+  async previewBackfillMissingPackageCommissions(opts = {}) {
+    const Payment = require('../models/Payment');
+    const thinRows = await this._findCompletedPackagePaymentsWithNoReferralCommissions(opts);
+    const ids = thinRows.map((r) => r._id);
+    if (!ids.length) {
+      return {
+        scannedWithNoCommissionRows: 0,
+        eligible: [],
+        skipped: [],
+        skippedCounts: {}
+      };
+    }
+
+    const payments = await Payment.find({ _id: { $in: ids } })
+      .populate('user', 'firstName lastName email parentReferralCode referredByDefaultCode')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const eligible = [];
+    const skipped = [];
+    const skippedCounts = {};
+
+    const bumpSkip = (reason) => {
+      skippedCounts[reason] = (skippedCounts[reason] || 0) + 1;
+    };
+
+    for (const payment of payments) {
+      const paymentId = String(payment._id);
+      const packageNameRaw = payment.package?.name || '';
+      const packageAmount = this.getPackageAmountForCommission(payment);
+      const buyer = payment.user;
+
+      if (packageAmount <= 0) {
+        bumpSkip('invalid_or_zero_amount');
+        skipped.push({ paymentId, reason: 'invalid_or_zero_amount', packageNameRaw, packageAmount });
+        continue;
+      }
+
+      const cfg = await this.getCommissionConfig(packageNameRaw);
+      const poolPct = Number(cfg.referralPoolPercentage) || 0;
+      if (cfg.packageCommissionEnabled === false || poolPct <= 0) {
+        bumpSkip('commission_disabled_or_zero_pool');
+        skipped.push({
+          paymentId,
+          reason: 'commission_disabled_or_zero_pool',
+          packageNameRaw,
+          resolvedPackageName: cfg.packageName,
+          packageCommissionEnabled: cfg.packageCommissionEnabled,
+          referralPoolPercentage: poolPct
+        });
+        continue;
+      }
+
+      if (!buyer || !buyer._id) {
+        bumpSkip('buyer_not_found');
+        skipped.push({ paymentId, reason: 'buyer_not_found', packageNameRaw });
+        continue;
+      }
+
+      if (!buyer.parentReferralCode) {
+        bumpSkip('no_referrer');
+        skipped.push({
+          paymentId,
+          reason: 'no_referrer',
+          packageNameRaw,
+          buyerEmail: buyer.email
+        });
+        continue;
+      }
+
+      if (buyer.referredByDefaultCode === true) {
+        bumpSkip('default_referral_only');
+        skipped.push({
+          paymentId,
+          reason: 'default_referral_only',
+          packageNameRaw,
+          buyerEmail: buyer.email
+        });
+        continue;
+      }
+
+      const referralPool = Math.round(packageAmount * poolPct * 100) / 100;
+      const companyShare = Math.round(packageAmount * (1 - poolPct) * 100) / 100;
+      const packageName = cfg.packageName || this.normalizePackageName(packageNameRaw);
+
+      const levels = [];
+      let currentReferralCode = buyer.parentReferralCode;
+      let level = 1;
+      while (currentReferralCode && level <= 5) {
+        const referrer = await User.findOne({ referralCode: currentReferralCode })
+          .select('firstName lastName email referralCode parentReferralCode')
+          .lean();
+        if (!referrer) {
+          break;
+        }
+        const commissionRate = cfg.commissionRates?.[level] ?? this.commissionRates[level] ?? 0;
+        const amount = Math.round(referralPool * commissionRate * 100) / 100;
+        levels.push({
+          level,
+          rateOfPool: commissionRate,
+          rateOfPoolDisplay: `${Math.round(commissionRate * 10000) / 100}%`,
+          amount,
+          payTo: {
+            userId: String(referrer._id),
+            email: referrer.email,
+            name: `${referrer.firstName || ''} ${referrer.lastName || ''}`.trim()
+          }
+        });
+        currentReferralCode = referrer.parentReferralCode;
+        level++;
+      }
+
+      const totalCommissions = Math.round(levels.reduce((s, l) => s + l.amount, 0) * 100) / 100;
+      if (totalCommissions <= 0) {
+        bumpSkip('zero_payout_chain');
+        skipped.push({
+          paymentId,
+          reason: 'zero_payout_chain',
+          packageNameRaw,
+          buyerEmail: buyer.email,
+          note: 'No referrers found for chain or all level rates are zero'
+        });
+        continue;
+      }
+
+      eligible.push({
+        paymentId,
+        createdAt: payment.createdAt,
+        packageNameRaw,
+        resolvedPackageName: packageName,
+        buyer: {
+          email: buyer.email,
+          name: `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim()
+        },
+        packageAmount,
+        referralPoolPercentage: poolPct,
+        referralPool,
+        platformShare: companyShare,
+        levels,
+        totalCommissionsToCredit: totalCommissions,
+        balanceTransactionsToCreate: levels.filter((l) => l.amount > 0).length
+      });
+    }
+
+    return {
+      scannedWithNoCommissionRows: payments.length,
+      eligible,
+      skipped,
+      skippedCounts
+    };
+  }
+
+  /**
+   * Run {@link distributeCommissions} for each payment id (must be full Mongoose documents — not lean).
+   */
+  async applyBackfillMissingPackageCommissions(paymentIds) {
+    const mongoose = require('mongoose');
+    const Payment = require('../models/Payment');
+    const results = [];
+
+    for (const rawId of paymentIds) {
+      const idStr = String(rawId);
+      if (!mongoose.Types.ObjectId.isValid(idStr)) {
+        results.push({ paymentId: idStr, ok: false, error: 'invalid_payment_id' });
+        continue;
+      }
+
+      const payment = await Payment.findById(idStr);
+      if (!payment) {
+        results.push({ paymentId: idStr, ok: false, error: 'payment_not_found' });
+        continue;
+      }
+
+      const created = await this.distributeCommissions(payment);
+      results.push({
+        paymentId: idStr,
+        ok: true,
+        commissionsCreated: created.length,
+        detail: created.length ? 'commissions_created' : 'no_commissions_created'
+      });
+    }
+
+    return results;
   }
 
   /**
@@ -213,21 +494,7 @@ class ReferralCommissionService {
         return [];
       }
 
-      const adminGranted = !!(payment?.metadata && typeof payment.metadata.get === 'function' && payment.metadata.get('adminGranted') === '1');
-      const commissionBaseRaw =
-        adminGranted && payment?.metadata && typeof payment.metadata.get === 'function'
-          ? payment.metadata.get('commissionBaseAmount')
-          : null;
-      const commissionBase = commissionBaseRaw != null ? Number(commissionBaseRaw) : null;
-
-      // Normal purchases: use finalAmount (after discounts) as base.
-      // Admin-granted packages: keep revenue at $0, but still distribute commissions from the package price
-      // using metadata.commissionBaseAmount.
-      const packageAmount = Number(
-        adminGranted && Number.isFinite(commissionBase) && commissionBase > 0
-          ? commissionBase
-          : (payment.finalAmount ?? payment.amount)
-      ) || 0;
+      const packageAmount = this.getPackageAmountForCommission(payment);
       const packageNameRaw = payment.package?.name || 'Unknown';
       const normalized = this.normalizePackageName(packageNameRaw);
       const cfg = await this.getCommissionConfig(packageNameRaw);

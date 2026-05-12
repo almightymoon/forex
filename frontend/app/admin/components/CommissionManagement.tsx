@@ -20,7 +20,8 @@ import {
   Minus,
   Loader2,
   Save,
-  Edit3
+  Edit3,
+  Wrench
 } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
@@ -184,6 +185,54 @@ interface AdminPackageTier {
   monthlyFeeCommissionRates?: Partial<CommissionRates> | null;
 }
 
+interface BackfillLevelPreview {
+  level: number;
+  rateOfPool: number;
+  rateOfPoolDisplay: string;
+  amount: number;
+  payTo: { userId: string; email: string; name: string };
+}
+
+interface BackfillEligibleRow {
+  paymentId: string;
+  createdAt: string;
+  packageNameRaw: string;
+  resolvedPackageName: string;
+  buyer: { email: string; name: string };
+  packageAmount: number;
+  referralPoolPercentage: number;
+  referralPool: number;
+  platformShare: number;
+  levels: BackfillLevelPreview[];
+  totalCommissionsToCredit: number;
+  balanceTransactionsToCreate: number;
+}
+
+interface BackfillSkippedRow {
+  paymentId: string;
+  reason: string;
+  packageNameRaw?: string;
+  buyerEmail?: string;
+  note?: string;
+}
+
+interface BackfillPreviewResponse {
+  success?: boolean;
+  scannedWithNoCommissionRows: number;
+  eligible: BackfillEligibleRow[];
+  skipped: BackfillSkippedRow[];
+  skippedCounts: Record<string, number>;
+}
+
+const BACKFILL_SKIP_LABELS: Record<string, string> = {
+  invalid_or_zero_amount: 'Package amount is zero or invalid',
+  commission_disabled_or_zero_pool: 'Commission off or 0% pool for this package in database',
+  buyer_not_found: 'Buyer user record missing',
+  no_referrer: 'Buyer has no referrer',
+  default_referral_only: 'Buyer used default referral link only',
+  zero_payout_chain: 'No payable upline (broken chain or zero rates)'
+};
+
 export default function CommissionManagement() {
   const [activeView, setActiveView] = useState<'referral' | 'platform' | 'monthly_fee'>('referral');
   const [commissions, setCommissions] = useState<Commission[]>([]);
@@ -226,6 +275,14 @@ export default function CommissionManagement() {
   const [settingsMonthlyFeeAmount, setSettingsMonthlyFeeAmount] = useState<number>(50);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [showMonthlyFeeEditor, setShowMonthlyFeeEditor] = useState(false);
+  const [backfillOpen, setBackfillOpen] = useState(false);
+  const [backfillScanLimit, setBackfillScanLimit] = useState(200);
+  const [backfillPreviewLoading, setBackfillPreviewLoading] = useState(false);
+  const [backfillApplyLoading, setBackfillApplyLoading] = useState(false);
+  const [backfillPreview, setBackfillPreview] = useState<BackfillPreviewResponse | null>(null);
+  const [backfillSelectedIds, setBackfillSelectedIds] = useState<Set<string>>(new Set());
+  const [backfillConfirmChecked, setBackfillConfirmChecked] = useState(false);
+  const [backfillExpandedPaymentId, setBackfillExpandedPaymentId] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeView === 'referral') {
@@ -357,6 +414,112 @@ export default function CommissionManagement() {
       console.error('[Platform Commissions] Error details:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const openBackfillModal = () => {
+    setBackfillOpen(true);
+    setBackfillPreview(null);
+    setBackfillSelectedIds(new Set());
+    setBackfillConfirmChecked(false);
+    setBackfillExpandedPaymentId(null);
+  };
+
+  const fetchBackfillPreview = async () => {
+    try {
+      setBackfillPreviewLoading(true);
+      const token = localStorage.getItem('token');
+      const qs = new URLSearchParams({
+        limit: String(Math.min(Math.max(backfillScanLimit, 1), 500))
+      });
+      const res = await fetch(buildApiUrl(`api/admin/commissions/backfill-missing-package/preview?${qs}`), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Preview failed');
+      }
+      const preview = data as BackfillPreviewResponse;
+      setBackfillPreview(preview);
+      const eligible = preview.eligible || [];
+      setBackfillSelectedIds(new Set(eligible.map((r) => r.paymentId)));
+      setBackfillConfirmChecked(false);
+      setBackfillExpandedPaymentId(null);
+    } catch (e) {
+      console.error('Backfill preview error:', e);
+      showToast(e instanceof Error ? e.message : 'Preview failed', 'error');
+    } finally {
+      setBackfillPreviewLoading(false);
+    }
+  };
+
+  const toggleBackfillPaymentSelected = (paymentId: string) => {
+    setBackfillSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(paymentId)) next.delete(paymentId);
+      else next.add(paymentId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllBackfillEligible = () => {
+    const eligible = backfillPreview?.eligible || [];
+    if (!eligible.length) return;
+    const allSelected = eligible.every((r) => backfillSelectedIds.has(r.paymentId));
+    if (allSelected) {
+      setBackfillSelectedIds(new Set());
+    } else {
+      setBackfillSelectedIds(new Set(eligible.map((r) => r.paymentId)));
+    }
+  };
+
+  const applyBackfillMissingCommissions = async () => {
+    const ids = [...backfillSelectedIds];
+    if (!ids.length) {
+      showToast('Select at least one payment', 'warning');
+      return;
+    }
+    if (!backfillConfirmChecked) {
+      showToast('Confirm that you have reviewed the payout breakdown', 'warning');
+      return;
+    }
+    try {
+      setBackfillApplyLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl('api/admin/commissions/backfill-missing-package/apply'), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ confirm: true, paymentIds: ids })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Apply failed');
+      }
+      const results = (data.results || []) as Array<{
+        paymentId: string;
+        ok: boolean;
+        commissionsCreated?: number;
+        detail?: string;
+        error?: string;
+      }>;
+      const created = results.filter((r) => r.ok && (r.commissionsCreated || 0) > 0).length;
+      const noop = results.filter((r) => r.ok && (r.commissionsCreated || 0) === 0).length;
+      const failed = results.filter((r) => !r.ok).length;
+      showToast(
+        `Backfill finished: ${created} paid, ${noop} no-op, ${failed} errors. Refresh lists to verify.`,
+        created ? 'success' : 'info'
+      );
+      setBackfillOpen(false);
+      setBackfillPreview(null);
+      await fetchPlatformCommissions();
+    } catch (e) {
+      console.error('Backfill apply error:', e);
+      showToast(e instanceof Error ? e.message : 'Apply failed', 'error');
+    } finally {
+      setBackfillApplyLoading(false);
     }
   };
 
@@ -900,6 +1063,30 @@ export default function CommissionManagement() {
               <Users className="w-8 h-8 text-orange-600 dark:text-orange-400" />
             </div>
           </div>
+        </div>
+      )}
+
+      {activeView === 'platform' && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="flex gap-3 items-start">
+            <Wrench className="w-5 h-5 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-amber-950 dark:text-amber-100">Missed package referral commissions</p>
+              <p className="text-sm text-amber-900/90 dark:text-amber-200/90 mt-1 max-w-3xl">
+                Preview completed package payments that still have zero referral commission transactions but should pay
+                under the current package settings. You will see each payout line before applying. New packages use the
+                exact name stored in Packages — no extra allowlist is required.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={openBackfillModal}
+            className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-amber-700 text-white hover:bg-amber-800 font-medium text-sm"
+          >
+            <Wrench className="w-4 h-4" />
+            Review & backfill
+          </button>
         </div>
       )}
 
@@ -2028,6 +2215,275 @@ export default function CommissionManagement() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {backfillOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-5xl max-h-[92vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Backfill package referral commissions</h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Step 1: scan recent completed package payments with no commission rows. Step 2: review payouts. Step 3:
+                  apply selected.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (backfillApplyLoading || backfillPreviewLoading) return;
+                  setBackfillOpen(false);
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-lg"
+                disabled={backfillApplyLoading || backfillPreviewLoading}
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 space-y-4 overflow-y-auto flex-1">
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Scan last N completed package payments (no commission rows yet)
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={backfillScanLimit}
+                    onChange={(e) => setBackfillScanLimit(Number(e.target.value) || 200)}
+                    disabled={backfillPreviewLoading || backfillApplyLoading}
+                    className="w-36 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void fetchBackfillPreview()}
+                  disabled={backfillPreviewLoading || backfillApplyLoading}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium hover:opacity-90 disabled:opacity-50"
+                >
+                  {backfillPreviewLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Scanning…
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4" />
+                      Run preview
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {backfillPreview && (
+                <>
+                  <div className="flex flex-wrap gap-2 text-sm">
+                    <span className="inline-flex px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                      Candidates scanned: {backfillPreview.scannedWithNoCommissionRows}
+                    </span>
+                    <span className="inline-flex px-2 py-1 rounded-md bg-green-100 dark:bg-green-900/40 text-green-900 dark:text-green-100">
+                      Eligible to pay: {backfillPreview.eligible.length}
+                    </span>
+                    <span className="inline-flex px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700 text-gray-800 dark:text-gray-200">
+                      Skipped: {backfillPreview.skipped.length}
+                    </span>
+                  </div>
+
+                  {Object.keys(backfillPreview.skippedCounts || {}).length > 0 && (
+                    <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1">
+                      <p className="font-medium text-gray-700 dark:text-gray-300">Skipped reasons (counts)</p>
+                      <ul className="list-disc pl-5 space-y-0.5">
+                        {Object.entries(backfillPreview.skippedCounts).map(([code, count]) => (
+                          <li key={code}>
+                            {BACKFILL_SKIP_LABELS[code] || code}: <strong>{count}</strong>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+
+                  {backfillPreview.eligible.length > 0 && (
+                    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+                      <div className="px-3 py-2 bg-gray-50 dark:bg-gray-700/80 text-sm font-medium text-gray-900 dark:text-white">
+                        Payout preview (creates referral commission balance transactions)
+                      </div>
+                      <div className="overflow-x-auto max-h-[42vh] overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0 z-10">
+                            <tr>
+                              <th className="px-2 py-2 text-left w-10">
+                                <input
+                                  type="checkbox"
+                                  checked={
+                                    backfillPreview.eligible.length > 0 &&
+                                    backfillPreview.eligible.every((r) => backfillSelectedIds.has(r.paymentId))
+                                  }
+                                  onChange={toggleSelectAllBackfillEligible}
+                                  className="rounded border-gray-300"
+                                />
+                              </th>
+                              <th className="px-2 py-2 text-left">Date</th>
+                              <th className="px-2 py-2 text-left">Buyer</th>
+                              <th className="px-2 py-2 text-left">Package</th>
+                              <th className="px-2 py-2 text-right">Sale</th>
+                              <th className="px-2 py-2 text-right">Pool</th>
+                              <th className="px-2 py-2 text-right">Pay referrers</th>
+                              <th className="px-2 py-2 text-left w-24">Levels</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                            {backfillPreview.eligible.map((row) => (
+                              <React.Fragment key={row.paymentId}>
+                                <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                                  <td className="px-2 py-2 align-top">
+                                    <input
+                                      type="checkbox"
+                                      checked={backfillSelectedIds.has(row.paymentId)}
+                                      onChange={() => toggleBackfillPaymentSelected(row.paymentId)}
+                                      className="rounded border-gray-300"
+                                    />
+                                  </td>
+                                  <td className="px-2 py-2 align-top whitespace-nowrap text-gray-700 dark:text-gray-300">
+                                    {formatDate(row.createdAt)}
+                                  </td>
+                                  <td className="px-2 py-2 align-top">
+                                    <div className="text-gray-900 dark:text-white font-medium">{row.buyer.name || '—'}</div>
+                                    <div className="text-xs text-gray-500 dark:text-gray-400 break-all">{row.buyer.email}</div>
+                                  </td>
+                                  <td className="px-2 py-2 align-top">
+                                    <div className="text-gray-900 dark:text-white">{row.packageNameRaw}</div>
+                                    <div className="text-xs text-gray-500">Tier: {row.resolvedPackageName}</div>
+                                  </td>
+                                  <td className="px-2 py-2 align-top text-right font-mono">${row.packageAmount.toFixed(2)}</td>
+                                  <td className="px-2 py-2 align-top text-right font-mono">
+                                    ${row.referralPool.toFixed(2)}
+                                    <div className="text-xs text-gray-500 font-sans">
+                                      {(row.referralPoolPercentage * 100).toFixed(0)}% pool
+                                    </div>
+                                  </td>
+                                  <td className="px-2 py-2 align-top text-right font-mono text-green-700 dark:text-green-400 font-medium">
+                                    ${row.totalCommissionsToCredit.toFixed(2)}
+                                  </td>
+                                  <td className="px-2 py-2 align-top">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setBackfillExpandedPaymentId((id) =>
+                                          id === row.paymentId ? null : row.paymentId
+                                        )
+                                      }
+                                      className="text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                                    >
+                                      {backfillExpandedPaymentId === row.paymentId ? 'Hide' : 'Show'} breakdown
+                                    </button>
+                                  </td>
+                                </tr>
+                                {backfillExpandedPaymentId === row.paymentId && (
+                                  <tr className="bg-gray-50/80 dark:bg-gray-900/50">
+                                    <td colSpan={8} className="px-4 py-3 text-xs">
+                                      <p className="font-medium text-gray-800 dark:text-gray-200 mb-2">
+                                        Per-level credits (of ${row.referralPool.toFixed(2)} pool)
+                                      </p>
+                                      <ul className="space-y-1 font-mono text-gray-700 dark:text-gray-300">
+                                        {row.levels.map((lv) => (
+                                          <li key={lv.level}>
+                                            L{lv.level} — {lv.rateOfPoolDisplay} of pool → ${lv.amount.toFixed(2)} →{' '}
+                                            {lv.payTo.name || lv.payTo.email} ({lv.payTo.email})
+                                          </li>
+                                        ))}
+                                      </ul>
+                                      <p className="mt-2 text-gray-600 dark:text-gray-400 font-sans">
+                                        Platform share after pool: ${row.platformShare.toFixed(2)} (unchanged; this
+                                        only creates missing referrer credits).
+                                      </p>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+
+                  {backfillPreview.skipped.length > 0 && (
+                    <details className="text-sm border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                      <summary className="cursor-pointer font-medium text-gray-800 dark:text-gray-200">
+                        Skipped rows (sample, {backfillPreview.skipped.length})
+                      </summary>
+                      <ul className="mt-2 space-y-1 text-xs text-gray-600 dark:text-gray-400 max-h-40 overflow-y-auto">
+                        {backfillPreview.skipped.slice(0, 40).map((s) => (
+                          <li key={s.paymentId}>
+                            <span className="font-mono">{s.paymentId}</span> —{' '}
+                            {BACKFILL_SKIP_LABELS[s.reason] || s.reason}
+                            {s.buyerEmail ? ` — ${s.buyerEmail}` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  )}
+
+                  <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={backfillConfirmChecked}
+                      onChange={(e) => setBackfillConfirmChecked(e.target.checked)}
+                      className="mt-1 rounded border-gray-300"
+                      disabled={backfillApplyLoading}
+                    />
+                    <span>
+                      {
+                        "I have reviewed the payout breakdown above. Apply will credit selected referrers' balances and create referral commission transactions (same as normal checkout processing)."
+                      }
+                    </span>
+                  </label>
+                </>
+              )}
+            </div>
+
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap gap-3 justify-end shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  if (backfillApplyLoading || backfillPreviewLoading) return;
+                  setBackfillOpen(false);
+                }}
+                disabled={backfillApplyLoading || backfillPreviewLoading}
+                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => void applyBackfillMissingCommissions()}
+                disabled={
+                  backfillApplyLoading ||
+                  backfillPreviewLoading ||
+                  !backfillPreview ||
+                  backfillPreview.eligible.length === 0 ||
+                  backfillSelectedIds.size === 0 ||
+                  !backfillConfirmChecked
+                }
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 disabled:opacity-50"
+              >
+                {backfillApplyLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Applying…
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Apply selected ({backfillSelectedIds.size})
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

@@ -3469,6 +3469,66 @@ router.post('/withdrawals/:id/reject', [
   }
 });
 
+// @route   GET /api/admin/commissions/backfill-missing-package/preview
+// @desc    Preview package payments that have zero referral_commission rows but would pay under current Package config
+// @access  Private (Admin)
+router.get('/commissions/backfill-missing-package/preview', async (req, res) => {
+  try {
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '200'), 10) || 200, 1), 500);
+    const rawIds = req.query.paymentIds ? String(req.query.paymentIds) : '';
+    const paymentIds = rawIds
+      ? rawIds
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+      : undefined;
+
+    const ReferralCommissionService = require('../services/referralCommissionService');
+    const svc = new ReferralCommissionService();
+    const preview = await svc.previewBackfillMissingPackageCommissions({ limit, paymentIds });
+    res.json({ success: true, ...preview });
+  } catch (error) {
+    console.error('Backfill missing package commissions preview error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to build backfill preview'
+    });
+  }
+});
+
+// @route   POST /api/admin/commissions/backfill-missing-package/apply
+// @desc    Create referral commission balance transactions for given payment ids (idempotent per payment)
+// @access  Private (Admin)
+router.post('/commissions/backfill-missing-package/apply', async (req, res) => {
+  try {
+    const { paymentIds, confirm } = req.body || {};
+    if (confirm !== true) {
+      return res.status(400).json({
+        success: false,
+        error: 'Send confirm: true only after reviewing the preview. This credits referrer balances.'
+      });
+    }
+    if (!Array.isArray(paymentIds) || paymentIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'paymentIds must be a non-empty array of payment ObjectIds'
+      });
+    }
+    const capped = paymentIds.map((id) => String(id).trim()).filter(Boolean).slice(0, 80);
+
+    const ReferralCommissionService = require('../services/referralCommissionService');
+    const svc = new ReferralCommissionService();
+    const results = await svc.applyBackfillMissingPackageCommissions(capped);
+    res.json({ success: true, results });
+  } catch (error) {
+    console.error('Backfill missing package commissions apply error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to apply backfill'
+    });
+  }
+});
+
 // @route   GET /api/admin/commissions
 // @desc    Get all commission distributions (admin only)
 // @access  Private (Admin)
@@ -3898,9 +3958,11 @@ router.get('/platform-commissions', async (req, res) => {
     );
 
     const getPoolPct = (pkgNameRaw) => {
+      const trimmed = String(pkgNameRaw || '').trim();
+      let fromDb = poolPctByName.get(trimmed);
+      if (typeof fromDb === 'number' && !Number.isNaN(fromDb)) return fromDb;
       const normalized = commissionService.normalizePackageName(pkgNameRaw);
-      // Prefer DB-configured package percentage; fallback to 0 if missing.
-      const fromDb = poolPctByName.get(normalized);
+      fromDb = poolPctByName.get(normalized);
       if (typeof fromDb === 'number' && !Number.isNaN(fromDb)) return fromDb;
       return 0;
     };
