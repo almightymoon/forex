@@ -760,7 +760,7 @@ export default function CommissionManagement() {
         c.metadata.packageName,
         `$${c.metadata.packageAmount}`,
         `$${c.metadata.referralPool}`,
-        `${c.metadata.commissionRate}%`,
+        `${(parseFloat(String(c.metadata.commissionRate)) || 0).toFixed(2)}%`,
         `$${c.amount.toFixed(2)}`,
         c.metadata.buyerName,
         c.metadata.buyerEmail
@@ -1866,7 +1866,7 @@ export default function CommissionManagement() {
                             ${parseFloat(commission.metadata.referralPool).toFixed(2)}
                           </td>
                           <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                            {commission.metadata.commissionRate}%
+                            {(parseFloat(String(commission.metadata.commissionRate)) || 0).toFixed(2)}%
                           </td>
                           <td className="px-4 py-3">
                             <span className="text-sm font-semibold text-green-600 dark:text-green-400">
@@ -2182,7 +2182,7 @@ export default function CommissionManagement() {
                     <div>
                       <p className="text-sm text-gray-600 dark:text-gray-400">Commission Rate</p>
                       <p className="font-medium text-gray-900 dark:text-white">
-                        {selectedCommission.metadata.commissionRate}% of pool
+                        {(parseFloat(String(selectedCommission.metadata.commissionRate)) || 0).toFixed(2)}% of pool
                       </p>
                     </div>
                   </div>

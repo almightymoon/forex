@@ -255,16 +255,390 @@ class ReferralCommissionService {
                   $and: [{ $eq: ['$relatedPayment', '$$pid'] }, { $eq: ['$type', 'referral_commission'] }]
                 }
               }
-            }
+            },
+            { $group: { _id: null, net: { $sum: '$amount' } } }
           ],
-          as: '_rc'
+          as: '_rcnet'
         }
       },
-      { $match: { _rc: { $size: 0 } } },
-      { $project: { _rc: 0 } }
+      {
+        $match: {
+          $or: [{ _rcnet: { $size: 0 } }, { '_rcnet.0.net': { $lte: 0.02 } }]
+        }
+      },
+      { $project: { _rcnet: 0 } }
     ];
 
     return Payment.aggregate(pipeline);
+  }
+
+  /**
+   * Net sum of referral_commission rows for a package payment (originals + rollbacks).
+   * Used to detect whether a payment still has uncancelled commission liability.
+   */
+  async getNetReferralCommissionAmount(paymentId) {
+    const BalanceTransaction = require('../models/BalanceTransaction');
+    const mongoose = require('mongoose');
+    const pid = mongoose.Types.ObjectId.isValid(paymentId)
+      ? new mongoose.Types.ObjectId(String(paymentId))
+      : paymentId;
+    const agg = await BalanceTransaction.aggregate([
+      { $match: { relatedPayment: pid, type: 'referral_commission' } },
+      { $group: { _id: null, net: { $sum: '$amount' } } }
+    ]);
+    const n = agg[0]?.net;
+    return typeof n === 'number' && !Number.isNaN(n) ? Math.round(n * 100) / 100 : 0;
+  }
+
+  /**
+   * Build commission config from admin "proposed" body (preview before save).
+   */
+  commissionConfigFromProposal(packageDisplayName, proposed) {
+    if (!proposed || typeof proposed !== 'object') return null;
+    const ratesIn = proposed.commissionRates && typeof proposed.commissionRates === 'object' ? proposed.commissionRates : {};
+    const commissionRates = {
+      1: typeof ratesIn[1] === 'number' ? ratesIn[1] : this.commissionRates[1],
+      2: typeof ratesIn[2] === 'number' ? ratesIn[2] : this.commissionRates[2],
+      3: typeof ratesIn[3] === 'number' ? ratesIn[3] : this.commissionRates[3],
+      4: typeof ratesIn[4] === 'number' ? ratesIn[4] : this.commissionRates[4],
+      5: typeof ratesIn[5] === 'number' ? ratesIn[5] : this.commissionRates[5]
+    };
+    const pool =
+      typeof proposed.referralPoolPercentage === 'number' && !Number.isNaN(proposed.referralPoolPercentage)
+        ? proposed.referralPoolPercentage
+        : 0;
+    return {
+      packageName: packageDisplayName || 'Package',
+      packageCommissionEnabled: proposed.packageCommissionEnabled !== false,
+      referralPoolPercentage: pool,
+      commissionRates
+    };
+  }
+
+  /**
+   * Simulate pool + upline payouts for a completed package payment (no DB writes).
+   * @param {object} payment — lean doc with populated user (parentReferralCode, referredByDefaultCode, …)
+   * @param {object} cfg — same shape as getCommissionConfig()
+   */
+  async _simulatePackageCommissionDistribution(payment, cfg) {
+    const packageNameRaw = payment.package?.name || '';
+    const packageAmount = this.getPackageAmountForCommission(payment);
+    const buyer = payment.user;
+
+    if (packageAmount <= 0) {
+      return { ok: false, reason: 'invalid_or_zero_amount', packageNameRaw };
+    }
+    if (cfg.packageCommissionEnabled === false) {
+      return { ok: false, reason: 'commission_disabled_or_zero_pool', packageNameRaw };
+    }
+    const poolPct = Number(cfg.referralPoolPercentage) || 0;
+    if (poolPct <= 0) {
+      return { ok: false, reason: 'commission_disabled_or_zero_pool', packageNameRaw };
+    }
+
+    if (!buyer || !buyer._id) {
+      return { ok: false, reason: 'buyer_not_found', packageNameRaw };
+    }
+    if (!buyer.parentReferralCode) {
+      return { ok: false, reason: 'no_referrer', packageNameRaw, buyerEmail: buyer.email };
+    }
+    if (buyer.referredByDefaultCode === true) {
+      return { ok: false, reason: 'default_referral_only', packageNameRaw, buyerEmail: buyer.email };
+    }
+
+    const referralPool = Math.round(packageAmount * poolPct * 100) / 100;
+    const companyShare = Math.round(packageAmount * (1 - poolPct) * 100) / 100;
+    const packageName = cfg.packageName || this.normalizePackageName(packageNameRaw);
+
+    const levels = [];
+    let currentReferralCode = buyer.parentReferralCode;
+    let level = 1;
+    while (currentReferralCode && level <= 5) {
+      const referrer = await User.findOne({ referralCode: currentReferralCode })
+        .select('firstName lastName email referralCode parentReferralCode')
+        .lean();
+      if (!referrer) break;
+      const commissionRate = cfg.commissionRates?.[level] ?? this.commissionRates[level] ?? 0;
+      const amount = Math.round(referralPool * commissionRate * 100) / 100;
+      levels.push({
+        level,
+        rateOfPool: commissionRate,
+        rateOfPoolDisplay: `${(Math.round(commissionRate * 10000) / 100).toFixed(2)}%`,
+        amount,
+        payTo: {
+          userId: String(referrer._id),
+          email: referrer.email,
+          name: `${referrer.firstName || ''} ${referrer.lastName || ''}`.trim()
+        }
+      });
+      currentReferralCode = referrer.parentReferralCode;
+      level++;
+    }
+
+    const totalCommissions = Math.round(levels.reduce((s, l) => s + l.amount, 0) * 100) / 100;
+    if (totalCommissions <= 0) {
+      return {
+        ok: false,
+        reason: 'zero_payout_chain',
+        packageNameRaw,
+        buyerEmail: buyer.email
+      };
+    }
+
+    return {
+      ok: true,
+      packageNameRaw,
+      resolvedPackageName: packageName,
+      buyer: {
+        email: buyer.email,
+        name: `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim()
+      },
+      packageAmount,
+      referralPoolPercentage: poolPct,
+      referralPool,
+      platformShare: companyShare,
+      levels,
+      totalCommissionsToCredit: totalCommissions
+    };
+  }
+
+  /**
+   * Positive referral_commission rows for this payment that are not yet paired with a rollback row.
+   */
+  async getOpenPositiveReferralCommissionTransactions(paymentId) {
+    const BalanceTransaction = require('../models/BalanceTransaction');
+    const mongoose = require('mongoose');
+    const pid = mongoose.Types.ObjectId.isValid(paymentId)
+      ? new mongoose.Types.ObjectId(String(paymentId))
+      : paymentId;
+
+    const positives = await BalanceTransaction.find({
+      relatedPayment: pid,
+      type: 'referral_commission',
+      amount: { $gt: 0 }
+    })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    const open = [];
+    for (const tx of positives) {
+      const existingRollback = await BalanceTransaction.findOne({
+        type: 'referral_commission',
+        relatedPayment: pid,
+        'metadata.rollbackOfTransactionId': String(tx._id)
+      })
+        .select('_id')
+        .lean();
+      if (existingRollback?._id) continue;
+      const md = tx.metadata;
+      const level =
+        md instanceof Map
+          ? md.get('level')
+          : typeof md?.get === 'function'
+            ? md.get('level')
+            : md?.level;
+      open.push({
+        transactionId: String(tx._id),
+        userId: String(tx.user),
+        level: level != null ? String(level) : '?',
+        amount: Number(tx.amount) || 0,
+        createdAt: tx.createdAt
+      });
+    }
+    return open;
+  }
+
+  /**
+   * Post negative referral_commission rows to reverse open positive commissions for a package payment.
+   */
+  async rollbackOpenReferralCommissionsForPayment(paymentId, { performedBy } = {}) {
+    const BalanceTransaction = require('../models/BalanceTransaction');
+    const User = require('../models/User');
+    const mongoose = require('mongoose');
+    const pid = mongoose.Types.ObjectId.isValid(paymentId)
+      ? new mongoose.Types.ObjectId(String(paymentId))
+      : paymentId;
+
+    const txs = await BalanceTransaction.find({
+      relatedPayment: pid,
+      type: 'referral_commission',
+      amount: { $gt: 0 }
+    })
+      .sort({ createdAt: 1 })
+      .lean();
+
+    let reversedCount = 0;
+    let reversedAmount = 0;
+    const details = [];
+
+    for (const tx of txs) {
+      const existingRollback = await BalanceTransaction.findOne({
+        type: 'referral_commission',
+        relatedPayment: pid,
+        'metadata.rollbackOfTransactionId': String(tx._id)
+      })
+        .select('_id')
+        .lean();
+      if (existingRollback?._id) continue;
+
+      const amt = Number(tx.amount || 0);
+      await BalanceTransaction.createTransaction({
+        user: tx.user,
+        type: 'referral_commission',
+        amount: -amt,
+        description: 'Commission rollback (admin redistribute package)',
+        relatedPayment: pid,
+        notes: `Reversing referral commission of $${amt.toFixed(2)} to apply updated package commission settings`,
+        performedBy: performedBy || undefined,
+        metadata: new Map([
+          ['rollbackOfTransactionId', String(tx._id)],
+          ['rollbackSource', 'admin_redistribute_package']
+        ])
+      });
+
+      try {
+        const refUser = await User.findById(tx.user);
+        if (refUser?.referralStats) {
+          const cur = Number(refUser.referralStats.totalEarnings || 0);
+          refUser.referralStats.totalEarnings = Math.max(0, cur - amt);
+          const vr = Number(refUser.referralStats.verifiedReferrals || 0);
+          refUser.referralStats.verifiedReferrals = Math.max(0, vr - 1);
+          await refUser.save();
+        }
+      } catch (e) {
+        // ignore
+      }
+
+      reversedCount += 1;
+      reversedAmount += amt;
+      details.push({ transactionId: String(tx._id), userId: String(tx.user), amount: amt });
+    }
+
+    return { reversedCount, reversedAmount: Math.round(reversedAmount * 100) / 100, details };
+  }
+
+  /**
+   * Roll back any open referral commissions for this payment, then pay again using current Package rules.
+   */
+  async redistributePackagePurchaseCommissions(paymentId, { performedBy } = {}) {
+    const Payment = require('../models/Payment');
+    const rb = await this.rollbackOpenReferralCommissionsForPayment(paymentId, { performedBy });
+    const payment = await Payment.findById(paymentId);
+    if (!payment) {
+      throw new Error('payment_not_found');
+    }
+    const created = await this.distributeCommissions(payment);
+    return {
+      rollback: rb,
+      commissionsCreated: created.length,
+      commissions: created
+    };
+  }
+
+  /**
+   * Preview rollback + new payouts for completed package payments whose stored package.name matches.
+   * @param {{ packageName: string, limit?: number, proposed?: object }} opts — proposed = unsaved form (optional)
+   */
+  async previewRedistributePackageCommissions(opts) {
+    const Payment = require('../models/Payment');
+    const packageName = typeof opts.packageName === 'string' ? opts.packageName.trim() : '';
+    const limit = Math.min(Math.max(parseInt(String(opts.limit || '100'), 10) || 100, 1), 500);
+    if (!packageName) {
+      return { packageName: '', rows: [], error: 'package_name_required' };
+    }
+
+    const payments = await Payment.find({
+      type: 'package',
+      status: 'completed',
+      'package.name': packageName
+    })
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .populate('user', 'firstName lastName email parentReferralCode referredByDefaultCode')
+      .lean();
+
+    const rows = [];
+    for (const payment of payments) {
+      const paymentId = String(payment._id);
+      const netPaid = await this.getNetReferralCommissionAmount(payment._id);
+      const openOld = await this.getOpenPositiveReferralCommissionTransactions(payment._id);
+      const oldTotalOpen = Math.round(openOld.reduce((s, r) => s + r.amount, 0) * 100) / 100;
+
+      let cfg;
+      if (opts.proposed && typeof opts.proposed === 'object') {
+        cfg = this.commissionConfigFromProposal(packageName, opts.proposed);
+      } else {
+        cfg = await this.getCommissionConfig(packageName);
+      }
+
+      const sim = await this._simulatePackageCommissionDistribution(payment, cfg);
+
+      if (!sim.ok) {
+        rows.push({
+          paymentId,
+          createdAt: payment.createdAt,
+          packageNameRaw: payment.package?.name || packageName,
+          buyerEmail: payment.user?.email,
+          netPaid,
+          oldOpenCommissions: openOld,
+          oldTotalOpen,
+          newTotal: 0,
+          deltaReferrerPayout: Math.round((0 - netPaid) * 100) / 100,
+          skipReason: sim.reason,
+          newLevels: []
+        });
+        continue;
+      }
+
+      const newTotal = sim.totalCommissionsToCredit;
+      const deltaReferrerPayout = Math.round((newTotal - netPaid) * 100) / 100;
+
+      rows.push({
+        paymentId,
+        createdAt: payment.createdAt,
+        packageNameRaw: sim.packageNameRaw,
+        buyerEmail: payment.user?.email,
+        buyerName: sim.buyer?.name,
+        netPaid,
+        oldOpenCommissions: openOld,
+        oldTotalOpen,
+        newTotal,
+        deltaReferrerPayout,
+        newLevels: sim.levels,
+        newPool: sim.referralPool,
+        newPoolPct: sim.referralPoolPercentage,
+        skipReason: null
+      });
+    }
+
+    return { packageName, scanned: payments.length, rows };
+  }
+
+  /**
+   * Apply {@link redistributePackagePurchaseCommissions} for each id (sequential).
+   */
+  async applyRedistributePackageCommissions(paymentIds, { performedBy } = {}) {
+    const mongoose = require('mongoose');
+    const results = [];
+    for (const rawId of paymentIds || []) {
+      const idStr = String(rawId).trim();
+      if (!mongoose.Types.ObjectId.isValid(idStr)) {
+        results.push({ paymentId: idStr, ok: false, error: 'invalid_payment_id' });
+        continue;
+      }
+      try {
+        const out = await this.redistributePackagePurchaseCommissions(idStr, { performedBy });
+        results.push({
+          paymentId: idStr,
+          ok: true,
+          rollback: out.rollback,
+          commissionsCreated: out.commissionsCreated
+        });
+      } catch (e) {
+        results.push({ paymentId: idStr, ok: false, error: e.message || 'redistribute_failed' });
+      }
+    }
+    return results;
   }
 
   /**
@@ -299,98 +673,16 @@ class ReferralCommissionService {
     for (const payment of payments) {
       const paymentId = String(payment._id);
       const packageNameRaw = payment.package?.name || '';
-      const packageAmount = this.getPackageAmountForCommission(payment);
-      const buyer = payment.user;
-
-      if (packageAmount <= 0) {
-        bumpSkip('invalid_or_zero_amount');
-        skipped.push({ paymentId, reason: 'invalid_or_zero_amount', packageNameRaw, packageAmount });
-        continue;
-      }
-
       const cfg = await this.getCommissionConfig(packageNameRaw);
-      const poolPct = Number(cfg.referralPoolPercentage) || 0;
-      if (cfg.packageCommissionEnabled === false || poolPct <= 0) {
-        bumpSkip('commission_disabled_or_zero_pool');
+      const sim = await this._simulatePackageCommissionDistribution(payment, cfg);
+
+      if (!sim.ok) {
+        bumpSkip(sim.reason);
         skipped.push({
           paymentId,
-          reason: 'commission_disabled_or_zero_pool',
+          reason: sim.reason,
           packageNameRaw,
-          resolvedPackageName: cfg.packageName,
-          packageCommissionEnabled: cfg.packageCommissionEnabled,
-          referralPoolPercentage: poolPct
-        });
-        continue;
-      }
-
-      if (!buyer || !buyer._id) {
-        bumpSkip('buyer_not_found');
-        skipped.push({ paymentId, reason: 'buyer_not_found', packageNameRaw });
-        continue;
-      }
-
-      if (!buyer.parentReferralCode) {
-        bumpSkip('no_referrer');
-        skipped.push({
-          paymentId,
-          reason: 'no_referrer',
-          packageNameRaw,
-          buyerEmail: buyer.email
-        });
-        continue;
-      }
-
-      if (buyer.referredByDefaultCode === true) {
-        bumpSkip('default_referral_only');
-        skipped.push({
-          paymentId,
-          reason: 'default_referral_only',
-          packageNameRaw,
-          buyerEmail: buyer.email
-        });
-        continue;
-      }
-
-      const referralPool = Math.round(packageAmount * poolPct * 100) / 100;
-      const companyShare = Math.round(packageAmount * (1 - poolPct) * 100) / 100;
-      const packageName = cfg.packageName || this.normalizePackageName(packageNameRaw);
-
-      const levels = [];
-      let currentReferralCode = buyer.parentReferralCode;
-      let level = 1;
-      while (currentReferralCode && level <= 5) {
-        const referrer = await User.findOne({ referralCode: currentReferralCode })
-          .select('firstName lastName email referralCode parentReferralCode')
-          .lean();
-        if (!referrer) {
-          break;
-        }
-        const commissionRate = cfg.commissionRates?.[level] ?? this.commissionRates[level] ?? 0;
-        const amount = Math.round(referralPool * commissionRate * 100) / 100;
-        levels.push({
-          level,
-          rateOfPool: commissionRate,
-          rateOfPoolDisplay: `${Math.round(commissionRate * 10000) / 100}%`,
-          amount,
-          payTo: {
-            userId: String(referrer._id),
-            email: referrer.email,
-            name: `${referrer.firstName || ''} ${referrer.lastName || ''}`.trim()
-          }
-        });
-        currentReferralCode = referrer.parentReferralCode;
-        level++;
-      }
-
-      const totalCommissions = Math.round(levels.reduce((s, l) => s + l.amount, 0) * 100) / 100;
-      if (totalCommissions <= 0) {
-        bumpSkip('zero_payout_chain');
-        skipped.push({
-          paymentId,
-          reason: 'zero_payout_chain',
-          packageNameRaw,
-          buyerEmail: buyer.email,
-          note: 'No referrers found for chain or all level rates are zero'
+          buyerEmail: sim.buyerEmail
         });
         continue;
       }
@@ -398,19 +690,16 @@ class ReferralCommissionService {
       eligible.push({
         paymentId,
         createdAt: payment.createdAt,
-        packageNameRaw,
-        resolvedPackageName: packageName,
-        buyer: {
-          email: buyer.email,
-          name: `${buyer.firstName || ''} ${buyer.lastName || ''}`.trim()
-        },
-        packageAmount,
-        referralPoolPercentage: poolPct,
-        referralPool,
-        platformShare: companyShare,
-        levels,
-        totalCommissionsToCredit: totalCommissions,
-        balanceTransactionsToCreate: levels.filter((l) => l.amount > 0).length
+        packageNameRaw: sim.packageNameRaw,
+        resolvedPackageName: sim.resolvedPackageName,
+        buyer: sim.buyer,
+        packageAmount: sim.packageAmount,
+        referralPoolPercentage: sim.referralPoolPercentage,
+        referralPool: sim.referralPool,
+        platformShare: sim.platformShare,
+        levels: sim.levels,
+        totalCommissionsToCredit: sim.totalCommissionsToCredit,
+        balanceTransactionsToCreate: sim.levels.filter((l) => l.amount > 0).length
       });
     }
 
@@ -484,13 +773,17 @@ class ReferralCommissionService {
         ? (typeof payment._id === 'string' ? new mongoose.Types.ObjectId(payment._id) : payment._id)
         : payment._id;
       
-      const existingCommissions = await BalanceTransaction.countDocuments({
-        relatedPayment: paymentId,
-        type: 'referral_commission'
-      });
-      
-      if (existingCommissions > 0) {
-        console.log(`[Commission] Commissions already exist for payment ${payment._id} (${existingCommissions} found). Skipping to prevent duplicates.`);
+      const netExisting = await this.getNetReferralCommissionAmount(paymentId);
+      if (netExisting > 0.02) {
+        console.log(
+          `[Commission] Net referral commission still $${netExisting.toFixed(2)} for payment ${payment._id}. Skipping duplicate distribution.`
+        );
+        return [];
+      }
+      if (netExisting < -0.02) {
+        console.warn(
+          `[Commission] Negative net referral commission $${netExisting.toFixed(2)} for payment ${payment._id}; skipping distribution.`
+        );
         return [];
       }
 

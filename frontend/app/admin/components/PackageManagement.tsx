@@ -2,7 +2,7 @@
 
 import React, { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit, Trash2, Save, X, RefreshCw } from 'lucide-react';
+import { Plus, Edit, Trash2, Save, X, RefreshCw, Loader2, AlertTriangle } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { useToast } from '../../../components/Toast';
 
@@ -27,6 +27,40 @@ export interface AdminPackage {
   createdAt?: string;
   updatedAt?: string;
 }
+
+export type RedistributePreviewRow = {
+  paymentId: string;
+  createdAt: string;
+  buyerEmail?: string;
+  buyerName?: string;
+  netPaid: number;
+  oldTotalOpen: number;
+  newTotal: number;
+  deltaReferrerPayout: number;
+  skipReason: string | null;
+  newLevels: Array<{
+    level: number;
+    amount: number;
+    rateOfPoolDisplay: string;
+    payTo: { email: string; name: string };
+  }>;
+  oldOpenCommissions: Array<{ transactionId: string; level: string; amount: number }>;
+};
+
+export type RedistributePreviewData = {
+  packageName: string;
+  scanned: number;
+  rows: RedistributePreviewRow[];
+};
+
+const REDISTRIBUTE_SKIP_LABELS: Record<string, string> = {
+  invalid_or_zero_amount: 'Invalid or zero payment amount',
+  commission_disabled_or_zero_pool: 'Commission disabled or zero pool under preview rules',
+  buyer_not_found: 'Buyer user missing',
+  no_referrer: 'Buyer has no referrer',
+  default_referral_only: 'Default referral link only',
+  zero_payout_chain: 'No payable upline or zero rates'
+};
 
 interface Props {
   packages: AdminPackage[];
@@ -53,6 +87,15 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<AdminPackage | null>(null);
   const [editing, setEditing] = useState<AdminPackage | null>(null);
+
+  const [redistributeOpen, setRedistributeOpen] = useState(false);
+  const [redistributeLoading, setRedistributeLoading] = useState(false);
+  const [redistributeApplyLoading, setRedistributeApplyLoading] = useState(false);
+  const [redistributePreview, setRedistributePreview] = useState<RedistributePreviewData | null>(null);
+  const [redistributeLimit, setRedistributeLimit] = useState(100);
+  const [redistributeUseFormProposed, setRedistributeUseFormProposed] = useState(true);
+  const [redistributeSelectedIds, setRedistributeSelectedIds] = useState<Set<string>>(new Set());
+  const [redistributeConfirm, setRedistributeConfirm] = useState(false);
 
   const sorted = useMemo(
     () =>
@@ -217,6 +260,122 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
       setIsDeleting(false);
     }
   };
+
+  const openRedistributeFromEdit = () => {
+    if (!editing) return;
+    setRedistributeOpen(true);
+    setRedistributePreview(null);
+    setRedistributeSelectedIds(new Set());
+    setRedistributeConfirm(false);
+    setRedistributeUseFormProposed(true);
+  };
+
+  const fetchRedistributePreview = async () => {
+    if (!editing) return;
+    try {
+      setRedistributeLoading(true);
+      const token = localStorage.getItem('token');
+      const body: Record<string, unknown> = {
+        packageName: editing.name,
+        limit: redistributeLimit
+      };
+      if (redistributeUseFormProposed) {
+        body.proposed = {
+          packageCommissionEnabled: form.packageCommissionEnabled,
+          referralPoolPercentage: form.referralPoolPercentage,
+          commissionRates: form.commissionRates
+        };
+      }
+      const res = await fetch(buildApiUrl('api/admin/commissions/redistribute-package/preview'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast((data as { error?: string }).error || 'Preview failed', 'error');
+        return;
+      }
+      if ((data as { success?: boolean }).success === false) {
+        showToast((data as { error?: string }).error || 'Preview failed', 'error');
+        return;
+      }
+      const preview = data as RedistributePreviewData;
+      setRedistributePreview(preview);
+      const sel = new Set<string>();
+      for (const row of preview?.rows || []) {
+        if (!row.skipReason) sel.add(row.paymentId);
+      }
+      setRedistributeSelectedIds(sel);
+      setRedistributeConfirm(false);
+    } catch (e) {
+      console.error(e);
+      showToast('Preview failed', 'error');
+    } finally {
+      setRedistributeLoading(false);
+    }
+  };
+
+  const toggleRedistributeRow = (paymentId: string) => {
+    setRedistributeSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(paymentId)) next.delete(paymentId);
+      else next.add(paymentId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllRedistribute = () => {
+    const rows = redistributePreview?.rows || [];
+    const eligible = rows.filter((r) => !r.skipReason);
+    if (!eligible.length) return;
+    const allOn = eligible.every((r) => redistributeSelectedIds.has(r.paymentId));
+    if (allOn) setRedistributeSelectedIds(new Set());
+    else setRedistributeSelectedIds(new Set(eligible.map((r) => r.paymentId)));
+  };
+
+  const applyRedistribute = async () => {
+    const ids = [...redistributeSelectedIds];
+    if (!ids.length) {
+      showToast('Select at least one payment', 'warning');
+      return;
+    }
+    if (!redistributeConfirm) {
+      showToast('Confirm the checkbox after reading the warning', 'warning');
+      return;
+    }
+    try {
+      setRedistributeApplyLoading(true);
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl('api/admin/commissions/redistribute-package/apply'), {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ confirm: true, paymentIds: ids })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast((data as { error?: string }).error || 'Apply failed', 'error');
+        return;
+      }
+      showToast('Redistribution finished. Referrer balances were updated.', 'success');
+      setRedistributeOpen(false);
+      setRedistributePreview(null);
+    } catch (e) {
+      console.error(e);
+      showToast('Apply failed', 'error');
+    } finally {
+      setRedistributeApplyLoading(false);
+    }
+  };
+
+  const formatPayDate = (iso: string) =>
+    new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -463,6 +622,34 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
                 </div>
               </div>
 
+              {editing && (
+                <div className="md:col-span-2 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/80 dark:bg-amber-950/30 p-4">
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                    <div className="flex gap-2">
+                      <AlertTriangle className="w-5 h-5 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-sm font-semibold text-amber-950 dark:text-amber-100">
+                          Changed pool or level rates?
+                        </p>
+                        <p className="text-xs text-amber-900/90 dark:text-amber-200/80 mt-1">
+                          Completed purchases keep the commission rows that were generated at payment time. Use roll
+                          back and redistribute to reverse those credits and pay again using{' '}
+                          <strong>saved</strong> package settings (save the package first, then apply).
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={openRedistributeFromEdit}
+                      className="shrink-0 inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-amber-800 text-white text-sm font-medium hover:bg-amber-900 dark:bg-amber-700 dark:hover:bg-amber-600"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Roll back and redistribute…
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <div className="md:col-span-2 border-t border-gray-200 dark:border-gray-700 pt-5">
                 <p className="text-sm font-semibold text-gray-900 dark:text-white mb-1">Monthly fee distribution</p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
@@ -575,6 +762,256 @@ export default function PackageManagement({ packages, onRefresh }: Props) {
               >
                 <Save className="w-4 h-4" />
                 {isSaving ? 'Saving...' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {redistributeOpen && editing && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-full max-w-5xl max-h-[90vh] flex flex-col border border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 shrink-0">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Roll back and redistribute — {editing.name}
+                </h3>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  Matches completed payments where <span className="font-mono">package.name</span> is{' '}
+                  <strong>{editing.name}</strong> (the name stored on each payment when it was made).
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  if (redistributeLoading || redistributeApplyLoading) return;
+                  setRedistributeOpen(false);
+                  setRedistributePreview(null);
+                }}
+                className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-4 overflow-y-auto flex-1">
+              <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer max-w-xl">
+                <input
+                  type="checkbox"
+                  checked={redistributeUseFormProposed}
+                  onChange={(e) => setRedistributeUseFormProposed(e.target.checked)}
+                  className="mt-1 rounded border-gray-300"
+                  disabled={redistributeLoading || redistributeApplyLoading}
+                />
+                <span>
+                  Preview using commission fields in this dialog (including unsaved changes). Uncheck to preview using
+                  only what is already saved in the database.
+                </span>
+              </label>
+
+              <div className="flex flex-wrap items-end gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                    Max payments to scan
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={500}
+                    value={redistributeLimit}
+                    onChange={(e) => setRedistributeLimit(Number(e.target.value) || 100)}
+                    disabled={redistributeLoading || redistributeApplyLoading}
+                    className="w-28 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void fetchRedistributePreview()}
+                  disabled={redistributeLoading || redistributeApplyLoading}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-900 dark:bg-gray-100 text-white dark:text-gray-900 text-sm font-medium hover:opacity-90 disabled:opacity-50"
+                >
+                  {redistributeLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Scanning…
+                    </>
+                  ) : (
+                    <>
+                      <RefreshCw className="w-4 h-4" />
+                      Run preview
+                    </>
+                  )}
+                </button>
+              </div>
+
+              {redistributePreview && (
+                <>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    Scanned {redistributePreview.scanned} payment(s) for package name &quot;{redistributePreview.packageName}&quot;.
+                  </p>
+
+                  <div className="overflow-x-auto border border-gray-200 dark:border-gray-700 rounded-lg max-h-[45vh] overflow-y-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-700 sticky top-0">
+                        <tr>
+                          <th className="px-2 py-2 text-left w-10">
+                            <input
+                              type="checkbox"
+                              onChange={toggleSelectAllRedistribute}
+                              checked={
+                                (redistributePreview.rows.filter((r) => !r.skipReason).length > 0 &&
+                                  redistributePreview.rows.filter((r) => !r.skipReason).every((r) =>
+                                    redistributeSelectedIds.has(r.paymentId)
+                                  )) ||
+                                false
+                              }
+                              className="rounded border-gray-300"
+                            />
+                          </th>
+                          <th className="px-2 py-2 text-left">Date</th>
+                          <th className="px-2 py-2 text-left">Buyer</th>
+                          <th className="px-2 py-2 text-right">Net paid</th>
+                          <th className="px-2 py-2 text-right">New total</th>
+                          <th className="px-2 py-2 text-right">Delta</th>
+                          <th className="px-2 py-2 text-left">Note</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                        {redistributePreview.rows.map((row) => (
+                          <tr key={row.paymentId} className="hover:bg-gray-50 dark:hover:bg-gray-700/40">
+                            <td className="px-2 py-2 align-top">
+                              <input
+                                type="checkbox"
+                                disabled={!!row.skipReason}
+                                checked={redistributeSelectedIds.has(row.paymentId)}
+                                onChange={() => toggleRedistributeRow(row.paymentId)}
+                                className="rounded border-gray-300"
+                              />
+                            </td>
+                            <td className="px-2 py-2 align-top whitespace-nowrap text-gray-600 dark:text-gray-300">
+                              {formatPayDate(row.createdAt)}
+                            </td>
+                            <td className="px-2 py-2 align-top">
+                              <div className="text-gray-900 dark:text-white">{row.buyerName || '—'}</div>
+                              <div className="text-xs text-gray-500 break-all">{row.buyerEmail}</div>
+                            </td>
+                            <td className="px-2 py-2 align-top text-right font-mono">${row.netPaid.toFixed(2)}</td>
+                            <td className="px-2 py-2 align-top text-right font-mono">${row.newTotal.toFixed(2)}</td>
+                            <td
+                              className={`px-2 py-2 align-top text-right font-mono font-medium ${
+                                row.deltaReferrerPayout > 0.01
+                                  ? 'text-green-700 dark:text-green-400'
+                                  : row.deltaReferrerPayout < -0.01
+                                    ? 'text-red-700 dark:text-red-400'
+                                    : 'text-gray-800 dark:text-gray-200'
+                              }`}
+                            >
+                              {row.deltaReferrerPayout > 0 ? '+' : ''}
+                              {row.deltaReferrerPayout.toFixed(2)}
+                            </td>
+                            <td className="px-2 py-2 align-top text-xs text-gray-600 dark:text-gray-400">
+                              {row.skipReason ? (
+                                <span className="text-amber-800 dark:text-amber-200">
+                                  {REDISTRIBUTE_SKIP_LABELS[row.skipReason] || row.skipReason}
+                                </span>
+                              ) : (
+                                <span>
+                                  Roll back open lines (${row.oldTotalOpen.toFixed(2)}), then pay new breakdown.
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <details className="text-xs text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                    <summary className="cursor-pointer font-medium text-gray-800 dark:text-gray-200">
+                      Per-payment payout detail (first eligible row)
+                    </summary>
+                    {(() => {
+                      const sample = redistributePreview.rows.find((r) => !r.skipReason);
+                      if (!sample) return <p className="mt-2">No eligible rows.</p>;
+                      return (
+                        <div className="mt-2 space-y-2 font-mono">
+                          <p>
+                            <strong>Old open commission rows:</strong>{' '}
+                            {sample.oldOpenCommissions.length
+                              ? sample.oldOpenCommissions
+                                  .map((o) => `L${o.level} $${o.amount.toFixed(2)}`)
+                                  .join('; ')
+                              : 'none'}
+                          </p>
+                          <p>
+                            <strong>New levels:</strong>{' '}
+                            {sample.newLevels
+                              .filter((l) => l.amount > 0)
+                              .map(
+                                (l) =>
+                                  `L${l.level} ${l.rateOfPoolDisplay} → $${l.amount.toFixed(2)} → ${l.payTo.email}`
+                              )
+                              .join(' | ')}
+                          </p>
+                        </div>
+                      );
+                    })()}
+                  </details>
+
+                  <label className="flex items-start gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={redistributeConfirm}
+                      onChange={(e) => setRedistributeConfirm(e.target.checked)}
+                      className="mt-1 rounded border-gray-300"
+                      disabled={redistributeApplyLoading}
+                    />
+                    <span>
+                      I saved the package with the commission settings I want. Applying will post rollback rows for
+                      selected payments, then create new referral commission credits from the saved package definition
+                      (preview checkbox does not affect apply).
+                    </span>
+                  </label>
+                </>
+              )}
+            </div>
+
+            <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex flex-wrap justify-end gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  if (redistributeLoading || redistributeApplyLoading) return;
+                  setRedistributeOpen(false);
+                  setRedistributePreview(null);
+                }}
+                disabled={redistributeLoading || redistributeApplyLoading}
+                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={() => void applyRedistribute()}
+                disabled={
+                  redistributeApplyLoading ||
+                  redistributeLoading ||
+                  !redistributePreview ||
+                  redistributeSelectedIds.size === 0 ||
+                  !redistributeConfirm
+                }
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-green-600 text-white text-sm font-medium hover:bg-green-700 disabled:opacity-50"
+              >
+                {redistributeApplyLoading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Applying…
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Apply to selected ({redistributeSelectedIds.size})
+                  </>
+                )}
               </button>
             </div>
           </div>

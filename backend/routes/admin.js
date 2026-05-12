@@ -3529,6 +3529,68 @@ router.post('/commissions/backfill-missing-package/apply', async (req, res) => {
   }
 });
 
+// @route   POST /api/admin/commissions/redistribute-package/preview
+// @desc    Preview rolling back open referral commissions and re-paying under saved Package rules or optional proposed settings
+// @access  Private (Admin)
+router.post('/commissions/redistribute-package/preview', async (req, res) => {
+  try {
+    const { packageName, limit = 100, proposed } = req.body || {};
+    const lim = Math.min(Math.max(parseInt(String(limit), 10) || 100, 1), 500);
+    if (!packageName || typeof packageName !== 'string' || !packageName.trim()) {
+      return res.status(400).json({ success: false, error: 'packageName is required' });
+    }
+
+    const ReferralCommissionService = require('../services/referralCommissionService');
+    const svc = new ReferralCommissionService();
+    const preview = await svc.previewRedistributePackageCommissions({
+      packageName: packageName.trim(),
+      limit: lim,
+      proposed: proposed && typeof proposed === 'object' ? proposed : undefined
+    });
+    res.json({ success: true, ...preview });
+  } catch (error) {
+    console.error('Redistribute package commissions preview error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to build redistribute preview'
+    });
+  }
+});
+
+// @route   POST /api/admin/commissions/redistribute-package/apply
+// @desc    Roll back open referral commissions for each payment then run distributeCommissions again (uses saved Package config)
+// @access  Private (Admin)
+router.post('/commissions/redistribute-package/apply', async (req, res) => {
+  try {
+    const { paymentIds, confirm } = req.body || {};
+    if (confirm !== true) {
+      return res.status(400).json({
+        success: false,
+        error:
+          'Send confirm: true only after reviewing the preview. This adjusts referrer balances and ledger rows.'
+      });
+    }
+    if (!Array.isArray(paymentIds) || paymentIds.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'paymentIds must be a non-empty array of payment ObjectIds'
+      });
+    }
+    const capped = paymentIds.map((id) => String(id).trim()).filter(Boolean).slice(0, 80);
+
+    const ReferralCommissionService = require('../services/referralCommissionService');
+    const svc = new ReferralCommissionService();
+    const results = await svc.applyRedistributePackageCommissions(capped, { performedBy: req.user._id });
+    res.json({ success: true, results });
+  } catch (error) {
+    console.error('Redistribute package commissions apply error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to apply redistribute'
+    });
+  }
+});
+
 // @route   GET /api/admin/commissions
 // @desc    Get all commission distributions (admin only)
 // @access  Private (Admin)
