@@ -42,7 +42,10 @@ const getDefaultSettings = () => ({
     timezone: 'UTC',
     language: 'en',
     maintenanceMode: false,
-    maintenanceAllowTeachers: false
+    maintenanceAllowTeachers: false,
+    defaultReferralCode: '',
+    telegramInviteEnabled: true,
+    telegramInviteUrl: ''
   },
   security: {
     twoFactorAuth: false,

@@ -16,7 +16,9 @@ router.get('/public', async (req, res) => {
       description: settings.description,
       defaultCurrency: settings.defaultCurrency,
       maintenanceMode: settings.maintenanceMode,
-      maintenanceAllowTeachers: settings.maintenanceAllowTeachers || false
+      maintenanceAllowTeachers: settings.maintenanceAllowTeachers || false,
+      telegramInviteEnabled: settings.telegramInviteEnabled !== false,
+      telegramInviteUrl: (settings.telegramInviteUrl || '').trim()
     };
     
     res.json(publicSettings);

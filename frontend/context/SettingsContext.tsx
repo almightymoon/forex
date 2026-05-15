@@ -8,11 +8,14 @@ interface PublicSettings {
   defaultCurrency: string;
   maintenanceMode: boolean;
   darkMode: boolean;
+  telegramInviteEnabled: boolean;
+  telegramInviteUrl: string;
 }
 
 interface SettingsContextType {
   settings: PublicSettings;
   loading: boolean;
+  settingsLoaded: boolean;
   refreshSettings: () => Promise<void>;
   toggleDarkMode: () => void;
   setDarkMode: (dark: boolean) => void;
@@ -23,12 +26,15 @@ const defaultSettings: PublicSettings = {
   description: 'Premier Trading Education Platform',
   defaultCurrency: 'USD',
   maintenanceMode: false,
-  darkMode: false // Default to light mode
+  darkMode: false,
+  telegramInviteEnabled: true,
+  telegramInviteUrl: ''
 };
 
 const SettingsContext = createContext<SettingsContextType>({
   settings: defaultSettings,
   loading: false,
+  settingsLoaded: false,
   refreshSettings: async () => {},
   toggleDarkMode: () => {},
   setDarkMode: () => {}
@@ -49,13 +55,15 @@ interface SettingsProviderProps {
 export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) => {
   const [settings, setSettings] = useState<PublicSettings>(defaultSettings);
   const [loading, setLoading] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   const fetchSettings = async () => {
+    setLoading(true);
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
-      
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+
       const response = await fetch('/api/settings/public', {
         method: 'GET',
         headers: {
@@ -63,16 +71,22 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
         },
         signal: controller.signal
       });
-      
+
       clearTimeout(timeoutId);
-      
+
       if (response.ok) {
         const data = await response.json();
-        setSettings(data);
+        setSettings((prev) => ({
+          ...prev,
+          ...data,
+          darkMode: prev.darkMode,
+        }));
       }
     } catch (error) {
       console.warn('Failed to fetch settings, using defaults:', error);
-      // Keep default settings on error
+    } finally {
+      setSettingsLoaded(true);
+      setLoading(false);
     }
   };
 
@@ -137,14 +151,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   }, []);
 
   useEffect(() => {
-    // Fetch settings in background after mount with a delay
     if (mounted) {
-      // Delay the fetch to prioritize initial render
-      const timeoutId = setTimeout(() => {
-        fetchSettings();
-      }, 1000); // 1 second delay
-      
-      return () => clearTimeout(timeoutId);
+      fetchSettings();
     }
   }, [mounted]);
 
@@ -154,7 +162,9 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
   }
 
   return (
-    <SettingsContext.Provider value={{ settings, loading, refreshSettings, toggleDarkMode, setDarkMode }}>
+    <SettingsContext.Provider
+      value={{ settings, loading, settingsLoaded, refreshSettings, toggleDarkMode, setDarkMode }}
+    >
       {children}
     </SettingsContext.Provider>
   );

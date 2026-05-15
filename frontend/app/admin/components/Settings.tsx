@@ -4,7 +4,7 @@ import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Save, RotateCcw, Globe, Shield, Bell, CreditCard, Mail, 
-  Server, CheckCircle, User, Zap, AlertTriangle, Smartphone, Database
+  Server, CheckCircle, User, Zap, AlertTriangle, Smartphone, Database, MessageCircle
 } from 'lucide-react';
 import { AdminSettings } from './types';
 
@@ -94,7 +94,9 @@ export default function Settings({
       language: 'en',
       maintenanceMode: false,
       maintenanceAllowTeachers: false,
-      defaultReferralCode: ''
+      defaultReferralCode: '',
+      telegramInviteEnabled: true,
+      telegramInviteUrl: ''
     },
     security: {
       twoFactorAuth: false,
@@ -263,6 +265,53 @@ export default function Settings({
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Leave empty to disable default referral code assignment.
               </p>
+            </div>
+
+            <div className="rounded-xl border border-sky-200 dark:border-sky-800 bg-sky-50/80 dark:bg-sky-950/30 p-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-sky-500 flex items-center justify-center shrink-0">
+                  <MessageCircle className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">Telegram channel invite</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Floating popup on the landing page and other public pages
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-gray-700 dark:text-gray-300">Show invite popup</p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onSettingsChange(
+                      'general',
+                      'telegramInviteEnabled',
+                      !(safeSettings.general.telegramInviteEnabled ?? true),
+                    )
+                  }
+                  className={`w-12 h-6 rounded-full relative transition-colors ${safeSettings.general.telegramInviteEnabled !== false ? 'bg-sky-600' : 'bg-gray-200'}`}
+                >
+                  <div
+                    className={`w-5 h-5 bg-white rounded-full shadow transform transition-transform ${safeSettings.general.telegramInviteEnabled !== false ? 'translate-x-6' : 'translate-x-0'}`}
+                  />
+                </button>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Telegram invite link
+                </label>
+                <input
+                  type="url"
+                  value={safeSettings.general.telegramInviteUrl || ''}
+                  onChange={(e) => onSettingsChange('general', 'telegramInviteUrl', e.target.value.trim())}
+                  placeholder="https://t.me/yourchannel"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-sky-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Click Save Settings below to apply. Visitors who chose &quot;Don&apos;t show again&quot; must clear site data to see it again.
+                </p>
+              </div>
             </div>
             
             <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">

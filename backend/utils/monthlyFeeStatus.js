@@ -48,6 +48,33 @@ function feeMonthCoveredForPaymentDate(createdAt) {
   return { feeForMonthStart: prev.toISOString(), feeForMonthLabel };
 }
 
+function metadataString(metadata, key) {
+  if (!metadata) return '';
+  if (typeof metadata.get === 'function') return String(metadata.get(key) ?? '');
+  return String(metadata[key] ?? '');
+}
+
+/**
+ * For monthly_fee rows: if admin set `metadata.feeForMonthStartIso` (UTC month start), use that for
+ * display and reporting; otherwise infer from `createdAt` like student-initiated payments.
+ */
+function feeMonthForMonthlyFeePayment(payment) {
+  const iso = metadataString(payment?.metadata, 'feeForMonthStartIso').trim();
+  if (iso) {
+    const d = new Date(iso);
+    if (!Number.isNaN(d.getTime())) {
+      const feeForMonthStart = startOfUtcMonth(d);
+      const feeForMonthLabel = new Intl.DateTimeFormat('en-US', {
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'UTC'
+      }).format(feeForMonthStart);
+      return { feeForMonthStart: feeForMonthStart.toISOString(), feeForMonthLabel };
+    }
+  }
+  return feeMonthCoveredForPaymentDate(payment.createdAt);
+}
+
 /**
  * Match Package row to a completed package payment (name trim / case / price fallback).
  */
@@ -123,8 +150,7 @@ async function getMonthlyFeeStatusForUser(userId, now = new Date()) {
     const fromPkg = pkg ? Number(pkg.monthlyFeeAmount ?? 50) : 50;
     const amt = Number(pending.finalAmount ?? pending.amount ?? fromPkg);
     const nameFromPayment = (completedPackagePayment.package?.name || '').trim();
-    const currentMonthStart = startOfUtcMonth(now);
-    const requiredMonthStart = addUtcMonths(currentMonthStart, -1);
+    const { feeForMonthStart } = feeMonthForMonthlyFeePayment(pending);
     return {
       found: true,
       applies: true,
@@ -133,7 +159,7 @@ async function getMonthlyFeeStatusForUser(userId, now = new Date()) {
       packageName: pkg?.name || nameFromPayment || null,
       packagePrice: pkg?.price,
       monthlyFeeAmount: amt,
-      dueForMonth: requiredMonthStart.toISOString(),
+      dueForMonth: feeForMonthStart,
       message:
         'Your administrator has required a monthly fee payment before you can use the rest of the platform.',
       purchasedAt: completedPackagePayment.createdAt,
@@ -465,6 +491,7 @@ module.exports = {
   startOfUtcMonth,
   addUtcMonths,
   feeMonthCoveredForPaymentDate,
+  feeMonthForMonthlyFeePayment,
   resolvePackageFromList,
   resolvePackageFromPayment,
   getMonthlyFeeStatusForUser,

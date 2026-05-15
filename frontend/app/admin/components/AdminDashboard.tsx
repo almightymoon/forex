@@ -56,7 +56,7 @@ export default function AdminDashboard() {
   const tabsScrollRef = useRef<HTMLDivElement | null>(null);
   const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
   const [canScrollTabsRight, setCanScrollTabsRight] = useState(false);
-  const { settings: globalSettings } = useSettings();
+  const { settings: globalSettings, refreshSettings } = useSettings();
   const { showToast } = useToast();
   const { data, loading, refreshing, refreshData } = useAdmin();
   
@@ -686,7 +686,8 @@ export default function AdminDashboard() {
       if (response.ok) {
         setSettingsSaved(true);
         setTimeout(() => setSettingsSaved(false), 3000);
-        await refreshData(); // Refresh context data from server
+        await refreshData();
+        await refreshSettings();
         showToast('Settings saved successfully!', 'success');
       } else {
         showToast(`Failed to save settings: ${response.status}`, 'error');

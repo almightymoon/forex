@@ -11,7 +11,7 @@ const Package = require('../models/Package');
 const {
   resolvePackageFromPayment,
   getMonthlyFeeStatusForUser,
-  feeMonthCoveredForPaymentDate
+  feeMonthForMonthlyFeePayment
 } = require('../utils/monthlyFeeStatus');
 const { uploadImage } = require('../config/cloudinary');
 const { logActivity } = require('../services/activityLogService');
@@ -82,7 +82,7 @@ router.get('/monthly-fee', authenticateToken, async (req, res) => {
     ]);
 
     const entries = entriesRaw.map((p) => {
-      const { feeForMonthStart, feeForMonthLabel } = feeMonthCoveredForPaymentDate(p.createdAt);
+      const { feeForMonthStart, feeForMonthLabel } = feeMonthForMonthlyFeePayment(p);
       return {
         paymentId: p._id,
         status: p.status,

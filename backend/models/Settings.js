@@ -40,6 +40,16 @@ const settingsSchema = new mongoose.Schema({
     uppercase: true,
     maxlength: [20, 'Referral code cannot exceed 20 characters']
   },
+  telegramInviteEnabled: {
+    type: Boolean,
+    default: true
+  },
+  telegramInviteUrl: {
+    type: String,
+    default: '',
+    trim: true,
+    maxlength: [500, 'Telegram invite URL cannot exceed 500 characters']
+  },
 
   // Security Settings
   security: {

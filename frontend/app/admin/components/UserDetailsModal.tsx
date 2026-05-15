@@ -89,7 +89,8 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
     amount: '',
     notes: '',
     blockAccess: true,
-    forceWithoutMonthlyFee: false
+    forceWithoutMonthlyFee: false,
+    feeForMonth: ''
   });
   const [isImposingMonthlyFee, setIsImposingMonthlyFee] = useState(false);
   const [showGrantPackageModal, setShowGrantPackageModal] = useState(false);
@@ -461,11 +462,25 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
       m && typeof m.monthlyFeeAmount === 'number' && Number.isFinite(m.monthlyFeeAmount)
         ? String(m.monthlyFeeAmount)
         : '50';
+    let feeMonthDefault = '';
+    const due = m?.dueForMonth;
+    if (typeof due === 'string' && due) {
+      const d = new Date(due);
+      if (!Number.isNaN(d.getTime())) {
+        feeMonthDefault = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+      }
+    }
+    if (!feeMonthDefault) {
+      const now = new Date();
+      const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+      feeMonthDefault = `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, '0')}`;
+    }
     setImposeMonthlyForm({
       amount: def,
       notes: '',
       blockAccess: true,
-      forceWithoutMonthlyFee: false
+      forceWithoutMonthlyFee: false,
+      feeForMonth: feeMonthDefault
     });
     setShowImposeMonthlyFeeModal(true);
   };
@@ -494,7 +509,10 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
           amount: amt,
           notes: imposeMonthlyForm.notes.trim() || undefined,
           blockAccessUntilPaid: imposeMonthlyForm.blockAccess,
-          forceWithoutMonthlyFeePackage: imposeMonthlyForm.forceWithoutMonthlyFee || undefined
+          forceWithoutMonthlyFeePackage: imposeMonthlyForm.forceWithoutMonthlyFee || undefined,
+          ...(imposeMonthlyForm.feeForMonth.trim()
+            ? { feeForMonth: imposeMonthlyForm.feeForMonth.trim() }
+            : {})
         })
       });
       const data = await res.json().catch(() => ({}));
@@ -1613,6 +1631,22 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                   disabled={isImposingMonthlyFee}
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Fee for month (UTC)
+                </label>
+                <input
+                  type="month"
+                  value={imposeMonthlyForm.feeForMonth}
+                  onChange={(e) => setImposeMonthlyForm({ ...imposeMonthlyForm, feeForMonth: e.target.value })}
+                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  disabled={isImposingMonthlyFee}
+                />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  Shown in the student&apos;s monthly fee history and admin lists as the calendar month this charge
+                  applies to. Clear the field to infer from the creation date instead (same as student-submitted fees).
+                </p>
               </div>
               <label className="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200 cursor-pointer">
                 <input

@@ -10,6 +10,7 @@ import { GlobalSessionHandler } from '../components/GlobalSessionHandler'
 import { DevToolsProtection } from '../components/DevToolsProtection'
 import MaintenanceGate from '../components/MaintenanceGate'
 import PackageGuard from '../components/PackageGuard'
+import TelegramInviteSidebarGate from '../components/TelegramInviteSidebarGate'
 
 export const metadata = {
   title: 'Forex Navigators - Master the Art of Forex Trading',
@@ -34,9 +35,8 @@ export default function RootLayout({
                     <AdminProvider>
                       <GlobalSessionHandler />
                       <MaintenanceGate>
-                        <PackageGuard>
-                          {children}
-                        </PackageGuard>
+                        <PackageGuard>{children}</PackageGuard>
+                        <TelegramInviteSidebarGate />
                       </MaintenanceGate>
                     </AdminProvider>
                   </DashboardProvider>

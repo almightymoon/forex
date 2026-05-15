@@ -28,12 +28,31 @@ const { EJSON } = require('bson');
 const {
   listPendingMonthlyFeeStudents,
   getMonthlyFeeStatusForUser,
-  feeMonthCoveredForPaymentDate,
-  resolvePackageFromPayment
+  feeMonthForMonthlyFeePayment,
+  resolvePackageFromPayment,
+  startOfUtcMonth,
+  addUtcMonths
 } = require('../utils/monthlyFeeStatus');
 const { uploadImage } = require('../config/cloudinary');
 
 const router = express.Router();
+
+/** Parse admin "fee for month" (YYYY-MM or date string) → UTC month start, or null if empty/invalid. */
+function parseFeeForMonthUtcStartString(raw) {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  const ym = /^([0-9]{4})-([0-9]{2})$/.exec(s);
+  if (ym) {
+    const y = parseInt(ym[1], 10);
+    const mo = parseInt(ym[2], 10) - 1;
+    if (mo < 0 || mo > 11 || y < 2000 || y > 2100) return null;
+    return new Date(Date.UTC(y, mo, 1, 0, 0, 0, 0));
+  }
+  const d = new Date(s);
+  if (Number.isNaN(d.getTime())) return null;
+  return startOfUtcMonth(d);
+}
 
 // Mount admin products (CRUD + image upload)
 router.use('/products', adminProductsRouter);
@@ -811,7 +830,7 @@ router.get('/users/:id/monthly-fee-history', async (req, res) => {
     const policy = await getMonthlyFeeStatusForUser(userId, new Date());
 
     const entries = payments.map((p) => {
-      const { feeForMonthStart, feeForMonthLabel } = feeMonthCoveredForPaymentDate(p.createdAt);
+      const { feeForMonthStart, feeForMonthLabel } = feeMonthForMonthlyFeePayment(p);
       return {
         paymentId: p._id,
         status: p.status,
@@ -1666,7 +1685,8 @@ router.post(
 // @access  Private (Admin)
 router.post('/users/:id/impose-monthly-fee', [
   body('amount').optional().isFloat({ min: 0.01, max: 100000 }).withMessage('Amount must be between 0.01 and 100000'),
-  body('notes').optional().trim().isLength({ max: 500 })
+  body('notes').optional().trim().isLength({ max: 500 }),
+  body('feeForMonth').optional().trim().isLength({ max: 32 })
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -1741,6 +1761,26 @@ router.post('/users/:id/impose-monthly-fee', [
 
     const notes = (req.body.notes && String(req.body.notes).trim()) || '';
 
+    const feeForMonthRaw = req.body.feeForMonth;
+    let feeForMonthUtcStart = null;
+    if (feeForMonthRaw != null && String(feeForMonthRaw).trim() !== '') {
+      feeForMonthUtcStart = parseFeeForMonthUtcStartString(feeForMonthRaw);
+      if (!feeForMonthUtcStart) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid fee for month. Use YYYY-MM for the UTC calendar month (e.g. 2026-04).'
+        });
+      }
+      const earliest = new Date(Date.UTC(2000, 0, 1));
+      const latest = addUtcMonths(startOfUtcMonth(new Date()), 24);
+      if (feeForMonthUtcStart.getTime() < earliest.getTime() || feeForMonthUtcStart.getTime() > latest.getTime()) {
+        return res.status(400).json({
+          success: false,
+          error: 'Fee for month is out of allowed range (Jan 2000 through 24 months ahead, UTC).'
+        });
+      }
+    }
+
     const metadata = new Map([
       ['adminImposed', '1'],
       ['accessBlockedUntilPaid', blockAccessUntilPaid ? '1' : '0'],
@@ -1752,6 +1792,16 @@ router.post('/users/:id/impose-monthly-fee', [
     if (force) {
       metadata.set('forcedNonMonthlyPackage', '1');
     }
+    if (feeForMonthUtcStart) {
+      metadata.set('feeForMonthStartIso', feeForMonthUtcStart.toISOString());
+    }
+
+    const feeMonthLabelForDesc = feeForMonthUtcStart
+      ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(feeForMonthUtcStart)
+      : null;
+    const description = feeMonthLabelForDesc
+      ? `Monthly fee (admin imposed, ${feeMonthLabelForDesc}) — $${amount.toFixed(2)}`
+      : `Monthly fee (admin imposed) — $${amount.toFixed(2)}`;
 
     const payment = new Payment({
       user: req.params.id,
@@ -1760,7 +1810,7 @@ router.post('/users/:id/impose-monthly-fee', [
       paymentMethod: 'binance_wallet',
       status: 'pending',
       type: 'monthly_fee',
-      description: `Monthly fee (admin imposed) — $${amount.toFixed(2)}`,
+      description,
       discountAmount: 0,
       finalAmount: amount,
       metadata,
@@ -2565,7 +2615,10 @@ router.get('/settings', async (req, res) => {
         timezone: settings.timezone,
         language: settings.language,
         maintenanceMode: settings.maintenanceMode,
-        maintenanceAllowTeachers: settings.maintenanceAllowTeachers || false
+        maintenanceAllowTeachers: settings.maintenanceAllowTeachers || false,
+        defaultReferralCode: settings.defaultReferralCode || '',
+        telegramInviteEnabled: settings.telegramInviteEnabled !== false,
+        telegramInviteUrl: (settings.telegramInviteUrl || '').trim()
       },
       security: settings.security,
       notifications: settings.notifications,

@@ -110,6 +110,8 @@ export interface AdminSettings {
     maintenanceMode: boolean;
     maintenanceAllowTeachers: boolean;
     defaultReferralCode: string;
+    telegramInviteEnabled: boolean;
+    telegramInviteUrl: string;
   };
   security: {
     twoFactorAuth: boolean;
