@@ -149,8 +149,7 @@ const mt5AccountSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Indexes
-mt5AccountSchema.index({ user: 1 });
+// Indexes (user index is created by unique: true on user field)
 // Index already created by unique: true on mt5Login field
 // mt5AccountSchema.index({ mt5Login: 1 });
 mt5AccountSchema.index({ isActive: 1 });

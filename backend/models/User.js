@@ -207,10 +207,8 @@ const userSchema = new mongoose.Schema({
   parentReferralCode: {
     type: String,
     ref: 'User',
-    sparse: true,
     uppercase: true,
     trim: true
-    // Index is defined separately below (sparse doesn't auto-create index)
   },
   /** True when user was assigned a referrer only via default referral link (no ref param). No commission paid on their purchases. */
   referredByDefaultCode: {
@@ -295,7 +293,7 @@ userSchema.index({ isActive: 1 });
 // referralCode and userId indexes are automatically created by unique: true
 // userSchema.index({ referralCode: 1 });  // Duplicate - already created by unique: true
 // userSchema.index({ userId: 1 });  // Duplicate - already created by unique: true
-userSchema.index({ parentReferralCode: 1 });
+userSchema.index({ parentReferralCode: 1 }, { sparse: true });
 
 // Static method to generate unique user ID
 userSchema.statics.generateUserId = async function() {

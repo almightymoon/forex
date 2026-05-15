@@ -34,14 +34,10 @@ const paymentSchema = new mongoose.Schema({
     default: 'pending'
   },
   transactionId: {
-    type: String,
-    sparse: true
-    // Index is defined separately below
+    type: String
   },
   externalPaymentId: {
-    type: String, // ID from payment gateway
-    sparse: true
-    // Index is defined separately below
+    type: String // ID from payment gateway
   },
   description: {
     type: String,
