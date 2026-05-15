@@ -686,7 +686,7 @@ export default function AdminDashboard() {
       if (response.ok) {
         setSettingsSaved(true);
         setTimeout(() => setSettingsSaved(false), 3000);
-        await refreshData();
+        await refreshData(); 
         await refreshSettings();
         showToast('Settings saved successfully!', 'success');
       } else {
