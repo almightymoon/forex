@@ -2644,8 +2644,8 @@ html.scene-done .scroll-scene__layer {
 /* TO TOP */
 .site-footer__to-top {
   position: absolute;
-  right: 34px;
-  bottom: 22px;
+  right: max(24px, env(safe-area-inset-right, 0px));
+  bottom: max(22px, env(safe-area-inset-bottom, 0px));
   width: 62px;
   height: 62px;
   border-radius: 999px;
@@ -2655,6 +2655,7 @@ html.scene-done .scroll-scene__layer {
   align-items: center;
   justify-content: center;
   text-decoration: none;
+  z-index: 48;
 }
 
 .site-footer__to-top-icon {
@@ -2733,7 +2734,7 @@ html.scene-done .scroll-scene__layer {
   }
 
   .site-footer__to-top {
-    right: 24px;
-    bottom: 24px;
+    right: max(24px, env(safe-area-inset-right, 0px));
+    bottom: max(24px, env(safe-area-inset-bottom, 0px));
   }
 }

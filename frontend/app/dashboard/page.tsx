@@ -514,8 +514,7 @@ export default function Dashboard() {
     console.log('Dashboard: Token found:', !!token);
     
     if (!token) {
-      console.log('Dashboard: No token found, redirecting to login');
-      window.location.href = '/login';
+      router.replace('/login?redirect=/dashboard&error=not_authenticated');
       return;
     }
     
@@ -939,26 +938,22 @@ export default function Dashboard() {
   }
 
   if (!user) {
+    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+    if (token) {
+      return (
+        <CoolLoader
+          message="Loading your dashboard..."
+          size="md"
+          variant="student"
+        />
+      );
+    }
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-gray-700 text-xl mb-6">Please log in to access your dashboard</p>
-          <div className="space-y-4">
-            <button 
-              onClick={() => window.location.href = '/login'}
-              className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-            >
-              Go to Login
-            </button>
-            <button 
-              onClick={() => window.location.href = '/register'}
-              className="block w-full px-8 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-            >
-              Create Account
-            </button>
-          </div>
-        </div>
-      </div>
+      <CoolLoader
+        message="Redirecting to login..."
+        size="md"
+        variant="student"
+      />
     );
   }
 

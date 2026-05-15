@@ -128,20 +128,21 @@ export default function SectionNewJoiners() {
         .nj {
           position: relative;
           z-index: 48;
-          width: 100vw;
-          max-width: 100vw;
-          margin-left: calc(50% - 50vw);
-          margin-right: calc(50% - 50vw);
+          width: 100%;
+          max-width: 100%;
+          margin: 0;
           background: #ffffff;
-          padding: clamp(28px, 5vh, 56px) clamp(20px, 4vw, 48px) clamp(32px, 5vh, 64px);
+          /* Match site nav horizontal inset — avoid 100vw breakout (shifts left when scrollbar shows) */
+          padding: clamp(28px, 5vh, 56px) clamp(20px, 3.5vw, 52px) clamp(32px, 5vh, 64px);
           box-sizing: border-box;
-          overflow-x: hidden;
+          overflow-x: clip;
         }
 
         .nj__inner {
           width: 100%;
           max-width: min(1440px, 100%);
-          margin: 0 auto;
+          margin-inline: auto;
+          padding-inline: 0;
         }
 
         .nj__top {
@@ -254,9 +255,10 @@ export default function SectionNewJoiners() {
           gap: 22px;
           overflow-x: auto;
           overflow-y: visible;
-          padding: 8px 4px 12px;
-          margin: 0 -4px;
+          padding: 8px 0 12px;
+          margin: 0;
           scroll-snap-type: x mandatory;
+          scroll-padding-inline: 0;
           -webkit-overflow-scrolling: touch;
           scrollbar-width: none;
           -ms-overflow-style: none;

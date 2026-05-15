@@ -1,6 +1,34 @@
 import { buildApiUrl } from './api';
 import { clearMonthlyFeeAccessLock } from './monthlyFeeAccessLock';
 
+/** Keep middleware cookie in sync with localStorage (avoids redirect loops). */
+export function syncAuthCookieFromStorage(): void {
+  if (typeof window === 'undefined') return;
+  const token = localStorage.getItem('token');
+  if (!token) return;
+  const isSecure = window.location.protocol === 'https:';
+  document.cookie = `token=${encodeURIComponent(token)}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${isSecure ? '; Secure' : ''}`;
+}
+
+export function readStoredUser<T = Record<string, unknown>>(): T | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const token = localStorage.getItem('token');
+    const raw = localStorage.getItem('user');
+    if (!token || !raw) return null;
+    const parsed = JSON.parse(raw) as T;
+    return parsed && typeof parsed === 'object' && '_id' in (parsed as object) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function notifyAuthChanged(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event('platform:authChanged'));
+  window.dispatchEvent(new Event('platform:userChanged'));
+}
+
 interface TokenRefreshResponse {
   success: boolean;
   token?: string;

@@ -4,6 +4,11 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { buildApiUrl, apiRequest } from '../utils/api';
 import { fetchWithMaintenanceCheck } from '../hooks/useMaintenanceMode';
 import { useMaintenanceContext } from './MaintenanceContext';
+import {
+  handleSessionExpiration,
+  readStoredUser,
+  syncAuthCookieFromStorage
+} from '../utils/tokenUtils';
 
 interface User {
   _id: string;
@@ -135,7 +140,7 @@ interface DashboardContextType {
   loading: boolean;
   refreshing: boolean;
   error: string | null;
-  fetchUserData: () => Promise<void>;
+  fetchUserData: (opts?: { force?: boolean }) => Promise<void>;
   refreshUser: () => Promise<void>;
   fetchAvailableCourses: () => Promise<void>;
   refreshData: () => Promise<void>;
@@ -158,10 +163,49 @@ export const useDashboard = () => {
   return context;
 };
 
+async function fetchCurrentUserProfile(token: string): Promise<{
+  user?: User;
+  unauthorized?: boolean;
+  maintenance?: boolean;
+}> {
+  try {
+    const response = await fetch(buildApiUrl('api/users/profile/me'), {
+      headers: { Authorization: `Bearer ${token}` },
+      credentials: 'include'
+    });
+
+    if (response.status === 401) {
+      return { unauthorized: true };
+    }
+
+    if (response.status === 503) {
+      try {
+        const body = await response.clone().json();
+        if (body?.maintenanceMode) return { maintenance: true };
+      } catch {
+        /* ignore */
+      }
+    }
+
+    if (!response.ok) {
+      return {};
+    }
+
+    const body = await response.json();
+    const userData = (body?.user ?? body) as User;
+    if (userData && userData._id) {
+      return { user: userData };
+    }
+    return {};
+  } catch {
+    return {};
+  }
+}
+
 export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { setFromResponse } = useMaintenanceContext();
-  const [data, setData] = useState<DashboardData>({
-    user: null,
+  const [data, setData] = useState<DashboardData>(() => ({
+    user: readStoredUser<User>(),
     courses: [],
     availableCourses: [],
     signals: [],
@@ -170,7 +214,7 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     certificates: [],
     notificationCount: 0,
     lastUpdated: 0
-  });
+  }));
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -186,37 +230,59 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return !data.user || isDataStale();
   };
 
-  const fetchUserData = useCallback(async () => {
+  const fetchUserData = useCallback(async (opts?: { force?: boolean }) => {
     try {
       if (typeof window === 'undefined') return;
-      
+
       const token = localStorage.getItem('token');
       if (!token) {
+        setData((prev) => ({ ...prev, user: null }));
         setError('No authentication token found');
         return;
       }
 
-      // Don't fetch if we have recent data
-      if (!shouldFetchData()) {
+      syncAuthCookieFromStorage();
+
+      const storedUser = readStoredUser<User>();
+      if (storedUser) {
+        setData((prev) => (prev.user ? prev : { ...prev, user: storedUser }));
+      }
+
+      if (!opts?.force) {
+        const fiveMinutes = 5 * 60 * 1000;
+        let skipProfileFetch = false;
+        setData((prev) => {
+          if (prev.user && Date.now() - prev.lastUpdated <= fiveMinutes) {
+            skipProfileFetch = true;
+          }
+          return prev;
+        });
+        if (skipProfileFetch) {
+          return;
+        }
+      }
+
+      const profileResult = await fetchCurrentUserProfile(token);
+
+      if (profileResult.unauthorized) {
+        handleSessionExpiration('Your session has expired. Please log in again.');
         return;
       }
 
-      // Fetch user data
-      const userResult = await fetchWithMaintenanceCheck(buildApiUrl('api/auth/me'), {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (userResult.isMaintenanceMode) {
-        setFromResponse(true, userResult.error?.message);
+      if (profileResult.maintenance) {
+        setFromResponse(true);
         setError('Maintenance mode is active');
         return;
       }
 
-      if (userResult.data) {
-        const userData = userResult.data.user || userResult.data; // Handle both response formats
-        setData(prev => ({ ...prev, user: userData }));
+      const userData = profileResult.user ?? storedUser;
+      if (userData) {
+        try {
+          localStorage.setItem('user', JSON.stringify(userData));
+        } catch {
+          /* ignore */
+        }
+        setData((prev) => ({ ...prev, user: userData }));
 
         // Fetch all related data in parallel
         const [
@@ -306,12 +372,19 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           notificationCount: notificationCountData,
           lastUpdated: Date.now()
         }));
+      } else if (storedUser) {
+        setData((prev) => ({ ...prev, user: storedUser }));
       } else {
         setError('Failed to fetch user data');
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
-      setError('Failed to fetch dashboard data');
+      const fallback = readStoredUser<User>();
+      if (fallback) {
+        setData((prev) => ({ ...prev, user: prev.user ?? fallback }));
+      } else {
+        setError('Failed to fetch dashboard data');
+      }
     } finally {
       setLoading(false);
     }
@@ -324,18 +397,27 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const token = localStorage.getItem('token');
       if (!token) return;
 
-      const userResult = await fetchWithMaintenanceCheck(buildApiUrl('api/auth/me'), {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      syncAuthCookieFromStorage();
+      const profileResult = await fetchCurrentUserProfile(token);
 
-      if (userResult.isMaintenanceMode) {
-        setFromResponse(true, userResult.error?.message);
+      if (profileResult.unauthorized) {
+        handleSessionExpiration('Your session has expired. Please log in again.');
         return;
       }
 
-      if (userResult.data) {
-        const userData = userResult.data.user || userResult.data;
-        setData(prev => ({
+      if (profileResult.maintenance) {
+        setFromResponse(true);
+        return;
+      }
+
+      const userData = profileResult.user ?? readStoredUser<User>();
+      if (userData) {
+        try {
+          localStorage.setItem('user', JSON.stringify(userData));
+        } catch {
+          /* ignore */
+        }
+        setData((prev) => ({
           ...prev,
           user: userData,
           lastUpdated: Date.now()
@@ -573,23 +655,34 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }));
   }, []);
 
-  // Initialize data on mount
-  useEffect(() => {
-    fetchUserData();
-    fetchAvailableCourses();
-  }, []); // Only run once on mount
-
-  // Allow other pages to force-refresh user (e.g. after withdrawals)
+  // Load dashboard data on mount and whenever auth changes (e.g. after login)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const handler = () => {
-      refreshUser();
+
+    const bootstrap = (forceUserFetch = false) => {
+      syncAuthCookieFromStorage();
+      const stored = readStoredUser<User>();
+      if (stored) {
+        setData((prev) => ({ ...prev, user: stored }));
+      }
+      setLoading(true);
+      fetchUserData(forceUserFetch ? { force: true } : undefined);
+      fetchAvailableCourses();
     };
-    window.addEventListener('platform:userChanged', handler as EventListener);
+
+    bootstrap(false);
+
+    const onAuthChange = () => bootstrap(true);
+    window.addEventListener('platform:authChanged', onAuthChange);
+    window.addEventListener('platform:userChanged', onAuthChange);
+    window.addEventListener('storage', onAuthChange);
+
     return () => {
-      window.removeEventListener('platform:userChanged', handler as EventListener);
+      window.removeEventListener('platform:authChanged', onAuthChange);
+      window.removeEventListener('platform:userChanged', onAuthChange);
+      window.removeEventListener('storage', onAuthChange);
     };
-  }, [refreshUser]);
+  }, [fetchUserData, fetchAvailableCourses]);
 
   // Auto-refresh data if it's stale when component becomes visible
   useEffect(() => {

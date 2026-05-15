@@ -29,6 +29,7 @@ export default function TelegramInviteSidebar() {
   const [open, setOpen] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [portalReady, setPortalReady] = useState(false);
+  const [liftFab, setLiftFab] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
   const fabRef = useRef<HTMLButtonElement>(null);
 
@@ -38,6 +39,22 @@ export default function TelegramInviteSidebar() {
   useEffect(() => {
     setPortalReady(true);
   }, []);
+
+  useEffect(() => {
+    if (pathname !== '/') {
+      setLiftFab(false);
+      return;
+    }
+    const footer = document.getElementById('footer');
+    if (!footer) return;
+
+    const io = new IntersectionObserver(
+      ([entry]) => setLiftFab(entry.isIntersecting),
+      { threshold: 0, rootMargin: '0px 0px 100px 0px' },
+    );
+    io.observe(footer);
+    return () => io.disconnect();
+  }, [pathname]);
 
   useEffect(() => {
     try {
@@ -112,7 +129,7 @@ export default function TelegramInviteSidebar() {
         aria-hidden={!open}
         onClick={() => setOpen(false)}
       />
-      <div className={styles.anchor}>
+      <div className={`${styles.anchor} ${liftFab ? styles.anchorLift : ''}`}>
         <div
           ref={panelRef}
           id="telegram-invite-panel"

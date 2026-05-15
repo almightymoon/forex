@@ -6,6 +6,7 @@ import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { buildApiUrl } from '@/utils/api';
+import { notifyAuthChanged, syncAuthCookieFromStorage } from '@/utils/tokenUtils';
 import { useSettings } from '../../context/SettingsContext';
 import { useMaintenanceContext } from '../../context/MaintenanceContext';
 import AuthPortalShell, {
@@ -122,9 +123,8 @@ export default function LoginPage() {
           try {
             if (data.token) localStorage.setItem('token', data.token);
             if (data.user) localStorage.setItem('user', JSON.stringify(data.user));
-            const isSecure = typeof window !== 'undefined' && window.location?.protocol === 'https:';
-            const cookieOpts = `path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax${isSecure ? '; Secure' : ''}`;
-            if (data.token) document.cookie = `token=${data.token}; ${cookieOpts}`;
+            syncAuthCookieFromStorage();
+            notifyAuthChanged();
             console.log('Token set successfully');
           } catch (storageErr) {
             console.error('Token storage failed (e.g. Chrome blocking cookies/storage):', storageErr);
@@ -244,9 +244,8 @@ export default function LoginPage() {
       if (response.ok) {
         localStorage.setItem('token', data.token);
         localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // Set token in httpOnly cookie for middleware access
-        document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`;
+        syncAuthCookieFromStorage();
+        notifyAuthChanged();
         
         // Check for redirect parameter first
         const redirectParam = searchParams.get('redirect');
