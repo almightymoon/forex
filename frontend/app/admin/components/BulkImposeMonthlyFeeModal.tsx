@@ -336,6 +336,6 @@ export default function BulkImposeMonthlyFeeModal({ users, onClose, onComplete }
           </>
         )}
       </motion.div>
-    </motion.div>
+    </div>
   );
 }
