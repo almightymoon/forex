@@ -88,18 +88,18 @@ export default function Section5() {
   useEffect(() => {
     let rafId: number;
 
+    /** Pinned-scroll phases: spread in early, hold while reading, flip/exit only near the end. */
+    const SPREAD_END = 0.4;
+    const FLIP_START = 0.72;
+    const FLIP_END = 1;
+
+    const phaseProgress = (t: number, start: number, end: number) =>
+      Math.max(0, Math.min(1, (t - start) / (end - start)));
+
     const loop = () => {
       if (rootRef.current && entryRef.current) {
         const vh = window.innerHeight;
         const section = rootRef.current;
-
-        // Use document scroll position for robust progress (boundingClientRect can be skewed
-        // by transforms/overflow contexts and breaks the flip trigger on some layouts).
-        const start = section.offsetTop;
-        const maxScroll = Math.max(1, section.offsetHeight - vh);
-        const y = window.scrollY || window.pageYOffset || 0;
-        const raw = (y - start) / maxScroll;
-        const clamped = Math.max(0, Math.min(1, raw));
         const rect = section.getBoundingClientRect();
 
         if (rect.top >= 0) {
@@ -115,14 +115,23 @@ export default function Section5() {
 
         const e = easeInOutQuart(entryProg.current);
 
-        // Spread + flip follow scroll progress while section is pinned.
-        // When not yet reached, keep at 0. When past end, clamp at 1.
-        const spreadTgt = clamped;
-
-        let exitTgt = 0;
-        if (spreadTgt > 0) {
-          exitTgt = spreadTgt < 0.38 ? 0 : Math.min(1, (spreadTgt - 0.38) / 0.62);
+        // Progress only while the section is sticky (same approach as Section 3).
+        let pinned = 0;
+        if (rect.top <= 0) {
+          const maxScroll = rect.height - vh;
+          if (maxScroll > 0) {
+            pinned = Math.max(0, Math.min(1, Math.abs(rect.top) / maxScroll));
+          } else if (rect.bottom <= vh) {
+            pinned = 1;
+          }
+        } else if (rect.bottom <= 0) {
+          pinned = 1;
         }
+
+        const spreadTgt = phaseProgress(pinned, 0, SPREAD_END);
+        const flipTgt = phaseProgress(pinned, FLIP_START, FLIP_END);
+        const exitTgt = flipTgt;
+
         const edCurr = exitDepthProg.current;
         const edNext = edCurr + (exitTgt - edCurr) * 0.065;
         exitDepthProg.current = Math.abs(exitTgt - edNext) < 0.0008 ? exitTgt : edNext;
@@ -133,6 +142,7 @@ export default function Section5() {
         const sc = 1 - exit * 0.12;
         entryRef.current.style.opacity = String(Math.min(1, e * 1.25) * (1 - exit * 0.38));
         entryRef.current.style.transform = `translateY(${ty}px) translateZ(${tz}px) scale(${sc})`;
+
         const sCurr = spreadProg.current;
         const sNext = sCurr + (spreadTgt - sCurr) * 0.06;
         spreadProg.current = Math.abs(spreadTgt - sNext) < 0.0006 ? spreadTgt : sNext;
@@ -140,7 +150,6 @@ export default function Section5() {
         const easeOutQuint = (t: number) => 1 - Math.pow(1 - t, 5);
         rootRef.current.style.setProperty('--spread', String(easeOutQuint(spreadProg.current)));
 
-        const flipTgt = Math.max(0, Math.min(1, (spreadTgt - 0.35) / 0.65));
         const fCurr = flipProg.current;
         const fNext = fCurr + (flipTgt - fCurr) * 0.08;
         flipProg.current = Math.abs(flipTgt - fNext) < 0.0006 ? flipTgt : fNext;
