@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Loader2, Receipt, X } from 'lucide-react';
-import { buildApiUrl } from '../../../lib/api';
+import { buildApiUrl } from '../../../utils/api';
 import type { User } from './types';
 
 function defaultFeeForMonth(): string {
