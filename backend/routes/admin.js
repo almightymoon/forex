@@ -1845,16 +1845,14 @@ async function imposeMonthlyFeeForUser(userId, options) {
   }
 
   try {
-    await notificationService.sendNotificationToUser(userId, 'balance', {
-      title: 'Monthly fee required (admin)',
-      message: blockAccessUntilPaid
-        ? `Your administrator has added a monthly fee of $${amount.toFixed(
-            2
-          )} USDT. Open Monthly fee in the app and complete payment to restore full access.`
-        : `Your administrator has added a monthly fee of $${amount.toFixed(
-            2
-          )} USDT. Open the Monthly fee page when you are ready to pay.`,
-      transactionId: payment._id
+    await notificationService.notifyMonthlyFeeImposed(userId, {
+      amount,
+      currency: 'USD',
+      paymentId: payment._id,
+      feeForMonthLabel: feeMonthLabelForDesc || 'Current billing cycle',
+      packageName: pkgName || 'Your package',
+      blockAccessUntilPaid,
+      notes
     });
   } catch (e) {
     console.error('Admin impose monthly fee: notify student', e);

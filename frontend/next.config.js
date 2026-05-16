@@ -11,11 +11,12 @@ const nextConfig = {
   },
 
   images: {
-    domains: [
-      'res.cloudinary.com',
-      'localhost',
-      'your-domain.com',
-      'randomuser.me',
+    remotePatterns: [
+      { protocol: 'https', hostname: 'res.cloudinary.com', pathname: '/**' },
+      { protocol: 'http', hostname: 'localhost', pathname: '/**' },
+      { protocol: 'https', hostname: 'localhost', pathname: '/**' },
+      { protocol: 'https', hostname: 'your-domain.com', pathname: '/**' },
+      { protocol: 'https', hostname: 'randomuser.me', pathname: '/**' },
     ],
     formats: ['image/webp', 'image/avif'],
   },
@@ -131,9 +132,6 @@ const nextConfig = {
   // Enable static exports if needed
   // output: 'export',
   
-  // Optimize for production
-  swcMinify: true,
-  
   // Enable compression
   compress: true,
   
@@ -149,10 +147,9 @@ const nextConfig = {
     pagesBufferLength: 2,
   },
   
-  // Disable error overlay
+  // Dev-only indicator position (no buildActivity — removed in Next 15)
   devIndicators: {
-    buildActivity: false,
-    buildActivityPosition: 'bottom-right',
+    position: 'bottom-right',
   },
 };
 

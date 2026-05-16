@@ -20,7 +20,19 @@ const publicRoutes = [
   '/404'
 ];
 
+/** Block scanner POSTs that trigger "Failed to find Server Action" noise (this app has no Server Actions). */
+function isBogusServerActionProbe(request: NextRequest): boolean {
+  const actionId = request.headers.get('next-action') || request.headers.get('Next-Action');
+  if (!actionId) return false;
+  const id = actionId.trim();
+  return id.length < 12 || id === 'x';
+}
+
 export function middleware(request: NextRequest) {
+  if (request.method === 'POST' && isBogusServerActionProbe(request)) {
+    return new NextResponse(null, { status: 400 });
+  }
+
   const { pathname } = request.nextUrl;
   
   // Skip middleware for public routes

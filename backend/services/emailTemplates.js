@@ -788,6 +788,77 @@ class EmailTemplateService {
         text: `Payment Received - Awaiting Admin Approval\n\nHello {{userName}},\n\nThank you for your payment! We have successfully received your payment request and it is currently being reviewed by our admin team.\n\nPayment Details:\nAmount: {{currency}} {{amount}}\nPackage: {{packageName}}\nPayment ID: #{{paymentId}}\nStatus: Pending Review\n\nWhat Happens Next?\n1. Our admin team will review your payment\n2. Once verified, your account will be activated\n3. You'll receive a confirmation email with full access details\n4. Access to Forex LMS will be opened for you\n\nOnce your payment is confirmed, you can access your account here:\n{{loginUrl}}\n\nWe'll notify you via email as soon as your account is activated. This usually takes 24-48 hours.\n\nBest regards,\nThe {{companyName}} Team`
       },
 
+      monthly_fee_imposed: {
+        name: 'Monthly Fee Imposed (Admin)',
+        subject: 'Monthly fee required — action needed',
+        category: 'payments',
+        description: 'Sent when an administrator imposes a monthly fee on a student',
+        channels: ['email'],
+        variables: [
+          'userName',
+          'amount',
+          'currency',
+          'feeMonthLabel',
+          'packageName',
+          'paymentId',
+          'monthlyFeeUrl',
+          'blockAccessNote',
+          'adminNotes',
+          'companyName'
+        ],
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Monthly Fee Required</title>
+            <style>
+              body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f3f4f6; }
+              .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
+              .header { background: linear-gradient(135deg, #d97706 0%, #b45309 100%); padding: 36px 28px; text-align: center; color: white; }
+              .header h1 { margin: 0; font-size: 26px; font-weight: 700; }
+              .content { padding: 28px; color: #111827; line-height: 1.6; }
+              .card { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 12px; padding: 18px; margin: 18px 0; }
+              .amount { font-size: 32px; font-weight: 800; color: #b45309; text-align: center; margin: 8px 0 12px; }
+              .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #fde68a; }
+              .row:last-child { border-bottom: none; }
+              .label { color: #92400e; font-weight: 600; }
+              .value { color: #78350f; font-weight: 700; text-align: right; }
+              .alert { background: #fef2f2; border-left: 4px solid #dc2626; padding: 14px 16px; border-radius: 8px; color: #991b1b; margin: 16px 0; font-size: 14px; }
+              .note { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; margin-top: 14px; font-size: 14px; color: #374151; }
+              .cta { display: inline-block; background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color: white; padding: 14px 28px; border-radius: 999px; text-decoration: none; font-weight: 700; margin-top: 8px; }
+              .footer { background: #111827; color: #9ca3af; padding: 18px 22px; text-align: center; font-size: 13px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header">
+                <h1>Monthly fee required</h1>
+              </div>
+              <div class="content">
+                <p>Hello <strong>{{userName}}</strong>,</p>
+                <p>Your administrator has added a monthly fee to your account. Please complete payment using the Monthly fee page (wallet transfer + proof).</p>
+                <div class="card">
+                  <div class="amount">{{currency}} {{amount}}</div>
+                  <div class="row"><span class="label">Fee period</span><span class="value">{{feeMonthLabel}}</span></div>
+                  <div class="row"><span class="label">Package</span><span class="value">{{packageName}}</span></div>
+                  <div class="row"><span class="label">Reference</span><span class="value">#{{paymentId}}</span></div>
+                </div>
+                <p><strong>{{blockAccessNote}}</strong></p>
+                <div style="text-align:center; margin: 24px 0;">
+                  <a href="{{monthlyFeeUrl}}" class="cta">Open Monthly fee page</a>
+                </div>
+                <p class="note" style="display: {{adminNotesDisplay}};"><strong>Admin note:</strong> {{adminNotes}}</p>
+              </div>
+              <div class="footer">© 2026 {{companyName}}. All rights reserved.</div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `Monthly Fee Required\n\nHello {{userName}},\n\nYour administrator has added a monthly fee to your account.\n\nAmount: {{currency}} {{amount}}\nFee period: {{feeMonthLabel}}\nPackage: {{packageName}}\nReference: #{{paymentId}}\n\n{{blockAccessNote}}\n\nPay here: {{monthlyFeeUrl}}\n\n{{adminNotesLine}}\n\nBest regards,\nThe {{companyName}} Team`
+      },
+
       payment_complete_required: {
         name: 'Complete Your Payment',
         subject: 'Action Required: Complete Your Payment',

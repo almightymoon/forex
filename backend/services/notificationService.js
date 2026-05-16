@@ -408,6 +408,7 @@ class NotificationService {
       'user_registration': 'newUserRegistration',
       'payment_received': 'paymentReceived',
       'payment_pending': 'paymentReceived', // Use paymentReceived setting for payment_pending
+      'monthly_fee_imposed': 'paymentReceived',
       'course_enrollment': 'newUserRegistration',
       'system_alert': 'systemAlerts',
       'password_reset': 'systemAlerts',
@@ -733,6 +734,64 @@ class NotificationService {
           sms: `Withdrawal confirmed. Funds transferred.`,
           pushTitle: 'Withdrawal Confirmed',
           pushBody: 'Your withdrawal has been processed!'
+        };
+      }
+    }
+
+    // Admin-imposed monthly fee (student must pay via /monthly-fee)
+    if (type === 'monthly_fee_imposed') {
+      try {
+        const paymentIdRaw = data.paymentId;
+        const paymentIdStr = paymentIdRaw
+          ? String(paymentIdRaw).length > 8
+            ? String(paymentIdRaw).substring(0, 8)
+            : String(paymentIdRaw)
+          : 'N/A';
+        const notes = (data.notes && String(data.notes).trim()) || '';
+        const template = emailTemplates.renderTemplate('monthly_fee_imposed', {
+          userName: `${user.firstName} ${user.lastName}`.trim() || user.firstName || 'there',
+          amount: Number(data.amount ?? 0).toFixed(2),
+          currency: data.currency || 'USD',
+          feeMonthLabel: data.feeForMonthLabel || 'Current billing cycle',
+          packageName: data.packageName || 'Your package',
+          paymentId: paymentIdStr,
+          monthlyFeeUrl:
+            data.monthlyFeeUrl ||
+            `${process.env.FRONTEND_URL || 'http://localhost:3000'}/monthly-fee`,
+          blockAccessNote:
+            data.blockAccessNote ||
+            (data.blockAccessUntilPaid
+              ? 'Your platform access is limited until this fee is paid and confirmed.'
+              : 'You can continue using the platform; please complete this fee when you are ready.'),
+          adminNotes: notes || '—',
+          adminNotesDisplay: notes ? 'block' : 'none',
+          adminNotesLine: notes ? `Admin note: ${notes}` : '',
+          companyName: 'Forex Navigators'
+        });
+
+        return {
+          subject: template.subject || 'Monthly fee required — action needed',
+          html: template.html,
+          text: template.text,
+          sms: `Monthly fee of $${Number(data.amount ?? 0).toFixed(2)} USDT required. Open Monthly fee in the app.`,
+          pushTitle: data.blockAccessUntilPaid ? 'Monthly fee required' : 'Monthly fee added',
+          pushBody: data.blockAccessUntilPaid
+            ? `Pay $${Number(data.amount ?? 0).toFixed(2)} USDT to restore full access.`
+            : `A $${Number(data.amount ?? 0).toFixed(2)} USDT monthly fee was added to your account.`
+        };
+      } catch (error) {
+        console.error('[Notification] Error rendering monthly_fee_imposed template:', error);
+        const amt = Number(data.amount ?? 0).toFixed(2);
+        const msg =
+          data.message ||
+          `Your administrator has added a monthly fee of $${amt} USDT. Open the Monthly fee page to pay.`;
+        return {
+          subject: 'Monthly fee required',
+          html: `<p>Hello ${escapeHtml(user.firstName || 'there')},</p><p>${escapeHtml(msg)}</p>`,
+          text: `Hello ${user.firstName || 'there'},\n\n${msg}`,
+          sms: msg,
+          pushTitle: 'Monthly fee required',
+          pushBody: msg
         };
       }
     }
@@ -1498,6 +1557,53 @@ class NotificationService {
       console.error('Error creating notification:', error);
       throw error;
     }
+  }
+
+  /**
+   * In-app notification + email/push when admin imposes a monthly fee.
+   */
+  async notifyMonthlyFeeImposed(userId, data) {
+    const amount = Number(data.amount ?? 0);
+    const currency = data.currency || 'USD';
+    const feeForMonthLabel = data.feeForMonthLabel || 'Current billing cycle';
+    const blockAccessUntilPaid = !!data.blockAccessUntilPaid;
+    const monthlyFeeUrl =
+      data.monthlyFeeUrl ||
+      `${process.env.FRONTEND_URL || 'http://localhost:3000'}/monthly-fee`;
+
+    const title = blockAccessUntilPaid
+      ? 'Monthly fee required — access limited'
+      : 'Monthly fee added by administrator';
+    const message = blockAccessUntilPaid
+      ? `Your administrator added a $${amount.toFixed(2)} ${currency} monthly fee for ${feeForMonthLabel}. Pay now to restore full access.`
+      : `Your administrator added a $${amount.toFixed(2)} ${currency} monthly fee for ${feeForMonthLabel}. Open the Monthly fee page when you are ready to pay.`;
+
+    try {
+      await this.createNotification({
+        user: userId,
+        type: 'payment',
+        title,
+        message,
+        link: monthlyFeeUrl
+      });
+    } catch (e) {
+      console.error('notifyMonthlyFeeImposed: in-app notification failed', e);
+    }
+
+    return this.sendNotificationToUser(userId, 'monthly_fee_imposed', {
+      amount,
+      currency,
+      paymentId: data.paymentId,
+      feeForMonthLabel,
+      packageName: data.packageName,
+      blockAccessUntilPaid,
+      blockAccessNote: blockAccessUntilPaid
+        ? 'Your platform access is limited until this fee is paid and confirmed.'
+        : 'You can continue using the platform; please complete this fee when you are ready.',
+      notes: data.notes,
+      monthlyFeeUrl,
+      message
+    });
   }
 }
 
