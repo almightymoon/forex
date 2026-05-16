@@ -82,7 +82,8 @@ router.get('/monthly-fee', authenticateToken, async (req, res) => {
     ]);
 
     const entries = entriesRaw.map((p) => {
-      const { feeForMonthStart, feeForMonthLabel } = feeMonthForMonthlyFeePayment(p);
+      const { feeForMonthStart, feeForMonthLabel, feeDueByIso, feeDueByLabel } =
+        feeMonthForMonthlyFeePayment(p);
       return {
         paymentId: p._id,
         status: p.status,
@@ -91,6 +92,8 @@ router.get('/monthly-fee', authenticateToken, async (req, res) => {
         createdAt: p.createdAt,
         feeForMonthStart,
         feeForMonthLabel,
+        feeDueByIso,
+        feeDueByLabel,
         transactionId: p.transactionId || null,
         paymentScreenshotUrl: p.paymentScreenshotUrl || null,
         adminConfirmed: !!p.adminConfirmed

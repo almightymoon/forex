@@ -11,6 +11,8 @@ import {
 } from 'lucide-react';
 import EmailHistory from './EmailHistory';
 import MonthlyFeeHistoryPanel from './MonthlyFeeHistoryPanel';
+import ImposeMonthlyFeeDateFields from './ImposeMonthlyFeeDateFields';
+import { defaultFeePeriod, feeMonthString } from './imposeMonthlyFeeDateUtils';
 import { User } from './types';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
@@ -90,7 +92,9 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
     notes: '',
     blockAccess: true,
     forceWithoutMonthlyFee: false,
-    feeForMonth: ''
+    feeYear: '',
+    feeMonth: '',
+    feeDueBy: ''
   });
   const [isImposingMonthlyFee, setIsImposingMonthlyFee] = useState(false);
   const [showGrantPackageModal, setShowGrantPackageModal] = useState(false);
@@ -462,25 +466,24 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
       m && typeof m.monthlyFeeAmount === 'number' && Number.isFinite(m.monthlyFeeAmount)
         ? String(m.monthlyFeeAmount)
         : '50';
-    let feeMonthDefault = '';
+    const period = defaultFeePeriod();
     const due = m?.dueForMonth;
     if (typeof due === 'string' && due) {
       const d = new Date(due);
       if (!Number.isNaN(d.getTime())) {
-        feeMonthDefault = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+        period.year = String(d.getUTCFullYear());
+        period.month = String(d.getUTCMonth() + 1).padStart(2, '0');
+        period.dueBy = `${period.year}-${period.month}-${String(new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate()).padStart(2, '0')}`;
       }
-    }
-    if (!feeMonthDefault) {
-      const now = new Date();
-      const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-      feeMonthDefault = `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, '0')}`;
     }
     setImposeMonthlyForm({
       amount: def,
       notes: '',
       blockAccess: true,
       forceWithoutMonthlyFee: false,
-      feeForMonth: feeMonthDefault
+      feeYear: period.year,
+      feeMonth: period.month,
+      feeDueBy: period.dueBy
     });
     setShowImposeMonthlyFeeModal(true);
   };
@@ -493,6 +496,12 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
     }
     if (imposeNeedsForceOption && !imposeMonthlyForm.forceWithoutMonthlyFee) {
       showToast('This package has no recurring monthly fee in settings — enable “Impose anyway” or adjust the package first.', 'error');
+      return;
+    }
+
+    const feeForMonth = feeMonthString(imposeMonthlyForm.feeYear, imposeMonthlyForm.feeMonth);
+    if (!feeForMonth || !imposeMonthlyForm.feeDueBy) {
+      showToast('Select fee month, year, and pay-by date', 'error');
       return;
     }
 
@@ -510,9 +519,8 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
           notes: imposeMonthlyForm.notes.trim() || undefined,
           blockAccessUntilPaid: imposeMonthlyForm.blockAccess,
           forceWithoutMonthlyFeePackage: imposeMonthlyForm.forceWithoutMonthlyFee || undefined,
-          ...(imposeMonthlyForm.feeForMonth.trim()
-            ? { feeForMonth: imposeMonthlyForm.feeForMonth.trim() }
-            : {})
+          feeForMonth,
+          feeDueBy: imposeMonthlyForm.feeDueBy
         })
       });
       const data = await res.json().catch(() => ({}));
@@ -1632,22 +1640,15 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                   disabled={isImposingMonthlyFee}
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Fee for month (UTC)
-                </label>
-                <input
-                  type="month"
-                  value={imposeMonthlyForm.feeForMonth}
-                  onChange={(e) => setImposeMonthlyForm({ ...imposeMonthlyForm, feeForMonth: e.target.value })}
-                  className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  disabled={isImposingMonthlyFee}
-                />
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Shown in the student&apos;s monthly fee history and admin lists as the calendar month this charge
-                  applies to. Clear the field to infer from the creation date instead (same as student-submitted fees).
-                </p>
-              </div>
+              <ImposeMonthlyFeeDateFields
+                feeYear={imposeMonthlyForm.feeYear}
+                feeMonth={imposeMonthlyForm.feeMonth}
+                feeDueBy={imposeMonthlyForm.feeDueBy}
+                onFeeYearChange={(feeYear) => setImposeMonthlyForm({ ...imposeMonthlyForm, feeYear })}
+                onFeeMonthChange={(feeMonth) => setImposeMonthlyForm({ ...imposeMonthlyForm, feeMonth })}
+                onFeeDueByChange={(feeDueBy) => setImposeMonthlyForm({ ...imposeMonthlyForm, feeDueBy })}
+                disabled={isImposingMonthlyFee}
+              />
               <label className="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200 cursor-pointer">
                 <input
                   type="checkbox"

@@ -13,6 +13,8 @@ export interface HistoryEntry {
   createdAt: string;
   feeForMonthStart: string;
   feeForMonthLabel: string;
+  feeDueByIso?: string | null;
+  feeDueByLabel?: string | null;
   transactionId: string | null;
   transactionHash: string | null;
   adminConfirmed: boolean;
@@ -401,7 +403,14 @@ export default function MonthlyFeeHistoryPanel({ userId, onConfirmed, embedded, 
                 {data?.entries?.length ? (
                   data.entries.map((row) => (
                     <tr key={String(row.paymentId)} className="border-b border-gray-100 dark:border-gray-700/80">
-                      <td className="py-3 px-3 text-gray-900 dark:text-white font-medium">{row.feeForMonthLabel}</td>
+                      <td className="py-3 px-3 text-gray-900 dark:text-white font-medium">
+                        {row.feeForMonthLabel}
+                        {row.feeDueByLabel ? (
+                          <span className="block text-xs font-normal text-gray-500 dark:text-gray-400 mt-0.5">
+                            Pay by {row.feeDueByLabel} UTC
+                          </span>
+                        ) : null}
+                      </td>
                       <td className="py-3 px-3">
                         <span
                           className={`px-2 py-0.5 rounded-full text-xs font-medium ${

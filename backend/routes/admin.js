@@ -54,6 +54,28 @@ function parseFeeForMonthUtcStartString(raw) {
   return startOfUtcMonth(d);
 }
 
+/** Parse admin pay-by date (YYYY-MM-DD) → end of that UTC calendar day. */
+function parseFeeDueByUtcDateString(raw) {
+  if (raw == null) return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  const parts = /^([0-9]{4})-([0-9]{2})-([0-9]{2})$/.exec(s);
+  if (!parts) return null;
+  const y = parseInt(parts[1], 10);
+  const mo = parseInt(parts[2], 10) - 1;
+  const day = parseInt(parts[3], 10);
+  if (y < 2000 || y > 2100 || mo < 0 || mo > 11 || day < 1 || day > 31) return null;
+  const d = new Date(Date.UTC(y, mo, day, 23, 59, 59, 999));
+  if (d.getUTCFullYear() !== y || d.getUTCMonth() !== mo || d.getUTCDate() !== day) return null;
+  return d;
+}
+
+function lastUtcDayOfMonthFromStart(monthStart) {
+  const y = monthStart.getUTCFullYear();
+  const m = monthStart.getUTCMonth() + 1;
+  return new Date(Date.UTC(y, m, 0, 23, 59, 59, 999));
+}
+
 // Mount admin products (CRUD + image upload)
 router.use('/products', adminProductsRouter);
 
@@ -830,7 +852,8 @@ router.get('/users/:id/monthly-fee-history', async (req, res) => {
     const policy = await getMonthlyFeeStatusForUser(userId, new Date());
 
     const entries = payments.map((p) => {
-      const { feeForMonthStart, feeForMonthLabel } = feeMonthForMonthlyFeePayment(p);
+      const { feeForMonthStart, feeForMonthLabel, feeDueByIso, feeDueByLabel } =
+        feeMonthForMonthlyFeePayment(p);
       return {
         paymentId: p._id,
         status: p.status,
@@ -839,6 +862,8 @@ router.get('/users/:id/monthly-fee-history', async (req, res) => {
         createdAt: p.createdAt,
         feeForMonthStart,
         feeForMonthLabel,
+        feeDueByIso,
+        feeDueByLabel,
         transactionId: p.transactionId || null,
         transactionHash: p.binanceWallet?.transactionHash || null,
         adminConfirmed: !!p.adminConfirmed,
@@ -1690,6 +1715,7 @@ async function imposeMonthlyFeeForUser(userId, options) {
     amount: amountOverride,
     notes: notesRaw = '',
     feeForMonth: feeForMonthRaw,
+    feeDueBy: feeDueByRaw,
     blockAccessUntilPaid = false,
     forceWithoutMonthlyFeePackage: force = false
   } = options;
@@ -1784,6 +1810,34 @@ async function imposeMonthlyFeeForUser(userId, options) {
     }
   }
 
+  let feeDueByUtc = null;
+  if (feeDueByRaw != null && String(feeDueByRaw).trim() !== '') {
+    feeDueByUtc = parseFeeDueByUtcDateString(feeDueByRaw);
+    if (!feeDueByUtc) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Invalid pay-by date. Use YYYY-MM-DD (UTC calendar date).'
+      };
+    }
+  } else if (feeForMonthUtcStart) {
+    feeDueByUtc = lastUtcDayOfMonthFromStart(feeForMonthUtcStart);
+  }
+
+  if (feeDueByUtc && feeForMonthUtcStart) {
+    const monthEnd = lastUtcDayOfMonthFromStart(feeForMonthUtcStart);
+    if (
+      feeDueByUtc.getTime() < feeForMonthUtcStart.getTime() ||
+      feeDueByUtc.getTime() > monthEnd.getTime()
+    ) {
+      return {
+        ok: false,
+        status: 400,
+        error: 'Pay-by date must fall within the selected fee month (UTC).'
+      };
+    }
+  }
+
   const metadata = new Map([
     ['adminImposed', '1'],
     ['accessBlockedUntilPaid', blockAccessUntilPaid ? '1' : '0'],
@@ -1798,15 +1852,29 @@ async function imposeMonthlyFeeForUser(userId, options) {
   if (feeForMonthUtcStart) {
     metadata.set('feeForMonthStartIso', feeForMonthUtcStart.toISOString());
   }
+  if (feeDueByUtc) {
+    metadata.set('feeDueByIso', feeDueByUtc.toISOString());
+  }
 
   const feeMonthLabelForDesc = feeForMonthUtcStart
     ? new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(
         feeForMonthUtcStart
       )
     : null;
-  const description = feeMonthLabelForDesc
+  const feeDueLabelForDesc = feeDueByUtc
+    ? new Intl.DateTimeFormat('en-US', {
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric',
+        timeZone: 'UTC'
+      }).format(feeDueByUtc)
+    : null;
+  let description = feeMonthLabelForDesc
     ? `Monthly fee (admin imposed, ${feeMonthLabelForDesc}) — $${amount.toFixed(2)}`
     : `Monthly fee (admin imposed) — $${amount.toFixed(2)}`;
+  if (feeDueLabelForDesc) {
+    description += ` — pay by ${feeDueLabelForDesc} UTC`;
+  }
 
   const payment = new Payment({
     user: userId,
@@ -1850,6 +1918,7 @@ async function imposeMonthlyFeeForUser(userId, options) {
       currency: 'USD',
       paymentId: payment._id,
       feeForMonthLabel: feeMonthLabelForDesc || 'Current billing cycle',
+      feeDueByLabel: feeDueLabelForDesc,
       packageName: pkgName || 'Your package',
       blockAccessUntilPaid,
       notes
@@ -1864,7 +1933,8 @@ async function imposeMonthlyFeeForUser(userId, options) {
 const imposeMonthlyFeeValidators = [
   body('amount').optional().isFloat({ min: 0.01, max: 100000 }).withMessage('Amount must be between 0.01 and 100000'),
   body('notes').optional().trim().isLength({ max: 500 }),
-  body('feeForMonth').optional().trim().isLength({ max: 32 })
+  body('feeForMonth').optional().trim().isLength({ max: 32 }),
+  body('feeDueBy').optional().trim().isLength({ max: 32 })
 ];
 
 function parseImposeMonthlyFeeBody(body) {
@@ -1876,7 +1946,8 @@ function parseImposeMonthlyFeeBody(body) {
       body.forceWithoutMonthlyFeePackage === 'true',
     amount: body.amount,
     notes: body.notes,
-    feeForMonth: body.feeForMonth
+    feeForMonth: body.feeForMonth,
+    feeDueBy: body.feeDueBy
   };
 }
 

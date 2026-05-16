@@ -5,40 +5,8 @@ import { motion } from 'framer-motion';
 import { Loader2, Receipt, X } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import type { User } from './types';
-
-const UTC_MONTHS = [
-  { value: '01', label: 'January' },
-  { value: '02', label: 'February' },
-  { value: '03', label: 'March' },
-  { value: '04', label: 'April' },
-  { value: '05', label: 'May' },
-  { value: '06', label: 'June' },
-  { value: '07', label: 'July' },
-  { value: '08', label: 'August' },
-  { value: '09', label: 'September' },
-  { value: '10', label: 'October' },
-  { value: '11', label: 'November' },
-  { value: '12', label: 'December' }
-] as const;
-
-function defaultFeeForMonth(): string {
-  const now = new Date();
-  const prev = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  return `${prev.getUTCFullYear()}-${String(prev.getUTCMonth() + 1).padStart(2, '0')}`;
-}
-
-function parseFeeMonth(ym: string): { year: string; month: string } {
-  const m = /^([0-9]{4})-([0-9]{2})$/.exec(ym.trim());
-  if (!m) return { year: '', month: '' };
-  return { year: m[1], month: m[2] };
-}
-
-function buildUtcYearOptions(): number[] {
-  const current = new Date().getUTCFullYear();
-  const years: number[] = [];
-  for (let y = 2000; y <= current + 2; y += 1) years.push(y);
-  return years;
-}
+import ImposeMonthlyFeeDateFields from './ImposeMonthlyFeeDateFields';
+import { defaultFeePeriod, feeMonthString } from './imposeMonthlyFeeDateUtils';
 
 type BulkResult = {
   userId: string;
@@ -61,16 +29,15 @@ export default function BulkImposeMonthlyFeeModal({ users, onClose, onComplete }
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
   const [amount, setAmount] = useState('');
-  const initialMonth = defaultFeeForMonth();
-  const [feeYear, setFeeYear] = useState(() => parseFeeMonth(initialMonth).year);
-  const [feeMonth, setFeeMonth] = useState(() => parseFeeMonth(initialMonth).month);
+  const initialPeriod = defaultFeePeriod();
+  const [feeYear, setFeeYear] = useState(initialPeriod.year);
+  const [feeMonth, setFeeMonth] = useState(initialPeriod.month);
+  const [feeDueBy, setFeeDueBy] = useState(initialPeriod.dueBy);
   const [blockAccess, setBlockAccess] = useState(true);
   const [forceWithoutMonthlyFee, setForceWithoutMonthlyFee] = useState(false);
   const [notes, setNotes] = useState('');
   const [busy, setBusy] = useState(false);
   const [results, setResults] = useState<BulkResult[] | null>(null);
-
-  const yearOptions = useMemo(() => buildUtcYearOptions(), []);
 
   useEffect(() => {
     setSelectedIds(new Set(studentUsers.map((u) => u._id)));
@@ -81,8 +48,7 @@ export default function BulkImposeMonthlyFeeModal({ users, onClose, onComplete }
     [studentUsers, selectedIds]
   );
 
-  const feeForMonth =
-    feeYear && feeMonth ? `${feeYear}-${feeMonth}` : '';
+  const feeForMonth = feeMonthString(feeYear, feeMonth);
 
   const toggleStudent = (id: string) => {
     setSelectedIds((prev) => {
@@ -103,7 +69,7 @@ export default function BulkImposeMonthlyFeeModal({ users, onClose, onComplete }
 
   const handleSubmit = async () => {
     if (selectedStudents.length === 0) return;
-    if (!feeForMonth) return;
+    if (!feeForMonth || !feeDueBy) return;
 
     const parsedAmount = amount.trim() ? parseFloat(amount) : undefined;
     if (parsedAmount != null && (!Number.isFinite(parsedAmount) || parsedAmount < 0.01)) {
@@ -126,7 +92,8 @@ export default function BulkImposeMonthlyFeeModal({ users, onClose, onComplete }
           notes: notes.trim() || undefined,
           blockAccessUntilPaid: blockAccess,
           forceWithoutMonthlyFeePackage: forceWithoutMonthlyFee || undefined,
-          feeForMonth
+          feeForMonth,
+          feeDueBy
         })
       });
       const data = await res.json().catch(() => ({}));
@@ -265,44 +232,15 @@ export default function BulkImposeMonthlyFeeModal({ users, onClose, onComplete }
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                  Fee for month (UTC)
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  <select
-                    value={feeMonth}
-                    onChange={(e) => setFeeMonth(e.target.value)}
-                    disabled={busy}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    aria-label="Month"
-                  >
-                    <option value="">Month</option>
-                    {UTC_MONTHS.map((m) => (
-                      <option key={m.value} value={m.value}>
-                        {m.label}
-                      </option>
-                    ))}
-                  </select>
-                  <select
-                    value={feeYear}
-                    onChange={(e) => setFeeYear(e.target.value)}
-                    disabled={busy}
-                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    aria-label="Year"
-                  >
-                    <option value="">Year</option>
-                    {yearOptions.map((y) => (
-                      <option key={y} value={String(y)}>
-                        {y}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Calendar month this charge applies to (shown in student history and admin lists).
-                </p>
-              </div>
+              <ImposeMonthlyFeeDateFields
+                feeYear={feeYear}
+                feeMonth={feeMonth}
+                feeDueBy={feeDueBy}
+                onFeeYearChange={setFeeYear}
+                onFeeMonthChange={setFeeMonth}
+                onFeeDueByChange={setFeeDueBy}
+                disabled={busy}
+              />
 
               <label className="flex items-start gap-2 text-sm text-gray-800 dark:text-gray-200 cursor-pointer">
                 <input
@@ -353,7 +291,7 @@ export default function BulkImposeMonthlyFeeModal({ users, onClose, onComplete }
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  disabled={busy || selectedStudents.length === 0 || !feeForMonth}
+                  disabled={busy || selectedStudents.length === 0 || !feeForMonth || !feeDueBy}
                   className="flex-1 px-4 py-2 bg-amber-600 text-white rounded-xl font-medium hover:bg-amber-700 disabled:opacity-50 flex items-center justify-center gap-2"
                 >
                   {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Receipt className="w-4 h-4" />}

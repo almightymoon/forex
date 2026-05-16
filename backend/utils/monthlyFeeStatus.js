@@ -58,7 +58,28 @@ function metadataString(metadata, key) {
  * For monthly_fee rows: if admin set `metadata.feeForMonthStartIso` (UTC month start), use that for
  * display and reporting; otherwise infer from `createdAt` like student-initiated payments.
  */
+function feeDueByForMonthlyFeePayment(payment) {
+  const iso = metadataString(payment?.metadata, 'feeDueByIso').trim();
+  if (!iso) {
+    return { feeDueByIso: null, feeDueByLabel: null };
+  }
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) {
+    return { feeDueByIso: null, feeDueByLabel: null };
+  }
+  return {
+    feeDueByIso: d.toISOString(),
+    feeDueByLabel: new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC'
+    }).format(d)
+  };
+}
+
 function feeMonthForMonthlyFeePayment(payment) {
+  const due = feeDueByForMonthlyFeePayment(payment);
   const iso = metadataString(payment?.metadata, 'feeForMonthStartIso').trim();
   if (iso) {
     const d = new Date(iso);
@@ -69,10 +90,14 @@ function feeMonthForMonthlyFeePayment(payment) {
         year: 'numeric',
         timeZone: 'UTC'
       }).format(feeForMonthStart);
-      return { feeForMonthStart: feeForMonthStart.toISOString(), feeForMonthLabel };
+      return {
+        feeForMonthStart: feeForMonthStart.toISOString(),
+        feeForMonthLabel,
+        ...due
+      };
     }
   }
-  return feeMonthCoveredForPaymentDate(payment.createdAt);
+  return { ...feeMonthCoveredForPaymentDate(payment.createdAt), ...due };
 }
 
 /**
