@@ -732,7 +732,7 @@ export default function AdminDashboard() {
       });
       
       if (response.ok) {
-        const result = await response.json();
+        const result = await response.json(); 
         if (result.success) {
           showToast('Email configuration is valid!', 'success');
         } else {
