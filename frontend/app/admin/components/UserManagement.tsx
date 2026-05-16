@@ -4,10 +4,12 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Users, Plus, Search, Filter, Edit, Trash2, Eye, 
-  CheckCircle, X, AlertTriangle, Loader2, Lock, Unlock
+  CheckCircle, X, AlertTriangle, Loader2, Lock, Unlock, Receipt
 } from 'lucide-react';
 import { User, UserForm } from './types';
 import UserDetailsModal from './UserDetailsModal';
+import BulkImposeMonthlyFeeModal from './BulkImposeMonthlyFeeModal';
+import { useToast } from '../../../components/Toast';
 
 function isUserLocked(user: User): boolean {
   if (user.security?.isLocked) return true;
@@ -48,6 +50,8 @@ export default function UserManagement({
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set());
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [isDeletingBulk, setIsDeletingBulk] = useState(false);
+  const [showBulkImposeFeeModal, setShowBulkImposeFeeModal] = useState(false);
+  const { showToast } = useToast();
   
   const [userForm, setUserForm] = useState<UserForm>({
     firstName: '',
@@ -240,6 +244,14 @@ export default function UserManagement({
                 >
                   <X className="w-4 h-4 inline mr-2" />
                   Clear Selection
+                </button>
+                <button
+                  onClick={() => setShowBulkImposeFeeModal(true)}
+                  disabled={isDeletingBulk}
+                  className="px-4 py-2 bg-gradient-to-r from-amber-600 to-amber-700 text-white rounded-xl hover:from-amber-700 hover:to-amber-800 transition-all duration-200 disabled:opacity-50 flex items-center"
+                >
+                  <Receipt className="w-4 h-4 inline mr-2" />
+                  Impose monthly fee ({selectedUsers.size})
                 </button>
                 <button
                   onClick={() => setShowBulkDeleteModal(true)}
@@ -702,6 +714,22 @@ export default function UserManagement({
           onClose={() => {
             setShowDetailsModal(false);
             setSelectedUser(null);
+          }}
+        />
+      )}
+
+      {showBulkImposeFeeModal && selectedUsers.size > 0 && (
+        <BulkImposeMonthlyFeeModal
+          users={(users || []).filter((u) => selectedUsers.has(u._id))}
+          onClose={() => setShowBulkImposeFeeModal(false)}
+          onComplete={({ succeeded, failed }) => {
+            if (succeeded > 0 && failed === 0) {
+              showToast(`Monthly fee imposed on ${succeeded} student${succeeded === 1 ? '' : 's'}.`, 'success');
+            } else if (succeeded > 0) {
+              showToast(`Imposed on ${succeeded}; ${failed} failed (see details in modal).`, 'warning');
+            } else {
+              showToast('No fees were imposed. Check errors in the modal.', 'error');
+            }
           }}
         />
       )}
