@@ -247,6 +247,11 @@ const userSchema = new mongoose.Schema({
     default: 0,
     min: [0, 'Lifetime earned cannot be negative']
   },
+  /** When set, admin GET/rank UI uses `lifetimeEarned` instead of recomputing from transactions. */
+  lifetimeEarnedOverrideAt: {
+    type: Date,
+    default: null
+  },
   // Selected package during registration
   selectedPackage: {
     packageName: {

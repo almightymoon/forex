@@ -6,7 +6,7 @@ import {
   X, User as UserIcon, Mail, Phone, MapPin, Calendar, 
   DollarSign, CreditCard, Users, Package, TrendingUp, 
   Wallet, ArrowUpRight, CheckCircle, Clock, AlertCircle,
-  Shield, Activity, Loader2, Plus, Minus, Gift, History,
+  Shield, Activity, Loader2, Plus, Minus, Gift, History, Pencil,
   MailX, Sparkles, Target, CalendarClock, Receipt, RefreshCw
 } from 'lucide-react';
 import EmailHistory from './EmailHistory';
@@ -117,6 +117,11 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
     hasChanges: boolean;
   } | null>(null);
 
+  const [showLifetimeEarnedModal, setShowLifetimeEarnedModal] = useState(false);
+  const [lifetimeEarnedInput, setLifetimeEarnedInput] = useState('');
+  const [lifetimeEarnedReason, setLifetimeEarnedReason] = useState('');
+  const [isSavingLifetimeEarned, setIsSavingLifetimeEarned] = useState(false);
+
   useEffect(() => {
     fetchUserDetails();
   }, [user._id]);
@@ -172,6 +177,88 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
       showToast('Failed to apply referral stat changes', 'error');
     } finally {
       setIsApplyingReferralStats(false);
+    }
+  };
+
+  const openLifetimeEarnedModal = () => {
+    const cur = Number((currentUser as { lifetimeEarned?: number }).lifetimeEarned ?? 0);
+    setLifetimeEarnedInput(Number.isFinite(cur) ? String(cur) : '0');
+    setLifetimeEarnedReason('');
+    setShowLifetimeEarnedModal(true);
+  };
+
+  const refreshUserSnapshot = async () => {
+    const token = localStorage.getItem('token');
+    const userResponse = await fetch(buildApiUrl(`api/admin/users/${user._id}`), {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (userResponse.ok) {
+      setCurrentUser(await userResponse.json());
+    }
+  };
+
+  const handleSaveLifetimeEarned = async () => {
+    const parsed = parseFloat(lifetimeEarnedInput);
+    if (!Number.isFinite(parsed) || parsed < 0) {
+      showToast('Enter a valid non-negative amount', 'error');
+      return;
+    }
+    setIsSavingLifetimeEarned(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`api/admin/users/${user._id}/lifetime-earned`), {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          lifetimeEarned: parsed,
+          reason: lifetimeEarnedReason.trim() || undefined
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data?.error || 'Failed to update lifetime earned', 'error');
+        return;
+      }
+      showToast(data?.message || 'Lifetime earned updated', 'success');
+      setShowLifetimeEarnedModal(false);
+      await refreshUserSnapshot();
+    } catch {
+      showToast('Failed to update lifetime earned', 'error');
+    } finally {
+      setIsSavingLifetimeEarned(false);
+    }
+  };
+
+  const handleResetLifetimeEarned = async () => {
+    setIsSavingLifetimeEarned(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`api/admin/users/${user._id}/lifetime-earned`), {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          clearOverride: true,
+          reason: lifetimeEarnedReason.trim() || undefined
+        })
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data?.error || 'Failed to reset lifetime earned', 'error');
+        return;
+      }
+      showToast(data?.message || 'Reset to transaction total', 'success');
+      setShowLifetimeEarnedModal(false);
+      await refreshUserSnapshot();
+    } catch {
+      showToast('Failed to reset lifetime earned', 'error');
+    } finally {
+      setIsSavingLifetimeEarned(false);
     }
   };
 
@@ -822,15 +909,41 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                   <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Available USDT</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
-                  <div className="flex items-center justify-between mb-2">
+                <div className="relative bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
+                  <div className="flex items-center justify-between mb-2 pr-8">
                     <TrendingUp className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-                    <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">LIFETIME EARNED</span>
+                    <div className="flex items-center gap-1 flex-wrap justify-end">
+                      {(currentUser as { lifetimeEarnedIsOverride?: boolean }).lifetimeEarnedIsOverride ? (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-200/80 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200">
+                          Admin set
+                        </span>
+                      ) : null}
+                      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">LIFETIME EARNED</span>
+                    </div>
                   </div>
                   <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     ${Number((currentUser as any).lifetimeEarned || 0).toFixed(2)}
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Total credited to balance</p>
+                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                    Rank progress (withdrawals do not reduce this)
+                  </p>
+                  {(currentUser as { lifetimeEarnedIsOverride?: boolean }).lifetimeEarnedIsOverride &&
+                  (currentUser as { lifetimeEarnedComputed?: number }).lifetimeEarnedComputed != null ? (
+                    <p className="text-[11px] text-gray-500 mt-0.5">
+                      Transaction total: $
+                      {Number((currentUser as { lifetimeEarnedComputed?: number }).lifetimeEarnedComputed || 0).toFixed(
+                        2
+                      )}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={openLifetimeEarnedModal}
+                    className="absolute top-3 right-3 p-1.5 rounded-lg text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200/60 dark:hover:bg-emerald-900/40"
+                    title="Edit lifetime earned"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
                 </div>
 
                 <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-xl p-4 border border-indigo-200 dark:border-indigo-800">
@@ -1711,6 +1824,87 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                   Create pending fee
                 </button>
               </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
+
+      {showLifetimeEarnedModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[60] p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-md border border-gray-200 dark:border-gray-700"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Edit lifetime earned</h3>
+              <button
+                type="button"
+                onClick={() => setShowLifetimeEarnedModal(false)}
+                disabled={isSavingLifetimeEarned}
+                className="p-2 text-gray-400 hover:text-gray-600 rounded-lg"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+              Updates rank tier progress only. Does not change the user&apos;s withdrawable balance.
+            </p>
+            {(currentUser as { lifetimeEarnedComputed?: number }).lifetimeEarnedComputed != null && (
+              <p className="text-xs text-gray-500 dark:text-gray-500 mb-3">
+                Sum from balance transactions: $
+                {Number((currentUser as { lifetimeEarnedComputed?: number }).lifetimeEarnedComputed || 0).toFixed(2)}
+              </p>
+            )}
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Lifetime earned (USD)
+            </label>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={lifetimeEarnedInput}
+              onChange={(e) => setLifetimeEarnedInput(e.target.value)}
+              disabled={isSavingLifetimeEarned}
+              className="w-full px-4 py-2 mb-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+            />
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Reason (optional)
+            </label>
+            <input
+              type="text"
+              value={lifetimeEarnedReason}
+              onChange={(e) => setLifetimeEarnedReason(e.target.value)}
+              disabled={isSavingLifetimeEarned}
+              placeholder="e.g. manual correction for rank rewards"
+              className="w-full px-4 py-2 mb-4 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+            />
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => void handleSaveLifetimeEarned()}
+                disabled={isSavingLifetimeEarned}
+                className="w-full px-4 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isSavingLifetimeEarned ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                Save
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleResetLifetimeEarned()}
+                disabled={isSavingLifetimeEarned}
+                className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 rounded-xl text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              >
+                Reset to transaction total
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLifetimeEarnedModal(false)}
+                disabled={isSavingLifetimeEarned}
+                className="w-full px-4 py-2 text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                Cancel
+              </button>
             </div>
           </motion.div>
         </div>

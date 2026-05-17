@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
@@ -16,7 +16,18 @@ import AuthPortalShell, {
   authPrimaryButtonClass,
 } from '../../components/auth/AuthPortalShell';
 
-export default function LoginPage() {
+function LoginLoadingShell() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#101012]">
+      <div className="text-center">
+        <motion.div className="mx-auto mb-4 h-11 w-11 animate-spin rounded-full border-2 border-white/10 border-t-violet-400" />
+        <p className="text-[14px] font-medium text-white/45">Loading…</p>
+      </div>
+    </div>
+  );
+}
+
+function LoginPageContent() {
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -29,24 +40,11 @@ export default function LoginPage() {
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const router = useRouter();
   const searchParams = useSearchParams();
+  const redirectParam = searchParams.get('redirect');
   const { settings, loading: settingsLoading } = useSettings();
   const { setFromResponse } = useMaintenanceContext();
 
-  // Prevent hydration mismatch by showing loading state
-  if (settingsLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#101012]">
-        <div className="text-center">
-          <div className="mx-auto mb-4 h-11 w-11 animate-spin rounded-full border-2 border-white/10 border-t-violet-400" />
-          <p className="text-[14px] font-medium text-white/45">Loading…</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Handle URL parameters for redirects and error messages
   useEffect(() => {
-    const redirectParam = searchParams.get('redirect');
     const errorParam = searchParams.get('error');
     
     if (errorParam) {
@@ -71,6 +69,10 @@ export default function LoginPage() {
       }
     }
   }, [searchParams]);
+
+  if (settingsLoading) {
+    return <LoginLoadingShell />;
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -148,7 +150,6 @@ export default function LoginPage() {
                 const payments = Array.isArray(raw) ? raw : (raw?.data && Array.isArray(raw.data) ? raw.data : []);
                 const completedPayment = payments.find((p: any) => p.type === 'package' && p.status === 'completed');
                 if (completedPayment) {
-                  const redirectParam = searchParams.get('redirect');
                   if (redirectParam && redirectParam.startsWith('/dashboard')) {
                     router.push(redirectParam);
                     return;
@@ -183,7 +184,6 @@ export default function LoginPage() {
             // Admin or teacher - clear maintenance state so they can use the site
             setFromResponse(false);
             // Check for redirect parameter first
-            const redirectParam = searchParams.get('redirect');
             if (redirectParam) {
               // Verify user has access to the redirect URL
               if (redirectParam.startsWith('/teacher') && (data.user.role === 'teacher' || data.user.role === 'admin')) {
@@ -248,7 +248,6 @@ export default function LoginPage() {
         notifyAuthChanged();
         
         // Check for redirect parameter first
-        const redirectParam = searchParams.get('redirect');
         if (redirectParam) {
           // Verify user has access to the redirect URL
           if (redirectParam.startsWith('/teacher') && (data.user.role === 'teacher' || data.user.role === 'admin')) {
@@ -483,5 +482,13 @@ export default function LoginPage() {
         </div>
       ) : null}
     </>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoadingShell />}>
+      <LoginPageContent />
+    </Suspense>
   );
 }

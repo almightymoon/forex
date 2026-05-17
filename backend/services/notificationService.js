@@ -409,6 +409,7 @@ class NotificationService {
       'payment_received': 'paymentReceived',
       'payment_pending': 'paymentReceived', // Use paymentReceived setting for payment_pending
       'monthly_fee_imposed': 'paymentReceived',
+      'monthly_fee_invoice': 'paymentReceived',
       'course_enrollment': 'newUserRegistration',
       'system_alert': 'systemAlerts',
       'password_reset': 'systemAlerts',
@@ -734,6 +735,49 @@ class NotificationService {
           sms: `Withdrawal confirmed. Funds transferred.`,
           pushTitle: 'Withdrawal Confirmed',
           pushBody: 'Your withdrawal has been processed!'
+        };
+      }
+    }
+
+    if (type === 'monthly_fee_invoice') {
+      try {
+        const paymentIdRaw = data.paymentId;
+        const paymentIdStr = paymentIdRaw
+          ? String(paymentIdRaw).length > 8
+            ? String(paymentIdRaw).substring(0, 8)
+            : String(paymentIdRaw)
+          : '—';
+        const template = emailTemplates.renderTemplate('monthly_fee_invoice', {
+          userName: `${user.firstName} ${user.lastName}`.trim() || user.firstName || 'there',
+          amount: Number(data.amount ?? 0).toFixed(2),
+          currency: data.currency || 'USD',
+          feeMonthLabel: data.feeForMonthLabel || 'Current billing cycle',
+          packageName: data.packageName || 'Your package',
+          paymentId: paymentIdStr,
+          payByLabel: data.payByLabel || 'See Monthly fee page',
+          monthlyFeeUrl:
+            data.monthlyFeeUrl ||
+            `${process.env.FRONTEND_URL || 'http://localhost:3000'}/monthly-fee`,
+          invoiceNote: data.invoiceNote || 'Log in to submit your wallet transfer and payment proof.',
+          companyName: 'Forex Navigators'
+        });
+        return {
+          subject: template.subject || 'Monthly fee invoice',
+          html: template.html,
+          text: template.text,
+          sms: `Monthly fee invoice: $${Number(data.amount ?? 0).toFixed(2)} USDT for ${data.feeForMonthLabel || 'this cycle'}.`,
+          pushTitle: 'Monthly fee invoice',
+          pushBody: `Please pay $${Number(data.amount ?? 0).toFixed(2)} USDT for ${data.feeForMonthLabel || 'your monthly fee'}.`
+        };
+      } catch (error) {
+        console.error('[Notification] Error rendering monthly_fee_invoice template:', error);
+        const amt = Number(data.amount ?? 0).toFixed(2);
+        return {
+          subject: 'Monthly fee invoice',
+          html: `<p>Please pay your monthly fee of $${amt} USDT.</p>`,
+          text: `Monthly fee invoice: $${amt} USDT.`,
+          pushTitle: 'Monthly fee invoice',
+          pushBody: `Please pay $${amt} USDT.`
         };
       }
     }
@@ -1601,6 +1645,45 @@ class NotificationService {
         ? 'Your platform access is limited until this fee is paid and confirmed.'
         : 'You can continue using the platform; please complete this fee when you are ready.',
       notes: data.notes,
+      monthlyFeeUrl,
+      message
+    });
+  }
+
+  /**
+   * Invoice reminder (email + in-app) — uses existing pending payment or cycle due amount.
+   */
+  async notifyMonthlyFeeInvoice(userId, data) {
+    const amount = Number(data.amount ?? 0);
+    const currency = data.currency || 'USD';
+    const feeForMonthLabel = data.feeForMonthLabel || 'Current billing cycle';
+    const monthlyFeeUrl =
+      data.monthlyFeeUrl ||
+      `${process.env.FRONTEND_URL || 'http://localhost:3000'}/monthly-fee`;
+
+    const title = 'Monthly fee invoice';
+    const message = `Your monthly fee of $${amount.toFixed(2)} ${currency} for ${feeForMonthLabel} is due. Open the Monthly fee page to pay.`;
+
+    try {
+      await this.createNotification({
+        user: userId,
+        type: 'payment',
+        title,
+        message,
+        link: monthlyFeeUrl
+      });
+    } catch (e) {
+      console.error('notifyMonthlyFeeInvoice: in-app notification failed', e);
+    }
+
+    return this.sendNotificationToUser(userId, 'monthly_fee_invoice', {
+      amount,
+      currency,
+      paymentId: data.paymentId,
+      feeForMonthLabel,
+      packageName: data.packageName,
+      payByLabel: data.payByLabel,
+      invoiceNote: data.invoiceNote,
       monthlyFeeUrl,
       message
     });

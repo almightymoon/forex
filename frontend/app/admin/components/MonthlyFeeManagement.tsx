@@ -33,6 +33,7 @@ import { showToast } from '../../../utils/toast';
 import { Payment, User } from './types';
 import UserDetailsModal from './UserDetailsModal';
 import MonthlyFeeHistoryModal from './MonthlyFeeHistoryModal';
+import MonthlyFeeBillingDirectoryPanel from './MonthlyFeeBillingDirectoryPanel';
 
 interface Props {
   payments: Payment[];
@@ -40,7 +41,7 @@ interface Props {
 }
 
 export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
-  const [view, setView] = useState<'payments' | 'overdue'>('payments');
+  const [view, setView] = useState<'payments' | 'overdue' | 'directory'>('directory');
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed' | 'failed'>('all');
   const [confirmingPaymentId, setConfirmingPaymentId] = useState<string | null>(null);
@@ -103,7 +104,7 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
   }, [pendingStatusFilter, pendingPackageFilter]);
 
   useEffect(() => {
-    if (view !== 'overdue') return;
+    if (view !== 'overdue' && view !== 'directory') return;
     const loadPkgs = async () => {
       try {
         const token = localStorage.getItem('token');
@@ -462,6 +463,17 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
             Payments
           </button>
           <button
+            onClick={() => setView('directory')}
+            className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+              view === 'directory'
+                ? 'bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-lg'
+                : 'border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700'
+            }`}
+            type="button"
+          >
+            Billing directory
+          </button>
+          <button
             onClick={() => setView('overdue')}
             className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
               view === 'overdue'
@@ -484,7 +496,15 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
           )}
         </div>
 
-        {view === 'overdue' ? (
+        {view === 'directory' ? (
+          <MonthlyFeeBillingDirectoryPanel
+            packageOptions={packageOptions}
+            onOpenProfile={openUserProfile}
+            openingProfileId={openingProfileId}
+            onConfirmPayment={confirmPayment}
+            confirmingPaymentId={confirmingPaymentId}
+          />
+        ) : view === 'overdue' ? (
           <div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               <strong className="text-gray-800 dark:text-gray-200">Unpaid fee</strong> (Launch, Scale, …): everyone who has not
@@ -635,7 +655,9 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                         />
                       </th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">User</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Joined</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Package</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Next billing</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Due month</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Amount due</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Status</th>
@@ -695,7 +717,15 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                               <p className="text-sm text-gray-500 dark:text-gray-400">{row.user?.email || 'No email'}</p>
                             </div>
                           </td>
+                          <td className="py-4 px-4 text-sm text-gray-700 dark:text-gray-300">
+                            {row.joinedAt
+                              ? new Date(row.joinedAt).toLocaleDateString(undefined, { timeZone: 'UTC' })
+                              : '—'}
+                          </td>
                           <td className="py-4 px-4 text-sm text-gray-700 dark:text-gray-300">{row.packageName || '—'}</td>
+                          <td className="py-4 px-4 text-sm text-gray-700 dark:text-gray-300 max-w-[180px]">
+                            {row.nextBillingLabel || '—'}
+                          </td>
                           <td className="py-4 px-4 text-sm text-gray-700 dark:text-gray-300">
                             {row.dueForMonth
                               ? new Date(row.dueForMonth).toLocaleDateString(undefined, { timeZone: 'UTC' })
@@ -816,7 +846,7 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                     })}
                     {filteredPendingRows.length === 0 && (
                       <tr>
-                        <td colSpan={8} className="py-12 text-center text-gray-500 dark:text-gray-400">
+                        <td colSpan={10} className="py-12 text-center text-gray-500 dark:text-gray-400">
                           {overdueUsers.length > 0 && pendingSearch.trim()
                             ? 'No rows match your search.'
                             : overdueUsers.length === 0

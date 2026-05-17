@@ -859,7 +859,73 @@ class EmailTemplateService {
         text: `Monthly Fee Required\n\nHello {{userName}},\n\nYour administrator has added a monthly fee to your account.\n\nAmount: {{currency}} {{amount}}\nFee period: {{feeMonthLabel}}\nPackage: {{packageName}}\nReference: #{{paymentId}}\n\n{{blockAccessNote}}\n\nPay here: {{monthlyFeeUrl}}\n\n{{adminNotesLine}}\n\nBest regards,\nThe {{companyName}} Team`
       },
 
-      payment_complete_required: {
+            monthly_fee_invoice: {
+        name: 'Monthly Fee Invoice (Reminder)',
+        subject: 'Monthly fee invoice — {{feeMonthLabel}}',
+        category: 'payments',
+        description: 'Invoice / reminder for monthly fee (existing pending payment or cycle due)',
+        channels: ['email'],
+        variables: [
+          'userName',
+          'amount',
+          'currency',
+          'feeMonthLabel',
+          'packageName',
+          'paymentId',
+          'payByLabel',
+          'monthlyFeeUrl',
+          'invoiceNote',
+          'companyName'
+        ],
+        html: `
+          <!DOCTYPE html>
+          <html lang="en">
+          <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Monthly Fee Invoice</title>
+            <style>
+              body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f3f4f6; }
+              .container { max-width: 600px; margin: 20px auto; background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 12px 32px rgba(0,0,0,0.08); }
+              .header { background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%); padding: 36px 28px; text-align: center; color: white; }
+              .header h1 { margin: 0; font-size: 26px; font-weight: 700; }
+              .content { padding: 28px; color: #111827; line-height: 1.6; }
+              .card { background: #eef2ff; border: 1px solid #c7d2fe; border-radius: 12px; padding: 18px; margin: 18px 0; }
+              .amount { font-size: 32px; font-weight: 800; color: #4338ca; text-align: center; margin: 8px 0 12px; }
+              .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #c7d2fe; }
+              .row:last-child { border-bottom: none; }
+              .label { color: #4338ca; font-weight: 600; }
+              .value { color: #312e81; font-weight: 700; text-align: right; }
+              .cta { display: inline-block; background: linear-gradient(135deg, #4f46e5 0%, #4338ca 100%); color: white; padding: 14px 28px; border-radius: 999px; text-decoration: none; font-weight: 700; margin-top: 8px; }
+              .footer { background: #111827; color: #9ca3af; padding: 18px 22px; text-align: center; font-size: 13px; }
+            </style>
+          </head>
+          <body>
+            <div class="container">
+              <div class="header"><h1>Monthly fee invoice</h1></div>
+              <div class="content">
+                <p>Hello <strong>{{userName}}</strong>,</p>
+                <p>This is your monthly fee invoice for <strong>{{feeMonthLabel}}</strong>. Please complete payment on the Monthly fee page.</p>
+                <div class="card">
+                  <div class="amount">{{currency}} {{amount}}</div>
+                  <div class="row"><span class="label">Package</span><span class="value">{{packageName}}</span></div>
+                  <div class="row"><span class="label">Pay by</span><span class="value">{{payByLabel}}</span></div>
+                  <div class="row"><span class="label">Reference</span><span class="value">#{{paymentId}}</span></div>
+                </div>
+                <p>{{invoiceNote}}</p>
+                <div style="text-align:center; margin: 24px 0;">
+                  <a href="{{monthlyFeeUrl}}" class="cta">View invoice &amp; pay</a>
+                </div>
+              </div>
+              <div class="footer">© 2026 {{companyName}}. All rights reserved.</div>
+            </div>
+          </body>
+          </html>
+        `,
+        text: `Monthly Fee Invoice\n\nHello {{userName}},\n\nInvoice for {{feeMonthLabel}}\n\nAmount: {{currency}} {{amount}}\nPackage: {{packageName}}\nPay by: {{payByLabel}}\nReference: #{{paymentId}}\n\n{{invoiceNote}}\n\nPay here: {{monthlyFeeUrl}}\n\nBest regards,\nThe {{companyName}} Team`
+      },
+
+payment_complete_required: {
         name: 'Complete Your Payment',
         subject: 'Action Required: Complete Your Payment',
         category: 'payments',

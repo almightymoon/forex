@@ -27,8 +27,11 @@ const zlib = require('zlib');
 const { EJSON } = require('bson');
 const {
   listPendingMonthlyFeeStudents,
+  listMonthlyFeeBillingDirectory,
   getMonthlyFeeStatusForUser,
   feeMonthForMonthlyFeePayment,
+  feeDueByForMonthlyFeePayment,
+  formatUtcMonthLabel,
   resolvePackageFromPayment,
   startOfUtcMonth,
   addUtcMonths
@@ -313,7 +316,12 @@ router.get('/users/:id', async (req, res) => {
     const withdrawnTotal = Number(withdrawalsAgg?.[0]?.total || 0);
     const currentBalance = Number(user.balance || 0);
 
-    const lifetimeEarned = creditsTotal > 0 ? creditsTotal : (currentBalance + withdrawnTotal);
+    const lifetimeEarnedComputed =
+      creditsTotal > 0 ? creditsTotal : currentBalance + withdrawnTotal;
+    const lifetimeEarnedIsOverride = !!user.lifetimeEarnedOverrideAt;
+    const lifetimeEarned = lifetimeEarnedIsOverride
+      ? Number(user.lifetimeEarned) || 0
+      : lifetimeEarnedComputed;
 
     // Rank Rewards: compute current/next rank based on lifetime earned thresholds.
     let rankRewards = { current: null, next: null };
@@ -366,12 +374,110 @@ router.get('/users/:id', async (req, res) => {
       // best-effort
     }
 
-    res.json({ ...user, lifetimeEarned, rankRewards, directBusinessVolumeUsd });
+    res.json({
+      ...user,
+      lifetimeEarned,
+      lifetimeEarnedComputed,
+      lifetimeEarnedIsOverride,
+      rankRewards,
+      directBusinessVolumeUsd
+    });
   } catch (error) {
     console.error('Get user error:', error);
     res.status(500).json({ error: 'Failed to fetch user' });
   }
 });
+
+// @route   PUT /api/admin/users/:id/lifetime-earned
+// @desc    Set or reset lifetime earned (rank progress); does not change wallet balance
+router.put(
+  '/users/:id/lifetime-earned',
+  [
+    body('lifetimeEarned')
+      .optional()
+      .isFloat({ min: 0, max: 100_000_000 })
+      .withMessage('lifetimeEarned must be a non-negative number'),
+    body('clearOverride').optional().isBoolean(),
+    body('reason').optional().trim().isLength({ max: 500 })
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ error: 'Validation failed', details: errors.array() });
+      }
+
+      const user = await User.findById(req.params.id);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const { clearOverride, reason } = req.body;
+      const userObjectId = new mongoose.Types.ObjectId(req.params.id);
+
+      const [creditsAgg, withdrawalsAgg] = await Promise.all([
+        BalanceTransaction.aggregate([
+          { $match: { user: userObjectId, amount: { $gt: 0 } } },
+          { $group: { _id: null, total: { $sum: '$amount' } } }
+        ]),
+        BalanceTransaction.aggregate([
+          { $match: { user: userObjectId, type: 'withdrawal', amount: { $lt: 0 } } },
+          { $group: { _id: null, total: { $sum: { $multiply: ['$amount', -1] } } } }
+        ])
+      ]);
+
+      const creditsTotal = Number(creditsAgg?.[0]?.total || 0);
+      const withdrawnTotal = Number(withdrawalsAgg?.[0]?.total || 0);
+      const currentBalance = Number(user.balance || 0);
+      const lifetimeEarnedComputed =
+        creditsTotal > 0 ? creditsTotal : currentBalance + withdrawnTotal;
+
+      const oldValue = Number(user.lifetimeEarned) || 0;
+      let newValue = oldValue;
+
+      if (clearOverride) {
+        user.lifetimeEarned = lifetimeEarnedComputed;
+        user.lifetimeEarnedOverrideAt = undefined;
+        newValue = lifetimeEarnedComputed;
+      } else if (req.body.lifetimeEarned === undefined || req.body.lifetimeEarned === null) {
+        return res.status(400).json({ error: 'Provide lifetimeEarned or clearOverride: true' });
+      } else {
+        newValue = Number(req.body.lifetimeEarned);
+        if (!Number.isFinite(newValue) || newValue < 0) {
+          return res.status(400).json({ error: 'Invalid lifetimeEarned' });
+        }
+        user.lifetimeEarned = newValue;
+        user.lifetimeEarnedOverrideAt = new Date();
+      }
+
+      await user.save();
+
+      console.log(
+        `Admin ${req.user._id} updated lifetimeEarned for ${user._id}: ${oldValue} -> ${newValue}. ` +
+          `Override: ${!!user.lifetimeEarnedOverrideAt}. Reason: ${reason || '—'}`
+      );
+
+      res.json({
+        success: true,
+        message: clearOverride
+          ? 'Lifetime earned reset to transaction total'
+          : 'Lifetime earned updated',
+        user: {
+          _id: user._id,
+          lifetimeEarned: user.lifetimeEarned,
+          lifetimeEarnedComputed,
+          lifetimeEarnedIsOverride: !!user.lifetimeEarnedOverrideAt,
+          lifetimeEarnedOverrideAt: user.lifetimeEarnedOverrideAt || null
+        },
+        oldValue,
+        newValue: user.lifetimeEarned
+      });
+    } catch (error) {
+      console.error('Update lifetime earned error:', error);
+      res.status(500).json({ error: 'Failed to update lifetime earned' });
+    }
+  }
+);
 
 // @route   PUT /api/admin/users/:id/email-unreachable
 // @desc    Mark user's email as unreachable / stop sending emails (admin only)
@@ -1158,6 +1264,205 @@ async function getMonthlyFeePendingStudentsList(req, res) {
 // @desc    Same payload (pending + grace + overdue + pending review). Two paths so older frontends / proxies still work.
 router.get('/monthly-fee/overdue', getMonthlyFeePendingStudentsList);
 router.get('/monthly-fee/pending', getMonthlyFeePendingStudentsList);
+
+// @route   GET /api/admin/monthly-fee/billing-directory
+// @desc    All students with packages — join date, package, billing status, next billing
+router.get('/monthly-fee/billing-directory', async (req, res) => {
+  try {
+    const {
+      referenceDate,
+      status,
+      packageName,
+      pkg,
+      search,
+      joinedAfter,
+      joinedBefore,
+      purchasedAfter,
+      purchasedBefore
+    } = req.query;
+    let now = new Date();
+    if (referenceDate && String(referenceDate).trim()) {
+      const d = new Date(String(referenceDate));
+      if (!Number.isNaN(d.getTime())) now = d;
+    }
+    const pkgFilter = (packageName || pkg || '').toString().trim();
+    const result = await listMonthlyFeeBillingDirectory({
+      now,
+      status: (status || 'all').toString(),
+      packageName: pkgFilter,
+      search: (search || '').toString(),
+      joinedAfter: joinedAfter ? String(joinedAfter) : undefined,
+      joinedBefore: joinedBefore ? String(joinedBefore) : undefined,
+      purchasedAfter: purchasedAfter ? String(purchasedAfter) : undefined,
+      purchasedBefore: purchasedBefore ? String(purchasedBefore) : undefined
+    });
+    res.json(result);
+  } catch (error) {
+    console.error('Get monthly fee billing directory error:', error);
+    res.status(500).json({ error: 'Failed to fetch billing directory' });
+  }
+});
+
+/**
+ * Send monthly fee invoice email + in-app (existing pending payment or cycle reminder).
+ */
+async function sendMonthlyFeeInvoiceToUser(userId, noteRaw = '') {
+  const targetUser = await User.findById(userId).select('firstName lastName email role').lean();
+  if (!targetUser) {
+    return { ok: false, status: 404, error: 'User not found' };
+  }
+  if (['admin', 'teacher', 'instructor'].includes(targetUser.role)) {
+    return { ok: false, status: 400, error: 'Monthly fee invoices are not sent to staff accounts' };
+  }
+
+  const status = await getMonthlyFeeStatusForUser(userId);
+  if (!status.found) {
+    return { ok: false, status: 404, error: 'User not found' };
+  }
+  if (!status.applies || status.reason === 'no_completed_package') {
+    return { ok: false, status: 400, error: 'User has no completed package purchase' };
+  }
+
+  const note = (noteRaw && String(noteRaw).trim()) || '';
+  const pending = await Payment.findOne({
+    user: userId,
+    status: 'pending',
+    type: 'monthly_fee'
+  })
+    .sort({ createdAt: -1 })
+    .lean();
+
+  if (pending) {
+    const { feeForMonthLabel } = feeMonthForMonthlyFeePayment(pending);
+    const { feeDueByLabel } = feeDueByForMonthlyFeePayment(pending);
+    const amt = Number(pending.finalAmount ?? pending.amount ?? status.monthlyFeeAmount ?? 50);
+    const pkgName =
+      status.packageName ||
+      (status.packageNameFromPayment && String(status.packageNameFromPayment)) ||
+      'Your package';
+    await notificationService.notifyMonthlyFeeInvoice(userId, {
+      amount: amt,
+      currency: pending.currency || 'USD',
+      paymentId: pending._id,
+      feeForMonthLabel,
+      packageName: pkgName,
+      payByLabel: feeDueByLabel || 'As soon as possible',
+      invoiceNote:
+        note ||
+        (feeDueByLabel
+          ? `Pay by ${feeDueByLabel}. Use the Monthly fee page to submit payment proof.`
+          : 'Complete payment on the Monthly fee page.')
+    });
+    return {
+      ok: true,
+      mode: 'existing_pending',
+      paymentId: String(pending._id),
+      amount: amt,
+      userName: `${targetUser.firstName} ${targetUser.lastName}`.trim()
+    };
+  }
+
+  if (status.monthlyFeeEnabled === false) {
+    return { ok: false, status: 400, error: 'This package tier has no monthly fee' };
+  }
+  if (status.withinFullFreeWindow) {
+    return { ok: false, status: 400, error: 'User is still within the package free period' };
+  }
+  if (status.requiredMonthWaived || status.billingAnchorWaived) {
+    return { ok: false, status: 400, error: 'User is not due for a monthly fee this cycle (deferred)' };
+  }
+  if (status.paidForCurrentCycle) {
+    return { ok: false, status: 400, error: 'User has already paid for the current billing cycle' };
+  }
+
+  const amt = Number(status.monthlyFeeAmount ?? 50);
+  const feeForMonthLabel = status.dueForMonth
+    ? formatUtcMonthLabel(new Date(status.dueForMonth))
+    : 'Current billing cycle';
+  const graceDays = Number(status.graceDays ?? 3);
+  const payByLabel = `By UTC day ${graceDays} of this month (grace period)`;
+
+  await notificationService.notifyMonthlyFeeInvoice(userId, {
+    amount: amt,
+    currency: 'USD',
+    paymentId: null,
+    feeForMonthLabel,
+    packageName: status.packageName || 'Your package',
+    payByLabel,
+    invoiceNote:
+      note ||
+      'Open the Monthly fee page to start payment and submit your wallet transfer proof.'
+  });
+
+  return {
+    ok: true,
+    mode: 'reminder_no_pending',
+    amount: amt,
+    userName: `${targetUser.firstName} ${targetUser.lastName}`.trim()
+  };
+}
+
+// @route   POST /api/admin/monthly-fee/send-invoice
+router.post(
+  '/monthly-fee/send-invoice',
+  [body('userId').notEmpty().withMessage('userId is required')],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+      const result = await sendMonthlyFeeInvoiceToUser(req.body.userId, req.body.note);
+      if (!result.ok) {
+        return res.status(result.status || 400).json({ error: result.error });
+      }
+      res.json({
+        success: true,
+        message: `Invoice sent to ${result.userName || 'student'}`,
+        ...result
+      });
+    } catch (error) {
+      console.error('Send monthly fee invoice error:', error);
+      res.status(500).json({ error: 'Failed to send invoice' });
+    }
+  }
+);
+
+// @route   POST /api/admin/monthly-fee/send-invoice-bulk
+router.post(
+  '/monthly-fee/send-invoice-bulk',
+  [body('userIds').isArray({ min: 1 }).withMessage('userIds must be a non-empty array')],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+      }
+      const note = req.body.note;
+      const results = [];
+      for (const id of req.body.userIds) {
+        const r = await sendMonthlyFeeInvoiceToUser(id, note);
+        results.push({
+          userId: String(id),
+          success: r.ok,
+          error: r.error,
+          mode: r.mode,
+          userName: r.userName
+        });
+      }
+      const succeeded = results.filter((r) => r.success).length;
+      const failed = results.length - succeeded;
+      res.json({
+        success: failed === 0,
+        summary: { total: results.length, succeeded, failed },
+        results
+      });
+    } catch (error) {
+      console.error('Send monthly fee invoice bulk error:', error);
+      res.status(500).json({ error: 'Failed to send invoices' });
+    }
+  }
+);
 
 // @route   POST /api/admin/packages
 // @desc    Create a package (admin only)

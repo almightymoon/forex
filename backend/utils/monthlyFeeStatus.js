@@ -103,6 +103,43 @@ function feeMonthForMonthlyFeePayment(payment) {
 /**
  * Match Package row to a completed package payment (name trim / case / price fallback).
  */
+function formatUtcMonthLabel(d) {
+  return new Intl.DateTimeFormat('en-US', {
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC'
+  }).format(d);
+}
+
+/**
+ * Human-readable “next billing” / current cycle label for admin billing directory.
+ */
+function buildNextBillingLabel({
+  monthlyFeeEnabled,
+  feeStatus,
+  pastMonthStart,
+  freeUntil,
+  billingAnchorWaived,
+  paidForCycle
+}) {
+  if (!monthlyFeeEnabled) return 'No recurring monthly fee';
+  if (feeStatus === 'in_free_period') {
+    const firstDueMonth = addUtcMonths(freeUntil, -1);
+    return `First fee: ${formatUtcMonthLabel(firstDueMonth)} (free until ${formatUtcMonthLabel(freeUntil)})`;
+  }
+  if (feeStatus === 'billing_deferred') return 'Deferred (custom billing start)';
+  if (feeStatus === 'paid_current') {
+    const nextCycleDueMonth = addUtcMonths(startOfUtcMonth(new Date()), 0);
+    const nextFeeFor = addUtcMonths(nextCycleDueMonth, -1);
+    return `Paid — next cycle: ${formatUtcMonthLabel(nextFeeFor)}`;
+  }
+  if (feeStatus === 'pending_confirmation') return `${formatUtcMonthLabel(pastMonthStart)} — payment pending review`;
+  if (feeStatus === 'in_grace') return `${formatUtcMonthLabel(pastMonthStart)} — in grace (UTC)`;
+  if (feeStatus === 'overdue') return `${formatUtcMonthLabel(pastMonthStart)} — overdue`;
+  if (paidForCycle) return `Paid for ${formatUtcMonthLabel(pastMonthStart)}`;
+  return formatUtcMonthLabel(pastMonthStart);
+}
+
 function resolvePackageFromList(payment, packages) {
   const raw = (payment?.package?.name || '').trim();
   const price = payment?.package?.price;
@@ -373,14 +410,21 @@ async function listPendingMonthlyFeeStudents(opts = {}) {
       if (!includeNoFeeTiers) continue;
       const showNoFeeRow = statusFilter === 'all' || statusFilter === 'no_fee_required';
       if (!showNoFeeRow) continue;
+      const purchasedAtNoFee = entry.payment?.createdAt
+        ? new Date(entry.payment.createdAt)
+        : now;
       rows.push({
         user: u,
+        joinedAt: u.createdAt ? new Date(u.createdAt).toISOString() : null,
+        packagePurchasedAt: purchasedAtNoFee.toISOString(),
         packageName: displayName,
         monthlyFeeAmount: 0,
         /** Amount owed for this cycle (0 for lifetime / no-fee tiers) */
         amountPending: 0,
         graceDays: 0,
         dueForMonth: pastMonthStart.toISOString(),
+        nextBillingLabel: 'No recurring monthly fee',
+        lastPaidAt: null,
         daysOverdue: 0,
         feeStatus: 'no_fee_required',
         pendingPaymentId: null,
@@ -457,12 +501,23 @@ async function listPendingMonthlyFeeStudents(opts = {}) {
 
     rows.push({
       user: u,
+      joinedAt: u.createdAt ? new Date(u.createdAt).toISOString() : null,
+      packagePurchasedAt: purchasedAt.toISOString(),
       packageName: displayName,
       monthlyFeeAmount: packageFee,
       amountPending,
       pendingPaymentAmount: pendingTxnAmount,
       graceDays,
       dueForMonth: pastMonthStart.toISOString(),
+      nextBillingLabel: buildNextBillingLabel({
+        monthlyFeeEnabled: true,
+        feeStatus,
+        pastMonthStart,
+        freeUntil,
+        billingAnchorWaived: false,
+        paidForCycle: false
+      }),
+      lastPaidAt: null,
       daysOverdue,
       feeStatus,
       pendingPaymentId: pendingPay?._id ? String(pendingPay._id) : null,
@@ -494,6 +549,249 @@ async function listPendingMonthlyFeeStudents(opts = {}) {
   };
 }
 
+/**
+ * All students with a completed package purchase — billing directory for admin
+ * (join date, package, current cycle, next billing, filters by package/status/joined).
+ *
+ * @param {object} opts
+ * @param {Date} [opts.now]
+ * @param {string} [opts.status] — billing cycle filter (see feeStatus values)
+ * @param {string} [opts.packageName] — partial match on package display name
+ * @param {string} [opts.search] — name/email substring
+ * @param {string} [opts.joinedAfter] — ISO date, user.createdAt >=
+ * @param {string} [opts.joinedBefore] — ISO date, user.createdAt <
+ * @param {string} [opts.purchasedAfter] — ISO date, package payment createdAt >=
+ * @param {string} [opts.purchasedBefore] — ISO date, package payment createdAt <
+ */
+async function listMonthlyFeeBillingDirectory(opts = {}) {
+  const now = opts.now instanceof Date && !Number.isNaN(opts.now.getTime()) ? opts.now : new Date();
+  const statusFilter = (opts.status || 'all').toLowerCase();
+  const packageFilter = (opts.packageName || '').trim().toLowerCase();
+  const searchFilter = (opts.search || '').trim().toLowerCase();
+
+  const parseBound = (raw) => {
+    if (!raw || !String(raw).trim()) return null;
+    const d = new Date(String(raw).trim());
+    return Number.isNaN(d.getTime()) ? null : d;
+  };
+  const joinedAfter = parseBound(opts.joinedAfter);
+  const joinedBefore = parseBound(opts.joinedBefore);
+  const purchasedAfter = parseBound(opts.purchasedAfter);
+  const purchasedBefore = parseBound(opts.purchasedBefore);
+
+  await Package.ensureDefaults();
+  _packagesCache = null;
+  const packages = await Package.find({}).lean();
+  _packagesCache = packages;
+  _packagesCacheAt = Date.now();
+
+  const currentMonthStart = startOfUtcMonth(now);
+  const pastMonthStart = addUtcMonths(currentMonthStart, -1);
+  const pastMonthLabel = new Intl.DateTimeFormat('en-US', {
+    month: 'long',
+    year: 'numeric',
+    timeZone: 'UTC'
+  }).format(pastMonthStart);
+
+  const packagePayments = await Payment.aggregate([
+    { $match: { status: 'completed', type: 'package' } },
+    { $sort: { createdAt: -1 } },
+    { $group: { _id: '$user', payment: { $first: '$$ROOT' } } }
+  ]);
+
+  const userIds = packagePayments.map((p) => p._id).filter(Boolean);
+  const students = await User.find({ _id: { $in: userIds }, role: 'student' })
+    .select(
+      'firstName lastName email isActive isVerified createdAt monthlyFeeBillingStartsMonthStart'
+    )
+    .lean();
+  const userMap = new Map(students.map((u) => [u._id.toString(), u]));
+
+  const uidStrings = [...userMap.keys()];
+
+  const paidThisCycleList = await Payment.find({
+    user: { $in: uidStrings },
+    status: 'completed',
+    type: 'monthly_fee',
+    createdAt: { $gte: pastMonthStart, $lt: currentMonthStart }
+  })
+    .select('user createdAt finalAmount amount')
+    .lean();
+  const paidThisCycleMap = new Map();
+  for (const p of paidThisCycleList) {
+    const uid = p.user?.toString?.() || String(p.user);
+    if (!paidThisCycleMap.has(uid)) paidThisCycleMap.set(uid, p);
+  }
+
+  const pendingFeeList = await Payment.find({
+    user: { $in: uidStrings },
+    status: 'pending',
+    type: 'monthly_fee'
+  })
+    .sort({ createdAt: -1 })
+    .select('user createdAt finalAmount amount currency metadata')
+    .lean();
+  const pendingFeeMap = new Map();
+  for (const p of pendingFeeList) {
+    const uid = p.user?.toString?.() || String(p.user);
+    if (!pendingFeeMap.has(uid)) pendingFeeMap.set(uid, p);
+  }
+
+  const lastPaidAgg = await Payment.aggregate([
+    {
+      $match: {
+        user: { $in: uidStrings },
+        status: 'completed',
+        type: 'monthly_fee'
+      }
+    },
+    { $sort: { createdAt: -1 } },
+    { $group: { _id: '$user', payment: { $first: '$$ROOT' } } }
+  ]);
+  const lastPaidMap = new Map(
+    lastPaidAgg.map((row) => [row._id.toString(), row.payment])
+  );
+
+  const rows = [];
+
+  for (const entry of packagePayments) {
+    const uid = entry._id?.toString?.() || String(entry._id);
+    const u = userMap.get(uid);
+    if (!u) continue;
+
+    const joinedAt = u.createdAt ? new Date(u.createdAt) : null;
+    if (joinedAfter && (!joinedAt || joinedAt < joinedAfter)) continue;
+    if (joinedBefore && joinedAt && joinedAt >= joinedBefore) continue;
+
+    const purchasedAt = entry.payment?.createdAt ? new Date(entry.payment.createdAt) : null;
+    if (purchasedAfter && (!purchasedAt || purchasedAt < purchasedAfter)) continue;
+    if (purchasedBefore && purchasedAt && purchasedAt >= purchasedBefore) continue;
+
+    if (searchFilter) {
+      const blob = `${u.firstName || ''} ${u.lastName || ''} ${u.email || ''}`.toLowerCase();
+      if (!blob.includes(searchFilter)) continue;
+    }
+
+    const pkg = resolvePackageFromList(entry.payment, packages);
+    if (!pkg) continue;
+
+    const displayName = ((entry.payment?.package?.name || pkg.name || '').trim() || pkg.name);
+    if (packageFilter && !displayName.toLowerCase().includes(packageFilter)) continue;
+
+    const monthlyFeeEnabled = !!pkg.monthlyFeeEnabled;
+    const graceDays = Number(pkg.monthlyFeeGraceDays ?? 3);
+    const freeMonths = Number(pkg.monthlyFeeFreeMonths ?? 0);
+    const purchasedAtDate = purchasedAt || now;
+    const freeUntil = addUtcMonths(startOfUtcMonth(purchasedAtDate), freeMonths);
+    const packageFee = Number(pkg.monthlyFeeAmount ?? 50);
+
+    const billingAnchorStart = u.monthlyFeeBillingStartsMonthStart
+      ? startOfUtcMonth(new Date(u.monthlyFeeBillingStartsMonthStart))
+      : null;
+    const billingAnchorWaived = !!(
+      billingAnchorStart && pastMonthStart.getTime() < billingAnchorStart.getTime()
+    );
+
+    const paid = paidThisCycleMap.get(uid) || null;
+    const pendingPay = pendingFeeMap.get(uid) || null;
+    const lastPaid = lastPaidMap.get(uid) || null;
+
+    let feeStatus;
+    if (!monthlyFeeEnabled) {
+      feeStatus = 'no_fee_required';
+    } else if (now < freeUntil) {
+      feeStatus = 'in_free_period';
+    } else if (billingAnchorWaived) {
+      feeStatus = 'billing_deferred';
+    } else if (paid) {
+      feeStatus = 'paid_current';
+    } else if (pendingPay) {
+      feeStatus = 'pending_confirmation';
+    } else if (now.getUTCDate() <= graceDays) {
+      feeStatus = 'in_grace';
+    } else {
+      feeStatus = 'overdue';
+    }
+
+    if (statusFilter !== 'all' && feeStatus !== statusFilter) continue;
+
+    const inGrace = feeStatus === 'in_grace';
+    const daysOverdue = inGrace || feeStatus === 'paid_current' || feeStatus === 'in_free_period' || feeStatus === 'billing_deferred' || feeStatus === 'no_fee_required'
+      ? 0
+      : Math.max(0, now.getUTCDate() - graceDays);
+
+    const pendingTxnAmount = pendingPay
+      ? Number(pendingPay.finalAmount ?? pendingPay.amount ?? packageFee)
+      : null;
+    const amountPending =
+      feeStatus === 'no_fee_required' || feeStatus === 'paid_current' || feeStatus === 'in_free_period' || feeStatus === 'billing_deferred'
+        ? 0
+        : pendingPay
+        ? pendingTxnAmount
+        : packageFee;
+
+    const nextBillingLabel = buildNextBillingLabel({
+      monthlyFeeEnabled,
+      feeStatus,
+      pastMonthStart,
+      freeUntil,
+      billingAnchorWaived,
+      paidForCycle: !!paid
+    });
+
+    rows.push({
+      user: u,
+      joinedAt: joinedAt ? joinedAt.toISOString() : null,
+      packagePurchasedAt: purchasedAt ? purchasedAt.toISOString() : null,
+      packageName: displayName,
+      monthlyFeeEnabled,
+      monthlyFeeAmount: packageFee,
+      graceDays,
+      freeMonths,
+      freeUntil: freeUntil.toISOString(),
+      monthlyFeeBillingStartsMonthStart: billingAnchorStart
+        ? billingAnchorStart.toISOString()
+        : null,
+      dueForMonth: pastMonthStart.toISOString(),
+      nextBillingLabel,
+      lastPaidAt: lastPaid?.createdAt ? new Date(lastPaid.createdAt).toISOString() : null,
+      amountPending,
+      pendingPaymentAmount: pendingTxnAmount,
+      daysOverdue,
+      feeStatus,
+      pendingPaymentId: pendingPay?._id ? String(pendingPay._id) : null,
+      hasPendingPayment: !!pendingPay
+    });
+  }
+
+  rows.sort((a, b) => {
+    const order = {
+      overdue: 0,
+      pending_confirmation: 1,
+      in_grace: 2,
+      paid_current: 3,
+      billing_deferred: 4,
+      in_free_period: 5,
+      no_fee_required: 6
+    };
+    const ao = order[a.feeStatus] ?? 7;
+    const bo = order[b.feeStatus] ?? 7;
+    if (ao !== bo) return ao - bo;
+    const ja = a.joinedAt ? new Date(a.joinedAt).getTime() : 0;
+    const jb = b.joinedAt ? new Date(b.joinedAt).getTime() : 0;
+    return jb - ja;
+  });
+
+  return {
+    asOf: now.toISOString(),
+    dueForMonth: pastMonthStart.toISOString(),
+    pastMonthLabel,
+    currentMonthStart: currentMonthStart.toISOString(),
+    count: rows.length,
+    users: rows
+  };
+}
+
 /** @deprecated Use listPendingMonthlyFeeStudents; kept for compatibility */
 async function listOverdueMonthlyFeeUsers(now = new Date()) {
   const r = await listPendingMonthlyFeeStudents({ now, status: 'overdue' });
@@ -517,9 +815,13 @@ module.exports = {
   addUtcMonths,
   feeMonthCoveredForPaymentDate,
   feeMonthForMonthlyFeePayment,
+  feeDueByForMonthlyFeePayment,
   resolvePackageFromList,
   resolvePackageFromPayment,
   getMonthlyFeeStatusForUser,
   listPendingMonthlyFeeStudents,
-  listOverdueMonthlyFeeUsers
+  listMonthlyFeeBillingDirectory,
+  listOverdueMonthlyFeeUsers,
+  formatUtcMonthLabel,
+  buildNextBillingLabel
 };
