@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { Mail, ArrowLeft, CheckCircle, AlertCircle } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { buildApiUrl } from '../../utils/api';
+import { normalizeAuthEmail } from '../../utils/authFormSanitize';
 import { showToast } from '../../utils/toast';
 
 export default function ForgotPasswordPage() {
@@ -16,6 +17,8 @@ export default function ForgotPasswordPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const cleanedEmail = normalizeAuthEmail(email);
+    setEmail(cleanedEmail);
     setIsLoading(true);
     setError('');
 
@@ -25,7 +28,7 @@ export default function ForgotPasswordPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: cleanedEmail }),
       });
 
       const data = await response.json();
@@ -171,8 +174,13 @@ export default function ForgotPasswordPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={(e) => setEmail(normalizeAuthEmail(e.target.value))}
               className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200"
               placeholder="Enter your email address"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              inputMode="email"
             />
           </div>
 

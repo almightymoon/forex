@@ -30,8 +30,8 @@ const generateToken = (userId, role) => {
 // @desc    Register a new user (payments disabled)
 // @access  Public
 router.post('/register', [
-  body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
-  body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
+  body('email').trim().isEmail().normalizeEmail().withMessage('Please provide a valid email'),
+  body('password').trim().isLength({ min: 6 }).withMessage('Password must be at least 6 characters long'),
   body('firstName').trim().notEmpty().withMessage('First name is required'),
   body('lastName').trim().notEmpty().withMessage('Last name is required'),
   body('phone').optional().trim(),
@@ -332,8 +332,8 @@ router.post('/register', [
 // @desc    Authenticate user & get token
 // @access  Public
 router.post('/login', [
-  body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
-  body('password').notEmpty().withMessage('Password is required')
+  body('email').trim().isEmail().normalizeEmail().withMessage('Please provide a valid email'),
+  body('password').trim().notEmpty().withMessage('Password is required')
 ], loginSecurityMiddleware, async (req, res) => {
   try {
     // Check validation errors
@@ -586,7 +586,7 @@ router.put('/password', [
 // @desc    Send password reset email
 // @access  Public
 router.post('/forgot-password', [
-  body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email')
+  body('email').trim().isEmail().normalizeEmail().withMessage('Please provide a valid email')
 ], async (req, res) => {
   try {
     // Check validation errors
@@ -673,8 +673,8 @@ router.post('/forgot-password', [
 // @desc    Reset password with token
 // @access  Public
 router.post('/reset-password', [
-  body('token').notEmpty().withMessage('Reset token is required'),
-  body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters long')
+  body('token').trim().notEmpty().withMessage('Reset token is required'),
+  body('newPassword').trim().isLength({ min: 6 }).withMessage('New password must be at least 6 characters long')
 ], passwordPolicyMiddleware, async (req, res) => {
   try {
     // Check validation errors

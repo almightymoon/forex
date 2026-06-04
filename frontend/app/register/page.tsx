@@ -6,6 +6,11 @@ import { Eye, EyeOff, Mail, Lock, User, Phone, CheckCircle, AlertCircle, Share2 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { buildApiUrl } from '@/utils/api';
+import {
+  normalizeReferralCode,
+  sanitizeRegisterForm,
+  trimAuthFieldByName,
+} from '@/utils/authFormSanitize';
 import { useSettings } from '../../context/SettingsContext';
 import AuthPortalShell, {
   authGhostLinkClass,
@@ -39,7 +44,7 @@ export default function RegisterPage() {
   useEffect(() => {
     const refCode = searchParams?.get('ref');
     if (refCode) {
-      setReferralCode(refCode.toUpperCase());
+      setReferralCode(normalizeReferralCode(refCode));
     }
   }, [searchParams]);
 
@@ -64,16 +69,37 @@ export default function RegisterPage() {
     setError('');
   };
 
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    const trimmed = trimAuthFieldByName(name, value);
+    if (trimmed !== value) {
+      setFormData((prev) => ({ ...prev, [name]: trimmed }));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (formData.password !== formData.confirmPassword) {
+
+    const cleaned = sanitizeRegisterForm(formData);
+    const cleanedReferral = referralCode ? normalizeReferralCode(referralCode) : '';
+    setFormData(cleaned);
+    if (cleanedReferral !== referralCode) setReferralCode(cleanedReferral);
+
+    if (!cleaned.firstName || !cleaned.lastName) {
+      setError('First and last name are required');
+      return;
+    }
+    if (!cleaned.email) {
+      setError('Email is required');
+      return;
+    }
+
+    if (cleaned.password !== cleaned.confirmPassword) {
       setError('Passwords do not match');
       return;
     }
 
-    if (formData.password.length < 6) {
+    if (cleaned.password.length < 6) {
       setError('Password must be at least 6 characters long');
       return;
     }
@@ -82,12 +108,11 @@ export default function RegisterPage() {
     setError('');
 
     try {
-      // Prepare request body - exclude confirmPassword
-      const { confirmPassword, ...registrationData } = formData;
+      const { confirmPassword, ...registrationData } = cleaned;
 
       const requestBody = {
         ...registrationData,
-        referralCode: referralCode || undefined,
+        referralCode: cleanedReferral || undefined,
       };
       
       // Remove undefined values to avoid sending them
@@ -210,6 +235,7 @@ export default function RegisterPage() {
                   name="firstName"
                   value={formData.firstName}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   required
                   className={authInputClass}
                   placeholder="Alex"
@@ -229,6 +255,7 @@ export default function RegisterPage() {
                   name="lastName"
                   value={formData.lastName}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   required
                   className={authInputClass}
                   placeholder="Rivera"
@@ -250,10 +277,15 @@ export default function RegisterPage() {
                 name="email"
                 value={formData.email}
                 onChange={handleChange}
+                onBlur={handleBlur}
                 required
                 className={authInputClass}
                 placeholder="you@example.com"
                 autoComplete="email"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode="email"
               />
             </div>
           </div>
@@ -271,6 +303,7 @@ export default function RegisterPage() {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   required
                   className={`${authInputClass} pr-12`}
                   placeholder="Min. 6 characters"
@@ -298,6 +331,7 @@ export default function RegisterPage() {
                   name="confirmPassword"
                   value={formData.confirmPassword}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   required
                   className={`${authInputClass} pr-12`}
                   placeholder="Repeat password"
@@ -328,9 +362,11 @@ export default function RegisterPage() {
                   name="phone"
                   value={formData.phone}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   className={authInputClass}
                   placeholder="+1 …"
                   autoComplete="tel"
+                  inputMode="tel"
                 />
               </div>
             </div>
@@ -365,7 +401,8 @@ export default function RegisterPage() {
             <input
               type="text"
               value={referralCode}
-              onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+              onChange={(e) => setReferralCode(e.target.value.toUpperCase().replace(/\s/g, ''))}
+              onBlur={(e) => setReferralCode(normalizeReferralCode(e.target.value))}
               placeholder="CODE"
               className="w-full rounded-xl border border-white/[0.1] bg-white/[0.04] px-4 py-2.5 text-[13px] font-medium uppercase tracking-wider text-white placeholder:text-white/30 focus:border-violet-400/35 focus:outline-none focus:ring-2 focus:ring-violet-500/25"
             />

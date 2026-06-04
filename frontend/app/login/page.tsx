@@ -6,6 +6,7 @@ import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { buildApiUrl } from '@/utils/api';
+import { normalizeAuthEmail, trimAuthFieldByName, trimAuthPassword } from '@/utils/authFormSanitize';
 import { notifyAuthChanged, syncAuthCookieFromStorage } from '@/utils/tokenUtils';
 import { useSettings } from '../../context/SettingsContext';
 import { useMaintenanceContext } from '../../context/MaintenanceContext';
@@ -82,8 +83,21 @@ function LoginPageContent() {
     setError(''); // Clear error when user types
   };
 
+  const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    const trimmed = trimAuthFieldByName(name, value);
+    if (trimmed !== value) {
+      setFormData((prev) => ({ ...prev, [name]: trimmed }));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const payload = {
+      email: normalizeAuthEmail(formData.email),
+      password: trimAuthPassword(formData.password),
+    };
+    setFormData(payload);
     setIsLoading(true);
     setError('');
 
@@ -93,7 +107,7 @@ function LoginPageContent() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
         credentials: 'include',
       });
 
@@ -353,10 +367,15 @@ function LoginPageContent() {
                   name="email"
                   value={formData.email}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   required
                   className={authInputClass}
                   placeholder="Your email address"
                   autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  inputMode="email"
                 />
               </div>
             </div>
@@ -378,6 +397,7 @@ function LoginPageContent() {
                   name="password"
                   value={formData.password}
                   onChange={handleChange}
+                  onBlur={handleBlur}
                   required
                   className={`${authInputClass} pr-12`}
                   placeholder="Your password"

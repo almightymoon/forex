@@ -160,7 +160,7 @@ router.post('/disable', [
 // @desc    Verify 2FA token during login
 // @access  Public (but requires pending 2FA login session)
 router.post('/verify', [
-  body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
   body('tempToken').notEmpty().withMessage('Temporary login token is required'),
   body('twoFactorCode').notEmpty().withMessage('2FA code is required')
 ], async (req, res) => {

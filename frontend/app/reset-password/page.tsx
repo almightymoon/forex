@@ -5,6 +5,7 @@ import { motion } from 'framer-motion';
 import { AlertCircle, ArrowLeft, CheckCircle, Eye, EyeOff, Lock } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { buildApiUrl } from '../../utils/api';
+import { trimAuthPassword } from '../../utils/authFormSanitize';
 import { showToast } from '../../utils/toast';
 
 function ResetPasswordForm() {
@@ -28,11 +29,16 @@ function ResetPasswordForm() {
       setError('Reset token is missing. Please request a new password reset link.');
       return;
     }
-    if (newPassword.length < 6) {
+    const pwd = trimAuthPassword(newPassword);
+    const pwdConfirm = trimAuthPassword(confirmPassword);
+    setNewPassword(pwd);
+    setConfirmPassword(pwdConfirm);
+
+    if (pwd.length < 6) {
       setError('Password must be at least 6 characters long.');
       return;
     }
-    if (newPassword !== confirmPassword) {
+    if (pwd !== pwdConfirm) {
       setError('Passwords do not match.');
       return;
     }
@@ -42,7 +48,7 @@ function ResetPasswordForm() {
       const res = await fetch(buildApiUrl('api/auth/reset-password'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ token, newPassword }),
+        body: JSON.stringify({ token, newPassword: pwd }),
       });
       const data = await res.json().catch(() => ({}));
 
