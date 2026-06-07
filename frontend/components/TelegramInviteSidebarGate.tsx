@@ -13,9 +13,6 @@ const PUBLIC_MARKETING_PATHS = [
   '/contact',
   '/terms',
   '/faq',
-  '/login',
-  '/register',
-  '/forgot-password',
 ];
 
 function isPublicMarketingPath(pathname: string): boolean {

@@ -18,6 +18,8 @@
   gap: 12px;
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
   transition: bottom 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  /* wrapper itself must never swallow touch/click events on the page below */
+  pointer-events: none;
 }
 
 /* Homepage footer “back to top” sits at bottom-right — lift Telegram above it */
@@ -59,7 +61,7 @@
   opacity: 0;
   transform: translateY(10px) scale(0.97);
   visibility: hidden;
-  pointer-events: none;
+  pointer-events: none; /* closed: no interaction */
   transition:
     opacity 0.22s ease,
     transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
@@ -70,7 +72,7 @@
   opacity: 1;
   transform: translateY(0) scale(1);
   visibility: visible;
-  pointer-events: auto;
+  pointer-events: auto; /* open: fully interactive */
   transition:
     opacity 0.22s ease,
     transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
@@ -231,6 +233,8 @@
   background: rgba(14, 16, 24, 0.88);
   color: var(--tg-accent);
   cursor: pointer;
+  /* re-enable pointer events so the FAB itself is still tappable */
+  pointer-events: auto;
   box-shadow:
     0 4px 24px rgba(0, 0, 0, 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.06);
