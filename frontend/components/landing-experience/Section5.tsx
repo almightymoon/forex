@@ -88,13 +88,23 @@ export default function Section5() {
   useEffect(() => {
     let rafId: number;
 
-    /** Pinned-scroll phases: spread in early, hold while reading, flip/exit only near the end. */
-    const SPREAD_END = 0.4;
-    const FLIP_START = 0.72;
-    const FLIP_END = 1;
+    /** Pinned-scroll phases: spread → flip → hold on back → flip back → exit. */
+    const SPREAD_END = 0.38;
+    const FLIP_START = 0.48;
+    const FLIP_DONE = 0.58;
+    const HOLD_END = 0.78;
+    const UNFLIP_END = 0.94;
 
     const phaseProgress = (t: number, start: number, end: number) =>
       Math.max(0, Math.min(1, (t - start) / (end - start)));
+
+    const flipTarget = (t: number) => {
+      if (t < FLIP_START) return 0;
+      if (t < FLIP_DONE) return phaseProgress(t, FLIP_START, FLIP_DONE);
+      if (t < HOLD_END) return 1;
+      if (t < UNFLIP_END) return 1 - phaseProgress(t, HOLD_END, UNFLIP_END);
+      return 0;
+    };
 
     const loop = () => {
       if (rootRef.current && entryRef.current) {
@@ -129,8 +139,8 @@ export default function Section5() {
         }
 
         const spreadTgt = phaseProgress(pinned, 0, SPREAD_END);
-        const flipTgt = phaseProgress(pinned, FLIP_START, FLIP_END);
-        const exitTgt = flipTgt;
+        const flipTgt = flipTarget(pinned);
+        const exitTgt = phaseProgress(pinned, HOLD_END, 1);
 
         const edCurr = exitDepthProg.current;
         const edNext = edCurr + (exitTgt - edCurr) * 0.065;
@@ -151,7 +161,8 @@ export default function Section5() {
         rootRef.current.style.setProperty('--spread', String(easeOutQuint(spreadProg.current)));
 
         const fCurr = flipProg.current;
-        const fNext = fCurr + (flipTgt - fCurr) * 0.08;
+        const flipLerp = flipTgt < fCurr ? 0.045 : 0.085;
+        const fNext = fCurr + (flipTgt - fCurr) * flipLerp;
         flipProg.current = Math.abs(flipTgt - fNext) < 0.0006 ? flipTgt : fNext;
         rootRef.current.style.setProperty('--flip', String(easeOutQuint(flipProg.current)));
       }
