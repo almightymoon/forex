@@ -103,7 +103,18 @@ export default function Courses({
         let errorMessage = `Failed to ${action} course`;
         try {
           const error = await response.json();
-          errorMessage = error.error || `HTTP ${response.status}`;
+          if (typeof error.error === 'string' && error.error.trim()) {
+            errorMessage = error.error;
+          } else if (Array.isArray(error.errors) && error.errors.length > 0) {
+            errorMessage = error.errors
+              .map((entry: { msg?: string; message?: string }) => entry.msg || entry.message)
+              .filter(Boolean)
+              .join('; ');
+          } else if (error.message) {
+            errorMessage = error.message;
+          } else {
+            errorMessage = `HTTP ${response.status}`;
+          }
           console.error(`Failed to ${action} course:`, error);
         } catch (e) {
           console.error(`Failed to ${action} course:`, response.status, response.statusText);

@@ -2,6 +2,10 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken, requireTeacher } = require('../middleware/auth');
 const Course = require('../models/Course');
+const {
+  sanitizeCoursePayload,
+  formatValidationError,
+} = require('../utils/coursePayload');
 const User = require('../models/User');
 const LiveSession = require('../models/LiveSession');
 const Assignment = require('../models/Assignment');
@@ -376,19 +380,27 @@ router.get('/courses/:courseId', async (req, res) => {
 router.post('/courses', async (req, res) => {
   try {
     const teacherId = req.user._id;
-    const courseData = {
-      ...req.body,
-      teacher: teacherId,
-      status: 'draft',
-      createdAt: new Date()
-    };
-    
+    const courseData = sanitizeCoursePayload(req.body, { teacherId });
+
+    if (!courseData.title) {
+      return res.status(400).json({ success: false, error: 'Course title is required' });
+    }
+    if (!courseData.description) {
+      return res.status(400).json({ success: false, error: 'Course description is required' });
+    }
+    if (!courseData.thumbnail) {
+      return res.status(400).json({ success: false, error: 'Course thumbnail is required' });
+    }
+
     const course = new Course(courseData);
     await course.save();
-    
+
     res.status(201).json({ success: true, data: course });
   } catch (error) {
     console.error('Error creating course:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ success: false, error: formatValidationError(error) });
+    }
     res.status(500).json({ success: false, error: 'Failed to create course' });
   }
 });
@@ -413,28 +425,40 @@ router.put('/courses/:courseId', async (req, res) => {
       'certificate', 'status', 'allowedPackages'
     ];
     
-    // Build update object: only update fields that are provided in req.body
-    const updateData = { ...req.body };
-    
-    // Preserve existing fields if they're not in the update
-    fieldsToPreserve.forEach(field => {
+    const updateData = sanitizeCoursePayload(req.body);
+
+    if (!updateData.title) {
+      return res.status(400).json({ success: false, error: 'Course title is required' });
+    }
+    if (!updateData.description) {
+      return res.status(400).json({ success: false, error: 'Course description is required' });
+    }
+    if (!updateData.thumbnail) {
+      return res.status(400).json({ success: false, error: 'Course thumbnail is required' });
+    }
+
+    // Preserve fields not sent by the teacher editor.
+    fieldsToPreserve.forEach((field) => {
       if (!(field in updateData) && existingCourse[field] !== undefined) {
         updateData[field] = existingCourse[field];
       }
     });
-    
-    // Always update the updatedAt timestamp
+
+    updateData.teacher = existingCourse.teacher;
     updateData.updatedAt = new Date();
-    
+
     const updatedCourse = await Course.findByIdAndUpdate(
       courseId,
       updateData,
       { new: true, runValidators: true }
     );
-    
+
     res.json({ success: true, data: updatedCourse });
   } catch (error) {
     console.error('Error updating course:', error);
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({ success: false, error: formatValidationError(error) });
+    }
     res.status(500).json({ success: false, error: 'Failed to update course' });
   }
 });

@@ -124,6 +124,72 @@ interface CourseCreatorProps {
   editingCourse?: Course | null;
 }
 
+const VALID_COURSE_CATEGORIES = [
+  'forex',
+  'crypto',
+  'stocks',
+  'commodities',
+  'options',
+  'futures',
+  'general',
+] as const;
+
+function normalizeCourseCategory(category: string): string {
+  const normalized = category.trim().toLowerCase();
+  return VALID_COURSE_CATEGORIES.includes(normalized as (typeof VALID_COURSE_CATEGORIES)[number])
+    ? normalized
+    : 'general';
+}
+
+function transformContentBlocks(contentBlocks: ContentBlock[]) {
+  return contentBlocks
+    .map((block, index) => {
+      const order = Math.max(1, block.order || index + 1);
+      const baseBlock = {
+        title: block.title,
+        description: block.description || '',
+        type: block.type,
+        order,
+        isPreview: false,
+        duration: 0,
+        views: 0,
+      };
+
+      if (block.type === 'text') {
+        const textContent = (block.content || block.textContent || '').trim();
+        if (!textContent) return null;
+        return { ...baseBlock, textContent, type: 'text' as const };
+      }
+
+      if (block.type === 'image') {
+        const imageUrl = (block.content || block.imageUrl || '').trim();
+        if (!imageUrl) return null;
+        return { ...baseBlock, imageUrl, type: 'image' as const };
+      }
+
+      if (block.type === 'video') {
+        const videoUrl = (block.content || block.videoUrl || '').trim();
+        if (!videoUrl) return null;
+        return { ...baseBlock, videoUrl, type: 'video' as const };
+      }
+
+      if (block.type === 'file') {
+        const fileName = (block.content || 'default-file.pdf').trim();
+        return {
+          ...baseBlock,
+          textContent: `File: ${fileName}`,
+          type: 'text' as const,
+        };
+      }
+
+      const textContent = (block.content || block.textContent || '').trim();
+      if (!textContent) return null;
+      return { ...baseBlock, textContent, type: 'text' as const };
+    })
+    .filter(Boolean)
+    .map((block, index) => ({ ...block, order: index + 1 }));
+}
+
 // Client-side only component to prevent hydration issues
 const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: CourseCreatorProps) => {
   const { showToast } = useToast();
@@ -399,254 +465,103 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
     }
   };
 
-  const handleSaveDraft = async () => {
-    // Validate required fields
+  const validateCourseBasics = () => {
     if (!courseData.title.trim()) {
       showToast('Please enter a course title', 'warning');
-      return;
+      return false;
     }
     if (!courseData.description.trim()) {
       showToast('Please enter a course description', 'warning');
-      return;
+      return false;
     }
     if (!courseData.category) {
       showToast('Please select a course category', 'warning');
-      return;
+      return false;
     }
     if (!courseData.thumbnail) {
       showToast('Please upload a course thumbnail', 'warning');
+      return false;
+    }
+    return true;
+  };
+
+  const validateContentBlocksForSave = () => {
+    const incompleteBlocks = contentBlocks.filter((block) => {
+      if (block.type === 'image') {
+        return !(block.content || block.imageUrl || '').trim();
+      }
+      if (block.type === 'video') {
+        return !(block.content || block.videoUrl || '').trim();
+      }
+      if (block.type === 'text') {
+        return !(block.content || block.textContent || '').trim();
+      }
+      return false;
+    });
+
+    if (incompleteBlocks.length > 0) {
+      const titles = incompleteBlocks.map((block) => block.title).join(', ');
+      showToast(
+        `Add content or remove incomplete lessons before saving: ${titles}`,
+        'warning'
+      );
+      return false;
+    }
+
+    return true;
+  };
+
+  const buildFinalCourseData = (publish: boolean) => {
+    const transformedContent = transformContentBlocks(contentBlocks);
+    const normalizedCategory = normalizeCourseCategory(courseData.category);
+
+    if (
+      normalizedCategory !== courseData.category.trim().toLowerCase() &&
+      !VALID_COURSE_CATEGORIES.includes(
+        courseData.category.trim().toLowerCase() as (typeof VALID_COURSE_CATEGORIES)[number]
+      )
+    ) {
+      showToast('Custom categories are saved as General Trading.', 'warning');
+    }
+
+    const finalCourseData: any = {
+      ...courseData,
+      category: normalizedCategory,
+      content: transformedContent,
+      quizzes,
+      status: publish ? 'published' : 'draft',
+      isPublished: publish,
+    };
+
+    if (editingCourse) {
+      finalCourseData.rating = editingCourse.rating || 0;
+      finalCourseData.totalRatings = 0;
+    } else {
+      finalCourseData.rating = 0;
+      finalCourseData.totalRatings = 0;
+    }
+
+    return finalCourseData;
+  };
+
+  const handleSaveDraft = async () => {
+    if (!validateCourseBasics() || !validateContentBlocksForSave()) {
       return;
     }
 
-          // Transform content blocks to match backend schema
-      const transformedContent = contentBlocks.map(block => {
-        const baseBlock = {
-          title: block.title,
-          description: block.description || '',
-          type: block.type,
-          order: block.order,
-          isPreview: false,
-          duration: 0,
-          views: 0
-        };
-
-        // Add type-specific required fields
-        if (block.type === 'text') {
-          return {
-            ...baseBlock,
-            textContent: block.content || block.textContent || 'Default text content',
-            type: 'text'
-          };
-        } else if (block.type === 'image') {
-          return {
-            ...baseBlock,
-            imageUrl: block.content || block.imageUrl || '',
-            type: 'image'
-          };
-        } else if (block.type === 'video') {
-          return {
-            ...baseBlock,
-            videoUrl: block.content || block.videoUrl || 'https://example.com/video',
-            type: 'video'
-          };
-        } else if (block.type === 'file') {
-          return {
-            ...baseBlock,
-            textContent: `File: ${block.content || 'default-file.pdf'}`,
-            type: 'text'
-          };
-        } else {
-          // Default to text for unknown types
-          return {
-            ...baseBlock,
-            textContent: block.content || block.textContent || 'Default content',
-            type: 'text'
-          };
-        }
-      });
-
-            const finalCourseData: any = {
-        ...courseData,
-        content: transformedContent,
-        quizzes,
-        updatedAt: new Date().toISOString(),
-        status: 'draft',
-        isPublished: false
-      };
-
-      // Save assignments separately to the database
-      if (assignments.length > 0) {
-        try {
-          const token = localStorage.getItem('token');
-          if (token) {
-            for (const assignment of assignments) {
-              const assignmentData = {
-                ...assignment,
-                course: editingCourse?.id || 'temp-course-id',
-                instructor: editingCourse?.instructor || 'temp-instructor-id'
-              };
-              
-              // Save assignment to database
-              const response = await fetch('/api/assignments', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(assignmentData)
-              });
-              
-              if (!response.ok) {
-                console.error('Failed to save assignment:', assignment.title);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error saving assignments:', error);
-        }
-      }
-
-      // If editing, preserve existing fields, if creating, add new fields
-      if (editingCourse) {
-        finalCourseData.id = editingCourse.id;
-        finalCourseData.createdAt = editingCourse.createdAt;
-        finalCourseData.enrollmentCount = editingCourse.enrolledStudents || 0;
-        finalCourseData.rating = editingCourse.rating || 0;
-        finalCourseData.totalRatings = 0; // Default value
-      } else {
-        finalCourseData.createdAt = new Date().toISOString();
-        finalCourseData.enrollmentCount = 0;
-        finalCourseData.rating = 0;
-        finalCourseData.totalRatings = 0;
-      }
-      
-      console.log('Saving course draft:', finalCourseData);
-      onSave(finalCourseData);
+    const finalCourseData = buildFinalCourseData(false);
+    console.log('Saving course draft:', finalCourseData);
+    onSave(finalCourseData);
   };
 
   const handlePublish = async () => {
-    // Validate required fields
-    if (!courseData.title.trim()) {
-      showToast('Please enter a course title', 'warning');
-      return;
-    }
-    if (!courseData.description.trim()) {
-      showToast('Please enter a course description', 'warning');
-      return;
-    }
-    if (!courseData.category) {
-      showToast('Please select a course category', 'warning');
-      return;
-    }
-    if (!courseData.thumbnail) {
-      showToast('Please upload a course thumbnail', 'warning');
+    if (!validateCourseBasics() || !validateContentBlocksForSave()) {
       return;
     }
 
-          // Transform content blocks to match backend schema
-      const transformedContent = contentBlocks.map(block => {
-        const baseBlock = {
-          title: block.title,
-          description: block.description || '',
-          type: block.type,
-          order: block.order,
-          isPreview: false,
-          duration: 0,
-          views: 0
-        };
-
-        // Add type-specific required fields
-        if (block.type === 'text') {
-          return {
-            ...baseBlock,
-            textContent: block.content || block.textContent || 'Default text content',
-            type: 'text'
-          };
-        } else if (block.type === 'image') {
-          return {
-            ...baseBlock,
-            imageUrl: block.content || block.imageUrl || '',
-            type: 'image'
-          };
-        } else if (block.type === 'video') {
-          return {
-            ...baseBlock,
-            videoUrl: block.content || block.videoUrl || 'https://example.com/video',
-            type: 'video'
-          };
-        } else if (block.type === 'file') {
-          return {
-            ...baseBlock,
-            textContent: `File: ${block.content || 'default-file.pdf'}`,
-            type: 'text'
-          };
-        } else {
-          // Default to text for unknown types
-          return {
-            ...baseBlock,
-            textContent: block.content || block.textContent || 'Default content',
-            type: 'text'
-          };
-        }
-      });
-
-            const finalCourseData: any = {
-        ...courseData,
-        content: transformedContent,
-        quizzes,
-        updatedAt: new Date().toISOString(),
-        status: 'published',
-        isPublished: true
-      };
-
-      // Save assignments separately to the database
-      if (assignments.length > 0) {
-        try {
-          const token = localStorage.getItem('token');
-          if (token) {
-            for (const assignment of assignments) {
-              const assignmentData = {
-                ...assignment,
-                course: editingCourse?.id || 'temp-course-id',
-                instructor: editingCourse?.instructor || 'temp-instructor-id'
-              };
-              
-              // Save assignment to database
-              const response = await fetch('/api/assignments', {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(assignmentData)
-              });
-              
-              if (!response.ok) {
-                console.error('Failed to save assignment:', assignment.title);
-              }
-            }
-          }
-        } catch (error) {
-          console.error('Error saving assignments:', error);
-        }
-      }
-
-      // If editing, preserve existing fields, if creating, add new fields
-      if (editingCourse) {
-        finalCourseData.id = editingCourse.id;
-        finalCourseData.createdAt = editingCourse.createdAt;
-        finalCourseData.enrollmentCount = editingCourse.enrolledStudents || 0;
-        finalCourseData.rating = editingCourse.rating || 0;
-        finalCourseData.totalRatings = 0; // Default value
-      } else {
-        finalCourseData.createdAt = new Date().toISOString();
-        finalCourseData.enrollmentCount = 0;
-        finalCourseData.rating = 0;
-        finalCourseData.totalRatings = 0;
-      }
-      
-      console.log('Publishing course:', finalCourseData);
-      onSave(finalCourseData);
+    const finalCourseData = buildFinalCourseData(true);
+    console.log('Publishing course:', finalCourseData);
+    onSave(finalCourseData);
   };
 
   return (
