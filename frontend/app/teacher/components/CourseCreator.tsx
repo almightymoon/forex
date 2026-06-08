@@ -13,7 +13,6 @@ import {
   Upload, 
   FileText, 
   Video, 
-  Image, 
   Link, 
   CheckSquare,
   Settings,
@@ -34,6 +33,62 @@ import {
   Image as ImageIcon,
   Video as VideoIcon
 } from 'lucide-react';
+
+const CONTENT_BLOCK_TYPES = ['text', 'video', 'image', 'file'] as const;
+type ContentBlockType = (typeof CONTENT_BLOCK_TYPES)[number];
+
+function toContentBlockId(value: unknown, index: number): string {
+  if (value == null) return `block-${index + 1}`;
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'object' && value !== null && 'toString' in value) {
+    return String((value as { toString: () => string }).toString());
+  }
+  return `block-${index + 1}`;
+}
+
+function normalizeContentBlocksForEditor(blocks: unknown): ContentBlock[] {
+  if (!Array.isArray(blocks)) return [];
+
+  return blocks.map((rawBlock, index) => {
+    const block = (rawBlock && typeof rawBlock === 'object' ? rawBlock : {}) as Partial<ContentBlock> & {
+      _id?: unknown;
+      textContent?: string;
+      videoUrl?: string;
+      imageUrl?: string;
+      pptUrl?: string;
+    };
+
+    const rawType: string = typeof block.type === 'string' ? block.type : 'text';
+    let type: ContentBlockType = 'text';
+    if ((CONTENT_BLOCK_TYPES as readonly string[]).includes(rawType)) {
+      type = rawType as ContentBlockType;
+    } else if (rawType === 'ppt') {
+      type = 'file';
+    }
+
+    const content =
+      type === 'text'
+        ? (block.textContent || block.content || '')
+        : type === 'video'
+          ? (block.videoUrl || block.content || '')
+          : type === 'image'
+            ? (block.imageUrl || block.content || '')
+            : (block.content || block.pptUrl || '');
+
+    return {
+      id: toContentBlockId(block.id ?? block._id, index),
+      type,
+      title: block.title || `Lesson ${index + 1}`,
+      content,
+      order: Math.max(1, Number(block.order) || index + 1),
+      metadata: block.metadata || {},
+      textContent: block.textContent,
+      videoUrl: block.videoUrl,
+      imageUrl: block.imageUrl,
+      description: block.description || '',
+    };
+  });
+}
 
 interface Question {
   id: string;
@@ -216,7 +271,9 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
     }
   });
 
-  const [contentBlocks, setContentBlocks] = useState<ContentBlock[]>(editingCourse?.content || initialData?.content || []);
+  const [contentBlocks, setContentBlocks] = useState<ContentBlock[]>(() =>
+    normalizeContentBlocksForEditor(editingCourse?.content || initialData?.content || [])
+  );
   const [quizzes, setQuizzes] = useState<Question[]>(editingCourse?.quizzes || initialData?.quizzes || []);
   const [assignments, setAssignments] = useState<Assignment[]>(editingCourse?.assignments || initialData?.assignments || []);
   const [showQuizBuilder, setShowQuizBuilder] = useState(false);
@@ -256,46 +313,35 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
         }
       });
       
-      // Transform content from database format to frontend format
-      // Database has textContent, videoUrl, etc. but frontend expects content field
-      const transformedContent = (editingCourse.content || []).map((item: any) => ({
-        ...item,
-        id: item._id || item.id || `block-${Date.now()}-${Math.random()}`,
-        // Map textContent to content for text blocks
-        content: item.type === 'text' 
-          ? (item.textContent || item.content || '')
-          : item.type === 'video'
-          ? (item.videoUrl || item.content || '')
-          : item.type === 'ppt'
-          ? (item.pptUrl || item.content || '')
-          : (item.content || ''),
-        // Keep original fields for reference
-        textContent: item.textContent,
-        videoUrl: item.videoUrl,
-        pptUrl: item.pptUrl
-      }));
-      
-      setContentBlocks(transformedContent);
+      setContentBlocks(normalizeContentBlocksForEditor(editingCourse.content));
       setQuizzes(editingCourse.quizzes || []);
       setAssignments(editingCourse.assignments || []);
     }
   }, [editingCourse]);
 
   const addContentBlock = (type: ContentBlock['type']) => {
+    const safeBlocks = Array.isArray(contentBlocks) ? contentBlocks : [];
     const newBlock: ContentBlock = {
-      id: Date.now().toString(),
+      id: `block-${Date.now()}`,
       type,
       title: `New ${type.charAt(0).toUpperCase() + type.slice(1)}`,
-      content: '',
-      order: contentBlocks.length + 1, // Start from 1, not 0
+      content: type === 'text' ? 'Enter your text content here...' : '',
+      order: safeBlocks.length + 1,
       metadata: {},
-      // Add required fields based on type
       textContent: type === 'text' ? 'Enter your text content here...' : '',
       videoUrl: type === 'video' ? '' : '',
-      description: `Description for ${type} content`
+      imageUrl: type === 'image' ? '' : undefined,
+      description: `Description for ${type} content`,
     };
-    setContentBlocks([...contentBlocks, newBlock]);
+    setContentBlocks([...safeBlocks, newBlock]);
     setEditingBlock(newBlock);
+  };
+
+  const handleTabChange = (tabId: string) => {
+    if (tabId !== 'content') {
+      setEditingBlock(null);
+    }
+    setActiveTab(tabId);
   };
 
   const addQuiz = () => {
@@ -486,7 +532,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
   };
 
   const validateContentBlocksForSave = () => {
-    const incompleteBlocks = contentBlocks.filter((block) => {
+    const incompleteBlocks = (Array.isArray(contentBlocks) ? contentBlocks : []).filter((block) => {
       if (block.type === 'image') {
         return !(block.content || block.imageUrl || '').trim();
       }
@@ -619,7 +665,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors ${
                     activeTab === tab.id
                       ? 'border-blue-500 text-blue-600 dark:text-blue-400'
@@ -731,8 +777,8 @@ function BasicInfoTab({
 
   // Use useEffect to set initial values after component mounts to avoid hydration mismatch
   useEffect(() => {
-    setRequirements(courseData.requirements.join('\n'));
-    setOutcomes(courseData.learningOutcomes.join('\n'));
+    setRequirements(Array.isArray(courseData.requirements) ? courseData.requirements.join('\n') : '');
+    setOutcomes(Array.isArray(courseData.learningOutcomes) ? courseData.learningOutcomes.join('\n') : '');
   }, [courseData.requirements, courseData.learningOutcomes]);
 
     const updateRequirements = (value: string) => {
@@ -1059,6 +1105,7 @@ function ContentBuilderTab({
   handleFileUpload,
   isUploading
 }: any) {
+  const safeContentBlocks = normalizeContentBlocksForEditor(contentBlocks);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
@@ -1081,7 +1128,7 @@ function ContentBuilderTab({
   const handleDrop = (e: React.DragEvent, dropIndex: number) => {
     e.preventDefault();
     if (draggedIndex !== null && draggedIndex !== dropIndex) {
-      const newBlocks = [...contentBlocks];
+      const newBlocks = [...safeContentBlocks];
       const [draggedBlock] = newBlocks.splice(draggedIndex, 1);
       newBlocks.splice(dropIndex, 0, draggedBlock);
       
@@ -1111,12 +1158,12 @@ function ContentBuilderTab({
           {[
             { type: 'text', icon: FileText, label: 'Text' },
             { type: 'video', icon: Video, label: 'Video' },
-            { type: 'image', icon: Image, label: 'Image' },
+            { type: 'image', icon: ImageIcon, label: 'Image' },
             { type: 'file', icon: Upload, label: 'File' }
           ].map(({ type, icon: Icon, label }) => (
             <button
               key={type}
-              onClick={() => addContentBlock(type)}
+              onClick={() => addContentBlock(type as ContentBlock['type'])}
               className="p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-center"
             >
               <Icon className="w-8 h-8 mx-auto mb-2 text-gray-400 dark:text-gray-500" />
@@ -1128,7 +1175,7 @@ function ContentBuilderTab({
 
       {/* Content Blocks */}
       <div className="space-y-4">
-        {contentBlocks.length > 0 && (
+        {safeContentBlocks.length > 0 && (
           <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-3 mb-4">
             <p className="text-sm text-blue-700 dark:text-blue-300 flex items-center space-x-2">
               <GripVertical className="w-4 h-4" />
@@ -1137,9 +1184,9 @@ function ContentBuilderTab({
           </div>
         )}
         
-        {contentBlocks.map((block, index) => (
+        {safeContentBlocks.map((block, index) => (
           <ContentBlock
-            key={block.id}
+            key={`${block.id}-${index}`}
             block={block}
             index={index}
             onUpdate={updateContentBlock}
@@ -1200,7 +1247,7 @@ function ContentBlock({
     switch (type) {
       case 'text': return FileText;
       case 'video': return Video;
-      case 'image': return Image;
+      case 'image': return ImageIcon;
       case 'file': return Upload;
       default: return FileText;
     }
@@ -1280,6 +1327,24 @@ const QUILL_MODULES = {
 };
 
 function RichTextEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <textarea
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Enter your text content here..."
+        rows={12}
+        className="w-full min-h-[300px] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
+      />
+    );
+  }
+
   return (
     <div className="rich-text-editor-wrapper border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800 [&_.ql-toolbar]:bg-gray-50 dark:[&_.ql-toolbar]:bg-gray-700 [&_.ql-toolbar]:border-gray-300 dark:[&_.ql-toolbar]:border-gray-600 [&_.ql-container]:border-gray-300 dark:[&_.ql-container]:border-gray-600 [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-gray-900 dark:[&_.ql-editor]:text-white [&_.ql-editor.ql-blank::before]:text-gray-500 dark:[&_.ql-editor.ql-blank::before]:text-gray-400">
       <ReactQuill
@@ -1471,7 +1536,7 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
                     </div>
                   ) : (
                     <>
-                      <Image className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                      <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
                       <p className="text-lg font-medium text-gray-900 mb-2">Drop image here or click to upload</p>
                       <p className="text-sm text-gray-500 mb-4">Supports JPG, PNG, GIF</p>
                     </>
@@ -2067,7 +2132,7 @@ function PreviewTab({ courseData, contentBlocks, quizzes }: any) {
         </div>
 
         {/* Requirements */}
-        {courseData.requirements.length > 0 && (
+        {Array.isArray(courseData.requirements) && courseData.requirements.length > 0 && (
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Prerequisites</h3>
             <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300">
@@ -2079,7 +2144,7 @@ function PreviewTab({ courseData, contentBlocks, quizzes }: any) {
         )}
 
         {/* Learning Outcomes */}
-        {courseData.learningOutcomes.length > 0 && (
+        {Array.isArray(courseData.learningOutcomes) && courseData.learningOutcomes.length > 0 && (
           <div className="mb-6">
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">What You'll Learn</h3>
             <ul className="list-disc list-inside space-y-1 text-gray-700 dark:text-gray-300">
@@ -2094,8 +2159,8 @@ function PreviewTab({ courseData, contentBlocks, quizzes }: any) {
         <div className="mb-6">
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Course Content</h3>
           <div className="space-y-3">
-            {contentBlocks.map((block, index) => (
-              <div key={block.id} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
+            {normalizeContentBlocksForEditor(contentBlocks).map((block, index) => (
+              <div key={`${block.id}-${index}`} className="border border-gray-200 dark:border-gray-600 rounded-lg p-4">
                 <div className="flex items-center space-x-3 mb-2">
                   <span className="text-sm font-medium text-gray-500 dark:text-gray-400">{index + 1}.</span>
                   <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs rounded-full">
