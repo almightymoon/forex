@@ -1,387 +1,660 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { useSettings } from '../../context/SettingsContext';
-import { 
-  HelpCircle, 
-  ChevronDown, 
-  ChevronUp, 
-  BookOpen, 
-  CreditCard, 
-  Shield, 
-  Users, 
-  Settings,
-  Play,
-  Award,
-  MessageSquare,
-  Smartphone
-} from 'lucide-react';
 import Link from 'next/link';
+import { useMemo, useState } from 'react';
+import MarketingPageShell from '../../components/landing-experience/MarketingPageShell';
+import TiltCard from '../../components/landing-experience/TiltCard';
 
-export default function FAQ() {
-  const { settings } = useSettings();
-  const [openItems, setOpenItems] = useState<number[]>([]);
-
-  const toggleItem = (index: number) => {
-    setOpenItems(prev => 
-      prev.includes(index) 
-        ? prev.filter(i => i !== index)
-        : [...prev, index]
-    );
-  };
-
-  const faqCategories = [
-    {
-      title: 'Getting Started',
-      icon: BookOpen,
-      items: [
-        {
-          question: 'How do I create an account?',
-          answer: 'Click the "Sign Up" button on our homepage, fill in your details, verify your email address, and you\'ll be ready to start learning!'
-        },
-        {
-          question: 'Is there a free trial available?',
-          answer: 'Yes! We offer a 7-day free trial for new users. You can access basic courses and features during this period.'
-        },
-        {
-          question: 'What do I need to get started?',
-          answer: 'All you need is a computer or mobile device with internet access. No prior trading experience is required - we start from the basics.'
-        },
-        {
-          question: 'Can I access courses on mobile devices?',
-          answer: 'Absolutely! Our platform is fully responsive and works on smartphones, tablets, and computers. We also have a mobile app for iOS and Android.'
-        }
-      ]
-    },
-    {
-      title: 'Courses & Learning',
-      icon: Play,
-      items: [
-        {
-          question: 'What types of courses do you offer?',
-          answer: 'We offer comprehensive forex trading courses covering basics, technical analysis, fundamental analysis, risk management, and advanced trading strategies.'
-        },
-        {
-          question: 'How long do I have access to courses?',
-          answer: 'Once enrolled, you have lifetime access to all course materials, including updates and new content added to the course.'
-        },
-        {
-          question: 'Are there any prerequisites for the courses?',
-          answer: 'Most of our beginner courses require no prior knowledge. Advanced courses may have prerequisites, which are clearly listed in the course description.'
-        },
-        {
-          question: 'Can I get a certificate after completing a course?',
-          answer: 'Yes! Upon successful completion of a course (meeting the minimum progress requirements), you\'ll receive a certificate of completion.'
-        },
-        {
-          question: 'How do I track my progress?',
-          answer: 'Your progress is automatically tracked as you complete lessons, watch videos, and take quizzes. You can view your progress in your dashboard.'
-        }
-      ]
-    },
-    {
-      title: 'Trading Signals',
-      icon: Shield,
-      items: [
-        {
-          question: 'What are trading signals?',
-          answer: 'Trading signals are buy/sell recommendations based on technical and fundamental analysis. They include entry points, stop losses, and take profit levels.'
-        },
-        {
-          question: 'How accurate are your trading signals?',
-          answer: 'While we strive for accuracy, no trading signal is 100% guaranteed. Past performance doesn\'t guarantee future results. Always do your own research and risk management.'
-        },
-        {
-          question: 'How often do you provide signals?',
-          answer: 'We provide signals based on market conditions and opportunities. This can range from daily to weekly, depending on market volatility and setup quality.'
-        },
-        {
-          question: 'Can I use signals for live trading?',
-          answer: 'Signals are for educational purposes. If you choose to trade, always start with a demo account and never risk more than you can afford to lose.'
-        }
-      ]
-    },
-    {
-      title: 'Live Sessions',
-      icon: Users,
-      items: [
-        {
-          question: 'What are live trading sessions?',
-          answer: 'Live sessions are real-time trading demonstrations where our experts analyze the market, explain their thought process, and execute trades while teaching.'
-        },
-        {
-          question: 'How often are live sessions held?',
-          answer: 'We typically hold live sessions 2-3 times per week, with additional sessions during high-impact news events. The schedule is posted in advance.'
-        },
-        {
-          question: 'Can I ask questions during live sessions?',
-          answer: 'Yes! Live sessions include Q&A periods where you can ask questions via chat. Some sessions also allow voice participation.'
-        },
-        {
-          question: 'Are live sessions recorded?',
-          answer: 'Yes, most live sessions are recorded and available for replay in your dashboard for 30 days after the session.'
-        }
-      ]
-    },
-    {
-      title: 'Community & Support',
-      icon: MessageSquare,
-      items: [
-        {
-          question: 'Is there a community forum?',
-          answer: 'Yes! We have an active community forum where students can discuss trading strategies, ask questions, and share experiences.'
-        },
-        {
-          question: 'How can I get help if I\'m stuck?',
-          answer: 'You can reach out through our support ticket system, community forum, or email. We typically respond within 24 hours.'
-        },
-        {
-          question: 'Can I connect with other students?',
-          answer: 'Absolutely! Our community features allow you to connect with fellow students, join study groups, and participate in discussions.'
-        },
-        {
-          question: 'Do you offer one-on-one mentoring?',
-          answer: 'We offer premium mentoring packages for students who want personalized guidance. Contact support for more information.'
-        }
-      ]
-    },
-    {
-      title: 'Billing & Payments',
-      icon: CreditCard,
-      items: [
-        {
-          question: 'What payment methods do you accept?',
-          answer: 'We accept all major credit cards (Visa, MasterCard, American Express), PayPal, and bank transfers for annual subscriptions.'
-        },
-        {
-          question: 'Can I cancel my subscription anytime?',
-          answer: 'Yes, you can cancel your subscription at any time. You\'ll continue to have access until the end of your current billing period.'
-        },
-        {
-          question: 'Do you offer refunds?',
-          answer: 'We offer a 30-day money-back guarantee for new subscribers. If you\'re not satisfied, contact support for a full refund.'
-        },
-        {
-          question: 'Are there any hidden fees?',
-          answer: 'No hidden fees! The price you see is what you pay. All taxes and fees are included in the displayed price.'
-        },
-        {
-          question: 'Can I upgrade or downgrade my plan?',
-          answer: 'Yes, you can change your subscription plan at any time. Changes take effect at your next billing cycle.'
-        }
-      ]
-    },
-    {
-      title: 'Technical Support',
-      icon: Settings,
-      items: [
-        {
-          question: 'What browsers are supported?',
-          answer: 'We support all modern browsers including Chrome, Firefox, Safari, and Edge. We recommend using the latest version for the best experience.'
-        },
-        {
-          question: 'Why is a video not loading?',
-          answer: 'Try refreshing the page, clearing your browser cache, or checking your internet connection. If the problem persists, contact support.'
-        },
-        {
-          question: 'Can I download course materials?',
-          answer: 'Some course materials are available for download, while others are only accessible online. This varies by course and is indicated in the course description.'
-        },
-        {
-          question: 'Is my data secure?',
-          answer: 'Yes, we use industry-standard encryption and security measures to protect your personal and payment information.'
-        }
-      ]
-    },
-    {
-      title: 'Mobile App',
-      icon: Smartphone,
-      items: [
-        {
-          question: 'Is there a mobile app?',
-          answer: 'Yes! We have mobile apps for both iOS and Android. You can download them from the App Store or Google Play Store.'
-        },
-        {
-          question: 'Can I sync progress between devices?',
-          answer: 'Yes, your progress automatically syncs across all devices when you\'re logged into the same account.'
-        },
-        {
-          question: 'Are all features available on mobile?',
-          answer: 'Most features are available on mobile, including course videos, live sessions, and community access. Some advanced features may have limitations.'
-        },
-        {
-          question: 'Can I watch videos offline?',
-          answer: 'Yes, you can download certain videos for offline viewing. This feature is available in our mobile apps.'
-        }
-      ]
-    }
-  ];
+function MktIcon({ d }: { d: string }) {
+  const paths = d.split(/(?= M)/).map((segment) => segment.trim()).filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Header */}
-      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center space-x-2">
-              <img 
-                src="/all-07.svg" 
-                alt={`${settings.platformName} Logo`} 
-                className="w-8 h-8 object-contain dark:invert"
-              />
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                {settings.platformName}
-              </span>
-            </Link>
-            <Link 
-              href="/"
-              className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-            >
-              Back to Home
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Page Header */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="text-center mb-12"
-        >
-          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">
-            Frequently Asked Questions
-          </h1>
-          <p className="text-xl text-gray-600 dark:text-gray-300 max-w-3xl mx-auto">
-            Find answers to common questions about our platform, courses, and services. 
-            Can't find what you're looking for? <Link href="/contact" className="text-blue-600 dark:text-blue-400 hover:underline">Contact us</Link>.
-          </p>
-        </motion.div>
-
-        {/* Search Bar */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="max-w-2xl mx-auto mb-12"
-        >
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search FAQs..."
-              className="w-full px-4 py-3 pl-12 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 dark:text-white"
-            />
-            <HelpCircle className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-          </div>
-        </motion.div>
-
-        {/* FAQ Categories */}
-        <div className="space-y-8">
-          {faqCategories.map((category, categoryIndex) => {
-            const Icon = category.icon;
-            return (
-              <motion.div
-                key={categoryIndex}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: categoryIndex * 0.1 }}
-                className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-lg overflow-hidden"
-              >
-                {/* Category Header */}
-                <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 px-6 py-4 border-b border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center space-x-3">
-                    <Icon className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                      {category.title}
-                    </h2>
-                  </div>
-                </div>
-
-                {/* FAQ Items */}
-                <div className="divide-y divide-gray-200 dark:divide-gray-700">
-                  {category.items.map((item, itemIndex) => {
-                    const globalIndex = categoryIndex * 100 + itemIndex;
-                    const isOpen = openItems.includes(globalIndex);
-                    
-                    return (
-                      <div key={itemIndex} className="px-6 py-4">
-                        <button
-                          onClick={() => toggleItem(globalIndex)}
-                          className="w-full text-left flex items-center justify-between group"
-                        >
-                          <h3 className="text-lg font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                            {item.question}
-                          </h3>
-                          {isOpen ? (
-                            <ChevronUp className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                          ) : (
-                            <ChevronDown className="w-5 h-5 text-gray-500 dark:text-gray-400" />
-                          )}
-                        </button>
-                        
-                        <motion.div
-                          initial={false}
-                          animate={{ 
-                            height: isOpen ? 'auto' : 0,
-                            opacity: isOpen ? 1 : 0
-                          }}
-                          transition={{ duration: 0.3 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="pt-4">
-                            <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                              {item.answer}
-                            </p>
-                          </div>
-                        </motion.div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            );
-          })}
-        </div>
-
-        {/* Contact CTA */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.8 }}
-          className="mt-16 text-center"
-        >
-          <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl p-8 text-white">
-            <h2 className="text-2xl font-bold mb-4">Still have questions?</h2>
-            <p className="text-blue-100 mb-6 max-w-2xl mx-auto">
-              Our support team is here to help! Get in touch with us and we'll get back to you within 24 hours.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link 
-                href="/contact"
-                className="px-6 py-3 bg-white text-blue-600 rounded-xl hover:bg-gray-100 transition-colors font-medium"
-              >
-                Contact Support
-              </Link>
-              <Link 
-                href="/terms"
-                className="px-6 py-3 border border-white/30 text-white rounded-xl hover:bg-white/10 transition-colors font-medium"
-              >
-                View Terms of Service
-              </Link>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-    </div>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      {paths.map((segment) => (
+        <path key={segment} d={segment} />
+      ))}
+    </svg>
   );
 }
 
+const ICONS = {
+  search: 'M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16z M21 21l-4.35-4.35',
+  chevron: 'M6 9l6 6 6-6',
+  arrow: 'M5 12h14 M12 5l7 7-7 7',
+  check: 'M20 6L9 17l-5-5',
+  book: 'M4 19.5A2.5 2.5 0 0 1 6.5 17H20 M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z',
+  play: 'M5 3l14 9-14 9V3z',
+  shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+  users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',
+  message: 'M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z',
+  card: 'M2 12h20 M2 7h20 M2 17h20',
+  settings: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z',
+  phone: 'M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z',
+  mail: 'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M22 6l-10 7L2 6',
+  clock: 'M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z M12 6v6l4 2',
+  layers: 'M12 2L2 7l10 5 10-5-10-5z M2 17l10 5 10-5 M2 12l10 5 10-5',
+} as const;
 
+const HERO_PILLARS = [
+  '34 answers across 8 curated topics',
+  'Searchable knowledge base, updated regularly',
+  'Direct desk support when you need a human',
+] as const;
 
+const STATS = [
+  { num: '34', lbl: 'Documented answers', icon: ICONS.book },
+  { num: '8', lbl: 'Topic categories', icon: ICONS.layers },
+  { num: '24h', lbl: 'Support response', icon: ICONS.clock },
+  { num: '98%', lbl: 'Resolution rate', icon: ICONS.shield },
+] as const;
 
+const QUICK_HELP = [
+  {
+    icon: ICONS.message,
+    title: 'Contact the desk',
+    detail: 'Open a support request and our team will follow up personally.',
+    href: '/contact',
+    cta: 'Send message',
+  },
+  {
+    icon: ICONS.mail,
+    title: 'Email support',
+    detail: 'thefxnavigators@gmail.com — include your account email for faster help.',
+    href: 'mailto:thefxnavigators@gmail.com',
+    cta: 'Email us',
+  },
+  {
+    icon: ICONS.clock,
+    title: 'Response times',
+    detail: 'We reply within 24 hours on business days. Urgent issues are prioritised.',
+    href: '/contact',
+    cta: 'View hours',
+  },
+] as const;
 
+const POPULAR_QUESTIONS = [
+  'How do I create an account?',
+  'What are trading signals?',
+  'Can I cancel my subscription anytime?',
+  'How can I get help if I\'m stuck?',
+] as const;
 
+const FAQ_CATEGORIES = [
+  {
+    id: 'getting-started',
+    title: 'Getting started',
+    description: 'Accounts, onboarding, and your first steps on the platform.',
+    icon: ICONS.book,
+    items: [
+      {
+        question: 'How do I create an account?',
+        answer:
+          'Click “Get started” on the homepage, complete registration, verify your email, and you\'re ready to access the platform.',
+      },
+      {
+        question: 'Is there a free trial available?',
+        answer:
+          'We offer introductory access for new users. Check current packages on the homepage for what\'s included at signup.',
+      },
+      {
+        question: 'What do I need to get started?',
+        answer:
+          'A computer or mobile device with internet access is enough. No prior trading experience is required — we start from fundamentals.',
+      },
+      {
+        question: 'Can I access courses on mobile devices?',
+        answer:
+          'Yes. The platform is fully responsive on phones and tablets, so you can learn and follow sessions from anywhere.',
+      },
+    ],
+  },
+  {
+    id: 'courses',
+    title: 'Courses & learning',
+    description: 'Curriculum structure, access periods, and certification.',
+    icon: ICONS.play,
+    items: [
+      {
+        question: 'What types of courses do you offer?',
+        answer:
+          'Courses cover forex basics, technical and fundamental analysis, risk management, and advanced execution frameworks.',
+      },
+      {
+        question: 'How long do I have access to courses?',
+        answer:
+          'Enrolled students retain access to their course materials for the duration of their active membership or package term.',
+      },
+      {
+        question: 'Are there prerequisites for the courses?',
+        answer:
+          'Beginner tracks require no prior knowledge. Advanced modules list prerequisites clearly in each course description.',
+      },
+      {
+        question: 'Can I get a certificate after completing a course?',
+        answer:
+          'Yes. Certificates are issued when you meet the completion requirements defined for that course or program.',
+      },
+      {
+        question: 'How do I track my progress?',
+        answer:
+          'Your dashboard tracks lesson completion, quizzes, and assignments automatically as you move through each course.',
+      },
+    ],
+  },
+  {
+    id: 'signals',
+    title: 'Trading signals',
+    description: 'How signals work, frequency, and responsible usage.',
+    icon: ICONS.shield,
+    items: [
+      {
+        question: 'What are trading signals?',
+        answer:
+          'Signals are educational trade setups with entry, stop-loss, and take-profit levels plus the reasoning behind each idea.',
+      },
+      {
+        question: 'How accurate are your trading signals?',
+        answer:
+          'No signal is guaranteed. We focus on process and risk management — always validate setups and never risk more than you can afford to lose.',
+      },
+      {
+        question: 'How often do you provide signals?',
+        answer:
+          'Frequency depends on market conditions. We publish when high-quality setups meet our desk criteria, not on a fixed schedule.',
+      },
+      {
+        question: 'Can I use signals for live trading?',
+        answer:
+          'Signals are educational. Practice on demo first, understand the thesis, and apply your own risk rules before going live.',
+      },
+    ],
+  },
+  {
+    id: 'live-sessions',
+    title: 'Live sessions',
+    description: 'Schedules, Q&A access, and session replays.',
+    icon: ICONS.users,
+    items: [
+      {
+        question: 'What are live trading sessions?',
+        answer:
+          'Live sessions are real-time market reviews where mentors walk through structure, bias, and execution with the community.',
+      },
+      {
+        question: 'How often are live sessions held?',
+        answer:
+          'Sessions typically run several times per week, with additional coverage around high-impact news events.',
+      },
+      {
+        question: 'Can I ask questions during live sessions?',
+        answer:
+          'Yes. Most sessions include live Q&A via chat so you can clarify setups, risk, or platform questions in real time.',
+      },
+      {
+        question: 'Are live sessions recorded?',
+        answer:
+          'Most sessions are recorded and available for replay in your dashboard for a limited period after the live event.',
+      },
+    ],
+  },
+  {
+    id: 'community',
+    title: 'Community & support',
+    description: 'Forums, peer learning, and mentorship options.',
+    icon: ICONS.message,
+    items: [
+      {
+        question: 'Is there a community forum?',
+        answer:
+          'Yes. Students can discuss strategies, share progress, and get help from peers and mentors inside the community area.',
+      },
+      {
+        question: 'How can I get help if I\'m stuck?',
+        answer:
+          'Open a support request via the contact page or email the desk. We typically respond within 24 hours on business days.',
+      },
+      {
+        question: 'Can I connect with other students?',
+        answer:
+          'Absolutely. Community channels are built for peer learning, accountability, and sharing wins from the same playbook.',
+      },
+      {
+        question: 'Do you offer one-on-one mentoring?',
+        answer:
+          'Premium coaching packages include direct mentorship. Contact the desk to discuss availability and fit.',
+      },
+    ],
+  },
+  {
+    id: 'billing',
+    title: 'Billing & payments',
+    description: 'Plans, payments, refunds, and subscription changes.',
+    icon: ICONS.card,
+    items: [
+      {
+        question: 'What payment methods do you accept?',
+        answer:
+          'We support major cards and local payment options shown at checkout. Available methods may vary by region.',
+      },
+      {
+        question: 'Can I cancel my subscription anytime?',
+        answer:
+          'Yes. You can cancel from your account settings and retain access through the end of your current billing period.',
+      },
+      {
+        question: 'Do you offer refunds?',
+        answer:
+          'Refund eligibility depends on your package and timing. Contact support with your account email for a case-by-case review.',
+      },
+      {
+        question: 'Are there any hidden fees?',
+        answer:
+          'No hidden fees. The price shown at checkout is the price you pay, including any applicable taxes where required.',
+      },
+      {
+        question: 'Can I upgrade or downgrade my plan?',
+        answer:
+          'Yes. Plan changes can be requested through support or your billing settings and take effect on the next cycle.',
+      },
+    ],
+  },
+  {
+    id: 'technical',
+    title: 'Technical support',
+    description: 'Browsers, playback issues, downloads, and security.',
+    icon: ICONS.settings,
+    items: [
+      {
+        question: 'What browsers are supported?',
+        answer:
+          'We support current versions of Chrome, Firefox, Safari, and Edge. Keep your browser updated for the best experience.',
+      },
+      {
+        question: 'Why is a video not loading?',
+        answer:
+          'Try refreshing, clearing cache, or switching networks. If it persists, contact support with the course and lesson name.',
+      },
+      {
+        question: 'Can I download course materials?',
+        answer:
+          'Some resources are downloadable; others are stream-only. Each course page indicates what\'s available offline.',
+      },
+      {
+        question: 'Is my data secure?',
+        answer:
+          'We use industry-standard encryption and access controls to protect your account and payment information.',
+      },
+    ],
+  },
+  {
+    id: 'mobile',
+    title: 'Mobile access',
+    description: 'Apps, device sync, and mobile feature availability.',
+    icon: ICONS.phone,
+    items: [
+      {
+        question: 'Is there a mobile app?',
+        answer:
+          'The platform works in mobile browsers today. Native app availability may vary — check announcements for updates.',
+      },
+      {
+        question: 'Can I sync progress between devices?',
+        answer:
+          'Yes. Progress syncs automatically when you\'re signed into the same account on any supported device.',
+      },
+      {
+        question: 'Are all features available on mobile?',
+        answer:
+          'Core learning, community, and session access work on mobile. Some advanced admin or creator tools are desktop-first.',
+      },
+      {
+        question: 'Can I watch videos offline?',
+        answer:
+          'Offline viewing depends on the course and device. Stream-first access is the default across the platform.',
+      },
+    ],
+  },
+] as const;
 
+export default function FAQPage() {
+  const [query, setQuery] = useState('');
+  const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [openItems, setOpenItems] = useState<Set<string>>(new Set());
 
+  const normalizedQuery = query.trim().toLowerCase();
+
+  const filteredCategories = useMemo(() => {
+    return FAQ_CATEGORIES.map((category) => ({
+      ...category,
+      items: category.items.filter((item) => {
+        const matchesCategory = activeCategory === 'all' || category.id === activeCategory;
+        const matchesQuery =
+          !normalizedQuery ||
+          item.question.toLowerCase().includes(normalizedQuery) ||
+          item.answer.toLowerCase().includes(normalizedQuery);
+        return matchesCategory && matchesQuery;
+      }),
+    })).filter((category) => category.items.length > 0);
+  }, [activeCategory, normalizedQuery]);
+
+  const totalResults = filteredCategories.reduce((sum, cat) => sum + cat.items.length, 0);
+
+  const toggleItem = (key: string) => {
+    setOpenItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
+  const selectCategory = (categoryId: string) => {
+    setActiveCategory(categoryId);
+    setQuery('');
+  };
+
+  return (
+    <MarketingPageShell activePath="/faq">
+      <section className="mkt-about-hero mkt-faq-hero" data-nav-surface="light">
+        <div className="mkt-about-hero__orb mkt-about-hero__orb--a" aria-hidden />
+        <div className="mkt-about-hero__orb mkt-about-hero__orb--b" aria-hidden />
+        <div className="mkt-faq-hero__grid" aria-hidden />
+
+        <div className="mkt-about-hero__copy">
+          <p className="mkt-kicker">Knowledge base</p>
+          <h1 className="mkt-about-hero__title">
+            <span>Everything you need,</span>
+            <span>
+              organised with <span className="mkt-hero__accent">clarity</span>
+            </span>
+          </h1>
+          <p className="mkt-about-hero__lead">
+            A professional help centre for courses, signals, billing, and platform access — built so
+            you spend less time searching and more time trading with confidence.
+          </p>
+
+          <ul className="mkt-about-hero__pillars">
+            {HERO_PILLARS.map((pillar) => (
+              <li key={pillar}>
+                <MktIcon d={ICONS.check} />
+                <span>{pillar}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="mkt-about-hero__stats mkt-faq-hero__stats">
+          {STATS.map((stat) => (
+            <TiltCard key={stat.lbl} className="mkt-about-stat-tilt" depth={8}>
+              <div className="mkt-about-stat">
+                <div className="mkt-about-stat__icon">
+                  <MktIcon d={stat.icon} />
+                </div>
+                <span className="mkt-about-stat__num">{stat.num}</span>
+                <span className="mkt-about-stat__lbl">{stat.lbl}</span>
+              </div>
+            </TiltCard>
+          ))}
+        </div>
+      </section>
+
+      <section className="mkt-faq-command" data-nav-surface="light">
+        <div className="mkt-faq-command__inner">
+          <div className="mkt-faq-command__card">
+            <label className="mkt-faq-command__label" htmlFor="faq-search">
+              Search the knowledge base
+            </label>
+            <div className="mkt-faq-search">
+              <MktIcon d={ICONS.search} />
+              <input
+                id="faq-search"
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Try “billing”, “signals”, or “mobile”..."
+                aria-label="Search FAQs"
+              />
+              {query && (
+                <button
+                  type="button"
+                  className="mkt-faq-search__clear"
+                  onClick={() => setQuery('')}
+                  aria-label="Clear search"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            <div className="mkt-faq-popular">
+              <span className="mkt-faq-popular__label">Popular:</span>
+              <div className="mkt-faq-popular__chips">
+                {POPULAR_QUESTIONS.map((question) => (
+                  <button
+                    key={question}
+                    type="button"
+                    className="mkt-faq-popular__chip"
+                    onClick={() => {
+                      setQuery(question.replace('?', ''));
+                      setActiveCategory('all');
+                    }}
+                  >
+                    {question}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mkt-faq-quick" data-nav-surface="light">
+        <div className="mkt-section__inner">
+          <div className="mkt-faq-quick__grid">
+            {QUICK_HELP.map((item) => (
+              <div key={item.title} className="mkt-faq-quick__card">
+                <div className="mkt-faq-quick__icon">
+                  <MktIcon d={item.icon} />
+                </div>
+                <div className="mkt-faq-quick__body">
+                  <h2 className="mkt-faq-quick__title">{item.title}</h2>
+                  <p className="mkt-faq-quick__detail">{item.detail}</p>
+                  <Link href={item.href} className="mkt-faq-quick__link">
+                    {item.cta}
+                    <MktIcon d={ICONS.arrow} />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="mkt-section mkt-section--faq mkt-faq-body" data-nav-surface="light">
+        <div className="mkt-section__inner">
+          <div className="mkt-faq-layout">
+            <aside className="mkt-faq-sidebar">
+              <p className="mkt-faq-sidebar__label">Browse by topic</p>
+              <nav className="mkt-faq-sidebar__nav" aria-label="FAQ categories">
+                <button
+                  type="button"
+                  className={`mkt-faq-sidebar__item${activeCategory === 'all' ? ' is-active' : ''}`}
+                  onClick={() => selectCategory('all')}
+                >
+                  <span className="mkt-faq-sidebar__item-icon">
+                    <MktIcon d={ICONS.layers} />
+                  </span>
+                  <span className="mkt-faq-sidebar__item-copy">
+                    <span className="mkt-faq-sidebar__item-title">All topics</span>
+                    <span className="mkt-faq-sidebar__item-meta">Complete knowledge base</span>
+                  </span>
+                  <span className="mkt-faq-sidebar__item-count">34</span>
+                </button>
+
+                {FAQ_CATEGORIES.map((category) => (
+                  <button
+                    key={category.id}
+                    type="button"
+                    className={`mkt-faq-sidebar__item${activeCategory === category.id ? ' is-active' : ''}`}
+                    onClick={() => selectCategory(category.id)}
+                  >
+                    <span className="mkt-faq-sidebar__item-icon">
+                      <MktIcon d={category.icon} />
+                    </span>
+                    <span className="mkt-faq-sidebar__item-copy">
+                      <span className="mkt-faq-sidebar__item-title">{category.title}</span>
+                      <span className="mkt-faq-sidebar__item-meta">{category.description}</span>
+                    </span>
+                    <span className="mkt-faq-sidebar__item-count">{category.items.length}</span>
+                  </button>
+                ))}
+              </nav>
+            </aside>
+
+            <div className="mkt-faq-main">
+              <div className="mkt-faq-main__head">
+                <div>
+                  <h2 className="mkt-faq-main__title">
+                    {activeCategory === 'all'
+                      ? 'All answers'
+                      : FAQ_CATEGORIES.find((c) => c.id === activeCategory)?.title}
+                  </h2>
+                  <p className="mkt-faq-results">
+                    {totalResults} {totalResults === 1 ? 'result' : 'results'}
+                    {normalizedQuery ? ` matching “${query.trim()}”` : ''}
+                  </p>
+                </div>
+                {(query || activeCategory !== 'all') && (
+                  <button
+                    type="button"
+                    className="mkt-faq-main__reset"
+                    onClick={() => {
+                      setQuery('');
+                      setActiveCategory('all');
+                    }}
+                  >
+                    Reset filters
+                  </button>
+                )}
+              </div>
+
+              {filteredCategories.length === 0 ? (
+                <div className="mkt-faq-empty">
+                  <div className="mkt-faq-empty__icon">
+                    <MktIcon d={ICONS.search} />
+                  </div>
+                  <h3 className="mkt-faq-empty__title">No matches found</h3>
+                  <p>Try a different keyword, browse all topics, or contact our desk directly.</p>
+                  <button
+                    type="button"
+                    className="mkt-btn mkt-btn--inline"
+                    onClick={() => {
+                      setQuery('');
+                      setActiveCategory('all');
+                    }}
+                  >
+                    View all topics
+                  </button>
+                </div>
+              ) : (
+                <div className="mkt-faq-categories">
+                  {filteredCategories.map((category) => (
+                    <article key={category.id} id={`faq-${category.id}`} className="mkt-faq-category">
+                      <header className="mkt-faq-category__head">
+                        <span className="mkt-faq-category__icon">
+                          <MktIcon d={category.icon} />
+                        </span>
+                        <div className="mkt-faq-category__copy">
+                          <h3 className="mkt-faq-category__title">{category.title}</h3>
+                          <p className="mkt-faq-category__desc">{category.description}</p>
+                        </div>
+                        <span className="mkt-faq-category__count">{category.items.length}</span>
+                      </header>
+
+                      <div className="mkt-faq-list mkt-faq-list--premium">
+                        {category.items.map((item, index) => {
+                          const key = `${category.id}-${index}`;
+                          const isOpen = openItems.has(key);
+                          return (
+                            <div key={key} className={`mkt-faq-item${isOpen ? ' is-open' : ''}`}>
+                              <button
+                                type="button"
+                                className="mkt-faq-q"
+                                aria-expanded={isOpen}
+                                onClick={() => toggleItem(key)}
+                              >
+                                <span className="mkt-faq-q__index">{String(index + 1).padStart(2, '0')}</span>
+                                <span className="mkt-faq-q__text">{item.question}</span>
+                                <span className="mkt-faq-chevron" aria-hidden>
+                                  <MktIcon d={ICONS.chevron} />
+                                </span>
+                              </button>
+                              <div className="mkt-faq-panel" aria-hidden={!isOpen}>
+                                <div className="mkt-faq-panel-inner">
+                                  <p className="mkt-faq-a">{item.answer}</p>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="mkt-faq-cta" data-nav-surface="light">
+        <div className="mkt-section__inner">
+          <div className="mkt-faq-cta__card">
+            <div className="mkt-faq-cta__copy">
+              <p className="mkt-kicker">Still need help?</p>
+              <h2 className="mkt-faq-cta__title">Talk to a real person on our desk.</h2>
+              <p className="mkt-faq-cta__lead">
+                If your question isn&apos;t covered here, reach out — we typically respond within 24 hours
+                on business days and prioritise account access issues.
+              </p>
+              <div className="mkt-faq-cta__actions">
+                <Link href="/contact" className="mkt-btn mkt-btn--inline mkt-btn--dark">
+                  Contact support
+                  <MktIcon d={ICONS.arrow} />
+                </Link>
+                <Link href="/register" className="mkt-about-hero__ghost mkt-about-hero__ghost--on-dark">
+                  Create account
+                </Link>
+              </div>
+            </div>
+            <div className="mkt-faq-cta__aside">
+              <div className="mkt-faq-cta__stat">
+                <span className="mkt-faq-cta__stat-num">24h</span>
+                <span className="mkt-faq-cta__stat-lbl">Average response</span>
+              </div>
+              <div className="mkt-faq-cta__stat">
+                <span className="mkt-faq-cta__stat-num">Mon–Sat</span>
+                <span className="mkt-faq-cta__stat-lbl">Support hours</span>
+              </div>
+              <div className="mkt-faq-cta__stat">
+                <span className="mkt-faq-cta__stat-num">5★</span>
+                <span className="mkt-faq-cta__stat-lbl">Desk rating</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </MarketingPageShell>
+  );
+}

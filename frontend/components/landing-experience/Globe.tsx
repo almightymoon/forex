@@ -85,10 +85,11 @@ interface TooltipState {
   y: number;
 }
 
-export type GlobeVariant = 'hero' | 'auth';
+export type GlobeVariant = 'hero' | 'auth' | 'marketing';
 
 type GlobeProps = {
   /** `auth` — brighter globe for login/register split panel on near-black UI */
+  /** `marketing` — transparent canvas for white marketing pages */
   variant?: GlobeVariant;
 };
 
@@ -102,21 +103,28 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
     if (!container) return;
 
     const isAuth = variant === 'auth';
+    const isMarketing = variant === 'marketing';
 
     const w = container.clientWidth;
     const h = container.clientHeight;
 
-    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isAuth ? 2 : 1.5));
+    const renderer = new THREE.WebGLRenderer({
+      antialias: true,
+      powerPreference: 'high-performance',
+      alpha: isMarketing,
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, isAuth || isMarketing ? 2 : 1.5));
     renderer.setSize(w, h);
     renderer.toneMapping = THREE.ReinhardToneMapping;
-    renderer.toneMappingExposure = isAuth ? 1.14 : 0.75;
-    const clearBg = isAuth ? 0x060b14 : 0x000000;
-    renderer.setClearColor(clearBg, 1);
+    renderer.toneMappingExposure = isMarketing ? 1.08 : isAuth ? 1.14 : 0.75;
+    const clearBg = isMarketing ? 0xffffff : isAuth ? 0x060b14 : 0x000000;
+    renderer.setClearColor(clearBg, isMarketing ? 0 : 1);
     container.appendChild(renderer.domElement);
 
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(clearBg);
+    if (!isMarketing) {
+      scene.background = new THREE.Color(clearBg);
+    }
 
     const startLng = 139.69;
     const startTheta = (90 - startLng) * (Math.PI / 180);
@@ -125,39 +133,49 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
     const camera = new THREE.PerspectiveCamera(45, w / h, 1, 10000);
     camera.position.set(camDist * Math.cos(startTheta), camY, camDist * Math.sin(startTheta));
 
-    scene.add(new THREE.AmbientLight(isAuth ? 0x2a3848 : 0x1c2838, isAuth ? 0.58 : 0.34));
+    scene.add(
+      new THREE.AmbientLight(
+        isMarketing ? 0xd8e4f0 : isAuth ? 0x2a3848 : 0x1c2838,
+        isMarketing ? 0.72 : isAuth ? 0.58 : 0.34,
+      ),
+    );
 
-    const sun = new THREE.DirectionalLight(0xfff4ea, isAuth ? 2.15 : 1.65);
+    const sun = new THREE.DirectionalLight(0xfff4ea, isMarketing ? 2.05 : isAuth ? 2.15 : 1.65);
     sun.position.set(300, 200, 150);
     scene.add(sun);
 
-    const rim = new THREE.DirectionalLight(isAuth ? 0x4a6a9e : 0x2a4a6e, isAuth ? 0.62 : 0.38);
+    const rim = new THREE.DirectionalLight(isMarketing ? 0x6a8aaa : isAuth ? 0x4a6a9e : 0x2a4a6e, isMarketing ? 0.48 : isAuth ? 0.62 : 0.38);
     rim.position.set(-250, -120, -200);
     scene.add(rim);
 
-    const starGeo = new THREE.BufferGeometry();
-    const starCount = 1400;
-    const starPos = new Float32Array(starCount * 3);
-    const starSizes = new Float32Array(starCount);
-    for (let i = 0; i < starCount; i++) {
-      const r = 2500 + Math.random() * 2000;
-      const theta = Math.random() * Math.PI * 2;
-      const phi = Math.acos(2 * Math.random() - 1);
-      starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
-      starPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
-      starPos[i * 3 + 2] = r * Math.cos(phi);
-      starSizes[i] = 0.5 + Math.random() * 1.5;
+    let starGeo: THREE.BufferGeometry | null = null;
+    let starMat: THREE.PointsMaterial | null = null;
+
+    if (!isMarketing) {
+      starGeo = new THREE.BufferGeometry();
+      const starCount = 1400;
+      const starPos = new Float32Array(starCount * 3);
+      const starSizes = new Float32Array(starCount);
+      for (let i = 0; i < starCount; i++) {
+        const r = 2500 + Math.random() * 2000;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        starPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta);
+        starPos[i * 3 + 2] = r * Math.cos(phi);
+        starSizes[i] = 0.5 + Math.random() * 1.5;
+      }
+      starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+      starGeo.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
+      starMat = new THREE.PointsMaterial({
+        color: 0xb8c8d8,
+        size: isAuth ? 1.05 : 0.95,
+        transparent: true,
+        opacity: isAuth ? 0.68 : 0.52,
+        sizeAttenuation: true,
+      });
+      scene.add(new THREE.Points(starGeo, starMat));
     }
-    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-    starGeo.setAttribute('size', new THREE.BufferAttribute(starSizes, 1));
-    const starMat = new THREE.PointsMaterial({
-      color: 0xb8c8d8,
-      size: isAuth ? 1.05 : 0.95,
-      transparent: true,
-      opacity: isAuth ? 0.68 : 0.52,
-      sizeAttenuation: true,
-    });
-    scene.add(new THREE.Points(starGeo, starMat));
 
     const globe = new ThreeGlobe({ waitForGlobeReady: false, animateIn: false });
 
@@ -169,9 +187,9 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
     const globeMat = new THREE.MeshPhongMaterial({
       emissive: new THREE.Color(0xffead4),
       emissiveMap: cityLightsTex,
-      emissiveIntensity: isAuth ? 3.05 : 2.15,
-      specular: new THREE.Color(isAuth ? 0x6a8aaa : 0x2a4058),
-      shininess: isAuth ? 12 : 5,
+      emissiveIntensity: isMarketing ? 2.45 : isAuth ? 3.05 : 2.15,
+      specular: new THREE.Color(isMarketing ? 0x8aa0b8 : isAuth ? 0x6a8aaa : 0x2a4058),
+      shininess: isMarketing ? 10 : isAuth ? 12 : 5,
     });
     globe.globeMaterial(globeMat);
 
@@ -179,8 +197,8 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
       .globeImageUrl(TEX.dark)
       .bumpImageUrl(TEX.bump)
       .showAtmosphere(true)
-      .atmosphereColor(isAuth ? '#3d6a9a' : '#1a3d5a')
-      .atmosphereAltitude(isAuth ? 0.14 : 0.085)
+      .atmosphereColor(isMarketing ? '#4ade80' : isAuth ? '#3d6a9a' : '#1a3d5a')
+      .atmosphereAltitude(isMarketing ? 0.12 : isAuth ? 0.14 : 0.085)
       .pointsData(HUBS)
       .pointLat((d: object) => (d as Hub).lat)
       .pointLng((d: object) => (d as Hub).lng)
@@ -217,9 +235,9 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
 
     const bloomPass = new UnrealBloomPass(
       new THREE.Vector2(w, h),
-      isAuth ? 0.55 : 0.38,
-      isAuth ? 0.5 : 0.42,
-      isAuth ? 0.15 : 0.2,
+      isMarketing ? 0.28 : isAuth ? 0.55 : 0.38,
+      isMarketing ? 0.38 : isAuth ? 0.5 : 0.42,
+      isMarketing ? 0.28 : isAuth ? 0.15 : 0.2,
     );
     composer.addPass(bloomPass);
     composer.addPass(new OutputPass());
@@ -405,8 +423,8 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
         (mesh.material as THREE.Material).dispose();
         scene.remove(mesh);
       });
-      starGeo.dispose();
-      starMat.dispose();
+      starGeo?.dispose();
+      starMat?.dispose();
       cityLightsTex.dispose();
       (globeMat as THREE.Material).dispose();
       composer.dispose();
