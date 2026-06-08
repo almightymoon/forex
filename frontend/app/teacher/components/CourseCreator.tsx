@@ -2,9 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useToast } from '../../../components/Toast';
 
-// Rich text editor (no SSR to avoid hydration issues)
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
-import 'react-quill/dist/quill.snow.css';
+// Rich text editor (react-quill-new: React 18+ compatible, no findDOMNode)
+const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
+import 'react-quill-new/dist/quill.snow.css';
 import { 
   Plus, 
   Save, 

@@ -29,9 +29,9 @@ import { useLanguage } from '../../../context/LanguageContext';
 import { buildApiUrl } from '../../../utils/api';
 import dynamic from 'next/dynamic';
 
-// Dynamically import ReactQuill to avoid SSR issues
-const ReactQuill = dynamic(() => import('react-quill'), { ssr: false });
-import 'react-quill/dist/quill.snow.css';
+// Dynamically import ReactQuill to avoid SSR issues (react-quill-new: React 18+ compatible)
+const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
+import 'react-quill-new/dist/quill.snow.css';
 
 // Custom styles for ReactQuill
 const quillStyles = `
