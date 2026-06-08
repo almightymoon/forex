@@ -66,7 +66,7 @@ export default function Section5() {
     };
   }, []);
 
-  const many = plans.length > 3;
+  const many = plans.length > 4;
 
   const getCardTransformVars = (idx: number, total: number) => {
     if (total <= 1) {
@@ -87,24 +87,19 @@ export default function Section5() {
 
   useEffect(() => {
     let rafId: number;
+    let flipHoldUntil = 0;
+    let unflipStartedAt = 0;
 
-    /** Pinned-scroll phases: spread → flip → hold on back → flip back → exit. */
-    const SPREAD_END = 0.38;
-    const FLIP_START = 0.48;
-    const FLIP_DONE = 0.58;
-    const HOLD_END = 0.78;
-    const UNFLIP_END = 0.94;
+    /** Spread early; flip mid-scroll; time-based hold on back; then auto flip-back. */
+    const SPREAD_END = 0.4;
+    const FLIP_START = 0.62;
+    const FLIP_END = 0.8;
+    const EXIT_START = 0.88;
+    const FLIP_HOLD_MS = 1600;
+    const UNFLIP_MS = 900;
 
     const phaseProgress = (t: number, start: number, end: number) =>
       Math.max(0, Math.min(1, (t - start) / (end - start)));
-
-    const flipTarget = (t: number) => {
-      if (t < FLIP_START) return 0;
-      if (t < FLIP_DONE) return phaseProgress(t, FLIP_START, FLIP_DONE);
-      if (t < HOLD_END) return 1;
-      if (t < UNFLIP_END) return 1 - phaseProgress(t, HOLD_END, UNFLIP_END);
-      return 0;
-    };
 
     const loop = () => {
       if (rootRef.current && entryRef.current) {
@@ -139,8 +134,30 @@ export default function Section5() {
         }
 
         const spreadTgt = phaseProgress(pinned, 0, SPREAD_END);
-        const flipTgt = flipTarget(pinned);
-        const exitTgt = phaseProgress(pinned, HOLD_END, 1);
+        const scrollFlipTgt = phaseProgress(pinned, FLIP_START, FLIP_END);
+        const exitTgt = phaseProgress(pinned, EXIT_START, 1);
+
+        let flipTgt = scrollFlipTgt;
+
+        if (
+          flipHoldUntil === 0 &&
+          (flipProg.current >= 0.72 || scrollFlipTgt >= 0.92)
+        ) {
+          flipHoldUntil = performance.now() + FLIP_HOLD_MS;
+        }
+
+        if (flipHoldUntil > 0 && performance.now() < flipHoldUntil) {
+          flipTgt = Math.max(flipTgt, flipProg.current, 0.72);
+        } else if (flipHoldUntil > 0 && flipProg.current > 0.08) {
+          if (unflipStartedAt === 0) unflipStartedAt = performance.now();
+          const unflipT = Math.min(1, (performance.now() - unflipStartedAt) / UNFLIP_MS);
+          flipTgt = Math.min(flipTgt, 1 - unflipT);
+        }
+
+        if (flipProg.current < 0.05 && scrollFlipTgt < 0.1) {
+          flipHoldUntil = 0;
+          unflipStartedAt = 0;
+        }
 
         const edCurr = exitDepthProg.current;
         const edNext = edCurr + (exitTgt - edCurr) * 0.065;
@@ -195,7 +212,7 @@ export default function Section5() {
                     className={`s5-card${p.badge ? ' s5-card--featured' : ''}`}
                     style={
                       {
-                        '--fd': `${i * 0.1}`,
+                        '--fd': `${i * 0.055}`,
                         '--ox': v.ox,
                         '--oy': v.oy,
                         '--or': v.or,
