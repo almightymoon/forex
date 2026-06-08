@@ -172,7 +172,6 @@ export default function Section5() {
               <p className="s5__kicker">Packages</p>
               <h2 className="s5__title">Choose your plan</h2>
               <p className="s5__sub">
-                Tiers mirror what you configure in admin — pricing, perks, and highlights stay in sync with checkout.
               </p>
             </div>
 
