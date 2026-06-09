@@ -1,11 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import CoolLoader from '../CoolLoader';
 import Footer from './Footer';
 import LandingExperienceRoot from './LandingExperienceRoot';
+import { useDismissOnOutsideClick } from './useDismissOnOutsideClick';
 
 const NAV_LOGO_MARK = 'THEFXNAVIGATORS';
 
@@ -17,6 +18,11 @@ type MarketingPageShellProps = {
 export default function MarketingPageShell({ children, activePath }: MarketingPageShellProps) {
   const { settings, loading } = useSettings();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuDrawerRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+
+  useDismissOnOutsideClick(menuOpen, closeMenu, menuDrawerRef, menuButtonRef);
 
   useEffect(() => {
     document.documentElement.classList.add('nav-on-light');
@@ -85,6 +91,7 @@ export default function MarketingPageShell({ children, activePath }: MarketingPa
               </span>
             </Link>
             <button
+              ref={menuButtonRef}
               type="button"
               className="nav-pill nav-pill--outline"
               onClick={() => setMenuOpen((open) => !open)}
@@ -101,6 +108,7 @@ export default function MarketingPageShell({ children, activePath }: MarketingPa
 
         {menuOpen && (
           <div
+            ref={menuDrawerRef}
             className="menu-drawer-cluster scroll-scene__menu-drawer"
             role="dialog"
             aria-modal="true"

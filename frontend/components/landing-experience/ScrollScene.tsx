@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import dynamic from 'next/dynamic';
 import { useLandingExperience } from './LandingExperienceContext';
 import MarketChart from './MarketChart';
+import { useDismissOnOutsideClick } from './useDismissOnOutsideClick';
 
 const Globe = dynamic(() => import('./Globe'), { ssr: false });
 
@@ -49,6 +50,20 @@ const NAV_LOGO_MARK = 'THEFXNAVIGATORS';
 export default function ScrollScene() {
   const { platformName } = useLandingExperience();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuDrawerRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const closeMenu = useCallback(() => setMenuOpen(false), []);
+
+  useDismissOnOutsideClick(menuOpen, closeMenu, menuDrawerRef, menuButtonRef);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [menuOpen]);
 
   const heroLayerRef = useRef<HTMLDivElement>(null);
   const s2LayerRef = useRef<HTMLDivElement>(null);
@@ -178,6 +193,7 @@ export default function ScrollScene() {
             </span>
           </Link>
           <button
+            ref={menuButtonRef}
             type="button"
             className="nav-pill nav-pill--outline"
             onClick={() => setMenuOpen((o) => !o)}
@@ -324,6 +340,7 @@ Professional edge, decoded for the retail trader.
 
       {menuOpen && (
         <div
+          ref={menuDrawerRef}
           className="menu-drawer-cluster scroll-scene__menu-drawer"
           role="dialog"
           aria-modal="true"
@@ -350,16 +367,19 @@ Professional edge, decoded for the retail trader.
           </div>
 
           <nav className="menu-drawer-panel menu-drawer-panel--nav" aria-label="Main">
-            <a href="#top" className="menu-drawer-link" onClick={() => setMenuOpen(false)}>
+            <Link
+              href="/"
+              className="menu-drawer-link menu-drawer-link--active"
+              onClick={() => setMenuOpen(false)}
+            >
               Home
-            </a>
-            <a href="#expertise" className="menu-drawer-link menu-drawer-link--active" onClick={() => setMenuOpen(false)}>
-              Expertise
-              <span className="menu-drawer-link-dot" aria-hidden />
-            </a>
-            <a href="#packages" className="menu-drawer-link" onClick={() => setMenuOpen(false)}>
-              Packages
-            </a>
+            </Link>
+            <Link href="/about" className="menu-drawer-link" onClick={() => setMenuOpen(false)}>
+              About
+            </Link>
+            <Link href="/faq" className="menu-drawer-link" onClick={() => setMenuOpen(false)}>
+              FAQ
+            </Link>
             <Link href="/contact" className="menu-drawer-link" onClick={() => setMenuOpen(false)}>
               Contact
             </Link>

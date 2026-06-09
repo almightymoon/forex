@@ -1,407 +1,497 @@
 'use client';
 
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { useSettings } from '../../context/SettingsContext';
-import { Shield, FileText, Scale, Users, AlertTriangle, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useSettings } from '../../context/SettingsContext';
+import MarketingPageShell from '../../components/landing-experience/MarketingPageShell';
 
-export default function TermsOfService() {
-  const { settings } = useSettings();
-  const [activeSection, setActiveSection] = useState('overview');
-
-  const sections = [
-    { id: 'overview', title: 'Overview', icon: FileText },
-    { id: 'acceptance', title: 'Acceptance of Terms', icon: CheckCircle },
-    { id: 'services', title: 'Services Description', icon: Users },
-    { id: 'user-accounts', title: 'User Accounts', icon: Shield },
-    { id: 'prohibited-uses', title: 'Prohibited Uses', icon: AlertTriangle },
-    { id: 'intellectual-property', title: 'Intellectual Property', icon: Scale },
-    { id: 'disclaimers', title: 'Disclaimers', icon: AlertTriangle },
-    { id: 'limitation-liability', title: 'Limitation of Liability', icon: Shield },
-    { id: 'termination', title: 'Termination', icon: FileText },
-    { id: 'governing-law', title: 'Governing Law', icon: Scale },
-    { id: 'changes', title: 'Changes to Terms', icon: FileText },
-    { id: 'contact', title: 'Contact Information', icon: Users }
-  ];
+function MktIcon({ d }: { d: string }) {
+  const paths = d.split(/(?= M)/).map((segment) => segment.trim()).filter(Boolean);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Header */}
-      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/" className="flex items-center space-x-2">
-              <img 
-                src="/all-07.svg" 
-                alt={`${settings.platformName} Logo`} 
-                className="w-8 h-8 object-contain dark:invert"
-              />
-              <span className="text-xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
-                {settings.platformName}
-              </span>
-            </Link>
-            <Link 
-              href="/"
-              className="text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-            >
-              Back to Home
-            </Link>
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.75"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      {paths.map((segment) => (
+        <path key={segment} d={segment} />
+      ))}
+    </svg>
+  );
+}
+
+const ICONS = {
+  file: 'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6',
+  check: 'M20 6L9 17l-5-5',
+  users: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8 M23 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',
+  shield: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+  alert: 'M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z M12 9v4 M12 17h.01',
+  scale: 'M12 3v18 M3 12h18 M7 7l10 10 M17 7L7 17',
+  arrow: 'M5 12h14 M12 5l7 7-7 7',
+  mail: 'M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z M22 6l-10 7L2 6',
+} as const;
+
+type CalloutVariant = 'info' | 'warn' | 'danger';
+
+type TermsBlock =
+  | { type: 'p'; text: string }
+  | { type: 'ul'; items: string[] }
+  | { type: 'h3'; title: string; text: string }
+  | { type: 'callout'; variant: CalloutVariant; title?: string; text: string };
+
+type TermsSection = {
+  id: string;
+  title: string;
+  icon: string;
+  blocks: TermsBlock[];
+};
+
+function buildSections(platformName: string): TermsSection[] {
+  return [
+    {
+      id: 'overview',
+      title: 'Overview',
+      icon: ICONS.file,
+      blocks: [
+        {
+          type: 'p',
+          text: `Welcome to ${platformName}. These Terms of Service ("Terms") govern your use of our online learning platform, trading education services, and related features. By accessing or using our services, you agree to be bound by these Terms.`,
+        },
+        {
+          type: 'callout',
+          variant: 'info',
+          title: 'Important',
+          text: 'Please read these Terms carefully before using our services. If you do not agree to these Terms, you may not access or use our platform.',
+        },
+      ],
+    },
+    {
+      id: 'acceptance',
+      title: 'Acceptance of terms',
+      icon: ICONS.check,
+      blocks: [
+        {
+          type: 'p',
+          text: 'By creating an account, accessing our platform, or using any of our services, you acknowledge that you have read, understood, and agree to be bound by these Terms and our Privacy Policy.',
+        },
+        {
+          type: 'ul',
+          items: [
+            'You must be at least 18 years old to use our services',
+            'You must provide accurate and complete information when creating your account',
+            'You are responsible for maintaining the confidentiality of your account credentials',
+            'You agree to notify us immediately of any unauthorized use of your account',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'services',
+      title: 'Services description',
+      icon: ICONS.users,
+      blocks: [
+        {
+          type: 'p',
+          text: `${platformName} provides educational content and tools for forex trading, including:`,
+        },
+        {
+          type: 'ul',
+          items: [
+            'Online courses and educational materials',
+            'Trading signals and market analysis',
+            'Live trading sessions and webinars',
+            'Community forums and discussion boards',
+            'Certification programs',
+            'Mobile and web applications',
+          ],
+        },
+        {
+          type: 'callout',
+          variant: 'warn',
+          title: 'Disclaimer',
+          text: 'Our services are for educational purposes only. We do not provide financial advice, and trading involves substantial risk of loss.',
+        },
+      ],
+    },
+    {
+      id: 'user-accounts',
+      title: 'User accounts',
+      icon: ICONS.shield,
+      blocks: [
+        {
+          type: 'h3',
+          title: 'Account creation',
+          text: 'To access certain features, you must create an account. You agree to provide accurate, current, and complete information during registration.',
+        },
+        {
+          type: 'h3',
+          title: 'Account security',
+          text: 'You are responsible for maintaining the security of your account and password. We cannot and will not be liable for any loss or damage arising from your failure to comply with this security obligation.',
+        },
+        {
+          type: 'h3',
+          title: 'Account termination',
+          text: 'We reserve the right to suspend or terminate your account at any time for violation of these Terms or for any other reason at our sole discretion.',
+        },
+      ],
+    },
+    {
+      id: 'prohibited-uses',
+      title: 'Prohibited uses',
+      icon: ICONS.alert,
+      blocks: [
+        {
+          type: 'p',
+          text: 'You may not use our services for any unlawful purpose or to solicit others to perform unlawful acts. You agree not to:',
+        },
+        {
+          type: 'ul',
+          items: [
+            'Violate any applicable laws or regulations',
+            'Infringe upon the rights of others',
+            'Transmit or procure the sending of spam or unsolicited messages',
+            'Attempt to gain unauthorized access to our systems',
+            'Interfere with or disrupt our services',
+            'Use our platform for commercial purposes without permission',
+            'Share your account credentials with others',
+            'Upload malicious code or harmful content',
+          ],
+        },
+      ],
+    },
+    {
+      id: 'intellectual-property',
+      title: 'Intellectual property',
+      icon: ICONS.scale,
+      blocks: [
+        {
+          type: 'h3',
+          title: 'Our content',
+          text: `All content on our platform, including courses, videos, text, graphics, and software, is owned by ${platformName} or our licensors and is protected by copyright and other intellectual property laws.`,
+        },
+        {
+          type: 'h3',
+          title: 'License to use',
+          text: 'We grant you a limited, non-exclusive, non-transferable license to access and use our content for personal, non-commercial purposes only.',
+        },
+        {
+          type: 'h3',
+          title: 'User content',
+          text: 'By posting content on our platform, you grant us a license to use, modify, and display such content in connection with our services.',
+        },
+      ],
+    },
+    {
+      id: 'disclaimers',
+      title: 'Disclaimers',
+      icon: ICONS.alert,
+      blocks: [
+        {
+          type: 'callout',
+          variant: 'danger',
+          title: 'Important financial disclaimer',
+          text: 'Trading foreign exchange on margin carries a high level of risk and may not be suitable for all investors. The high degree of leverage can work against you as well as for you. Before deciding to trade foreign exchange, you should carefully consider your investment objectives, level of experience, and risk appetite.',
+        },
+        {
+          type: 'p',
+          text: 'Our services are provided "as is" without warranties of any kind. We disclaim all warranties, express or implied, including but not limited to warranties of merchantability, fitness for a particular purpose, and non-infringement.',
+        },
+      ],
+    },
+    {
+      id: 'limitation-liability',
+      title: 'Limitation of liability',
+      icon: ICONS.shield,
+      blocks: [
+        {
+          type: 'p',
+          text: `In no event shall ${platformName}, its officers, directors, employees, or agents be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from your use of our services.`,
+        },
+        {
+          type: 'p',
+          text: 'Our total liability to you for any damages arising from or related to these Terms or our services shall not exceed the amount you paid us in the 12 months preceding the claim.',
+        },
+      ],
+    },
+    {
+      id: 'termination',
+      title: 'Termination',
+      icon: ICONS.file,
+      blocks: [
+        {
+          type: 'h3',
+          title: 'Termination by you',
+          text: 'You may terminate your account at any time by contacting us or using the account deletion feature in your profile settings.',
+        },
+        {
+          type: 'h3',
+          title: 'Termination by us',
+          text: 'We may terminate or suspend your account immediately, without prior notice, for conduct that we believe violates these Terms or is harmful to other users, us, or third parties.',
+        },
+        {
+          type: 'h3',
+          title: 'Effect of termination',
+          text: 'Upon termination, your right to use our services will cease immediately. Provisions of these Terms that by their nature should survive termination shall survive.',
+        },
+      ],
+    },
+    {
+      id: 'governing-law',
+      title: 'Governing law',
+      icon: ICONS.scale,
+      blocks: [
+        {
+          type: 'p',
+          text: 'These Terms shall be governed by and construed in accordance with the laws of Malaysia, without regard to its conflict of law provisions. Any legal action or proceeding arising under these Terms will be brought exclusively in the courts located in Malaysia.',
+        },
+      ],
+    },
+    {
+      id: 'changes',
+      title: 'Changes to terms',
+      icon: ICONS.file,
+      blocks: [
+        {
+          type: 'p',
+          text: 'We reserve the right to modify these Terms at any time. We will notify users of any material changes by posting the new Terms on our platform and updating the "Last updated" date.',
+        },
+        {
+          type: 'p',
+          text: 'Your continued use of our services after any such changes constitutes your acceptance of the new Terms. If you do not agree to the modified Terms, you must stop using our services.',
+        },
+      ],
+    },
+    {
+      id: 'contact',
+      title: 'Contact information',
+      icon: ICONS.mail,
+      blocks: [
+        {
+          type: 'p',
+          text: 'If you have any questions about these Terms of Service, please contact us:',
+        },
+        {
+          type: 'ul',
+          items: [
+            'Email: thefxnavigators@gmail.com',
+            'Phone: +92 348 8566147',
+            'Business hours: Mon–Fri 9AM–6PM (PKT)',
+          ],
+        },
+      ],
+    },
+  ];
+}
+
+function TermsBlockView({ block }: { block: TermsBlock }) {
+  if (block.type === 'p') {
+    return <p className="mkt-terms-p">{block.text}</p>;
+  }
+
+  if (block.type === 'ul') {
+    return (
+      <ul className="mkt-terms-list">
+        {block.items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    );
+  }
+
+  if (block.type === 'h3') {
+    return (
+      <div className="mkt-terms-sub">
+        <h3 className="mkt-terms-sub__title">{block.title}</h3>
+        <p className="mkt-terms-p">{block.text}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`mkt-terms-callout mkt-terms-callout--${block.variant}`}>
+      {block.title && <p className="mkt-terms-callout__title">{block.title}</p>}
+      <p className="mkt-terms-callout__text">{block.text}</p>
+    </div>
+  );
+}
+
+export default function TermsPage() {
+  const { settings } = useSettings();
+  const sections = useMemo(() => buildSections(settings.platformName), [settings.platformName]);
+  const [activeSection, setActiveSection] = useState(sections[0]?.id ?? 'overview');
+  const mainRef = useRef<HTMLDivElement>(null);
+
+  const lastUpdated = useMemo(
+    () =>
+      new Date().toLocaleDateString('en-US', {
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      }),
+    [],
+  );
+
+  useEffect(() => {
+    const root = mainRef.current;
+    if (!root) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
+        if (visible[0]?.target.id) {
+          setActiveSection(visible[0].target.id.replace('terms-', ''));
+        }
+      },
+      { root: null, rootMargin: '-30% 0px -55% 0px', threshold: [0, 0.2, 0.5, 1] },
+    );
+
+    sections.forEach((section) => {
+      const el = document.getElementById(`terms-${section.id}`);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [sections]);
+
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(`terms-${id}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setActiveSection(id);
+    }
+  };
+
+  return (
+    <MarketingPageShell activePath="/terms">
+      <section className="mkt-about-hero mkt-terms-hero" data-nav-surface="light">
+        <div className="mkt-about-hero__orb mkt-about-hero__orb--a" aria-hidden />
+        <div className="mkt-about-hero__orb mkt-about-hero__orb--b" aria-hidden />
+        <div className="mkt-faq-hero__grid" aria-hidden />
+
+        <div className="mkt-about-hero__copy">
+          <p className="mkt-kicker">Legal</p>
+          <h1 className="mkt-about-hero__title">
+            <span>Terms of</span>
+            <span>
+              <span className="mkt-hero__accent">service</span>
+            </span>
+          </h1>
+          <p className="mkt-about-hero__lead">
+            The rules and responsibilities that govern your use of {settings.platformName} — written in
+            plain language so you know exactly what you are agreeing to.
+          </p>
+          <p className="mkt-terms-updated">Last updated: {lastUpdated}</p>
+
+          <ul className="mkt-about-hero__pillars">
+            <li>
+              <MktIcon d={ICONS.check} />
+              <span>Educational platform — not financial advice</span>
+            </li>
+            <li>
+              <MktIcon d={ICONS.check} />
+              <span>12 sections covering accounts, usage, and liability</span>
+            </li>
+            <li>
+              <MktIcon d={ICONS.check} />
+              <span>Questions? Our desk is one click away</span>
+            </li>
+          </ul>
+        </div>
+      </section>
+
+      <section className="mkt-section mkt-section--faq mkt-terms-body" data-nav-surface="light">
+        <div className="mkt-section__inner">
+          <div className="mkt-faq-layout mkt-terms-layout">
+            <aside className="mkt-faq-sidebar mkt-terms-sidebar">
+              <p className="mkt-faq-sidebar__label">On this page</p>
+              <nav className="mkt-faq-sidebar__nav" aria-label="Terms sections">
+                {sections.map((section) => (
+                  <button
+                    key={section.id}
+                    type="button"
+                    className={`mkt-faq-sidebar__item${activeSection === section.id ? ' is-active' : ''}`}
+                    onClick={() => scrollToSection(section.id)}
+                  >
+                    <span className="mkt-faq-sidebar__item-icon">
+                      <MktIcon d={section.icon} />
+                    </span>
+                    <span className="mkt-faq-sidebar__item-copy">
+                      <span className="mkt-faq-sidebar__item-title">{section.title}</span>
+                    </span>
+                  </button>
+                ))}
+              </nav>
+            </aside>
+
+            <div ref={mainRef} className="mkt-terms-main">
+              {sections.map((section) => (
+                <article
+                  key={section.id}
+                  id={`terms-${section.id}`}
+                  className="mkt-terms-section"
+                >
+                  <header className="mkt-terms-section__head">
+                    <span className="mkt-terms-section__icon">
+                      <MktIcon d={section.icon} />
+                    </span>
+                    <h2 className="mkt-terms-section__title">{section.title}</h2>
+                  </header>
+                  <div className="mkt-terms-section__body">
+                    {section.blocks.map((block, index) => (
+                      <TermsBlockView key={`${section.id}-${index}`} block={block} />
+                    ))}
+                  </div>
+                </article>
+              ))}
+            </div>
           </div>
         </div>
-      </header>
+      </section>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar Navigation */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-24">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Table of Contents</h3>
-                <nav className="space-y-2">
-                  {sections.map((section) => {
-                    const Icon = section.icon;
-                    return (
-                      <button
-                        key={section.id}
-                        onClick={() => setActiveSection(section.id)}
-                        className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center space-x-2 ${
-                          activeSection === section.id
-                            ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        <span>{section.title}</span>
-                      </button>
-                    );
-                  })}
-                </nav>
+      <section className="mkt-faq-cta" data-nav-surface="light">
+        <div className="mkt-section__inner">
+          <div className="mkt-faq-cta__card">
+            <div className="mkt-faq-cta__copy">
+              <p className="mkt-kicker">Questions about these terms?</p>
+              <h2 className="mkt-faq-cta__title">Our desk can clarify anything before you sign up.</h2>
+              <p className="mkt-faq-cta__lead">
+                Reach out if you need help understanding your rights, account responsibilities, or billing
+                terms before creating an account.
+              </p>
+              <div className="mkt-faq-cta__actions">
+                <Link href="/contact" className="mkt-btn mkt-btn--inline mkt-btn--dark">
+                  Contact support
+                  <MktIcon d={ICONS.arrow} />
+                </Link>
+                <Link href="/faq" className="mkt-about-hero__ghost mkt-about-hero__ghost--on-dark">
+                  Browse FAQ
+                </Link>
+              </div>
+            </div>
+            <div className="mkt-faq-cta__aside">
+              <div className="mkt-faq-cta__stat">
+                <span className="mkt-faq-cta__stat-num">12</span>
+                <span className="mkt-faq-cta__stat-lbl">Policy sections</span>
+              </div>
+              <div className="mkt-faq-cta__stat">
+                <span className="mkt-faq-cta__stat-num">18+</span>
+                <span className="mkt-faq-cta__stat-lbl">Minimum age</span>
+              </div>
+              <div className="mkt-faq-cta__stat">
+                <span className="mkt-faq-cta__stat-num">24h</span>
+                <span className="mkt-faq-cta__stat-lbl">Support response</span>
               </div>
             </div>
           </div>
-
-          {/* Main Content */}
-          <div className="lg:col-span-3">
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl p-8 border border-gray-200 dark:border-gray-700 shadow-lg"
-            >
-              <div className="mb-8">
-                <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-4">Terms of Service</h1>
-                <p className="text-gray-600 dark:text-gray-300 text-lg">
-                  Last updated: {new Date().toLocaleDateString()}
-                </p>
-              </div>
-
-              {/* Overview */}
-              {activeSection === 'overview' && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-6"
-                >
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Overview</h2>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    Welcome to {settings.platformName}. These Terms of Service ("Terms") govern your use of our 
-                    online learning platform, trading education services, and related features. By accessing or 
-                    using our services, you agree to be bound by these Terms.
-                  </p>
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-lg p-4">
-                    <p className="text-blue-800 dark:text-blue-200 text-sm">
-                      <strong>Important:</strong> Please read these Terms carefully before using our services. 
-                      If you do not agree to these Terms, you may not access or use our platform.
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Acceptance of Terms */}
-              {activeSection === 'acceptance' && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-6"
-                >
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Acceptance of Terms</h2>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    By creating an account, accessing our platform, or using any of our services, you acknowledge 
-                    that you have read, understood, and agree to be bound by these Terms and our Privacy Policy.
-                  </p>
-                  <ul className="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300">
-                    <li>You must be at least 18 years old to use our services</li>
-                    <li>You must provide accurate and complete information when creating your account</li>
-                    <li>You are responsible for maintaining the confidentiality of your account credentials</li>
-                    <li>You agree to notify us immediately of any unauthorized use of your account</li>
-                  </ul>
-                </motion.div>
-              )}
-
-              {/* Services Description */}
-              {activeSection === 'services' && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-6"
-                >
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Services Description</h2>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    {settings.platformName} provides educational content and tools for forex trading, including:
-                  </p>
-                  <ul className="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300">
-                    <li>Online courses and educational materials</li>
-                    <li>Trading signals and market analysis</li>
-                    <li>Live trading sessions and webinars</li>
-                    <li>Community forums and discussion boards</li>
-                    <li>Certification programs</li>
-                    <li>Mobile and web applications</li>
-                  </ul>
-                  <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4">
-                    <p className="text-yellow-800 dark:text-yellow-200 text-sm">
-                      <strong>Disclaimer:</strong> Our services are for educational purposes only. We do not provide 
-                      financial advice, and trading involves substantial risk of loss.
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* User Accounts */}
-              {activeSection === 'user-accounts' && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-6"
-                >
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">User Accounts</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Account Creation</h3>
-                      <p className="text-gray-700 dark:text-gray-300">
-                        To access certain features, you must create an account. You agree to provide accurate, 
-                        current, and complete information during registration.
-                      </p>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Account Security</h3>
-                      <p className="text-gray-700 dark:text-gray-300">
-                        You are responsible for maintaining the security of your account and password. We cannot 
-                        and will not be liable for any loss or damage arising from your failure to comply with 
-                        this security obligation.
-                      </p>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Account Termination</h3>
-                      <p className="text-gray-700 dark:text-gray-300">
-                        We reserve the right to suspend or terminate your account at any time for violation of 
-                        these Terms or for any other reason at our sole discretion.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Prohibited Uses */}
-              {activeSection === 'prohibited-uses' && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-6"
-                >
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Prohibited Uses</h2>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    You may not use our services for any unlawful purpose or to solicit others to perform unlawful acts. 
-                    You agree not to:
-                  </p>
-                  <ul className="list-disc list-inside space-y-2 text-gray-700 dark:text-gray-300">
-                    <li>Violate any applicable laws or regulations</li>
-                    <li>Infringe upon the rights of others</li>
-                    <li>Transmit or procure the sending of spam or unsolicited messages</li>
-                    <li>Attempt to gain unauthorized access to our systems</li>
-                    <li>Interfere with or disrupt our services</li>
-                    <li>Use our platform for commercial purposes without permission</li>
-                    <li>Share your account credentials with others</li>
-                    <li>Upload malicious code or harmful content</li>
-                  </ul>
-                </motion.div>
-              )}
-
-              {/* Intellectual Property */}
-              {activeSection === 'intellectual-property' && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-6"
-                >
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Intellectual Property</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Our Content</h3>
-                      <p className="text-gray-700 dark:text-gray-300">
-                        All content on our platform, including courses, videos, text, graphics, and software, 
-                        is owned by {settings.platformName} or our licensors and is protected by copyright and 
-                        other intellectual property laws.
-                      </p>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">License to Use</h3>
-                      <p className="text-gray-700 dark:text-gray-300">
-                        We grant you a limited, non-exclusive, non-transferable license to access and use our 
-                        content for personal, non-commercial purposes only.
-                      </p>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">User Content</h3>
-                      <p className="text-gray-700 dark:text-gray-300">
-                        By posting content on our platform, you grant us a license to use, modify, and display 
-                        such content in connection with our services.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Disclaimers */}
-              {activeSection === 'disclaimers' && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-6"
-                >
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Disclaimers</h2>
-                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-700 rounded-lg p-4">
-                    <p className="text-red-800 dark:text-red-200 text-sm font-semibold mb-2">
-                      IMPORTANT FINANCIAL DISCLAIMER
-                    </p>
-                    <p className="text-red-700 dark:text-red-300 text-sm">
-                      Trading foreign exchange on margin carries a high level of risk and may not be suitable 
-                      for all investors. The high degree of leverage can work against you as well as for you. 
-                      Before deciding to trade foreign exchange, you should carefully consider your investment 
-                      objectives, level of experience, and risk appetite.
-                    </p>
-                  </div>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    Our services are provided "as is" without warranties of any kind. We disclaim all warranties, 
-                    express or implied, including but not limited to warranties of merchantability, fitness for a 
-                    particular purpose, and non-infringement.
-                  </p>
-                </motion.div>
-              )}
-
-              {/* Limitation of Liability */}
-              {activeSection === 'limitation-liability' && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-6"
-                >
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Limitation of Liability</h2>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    In no event shall {settings.platformName}, its officers, directors, employees, or agents be 
-                    liable for any indirect, incidental, special, consequential, or punitive damages, including 
-                    without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting 
-                    from your use of our services.
-                  </p>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    Our total liability to you for any damages arising from or related to these Terms or our 
-                    services shall not exceed the amount you paid us in the 12 months preceding the claim.
-                  </p>
-                </motion.div>
-              )}
-
-              {/* Termination */}
-              {activeSection === 'termination' && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-6"
-                >
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Termination</h2>
-                  <div className="space-y-4">
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Termination by You</h3>
-                      <p className="text-gray-700 dark:text-gray-300">
-                        You may terminate your account at any time by contacting us or using the account 
-                        deletion feature in your profile settings.
-                      </p>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Termination by Us</h3>
-                      <p className="text-gray-700 dark:text-gray-300">
-                        We may terminate or suspend your account immediately, without prior notice, for conduct 
-                        that we believe violates these Terms or is harmful to other users, us, or third parties.
-                      </p>
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Effect of Termination</h3>
-                      <p className="text-gray-700 dark:text-gray-300">
-                        Upon termination, your right to use our services will cease immediately. Provisions of 
-                        these Terms that by their nature should survive termination shall survive.
-                      </p>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Governing Law */}
-              {activeSection === 'governing-law' && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-6"
-                >
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Governing Law</h2>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    These Terms shall be governed by and construed in accordance with the laws of [Your Jurisdiction], 
-                    without regard to its conflict of law provisions. Any legal action or proceeding arising under 
-                    these Terms will be brought exclusively in the courts located in [Your Jurisdiction].
-                  </p>
-                </motion.div>
-              )}
-
-              {/* Changes to Terms */}
-              {activeSection === 'changes' && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-6"
-                >
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Changes to Terms</h2>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    We reserve the right to modify these Terms at any time. We will notify users of any material 
-                    changes by posting the new Terms on our platform and updating the "Last updated" date.
-                  </p>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    Your continued use of our services after any such changes constitutes your acceptance of the 
-                    new Terms. If you do not agree to the modified Terms, you must stop using our services.
-                  </p>
-                </motion.div>
-              )}
-
-              {/* Contact Information */}
-              {activeSection === 'contact' && (
-                <motion.div
-                  initial={{ opacity: 0, x: 20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="space-y-6"
-                >
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Contact Information</h2>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                    If you have any questions about these Terms of Service, please contact us:
-                  </p>
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-4">
-                    <p className="text-gray-700 dark:text-gray-300">
-                      <strong>Email:</strong> thefxnavigators@gmail.com<br />
-                      <strong>Phone:</strong> +92 3488566147<br />
-                      <strong>Business Hours:</strong> Mon-Fri 9AM-6PM (PST)
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </motion.div>
-          </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </MarketingPageShell>
   );
 }
