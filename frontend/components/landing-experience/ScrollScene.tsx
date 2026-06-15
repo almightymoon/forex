@@ -215,6 +215,7 @@ export default function ScrollScene() {
 
         <div className="hero-headline-center">
           <h1 className="hero-heading-center">
+            <span className="sr-only">{platformName} — Premier Forex Trading Education — </span>
             <span className="hero-heading-row">Master the Art</span>
             <span className="hero-heading-row">of Forex Trading</span>
           </h1>
