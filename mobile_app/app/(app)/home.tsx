@@ -22,6 +22,7 @@ import { colors } from '../../constants/theme';
 import { apiFetch } from '../../utils/api';
 import { AuthUser, getStoredUser } from '../../utils/auth';
 import { getEnrolledCourseIds } from '../../utils/enrollment';
+import { openNewsArticle } from '../../utils/openNews';
 import { recordQuickAccessRoute } from '../../utils/quickAccess';
 import {
   ActivityItem,
@@ -83,6 +84,16 @@ interface DashboardData {
   recentSignals: NormalizedSignal[];
   recentActivity: ActivityItem[];
   recentNews: NormalizedNews[];
+}
+
+function dedupeNews(items: NormalizedNews[]) {
+  const seen = new Set<string>();
+  return items.filter((item) => {
+    const key = item.url || item.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function SectionHead({ title, onSeeAll }: { title: string; onSeeAll?: () => void }) {
@@ -161,7 +172,7 @@ export default function HomeScreen() {
         ? await activityRes.value.json()
         : { activities: [] };
       const news = newsRes.status === 'fulfilled' && newsRes.value.ok
-        ? normalizeList<Record<string, unknown>>(await newsRes.value.json()).map(normalizeNews)
+        ? dedupeNews(normalizeList<Record<string, unknown>>(await newsRes.value.json()).map(normalizeNews))
         : [];
 
       setData({
@@ -285,7 +296,12 @@ export default function HomeScreen() {
                 <SectionHead title="Market News" onSeeAll={() => router.push('/(app)/news')} />
                 <View style={styles.newsList}>
                   {data!.recentNews.map((item) => (
-                    <NewsCard key={item.id} item={item} compact />
+                    <NewsCard
+                      key={item.url || item.id}
+                      item={item}
+                      compact
+                      onPress={() => openNewsArticle(router, item)}
+                    />
                   ))}
                 </View>
               </View>

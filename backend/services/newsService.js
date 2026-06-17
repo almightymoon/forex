@@ -1,4 +1,5 @@
 const axios = require('axios');
+const crypto = require('crypto');
 
 const CACHE_TTL_MS = 10 * 60 * 1000;
 
@@ -6,6 +7,11 @@ const FEEDS = [
   { source: 'ForexLive', url: 'https://www.forexlive.com/feed/news' },
   { source: 'FXStreet', url: 'https://www.fxstreet.com/rss/news' },
 ];
+
+const FF_CALENDAR_URL = 'https://nfs.faireconomy.media/ff_calendar_thisweek.json';
+const FF_CACHE_TTL_MS = 30 * 60 * 1000;
+
+let ffCache = { items: [], fetchedAt: 0 };
 
 let cache = { items: [], fetchedAt: 0 };
 
@@ -33,6 +39,11 @@ function extractTag(block, tag) {
   return plain ? decodeEntities(plain[1]) : '';
 }
 
+function articleId(source, link) {
+  const hash = crypto.createHash('sha256').update(link).digest('hex').slice(0, 20);
+  return `${source}-${hash}`;
+}
+
 function parseRss(xml, source) {
   if (!xml || typeof xml !== 'string') return [];
 
@@ -53,7 +64,7 @@ function parseRss(xml, source) {
     if (Number.isNaN(publishedAt.getTime())) continue;
 
     items.push({
-      id: `${source}-${Buffer.from(link).toString('base64url').slice(0, 24)}`,
+      id: articleId(source, link),
       title,
       summary: description.slice(0, 220),
       url: link,
@@ -79,10 +90,60 @@ async function fetchFeed(feed) {
   return parseRss(res.data, feed.source);
 }
 
+async function fetchForexFactoryCalendar() {
+  const now = Date.now();
+  if (ffCache.items.length > 0 && now - ffCache.fetchedAt < FF_CACHE_TTL_MS) {
+    return ffCache.items;
+  }
+
+  try {
+    const res = await axios.get(FF_CALENDAR_URL, {
+      timeout: 12000,
+      headers: {
+        'User-Agent': 'FXNavigators/1.0 (+https://thefxnavigators.com)',
+        Accept: 'application/json',
+      },
+      validateStatus: (status) => status >= 200 && status < 400,
+    });
+
+    const events = Array.isArray(res.data) ? res.data : [];
+    const impactRank = { High: 3, Medium: 2, Low: 1, Holiday: 0 };
+
+    const items = events
+      .filter((event) => event?.title && event?.date)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .slice(0, 40)
+      .map((event) => {
+        const title = `${event.country || 'FX'} — ${event.title}`;
+        const summaryParts = [
+          event.impact ? `Impact: ${event.impact}` : null,
+          event.forecast ? `Forecast: ${event.forecast}` : null,
+          event.previous ? `Previous: ${event.previous}` : null,
+        ].filter(Boolean);
+
+        return {
+          id: articleId('ForexFactory', `${event.title}-${event.date}`),
+          title,
+          summary: summaryParts.join(' · ') || 'Economic calendar event',
+          url: 'https://www.forexfactory.com/calendar',
+          source: 'ForexFactory',
+          publishedAt: new Date(event.date).toISOString(),
+          impactRank: impactRank[event.impact] ?? 0,
+        };
+      });
+
+    ffCache = { items, fetchedAt: now };
+    return items;
+  } catch (error) {
+    console.warn('Forex Factory calendar fetch failed:', error.message);
+    return ffCache.items;
+  }
+}
+
 function dedupeArticles(items) {
   const seen = new Set();
   return items.filter((item) => {
-    const key = item.title.toLowerCase().replace(/\s+/g, ' ').trim();
+    const key = item.id || `${item.source}-${item.title}`.toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -95,10 +156,18 @@ async function getNews(limit = 20) {
     return cache.items.slice(0, limit);
   }
 
-  const results = await Promise.allSettled(FEEDS.map((feed) => fetchFeed(feed)));
+  const results = await Promise.allSettled([
+    ...FEEDS.map((feed) => fetchFeed(feed)),
+    fetchForexFactoryCalendar(),
+  ]);
   const merged = results
     .flatMap((result) => (result.status === 'fulfilled' ? result.value : []))
-    .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
+    .sort((a, b) => {
+      const dateDiff = new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime();
+      if (dateDiff !== 0) return dateDiff;
+      return (b.impactRank ?? 0) - (a.impactRank ?? 0);
+    })
+    .map(({ impactRank, impact, ...item }) => item);
 
   const articles = dedupeArticles(merged);
 

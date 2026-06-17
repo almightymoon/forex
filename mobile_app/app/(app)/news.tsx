@@ -2,7 +2,6 @@ import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Linking,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -15,14 +14,16 @@ import { AppIcon } from '../../components/AppIcon';
 import { NewsCard } from '../../components/NewsCard';
 import { colors } from '../../constants/theme';
 import { apiFetch } from '../../utils/api';
+import { openNewsArticle } from '../../utils/openNews';
 import { NormalizedNews, normalizeList, normalizeNews } from '../../utils/normalize';
 
-type FilterKey = 'all' | 'ForexLive' | 'FXStreet';
+type FilterKey = 'all' | 'ForexLive' | 'FXStreet' | 'ForexFactory';
 
 const FILTERS: Array<{ key: FilterKey; label: string }> = [
   { key: 'all', label: 'All' },
   { key: 'ForexLive', label: 'ForexLive' },
   { key: 'FXStreet', label: 'FXStreet' },
+  { key: 'ForexFactory', label: 'Forex Factory' },
 ];
 
 function sectionLabel(iso: string) {
@@ -145,8 +146,8 @@ export default function NewsScreen() {
               <Text style={styles.sectionTitle}>{group.label}</Text>
               <View style={styles.list}>
                 {group.items.map((item, index) => (
-                  <View key={item.id} style={index > 0 ? styles.itemGap : undefined}>
-                    <NewsCard item={item} onPress={() => item.url && Linking.openURL(item.url)} />
+                  <View key={item.url || item.id} style={index > 0 ? styles.itemGap : undefined}>
+                    <NewsCard item={item} onPress={() => openNewsArticle(router, item)} />
                   </View>
                 ))}
               </View>

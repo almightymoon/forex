@@ -124,6 +124,7 @@ export default function AppLayout() {
         <Tabs.Screen name="settings" options={{ href: null }} />
         <Tabs.Screen name="notifications" options={{ href: null }} />
         <Tabs.Screen name="news" options={{ href: null }} />
+        <Tabs.Screen name="news-article" options={{ href: null }} />
         <Tabs.Screen name="referrals" options={{ href: null }} />
         <Tabs.Screen name="rank-rewards" options={{ href: null }} />
         <Tabs.Screen name="withdrawals" options={{ href: null }} />

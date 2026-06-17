@@ -1,4 +1,4 @@
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon } from './AppIcon';
 import { colors } from '../constants/theme';
 import type { NormalizedNews } from '../utils/normalize';
@@ -26,18 +26,11 @@ function formatTime(iso: string) {
 }
 
 export function NewsCard({ item, compact, onPress }: Props) {
-  const open = () => {
-    if (onPress) {
-      onPress();
-      return;
-    }
-    if (item.url) void Linking.openURL(item.url);
-  };
-
   return (
     <Pressable
       style={({ pressed }) => [styles.card, compact && styles.cardCompact, pressed && styles.pressed]}
-      onPress={open}
+      onPress={onPress}
+      disabled={!onPress}
     >
       <View style={styles.iconWrap}>
         <AppIcon name="file-text" size={compact ? 16 : 18} color={colors.cyan} strokeWidth={2} />
