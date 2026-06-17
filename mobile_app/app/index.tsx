@@ -1,44 +1,48 @@
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
-import { Logo } from '../components/Logo';
-import { ScreenBackground } from '../components/ScreenBackground';
+import { useEffect, useState } from 'react';
+import { SplashLoader } from '../components/SplashLoader';
 import { getStoredToken, getStoredUser, resolvePostLoginRoute } from '../utils/auth';
 
-const SPLASH_DURATION_MS = 2000;
+const MIN_SPLASH_MS = 2200;
+
+function wait(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
 
 export default function SplashScreen() {
   const router = useRouter();
+  const [message, setMessage] = useState('Preparing your dashboard…');
 
   useEffect(() => {
-    const timer = setTimeout(async () => {
-      const token = await getStoredToken();
+    let cancelled = false;
+
+    async function boot() {
+      const [, token] = await Promise.all([
+        wait(MIN_SPLASH_MS),
+        getStoredToken(),
+      ]);
+
+      if (cancelled) return;
+
       if (token) {
-        // User has a stored session — check their payment/package status
+        setMessage('Loading your account…');
         const user = await getStoredUser();
         const route = await resolvePostLoginRoute(user);
-        router.replace(route as any);
-      } else {
-        router.replace('/auth');
+        if (!cancelled) router.replace(route as never);
+        return;
       }
-    }, SPLASH_DURATION_MS);
 
-    return () => clearTimeout(timer);
+      if (!cancelled) router.replace('/auth');
+    }
+
+    boot();
+
+    return () => {
+      cancelled = true;
+    };
   }, [router]);
 
-  return (
-    <ScreenBackground variant="splash">
-      <View style={styles.container}>
-        <Logo size="lg" />
-      </View>
-    </ScreenBackground>
-  );
+  return <SplashLoader message={message} />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

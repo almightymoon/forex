@@ -1,5 +1,5 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { AppIcon } from './AppIcon';
 
 type Props = {
   title: string;
@@ -19,16 +19,16 @@ function formatDate(iso?: string) {
 
 export function ActivityCard({ title, message, timestamp, onPress }: Props) {
   return (
-    <Pressable style={styles.card} onPress={onPress}>
+    <Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]} onPress={onPress}>
       <View style={styles.iconWrap}>
-        <Ionicons name="pulse" size={20} color="#3AADFF" />
+        <AppIcon name="activity" size={19} color="#3AADFF" strokeWidth={2.2} />
       </View>
       <View style={styles.content}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.message} numberOfLines={2}>{message}</Text>
         {timestamp ? <Text style={styles.date}>{formatDate(timestamp)}</Text> : null}
       </View>
-      <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.25)" />
+      <AppIcon name="chevron-right" size={18} color="rgba(255,255,255,0.25)" strokeWidth={2} />
     </Pressable>
   );
 }
@@ -43,6 +43,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(58,173,255,0.12)',
     padding: 14,
+  },
+  pressed: {
+    opacity: 0.9,
   },
   iconWrap: {
     width: 44,

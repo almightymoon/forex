@@ -1,24 +1,47 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { apiFetch } from './api';
 
 const TOKEN_KEY = 'expoPushToken';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
+type NotificationsModule = typeof import('expo-notifications');
+
+let handlerConfigured = false;
+
+/** Remote push is not available in Expo Go (SDK 53+). Use a dev/production build. */
+export function isPushNotificationsSupported(): boolean {
+  if (Platform.OS === 'web') return false;
+  return Constants.appOwnership !== 'expo';
+}
+
+async function getNotifications(): Promise<NotificationsModule | null> {
+  if (!isPushNotificationsSupported()) return null;
+
+  try {
+    const Notifications = await import('expo-notifications');
+    if (!handlerConfigured) {
+      Notifications.setNotificationHandler({
+        handleNotification: async () => ({
+          shouldShowAlert: true,
+          shouldPlaySound: true,
+          shouldSetBadge: true,
+          shouldShowBanner: true,
+          shouldShowList: true,
+        }),
+      });
+      handlerConfigured = true;
+    }
+    return Notifications;
+  } catch {
+    return null;
+  }
+}
 
 export async function registerPushToken(): Promise<string | null> {
   try {
-    if (Platform.OS === 'web') return null;
+    const Notifications = await getNotifications();
+    if (!Notifications) return null;
 
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;

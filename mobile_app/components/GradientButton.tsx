@@ -8,6 +8,7 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
+import { colors, gradients } from '../constants/theme';
 
 type Props = Omit<PressableProps, 'style'> & {
   title: string;
@@ -51,7 +52,7 @@ export function GradientButton({
       {...props}
     >
       <LinearGradient
-        colors={['#0060E6', '#3AADFF']}
+        colors={[...gradients.button]}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
         style={styles.gradient}
@@ -70,7 +71,7 @@ const styles = StyleSheet.create({
   wrapper: {
     borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#0060E6',
+    shadowColor: colors.indigoDeep,
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.55,
     shadowRadius: 16,

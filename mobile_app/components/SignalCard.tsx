@@ -1,140 +1,285 @@
-import { Ionicons } from '@expo/vector-icons';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { AppIcon } from './AppIcon';
+import { colors } from '../constants/theme';
 
-type SignalDirection = 'BUY' | 'SELL';
+export type SignalDirection = 'BUY' | 'SELL';
+export type SignalStatus = 'active' | 'closed' | 'pending';
 
-type Props = {
+export type SignalCardProps = {
   pair: string;
   direction: SignalDirection;
   entry: string;
   stopLoss: string;
   takeProfit: string;
-  status?: 'active' | 'closed' | 'pending';
+  status?: SignalStatus;
   pips?: string;
   createdAt?: string;
+  onPress?: () => void;
+  variant?: 'featured' | 'compact';
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  active: '#4ADE80',
-  closed: 'rgba(255,255,255,0.35)',
-  pending: '#FFC107',
+function formatTime(value?: string) {
+  if (!value) return '';
+  if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(value.trim())) return value;
+  try {
+    const diff = Date.now() - new Date(value).getTime();
+    if (Number.isNaN(diff)) return value;
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    if (days < 30) return `${days}d ago`;
+    return `${Math.floor(days / 30)}mo ago`;
+  } catch {
+    return value;
+  }
+}
+
+function formatPair(pair: string) {
+  const cleaned = pair.replace(/\s/g, '').toUpperCase();
+  if (pair.includes('/')) return pair.replace(/\s/g, '').toUpperCase();
+  const match = cleaned.match(/^([A-Z]{3})([A-Z]{3})$/);
+  if (match) return `${match[1]}/${match[2]}`;
+  return pair.toUpperCase();
+}
+
+function formatPips(pips?: string) {
+  if (!pips) return '—';
+  if (pips.startsWith('+') || pips.startsWith('-')) return pips;
+  return `+${pips}`;
+}
+
+const STATUS_META: Record<SignalStatus, { label: string; color: string }> = {
+  active: { label: 'Active', color: colors.cyan },
+  closed: { label: 'Closed', color: colors.textMuted },
+  pending: { label: 'Pending', color: colors.gold },
 };
 
-export function SignalCard({ pair, direction, entry, stopLoss, takeProfit, status = 'active', pips, createdAt }: Props) {
+export function SignalCard({
+  pair,
+  direction,
+  entry,
+  stopLoss,
+  takeProfit,
+  status = 'active',
+  pips,
+  createdAt,
+  onPress,
+  variant = 'compact',
+}: SignalCardProps) {
   const isBuy = direction === 'BUY';
+  const statusMeta = STATUS_META[status];
+  const displayPair = formatPair(pair);
+  const pipsDisplay = formatPips(pips);
+  const pipsPositive = !pips?.startsWith('-');
 
-  return (
-    <View style={styles.card}>
-      {/* Header */}
+  const directionColor = isBuy ? colors.blue : colors.sell;
+  const iconColor = isBuy ? colors.cyan : colors.sell;
+
+  const cardStyle: ViewStyle[] = [
+    styles.card,
+    ...(variant === 'featured' ? [styles.cardFeatured] : []),
+  ];
+
+  const content = (
+    <>
       <View style={styles.header}>
-        <View style={styles.pairRow}>
-          <Text style={styles.pair}>{pair}</Text>
-          <View style={[styles.directionBadge, isBuy ? styles.buyBadge : styles.sellBadge]}>
-            <Ionicons name={isBuy ? 'trending-up' : 'trending-down'} size={13} color={isBuy ? '#4ADE80' : '#FF5A5A'} />
-            <Text style={[styles.directionText, isBuy ? styles.buyText : styles.sellText]}>{direction}</Text>
+        <View style={styles.iconCircle}>
+          <AppIcon
+            name={isBuy ? 'trending-up' : 'trending-down'}
+            size={22}
+            color={iconColor}
+            strokeWidth={2.4}
+          />
+        </View>
+
+        <View style={styles.headerMain}>
+          <View style={styles.titleRow}>
+            <Text style={[styles.pair, variant === 'featured' && styles.pairFeatured]} numberOfLines={1}>
+              {displayPair}
+            </Text>
+            <View style={[styles.directionPill, { backgroundColor: isBuy ? 'rgba(58,173,255,0.14)' : 'rgba(255,107,107,0.14)' }]}>
+              <Text style={[styles.directionText, { color: directionColor }]}>{direction}</Text>
+            </View>
           </View>
+          <Text style={styles.time}>{formatTime(createdAt)}</Text>
         </View>
-        <View style={styles.statusRow}>
-          <View style={[styles.statusDot, { backgroundColor: STATUS_COLORS[status] }]} />
-          <Text style={[styles.statusText, { color: STATUS_COLORS[status] }]}>{status.charAt(0).toUpperCase() + status.slice(1)}</Text>
-          {pips ? <Text style={[styles.pips, isBuy ? styles.pipsPositive : styles.pipsNegative]}>{pips} pips</Text> : null}
+
+        <View style={styles.statusWrap}>
+          {status === 'active' ? <View style={styles.statusDot} /> : null}
+          <Text style={[styles.statusText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
         </View>
       </View>
 
-      {/* Levels */}
-      <View style={styles.levels}>
-        <LevelItem label="Entry" value={entry} />
-        <LevelItem label="Stop Loss" value={stopLoss} accent="#FF5A5A" />
-        <LevelItem label="Take Profit" value={takeProfit} accent="#4ADE80" />
+      <View style={styles.tray}>
+        <MetricCell label="Entry" value={entry} />
+        <MetricCell label="Take Profit" value={takeProfit} tone="tp" />
+        <MetricCell label="Stop Loss" value={stopLoss} tone="sl" />
+        <MetricCell
+          label="Pips"
+          value={pipsDisplay}
+          tone={pips && pips !== '—' ? (pipsPositive ? 'tp' : 'sl') : 'neutral'}
+          last
+        />
       </View>
-
-      {createdAt ? <Text style={styles.date}>{createdAt}</Text> : null}
-    </View>
+    </>
   );
+
+  if (onPress) {
+    return (
+      <Pressable style={({ pressed }) => [...cardStyle, pressed && styles.pressed]} onPress={onPress}>
+        {content}
+      </Pressable>
+    );
+  }
+
+  return <View style={cardStyle}>{content}</View>;
 }
 
-function LevelItem({ label, value, accent = '#fff' }: { label: string; value: string; accent?: string }) {
+function MetricCell({
+  label,
+  value,
+  tone = 'neutral',
+  last,
+}: {
+  label: string;
+  value: string;
+  tone?: 'neutral' | 'tp' | 'sl';
+  last?: boolean;
+}) {
+  const valueColor =
+    tone === 'tp' ? colors.cyan : tone === 'sl' ? '#FF7A7A' : colors.text;
+
   return (
-    <View style={levelStyles.item}>
-      <Text style={levelStyles.label}>{label}</Text>
-      <Text style={[levelStyles.value, { color: accent }]}>{value}</Text>
+    <View style={[styles.metricCell, last && styles.metricCellLast]}>
+      <Text style={styles.metricLabel}>{label}</Text>
+      <Text
+        style={[styles.metricValue, { color: valueColor }]}
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.72}
+      >
+        {value}
+      </Text>
     </View>
   );
 }
-
-const levelStyles = StyleSheet.create({
-  item: { flex: 1, alignItems: 'center', gap: 3 },
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: '500' },
-  value: { fontSize: 13.5, fontWeight: '700' },
-});
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: 'rgba(8,20,48,0.85)',
-    borderRadius: 16,
+    backgroundColor: '#0b1224',
+    borderRadius: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    padding: 14,
-    gap: 12,
+    borderColor: 'rgba(255,255,255,0.07)',
+    padding: 18,
+    gap: 16,
   },
+  cardFeatured: {
+    padding: 20,
+    borderRadius: 30,
+  },
+  pressed: { opacity: 0.94, transform: [{ scale: 0.995 }] },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+    gap: 14,
   },
-  pairRow: {
+  iconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#141f38',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  headerMain: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
+    flexWrap: 'wrap',
   },
   pair: {
-    fontSize: 17,
+    fontSize: 20,
     fontWeight: '800',
-    color: '#fff',
-    letterSpacing: 0.5,
+    color: colors.text,
+    letterSpacing: 0.2,
   },
-  directionBadge: {
+  pairFeatured: {
+    fontSize: 22,
+  },
+  directionPill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+  },
+  directionText: {
+    fontSize: 12,
+    fontWeight: '800',
+    letterSpacing: 0.4,
+  },
+  time: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(148, 163, 184, 0.85)',
+  },
+  statusWrap: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  buyBadge: { backgroundColor: 'rgba(74,222,128,0.12)' },
-  sellBadge: { backgroundColor: 'rgba(255,90,90,0.12)' },
-  directionText: { fontSize: 12, fontWeight: '700' },
-  buyText: { color: '#4ADE80' },
-  sellText: { color: '#FF5A5A' },
-  statusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
+    gap: 6,
+    flexShrink: 0,
+    paddingLeft: 4,
   },
   statusDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: colors.cyan,
   },
   statusText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  pips: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: '700',
-    marginLeft: 4,
   },
-  pipsPositive: { color: '#4ADE80' },
-  pipsNegative: { color: '#FF5A5A' },
-  levels: {
+  tray: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 10,
-    padding: 12,
+    backgroundColor: '#111a30',
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)',
+    overflow: 'hidden',
   },
-  date: {
+  metricCell: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    gap: 6,
+    borderRightWidth: StyleSheet.hairlineWidth,
+    borderRightColor: 'rgba(255,255,255,0.08)',
+  },
+  metricCellLast: {
+    borderRightWidth: 0,
+  },
+  metricLabel: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.25)',
+    fontWeight: '500',
+    color: 'rgba(148, 163, 184, 0.75)',
+    textAlign: 'center',
+  },
+  metricValue: {
+    fontSize: 14,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+    textAlign: 'center',
   },
 });

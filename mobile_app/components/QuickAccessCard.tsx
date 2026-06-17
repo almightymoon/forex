@@ -1,10 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-
-type IconName = keyof typeof Ionicons.glyphMap;
+import { AppIcon, type AppIconName } from './AppIcon';
 
 type Props = {
-  icon: IconName;
+  icon: AppIconName;
   label: string;
   color?: string;
   onPress?: () => void;
@@ -12,9 +10,9 @@ type Props = {
 
 export function QuickAccessCard({ icon, label, color = '#3AADFF', onPress }: Props) {
   return (
-    <Pressable style={styles.card} onPress={onPress}>
-      <View style={[styles.iconWrap, { backgroundColor: `${color}18`, borderColor: `${color}30` }]}>
-        <Ionicons name={icon} size={22} color={color} />
+    <Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]} onPress={onPress}>
+      <View style={[styles.iconWrap, { backgroundColor: `${color}14`, borderColor: `${color}28` }]}>
+        <AppIcon name={icon} size={22} color={color} strokeWidth={2.1} />
       </View>
       <Text style={styles.label} numberOfLines={2}>{label}</Text>
     </Pressable>
@@ -33,6 +31,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     minWidth: 0,
+  },
+  pressed: {
+    opacity: 0.88,
+    transform: [{ scale: 0.98 }],
   },
   iconWrap: {
     width: 48,

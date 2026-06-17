@@ -20,7 +20,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthInput } from '../../components/AuthInput';
 import { GradientButton } from '../../components/GradientButton';
 import { apiFetch } from '../../utils/api';
-import { registerPushToken } from '../../utils/pushNotifications';
+import { isPushNotificationsSupported, registerPushToken } from '../../utils/pushNotifications';
 import {
   clearBiometricCredentials,
   getBiometricCapabilities,
@@ -91,8 +91,9 @@ export default function SettingsScreen() {
       }
     }).catch(() => {}).finally(() => setTwoFALoading(false));
 
-    // Register push token
-    ensurePushToken();
+    if (isPushNotificationsSupported()) {
+      ensurePushToken();
+    }
 
     (async () => {
       const caps = await getBiometricCapabilities();
@@ -258,7 +259,18 @@ export default function SettingsScreen() {
             <View style={[styles.card, { alignItems: 'center', padding: 20 }]}><ActivityIndicator color="#3AADFF" /></View>
           ) : (
             <View style={styles.card}>
-              <ToggleRow label="Push Notifications" sublabel="Receive alerts on your device" value={pushNotif} onChange={handlePushToggle} saving={prefsSaving} />
+              <ToggleRow
+                label="Push Notifications"
+                sublabel={
+                  isPushNotificationsSupported()
+                    ? 'Receive alerts on your device'
+                    : 'Requires a development or production build (not available in Expo Go)'
+                }
+                value={pushNotif}
+                onChange={handlePushToggle}
+                saving={prefsSaving}
+                disabled={!isPushNotificationsSupported()}
+              />
               <View style={styles.divider} />
               <ToggleRow label="Email Alerts" sublabel="Get updates via email" value={emailNotif} onChange={handleEmailToggle} saving={prefsSaving} />
             </View>

@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FX Navigators — Home Mock v3 (Minimal Feed)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --bg: #030608;
+      --group: rgba(255, 255, 255, 0.045);
+      --group-hover: rgba(255, 255, 255, 0.06);
+      --line: rgba(255, 255, 255, 0.06);
+      --primary: #3AADFF;
+      --gold: #FFC107;
+      --green: #4ADE80;
+      --red: #FF5A5A;
+      --muted: rgba(255, 255, 255, 0.42);
+      --text: #fff;
+      --phone-w: 390px;
+      --phone-h: 844px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'DM Sans', -apple-system, sans-serif;
+      background: #080b10;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 28px 16px 40px;
+      color: var(--text);
+    }
+
+    .intro {
+      text-align: center;
+      max-width: 520px;
+      margin-bottom: 24px;
+    }
+
+    .intro h1 {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      margin-bottom: 6px;
+    }
+
+    .intro p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.55;
+    }
+
+    .tag {
+      display: inline-block;
+      margin-top: 12px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--primary);
+      border: 1px solid rgba(58,173,255,0.3);
+      padding: 4px 10px;
+      border-radius: 999px;
+    }
+
+    .shell {
+      width: calc(var(--phone-w) + 20px);
+      padding: 10px;
+      border-radius: 42px;
+      background: #141820;
+      box-shadow: 0 32px 64px rgba(0,0,0,0.5);
+    }
+
+    .phone {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      border-radius: 34px;
+      overflow: hidden;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .phone::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 50% 0%, rgba(58,173,255,0.07) 0%, transparent 45%);
+      pointer-events: none;
+    }
+
+    .top {
+      position: relative;
+      z-index: 1;
+      padding: 14px 20px 0;
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+    }
+
+    .logo-text {
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+    }
+
+    .logo-text span {
+      display: block;
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0;
+      margin-top: 2px;
+    }
+
+    .header-icons {
+      display: flex;
+      gap: 14px;
+      color: rgba(255,255,255,0.85);
+    }
+
+    .date-line {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .greeting {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.6px;
+      line-height: 1.1;
+      margin-bottom: 22px;
+    }
+
+    .greeting em {
+      font-style: normal;
+      color: var(--gold);
+    }
+
+    /* Shortcut strip — circular, not cards */
+    .shortcuts {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      padding: 0 4px;
+    }
+
+    .shortcut {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      width: 62px;
+    }
+
+    .shortcut-circle {
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: var(--group);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .shortcut-label {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.2;
+    }
+
+    .scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 20px 12px;
+      position: relative;
+      z-index: 1;
+      scrollbar-width: none;
+    }
+    .scroll::-webkit-scrollbar { display: none; }
+
+    .label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.7px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+
+    /* Horizontal course scroll */
+    .carousel {
+      display: flex;
+      gap: 12px;
+      overflow-x: auto;
+      margin: 0 -20px 28px;
+      padding: 0 20px 4px;
+      scrollbar-width: none;
+    }
+    .carousel::-webkit-scrollbar { display: none; }
+
+    .course-tile {
+      flex: 0 0 156px;
+      border-radius: 14px;
+      overflow: hidden;
+      background: var(--group);
+      border: 1px solid var(--line);
+    }
+
+    .course-cover {
+      height: 88px;
+      background: linear-gradient(160deg, rgba(58,173,255,0.2), rgba(255,255,255,0.03));
+      position: relative;
+    }
+
+    .course-cover .pct {
+      position: absolute;
+      bottom: 8px;
+      left: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      background: rgba(0,0,0,0.55);
+      padding: 3px 7px;
+      border-radius: 999px;
+      backdrop-filter: blur(4px);
+    }
+
+    .course-tile-body {
+      padding: 10px 10px 12px;
+    }
+
+    .course-tile-title {
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.25;
+      margin-bottom: 4px;
+    }
+
+    .course-tile-sub {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* iOS-style grouped list */
+    .group {
+      background: var(--group);
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      padding: 14px 14px;
+      gap: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .row:last-child { border-bottom: none; }
+
+    .row-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .row-body { flex: 1; min-width: 0; }
+
+    .row-title {
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .row-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 1px;
+    }
+
+    .row-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .row-value {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .pill {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 5px;
+    }
+
+    .pill.buy {
+      background: rgba(74,222,128,0.12);
+      color: var(--green);
+    }
+
+    .pill.live {
+      background: rgba(255,90,90,0.12);
+      color: #ff8080;
+    }
+
+    /* Activity — timeline style */
+    .timeline {
+      margin-bottom: 20px;
+    }
+
+    .timeline-item {
+      display: flex;
+      gap: 12px;
+      padding: 10px 0;
+    }
+
+    .timeline-line {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      width: 12px;
+      padding-top: 5px;
+    }
+
+    .timeline-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      flex-shrink: 0;
+    }
+
+    .timeline-stem {
+      flex: 1;
+      width: 1px;
+      background: var(--line);
+      margin-top: 6px;
+      min-height: 24px;
+    }
+
+    .timeline-item:last-child .timeline-stem { display: none; }
+
+    .timeline-content { flex: 1; padding-bottom: 4px; }
+
+    .timeline-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .timeline-meta {
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    /* Tab bar — minimal line icons only */
+    .tabs {
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 8px 26px;
+      border-top: 1px solid var(--line);
+      background: rgba(3,6,8,0.96);
+      position: relative;
+      z-index: 2;
+    }
+
+    .tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      color: var(--muted);
+      font-size: 9px;
+      font-weight: 600;
+    }
+
+    .tab.on { color: var(--primary); }
+
+    .compare {
+      max-width: 520px;
+      margin-top: 28px;
+      padding: 16px 18px;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .compare h2 {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .compare p {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .compare strong { color: rgba(255,255,255,0.85); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="intro">
+    <h1>Home — Mock v3</h1>
+    <p>Different direction: minimal feed, no stat boxes, no hero cards. Preview only — app untouched.</p>
+    <span class="tag">v3 · minimal / native list</span>
+  </div>
+
+  <div class="shell">
+    <div class="phone">
+      <div class="top">
+        <div class="header-row">
+          <div class="logo-text">
+            FX NAVIGATORS
+            <span>Forex Education</span>
+          </div>
+          <div class="header-icons">
+            <i data-lucide="bell" style="width:20px;height:20px"></i>
+            <i data-lucide="user-round" style="width:20px;height:20px"></i>
+          </div>
+        </div>
+
+        <div class="date-line">Wednesday, June 17</div>
+        <div class="greeting">Good evening, <em>Alex</em></div>
+
+        <!-- Circular shortcuts instead of card grid -->
+        <div class="shortcuts">
+          <div class="shortcut">
+            <div class="shortcut-circle" style="color:#3AADFF">
+              <i data-lucide="video" style="width:22px;height:22px"></i>
+            </div>
+            <span class="shortcut-label">Live</span>
+          </div>
+          <div class="shortcut">
+            <div class="shortcut-circle" style="color:#4ADE80">
+              <i data-lucide="candlestick-chart" style="width:22px;height:22px"></i>
+            </div>
+            <span class="shortcut-label">Signals</span>
+          </div>
+          <div class="shortcut">
+            <div class="shortcut-circle" style="color:#22D3EE">
+              <i data-lucide="messages-square" style="width:22px;height:22px"></i>
+            </div>
+            <span class="shortcut-label">Chat</span>
+          </div>
+          <div class="shortcut">
+            <div class="shortcut-circle" style="color:#A78BFA">
+              <i data-lucide="award" style="width:22px;height:22px"></i>
+            </div>
+            <span class="shortcut-label">Certs</span>
+          </div>
+          <div class="shortcut">
+            <div class="shortcut-circle" style="color:#FFC107">
+              <i data-lucide="wallet" style="width:22px;height:22px"></i>
+            </div>
+            <span class="shortcut-label">Earn</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="scroll">
+        <div class="label">Continue</div>
+        <div class="carousel">
+          <div class="course-tile">
+            <div class="course-cover"><span class="pct">62%</span></div>
+            <div class="course-tile-body">
+              <div class="course-tile-title">Advanced Price Action</div>
+              <div class="course-tile-sub">Module 4 · 12 lessons</div>
+            </div>
+          </div>
+          <div class="course-tile">
+            <div class="course-cover"><span class="pct">18%</span></div>
+            <div class="course-tile-body">
+              <div class="course-tile-title">Risk Management 101</div>
+              <div class="course-tile-sub">Module 1 · 8 lessons</div>
+            </div>
+          </div>
+          <div class="course-tile">
+            <div class="course-cover"><span class="pct">91%</span></div>
+            <div class="course-tile-body">
+              <div class="course-tile-title">Forex Foundations</div>
+              <div class="course-tile-sub">Final quiz left</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="label">At a glance</div>
+        <div class="group">
+          <div class="row">
+            <div class="row-icon" style="background:rgba(58,173,255,0.12);color:#3AADFF">
+              <i data-lucide="graduation-cap" style="width:16px;height:16px"></i>
+            </div>
+            <div class="row-body">
+              <div class="row-title">Enrolled courses</div>
+              <div class="row-sub">2 in progress</div>
+            </div>
+            <div class="row-right">
+              <span class="row-value">3</span>
+              <i data-lucide="chevron-right" style="width:16px;height:16px;color:rgba(255,255,255,0.2)"></i>
+            </div>
+          </div>
+          <div class="row">
+            <div class="row-icon" style="background:rgba(74,222,128,0.12);color:#4ADE80">
+              <i data-lucide="radio" style="width:16px;height:16px"></i>
+            </div>
+            <div class="row-body">
+              <div class="row-title">Active signals</div>
+              <div class="row-sub">EUR/USD · GBP/JPY</div>
+            </div>
+            <div class="row-right">
+              <span class="pill buy">2 live</span>
+              <i data-lucide="chevron-right" style="width:16px;height:16px;color:rgba(255,255,255,0.2)"></i>
+            </div>
+          </div>
+          <div class="row">
+            <div class="row-icon" style="background:rgba(167,139,250,0.12);color:#A78BFA">
+              <i data-lucide="award" style="width:16px;height:16px"></i>
+            </div>
+            <div class="row-body">
+              <div class="row-title">Certificates</div>
+              <div class="row-sub">Forex Foundations</div>
+            </div>
+            <div class="row-right">
+              <span class="row-value">1</span>
+              <i data-lucide="chevron-right" style="width:16px;height:16px;color:rgba(255,255,255,0.2)"></i>
+            </div>
+          </div>
+        </div>
+
+        <div class="label">Recent</div>
+        <div class="timeline">
+          <div class="timeline-item">
+            <div class="timeline-line">
+              <div class="timeline-dot"></div>
+              <div class="timeline-stem"></div>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-title">New BUY signal — EUR/USD</div>
+              <div class="timeline-meta">2 hours ago</div>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-line">
+              <div class="timeline-dot" style="background:#4ADE80"></div>
+              <div class="timeline-stem"></div>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-title">Completed Module 3 quiz</div>
+              <div class="timeline-meta">Yesterday · Advanced Price Action</div>
+            </div>
+          </div>
+          <div class="timeline-item">
+            <div class="timeline-line">
+              <div class="timeline-dot" style="background:#A78BFA"></div>
+            </div>
+            <div class="timeline-content">
+              <div class="timeline-title">Live session starting soon</div>
+              <div class="timeline-meta">Tomorrow 7:00 PM</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <nav class="tabs">
+        <div class="tab on">
+          <i data-lucide="home" style="width:20px;height:20px"></i>
+          Home
+        </div>
+        <div class="tab">
+          <i data-lucide="book-open" style="width:20px;height:20px"></i>
+          Courses
+        </div>
+        <div class="tab">
+          <i data-lucide="message-square" style="width:20px;height:20px"></i>
+          Chat
+        </div>
+        <div class="tab">
+          <i data-lucide="line-chart" style="width:20px;height:20px"></i>
+          Signals
+        </div>
+        <div class="tab">
+          <i data-lucide="ellipsis" style="width:20px;height:20px"></i>
+          More
+        </div>
+      </nav>
+    </div>
+  </div>
+
+  <div class="compare">
+    <h2>How v3 differs from v2</h2>
+    <p>
+      <strong>No stat card boxes</strong> — metrics live in a tappable list.<br>
+      <strong>No hero card</strong> — courses scroll horizontally like stories.<br>
+      <strong>Circular shortcuts</strong> instead of a 2×2 grid.<br>
+      <strong>Timeline feed</strong> for activity instead of chunky cards.<br>
+      Lighter surfaces, less navy chrome, more breathing room.
+    </p>
+  </div>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

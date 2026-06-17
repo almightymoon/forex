@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
+import type { AppIconName } from '../components/AppIcon';
+import { colors } from '../constants/theme';
 import type { ActivityItem } from './normalize';
 
-export type QuickAccessIcon = keyof typeof Ionicons.glyphMap;
+export type QuickAccessIcon = AppIconName;
 
 export type QuickAccessItem = {
   id: string;
@@ -22,18 +23,17 @@ function defaultOrder(id: string): number {
 }
 
 export const QUICK_ACCESS_CATALOG: QuickAccessItem[] = [
-  { id: 'live-sessions', icon: 'videocam-outline', label: 'Live Sessions', color: '#3AADFF', route: '/(app)/live-sessions' },
-  { id: 'signals', icon: 'bar-chart-outline', label: 'Signals', color: '#4ADE80', route: '/(app)/signals' },
-  { id: 'community', icon: 'people-outline', label: 'Community', color: '#22D3EE', route: '/(app)/community' },
-  { id: 'certificates', icon: 'shield-outline', label: 'Certificates', color: '#A78BFA', route: '/(app)/certificates' },
-  { id: 'trading-view', icon: 'trending-up-outline', label: 'Live Charts', color: '#F59E0B', route: '/(app)/trading-view' },
-  { id: 'progress', icon: 'stats-chart-outline', label: 'My Progress', color: '#E879F9', route: '/(app)/progress' },
-  { id: 'referrals', icon: 'share-social-outline', label: 'Referrals', color: '#FFC107', route: '/(app)/referrals' },
-  { id: 'rank-rewards', icon: 'trophy-outline', label: 'Rank Rewards', color: '#F59E0B', route: '/(app)/rank-rewards' },
-  { id: 'assignments', icon: 'clipboard-outline', label: 'Assignments', color: '#22D3EE', route: '/(app)/assignments' },
-  { id: 'mt5', icon: 'swap-horizontal-outline', label: 'MT5', color: '#4ADE80', route: '/(app)/mt5' },
-  { id: 'subscription', icon: 'layers-outline', label: 'Subscription', color: '#3AADFF', route: '/(app)/subscription' },
-  { id: 'support', icon: 'headset-outline', label: 'Support', color: '#E879F9', route: '/(app)/support' },
+  { id: 'live-sessions', icon: 'video', label: 'Live Sessions', color: colors.cyan, route: '/(app)/live-sessions' },
+  { id: 'signals', icon: 'candlestick', label: 'Signals', color: colors.success, route: '/(app)/signals' },
+  { id: 'community', icon: 'users', label: 'Community', color: colors.blue, route: '/(app)/community' },
+  { id: 'certificates', icon: 'award', label: 'Certificates', color: colors.cyan, route: '/(app)/certificates' },
+  { id: 'trading-view', icon: 'live-charts', label: 'Live Charts', color: colors.gold, route: '/(app)/trading-view' },
+  { id: 'progress', icon: 'bar-chart', label: 'My Progress', color: colors.blue, route: '/(app)/progress' },
+  { id: 'referrals', icon: 'share', label: 'Referrals', color: colors.gold, route: '/(app)/referrals' },
+  { id: 'rank-rewards', icon: 'trophy', label: 'Rank Rewards', color: colors.gold, route: '/(app)/rank-rewards' },
+  { id: 'assignments', icon: 'clipboard', label: 'Assignments', color: colors.cyan, route: '/(app)/assignments' },
+  { id: 'subscription', icon: 'layers', label: 'Subscription', color: colors.blue, route: '/(app)/subscription' },
+  { id: 'support', icon: 'headphones', label: 'Support', color: colors.blue, route: '/(app)/support' },
 ];
 
 const CATALOG_BY_ID = new Map(QUICK_ACCESS_CATALOG.map((item) => [item.id, item]));

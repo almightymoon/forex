@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FX Navigators — Home v5 · Institutional</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --black: #000000;
+      --bg: #030508;
+      --panel: rgba(255, 255, 255, 0.025);
+      --panel-raised: rgba(255, 255, 255, 0.04);
+      --line: rgba(255, 255, 255, 0.08);
+      --line-soft: rgba(255, 255, 255, 0.05);
+      --silver: rgba(255, 255, 255, 0.72);
+      --muted: rgba(255, 255, 255, 0.42);
+      --dim: rgba(255, 255, 255, 0.28);
+      --cyan: #00D4FF;
+      --blue: #3AADFF;
+      --blue-deep: #0060E6;
+      --gold: #FFC107;
+      --green: #34D399;
+      --red: #F87171;
+      --phone-w: 390px;
+      --phone-h: 844px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #05080d;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 36px 16px 56px;
+      color: #fff;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .intro {
+      text-align: center;
+      max-width: 580px;
+      margin-bottom: 32px;
+    }
+
+    .intro h1 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.6px;
+      margin-bottom: 10px;
+    }
+
+    .intro p {
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    .intro .tag {
+      display: inline-block;
+      margin-top: 16px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 1.2px;
+      text-transform: uppercase;
+      color: var(--cyan);
+      border: 1px solid rgba(0, 212, 255, 0.25);
+      padding: 6px 14px;
+      border-radius: 4px;
+      background: rgba(0, 212, 255, 0.04);
+    }
+
+    .frame {
+      width: calc(var(--phone-w) + 28px);
+      padding: 14px;
+      border-radius: 48px;
+      background: #0c1018;
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.04),
+        0 60px 120px rgba(0,0,0,0.65);
+    }
+
+    .phone {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      border-radius: 38px;
+      overflow: hidden;
+      position: relative;
+      background: var(--black);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Ambient — matches logo glow, very subtle */
+    .ambient {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 90% 45% at 50% -5%, rgba(0, 212, 255, 0.07) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 35% at 80% 20%, rgba(58, 173, 255, 0.05) 0%, transparent 50%),
+        var(--bg);
+      pointer-events: none;
+    }
+
+    .accent-bar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--cyan) 30%, var(--blue) 70%, transparent);
+      opacity: 0.6;
+      z-index: 10;
+    }
+
+    .scroll {
+      flex: 1;
+      overflow-y: auto;
+      position: relative;
+      z-index: 2;
+      padding: 54px 22px 20px;
+      scrollbar-width: none;
+    }
+    .scroll::-webkit-scrollbar { display: none; }
+
+    /* ── Header ── */
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    .logo-wrap img {
+      height: 38px;
+      width: auto;
+      display: block;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .icon-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--silver);
+      position: relative;
+    }
+
+    .badge-dot {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 6px rgba(0,212,255,0.6);
+    }
+
+    .avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid rgba(0, 212, 255, 0.35);
+      background: linear-gradient(145deg, rgba(58,173,255,0.15), rgba(0,0,0,0.5));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--cyan);
+    }
+
+    /* ── Trust strip ── */
+    .trust-strip {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--line-soft);
+      background: var(--panel);
+      margin-bottom: 28px;
+      overflow: hidden;
+    }
+
+    .trust-item {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .trust-item + .trust-item {
+      border-left: 1px solid var(--line-soft);
+      padding-left: 12px;
+      margin-left: 12px;
+    }
+
+    .trust-item svg { color: var(--cyan); flex-shrink: 0; }
+
+    .trust-text {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      color: var(--muted);
+      line-height: 1.3;
+    }
+
+    .trust-text strong {
+      display: block;
+      font-size: 11px;
+      color: var(--silver);
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    .live-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      box-shadow: 0 0 8px rgba(52,211,153,0.5);
+      flex-shrink: 0;
+    }
+
+    /* ── Greeting ── */
+    .date-line {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--dim);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+
+    .greeting {
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.7px;
+      line-height: 1.12;
+      color: #fff;
+      margin-bottom: 28px;
+    }
+
+    .greeting em {
+      font-style: normal;
+      color: var(--gold);
+      font-weight: 700;
+    }
+
+    /* ── Unified metrics panel (banking-style) ── */
+    .metrics-panel {
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--panel-raised);
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      margin-bottom: 24px;
+      overflow: hidden;
+    }
+
+    .metric {
+      padding: 18px 14px;
+      text-align: center;
+      position: relative;
+    }
+
+    .metric + .metric::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 20%;
+      height: 60%;
+      width: 1px;
+      background: var(--line-soft);
+    }
+
+    .metric-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 24px;
+      font-weight: 600;
+      letter-spacing: -1px;
+      color: #fff;
+      margin-bottom: 4px;
+    }
+
+    .metric-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .metric-sub {
+      font-size: 9px;
+      color: var(--dim);
+      margin-top: 4px;
+    }
+
+    /* ── Section ── */
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+      color: var(--silver);
+    }
+
+    .section-action {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--blue);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    /* ── Primary learning card — logo-matched metallic edge ── */
+    .learning-card {
+      border-radius: 12px;
+      padding: 1px;
+      background: linear-gradient(145deg, rgba(0,212,255,0.45), rgba(58,173,255,0.15) 40%, rgba(255,255,255,0.06) 100%);
+      margin-bottom: 28px;
+    }
+
+    .learning-inner {
+      border-radius: 11px;
+      background: linear-gradient(160deg, rgba(12,20,36,0.98) 0%, rgba(4,8,16,0.99) 100%);
+      padding: 20px;
+    }
+
+    .learning-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 16px;
+    }
+
+    .learning-tag {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--cyan);
+    }
+
+    .learning-pct {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--silver);
+    }
+
+    .learning-title {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.4px;
+      line-height: 1.25;
+      margin-bottom: 6px;
+    }
+
+    .learning-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 18px;
+    }
+
+    .progress-track {
+      height: 3px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.06);
+      margin-bottom: 18px;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 62%;
+      border-radius: 2px;
+      background: linear-gradient(90deg, var(--blue-deep), var(--cyan));
+    }
+
+    .learning-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .learning-meta {
+      font-size: 11px;
+      color: var(--dim);
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: 'Inter', sans-serif;
+      font-size: 13px;
+      font-weight: 600;
+      color: #000;
+      background: linear-gradient(180deg, #fff 0%, #e8eef4 100%);
+      border: none;
+      padding: 10px 18px;
+      border-radius: 8px;
+      letter-spacing: -0.1px;
+      cursor: default;
+    }
+
+    /* ── Research alert (signal) — institutional format ── */
+    .research-card {
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: var(--panel);
+      margin-bottom: 28px;
+      overflow: hidden;
+    }
+
+    .research-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--line-soft);
+      background: rgba(255,255,255,0.015);
+    }
+
+    .research-label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .research-label svg { color: var(--green); }
+
+    .research-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--dim);
+    }
+
+    .research-body { padding: 16px 18px; }
+
+    .research-pair-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .research-pair {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 20px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+
+    .side-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+
+    .side-badge.buy {
+      color: var(--green);
+      background: rgba(52,211,153,0.1);
+      border: 1px solid rgba(52,211,153,0.2);
+    }
+
+    .research-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1px;
+      background: var(--line-soft);
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid var(--line-soft);
+    }
+
+    .research-cell {
+      background: rgba(0,0,0,0.35);
+      padding: 12px 10px;
+      text-align: center;
+    }
+
+    .research-cell-label {
+      font-size: 9px;
+      font-weight: 600;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--dim);
+      margin-bottom: 4px;
+    }
+
+    .research-cell-val {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--silver);
+    }
+
+    .research-cell-val.sl { color: var(--red); }
+    .research-cell-val.tp { color: var(--green); }
+
+    .research-footer {
+      margin-top: 14px;
+      font-size: 11px;
+      color: var(--dim);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .research-footer svg { color: var(--cyan); width: 12px; height: 12px; }
+
+    /* ── Navigation links — understated pro ── */
+    .nav-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1px;
+      background: var(--line-soft);
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      margin-bottom: 28px;
+    }
+
+    .nav-cell {
+      background: var(--panel);
+      padding: 16px 16px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: default;
+    }
+
+    .nav-cell:hover { background: rgba(255,255,255,0.035); }
+
+    .nav-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--line-soft);
+      background: rgba(255,255,255,0.02);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--silver);
+      flex-shrink: 0;
+    }
+
+    .nav-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--silver);
+      letter-spacing: -0.1px;
+    }
+
+    .nav-sub {
+      font-size: 11px;
+      color: var(--dim);
+      margin-top: 1px;
+    }
+
+    /* ── Audit log activity ── */
+    .audit-list {
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      overflow: hidden;
+    }
+
+    .audit-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line-soft);
+      background: var(--panel);
+    }
+
+    .audit-row:last-child { border-bottom: none; }
+
+    .audit-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      color: var(--dim);
+      width: 32px;
+      flex-shrink: 0;
+      padding-top: 2px;
+    }
+
+    .audit-body strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--silver);
+      margin-bottom: 2px;
+    }
+
+    .audit-body span {
+      font-size: 11px;
+      color: var(--dim);
+    }
+
+    /* ── Tab bar ── */
+    .tabs {
+      position: relative;
+      z-index: 5;
+      display: flex;
+      justify-content: space-around;
+      padding: 12px 8px 30px;
+      border-top: 1px solid var(--line-soft);
+      background: rgba(0,0,0,0.92);
+      backdrop-filter: blur(20px);
+    }
+
+    .tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      font-size: 9px;
+      font-weight: 500;
+      letter-spacing: 0.2px;
+      color: var(--dim);
+    }
+
+    .tab.active {
+      color: var(--cyan);
+    }
+
+    .tab svg {
+      opacity: 0.45;
+    }
+
+    .tab.active svg {
+      opacity: 1;
+      color: var(--cyan);
+    }
+
+    /* Notes */
+    .notes {
+      max-width: 580px;
+      margin-top: 32px;
+      padding: 22px 24px;
+      border-radius: 12px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .notes h2 {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      letter-spacing: -0.2px;
+    }
+
+    .notes ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .notes li {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.55;
+      padding-left: 14px;
+      position: relative;
+    }
+
+    .notes li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 7px;
+      width: 4px;
+      height: 4px;
+      border-radius: 1px;
+      background: var(--cyan);
+    }
+
+    .notes li strong { color: var(--silver); font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="intro">
+    <h1>Home v5 — Institutional Trust</h1>
+    <p>Built around your actual logo aesthetic: metallic precision, cyan accent, no gimmicks. Feels like a private client portal — not a startup dashboard. Preview only.</p>
+    <span class="tag">v5 · trust · logo-matched</span>
+  </div>
+
+  <div class="frame">
+    <div class="phone">
+      <div class="ambient"></div>
+      <div class="accent-bar"></div>
+
+      <div class="scroll">
+        <!-- Real logo -->
+        <header class="header">
+          <div class="logo-wrap">
+            <img src="../assets/images/logo.png" alt="FX Navigators" />
+          </div>
+          <div class="header-right">
+            <div class="icon-btn">
+              <i data-lucide="bell" style="width:17px;height:17px"></i>
+              <span class="badge-dot"></span>
+            </div>
+            <div class="avatar">AJ</div>
+          </div>
+        </header>
+
+        <!-- Trust strip -->
+        <div class="trust-strip">
+          <div class="trust-item">
+            <i data-lucide="shield-check" style="width:14px;height:14px"></i>
+            <div class="trust-text">
+              <strong>Verified Member</strong>
+              Since 2024
+            </div>
+          </div>
+          <div class="trust-item">
+            <i data-lucide="badge-check" style="width:14px;height:14px"></i>
+            <div class="trust-text">
+              <strong>Pro Plan</strong>
+              Active
+            </div>
+          </div>
+          <div class="trust-item">
+            <span class="live-dot"></span>
+            <div class="trust-text">
+              <strong>Markets</strong>
+              Open
+            </div>
+          </div>
+        </div>
+
+        <!-- Greeting -->
+        <div class="date-line">Wednesday · June 17</div>
+        <h1 class="greeting">Good evening, <em>Alex</em></h1>
+
+        <!-- Unified metrics -->
+        <div class="metrics-panel">
+          <div class="metric">
+            <div class="metric-value">3</div>
+            <div class="metric-label">Courses</div>
+            <div class="metric-sub">2 active</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value">12</div>
+            <div class="metric-label">Signals</div>
+            <div class="metric-sub">2 live</div>
+          </div>
+          <div class="metric">
+            <div class="metric-value">1</div>
+            <div class="metric-label">Certified</div>
+            <div class="metric-sub">Earned</div>
+          </div>
+        </div>
+
+        <!-- Learning path -->
+        <div class="section-head">
+          <span class="section-title">Learning Path</span>
+          <a class="section-action" href="#">
+            All courses
+            <i data-lucide="chevron-right" style="width:14px;height:14px"></i>
+          </a>
+        </div>
+
+        <div class="learning-card">
+          <div class="learning-inner">
+            <div class="learning-top">
+              <span class="learning-tag">In Progress</span>
+              <span class="learning-pct">62%</span>
+            </div>
+            <div class="learning-title">Advanced Price Action</div>
+            <div class="learning-desc">Module 4 of 8 — Institutional order flow &amp; liquidity concepts.</div>
+            <div class="progress-track"><div class="progress-fill"></div></div>
+            <div class="learning-footer">
+              <span class="learning-meta">Next: Lesson 4.2 · 18 min</span>
+              <button class="btn-primary">
+                Continue
+                <i data-lucide="arrow-right" style="width:14px;height:14px"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Research alert -->
+        <div class="section-head">
+          <span class="section-title">Research Alert</span>
+          <a class="section-action" href="#">
+            All signals
+            <i data-lucide="chevron-right" style="width:14px;height:14px"></i>
+          </a>
+        </div>
+
+        <div class="research-card">
+          <div class="research-header">
+            <div class="research-label">
+              <i data-lucide="radio" style="width:13px;height:13px"></i>
+              Live Signal
+            </div>
+            <span class="research-time">Updated 14:32 UTC</span>
+          </div>
+          <div class="research-body">
+            <div class="research-pair-row">
+              <span class="research-pair">EUR/USD</span>
+              <span class="side-badge buy">BUY</span>
+            </div>
+            <div class="research-grid">
+              <div class="research-cell">
+                <div class="research-cell-label">Entry</div>
+                <div class="research-cell-val">1.0842</div>
+              </div>
+              <div class="research-cell">
+                <div class="research-cell-label">Stop</div>
+                <div class="research-cell-val sl">1.0810</div>
+              </div>
+              <div class="research-cell">
+                <div class="research-cell-label">Target</div>
+                <div class="research-cell-val tp">1.0895</div>
+              </div>
+            </div>
+            <div class="research-footer">
+              <i data-lucide="info"></i>
+              Issued by FX Navigators Research Desk
+            </div>
+          </div>
+        </div>
+
+        <!-- Pro navigation -->
+        <div class="section-head">
+          <span class="section-title">Platform</span>
+        </div>
+
+        <div class="nav-grid">
+          <div class="nav-cell">
+            <div class="nav-icon"><i data-lucide="video" style="width:17px;height:17px"></i></div>
+            <div>
+              <div class="nav-label">Live Sessions</div>
+              <div class="nav-sub">Today 7:00 PM</div>
+            </div>
+          </div>
+          <div class="nav-cell">
+            <div class="nav-icon"><i data-lucide="messages-square" style="width:17px;height:17px"></i></div>
+            <div>
+              <div class="nav-label">Community</div>
+              <div class="nav-sub">Member forum</div>
+            </div>
+          </div>
+          <div class="nav-cell">
+            <div class="nav-icon"><i data-lucide="line-chart" style="width:17px;height:17px"></i></div>
+            <div>
+              <div class="nav-label">Live Charts</div>
+              <div class="nav-sub">TradingView</div>
+            </div>
+          </div>
+          <div class="nav-cell">
+            <div class="nav-icon"><i data-lucide="award" style="width:17px;height:17px"></i></div>
+            <div>
+              <div class="nav-label">Certificates</div>
+              <div class="nav-sub">1 earned</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Audit log -->
+        <div class="section-head">
+          <span class="section-title">Recent Activity</span>
+        </div>
+
+        <div class="audit-list">
+          <div class="audit-row">
+            <span class="audit-time">2h</span>
+            <div class="audit-body">
+              <strong>EUR/USD BUY signal published</strong>
+              <span>Research Desk · Entry 1.0842</span>
+            </div>
+          </div>
+          <div class="audit-row">
+            <span class="audit-time">1d</span>
+            <div class="audit-body">
+              <strong>Module 3 assessment completed</strong>
+              <span>Advanced Price Action · Score 94%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <nav class="tabs">
+        <div class="tab active">
+          <i data-lucide="home" style="width:20px;height:20px"></i>
+          Home
+        </div>
+        <div class="tab">
+          <i data-lucide="book-open" style="width:20px;height:20px"></i>
+          Courses
+        </div>
+        <div class="tab">
+          <i data-lucide="message-square" style="width:20px;height:20px"></i>
+          Community
+        </div>
+        <div class="tab">
+          <i data-lucide="candlestick-chart" style="width:20px;height:20px"></i>
+          Signals
+        </div>
+        <div class="tab">
+          <i data-lucide="layout-grid" style="width:20px;height:20px"></i>
+          More
+        </div>
+      </nav>
+    </div>
+  </div>
+
+  <div class="notes">
+    <h2>What makes v5 feel trustworthy</h2>
+    <ul>
+      <li><strong>Your real logo</strong> — matches the metallic / cyan brand, not a placeholder icon</li>
+      <li><strong>Trust strip</strong> — Verified Member, Pro Plan, Markets Open (credibility cues)</li>
+      <li><strong>Banking-style metrics</strong> — one unified panel, not scattered colorful cards</li>
+      <li><strong>Research Alert</strong> — signals framed as institutional research, with UTC timestamp &amp; desk attribution</li>
+      <li><strong>White primary button</strong> — confident CTA like premium fintech apps (Revolut, Amex)</li>
+      <li><strong>Sharp geometry</strong> — 8–12px radius, hairline borders, no bento/sparkline gimmicks</li>
+      <li><strong>Mono typography</strong> — JetBrains Mono for all prices, dates, and metrics</li>
+    </ul>
+  </div>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

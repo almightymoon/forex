@@ -118,7 +118,7 @@ export default function SignalsScreen() {
                 takeProfit={s.takeProfit}
                 status={s.status}
                 pips={s.pips}
-                createdAt={s.createdAt ? new Date(s.createdAt).toLocaleDateString() : undefined}
+                createdAt={s.createdAt}
               />
             ))}
           </View>

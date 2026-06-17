@@ -43,6 +43,7 @@ const packageRoutes = require('./routes/packages');
 const packagePerksRoutes = require('./routes/packagePerks');
 const rankRewardRoutes = require('./routes/rankRewards');
 const supportRoutes = require('./routes/support');
+const newsRoutes = require('./routes/news');
 const devRoutes = require('./routes/dev');
 const { buildCoursePackageFilter, getUserPackagePrice, canAccessCourseByPackage } = require('./utils/coursePackageAccess');
 const { initializeWebSocket } = require('./websocket');
@@ -618,6 +619,7 @@ app.use('/api/users', checkSessionTimeout, authenticateToken, requirePackageSubs
 app.use('/api/courses', checkSessionTimeout, authenticateToken, requirePackageSubscription, courseRoutes);
 app.use('/api/sessions', checkSessionTimeout, authenticateToken, requirePackageSubscription, sessionRoutes);
 app.use('/api/signals', checkSessionTimeout, authenticateToken, requirePackageSubscription, signalRoutes);
+app.use('/api/news', checkSessionTimeout, authenticateToken, requirePackageSubscription, newsRoutes);
 app.use('/api/promos', checkSessionTimeout, authenticateToken, requirePackageSubscription, promoRoutes);
 app.use('/api/assignments', checkSessionTimeout, authenticateToken, requirePackageSubscription, assignmentRoutes);
 app.use('/api/upload', checkSessionTimeout, authenticateToken, requirePackageSubscription, uploadRoutes);

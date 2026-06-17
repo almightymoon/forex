@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FX Navigators — Home Mock v2 (Lucide)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --bg: #00050A;
+      --surface: rgba(8, 20, 48, 0.92);
+      --surface-2: rgba(255, 255, 255, 0.04);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-accent: rgba(58, 173, 255, 0.22);
+      --primary: #3AADFF;
+      --primary-dim: rgba(58, 173, 255, 0.14);
+      --gold: #FFC107;
+      --green: #4ADE80;
+      --purple: #A78BFA;
+      --cyan: #22D3EE;
+      --text: #FFFFFF;
+      --text-secondary: rgba(255, 255, 255, 0.55);
+      --text-muted: rgba(255, 255, 255, 0.38);
+      --phone-w: 390px;
+      --phone-h: 844px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #0a0f18;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 20px 48px;
+      color: var(--text);
+    }
+
+    .page-header {
+      text-align: center;
+      max-width: 640px;
+      margin-bottom: 28px;
+    }
+
+    .page-header h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.4px;
+      margin-bottom: 8px;
+    }
+
+    .page-header p {
+      font-size: 14px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+
+    .badge-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      padding: 5px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+      color: var(--text-secondary);
+    }
+
+    .badge.accent {
+      border-color: rgba(58,173,255,0.35);
+      color: var(--primary);
+      background: var(--primary-dim);
+    }
+
+    .phone-shell {
+      position: relative;
+      width: calc(var(--phone-w) + 24px);
+      padding: 12px;
+      border-radius: 44px;
+      background: linear-gradient(145deg, #1a2332 0%, #0d1219 100%);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.06),
+        0 40px 80px rgba(0,0,0,0.55),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+    }
+
+    .phone {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      border-radius: 36px;
+      overflow: hidden;
+      position: relative;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Simulated app background */
+    .phone-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 120% 60% at 50% -10%, rgba(58,173,255,0.18) 0%, transparent 55%),
+        radial-gradient(ellipse 80% 40% at 100% 30%, rgba(167,139,250,0.08) 0%, transparent 50%),
+        linear-gradient(180deg, #020810 0%, #00050A 40%, #010812 100%);
+    }
+
+    .status-bar {
+      position: relative;
+      z-index: 2;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 14px 24px 0;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .status-icons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .scroll {
+      position: relative;
+      z-index: 2;
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 0 20px 16px;
+      scrollbar-width: none;
+    }
+    .scroll::-webkit-scrollbar { display: none; }
+
+    /* Header */
+    .app-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 0 18px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-mark {
+      width: 42px;
+      height: 42px;
+      border-radius: 13px;
+      background: var(--primary-dim);
+      border: 1px solid var(--border-accent);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+    }
+
+    .brand-text .title {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 1.2px;
+      color: rgba(255,255,255,0.92);
+    }
+
+    .brand-text .sub {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .icon-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.07);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      position: relative;
+      cursor: default;
+    }
+
+    .icon-btn .dot {
+      position: absolute;
+      top: 9px;
+      right: 9px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 1.5px solid var(--bg);
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 20px;
+      background: rgba(255,255,255,0.1);
+      border: 1.5px solid rgba(58,173,255,0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255,255,255,0.75);
+    }
+
+    /* Greeting — kept from approved design */
+    .greeting-block { margin-bottom: 22px; }
+    .date-line {
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.42);
+      letter-spacing: 0.3px;
+      margin-bottom: 4px;
+    }
+    .greeting-line {
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      line-height: 1.15;
+    }
+    .greeting-line .name { color: var(--gold); }
+
+    /* Stats row */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 8px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .stat-card.highlight {
+      border-color: rgba(74,222,128,0.35);
+      box-shadow: 0 0 20px rgba(74,222,128,0.08);
+    }
+
+    .stat-icon {
+      width: 38px;
+      height: 38px;
+      border-radius: 11px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stat-value {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    /* Section header */
+    .section-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .section-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-badge {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .section-title {
+      font-size: 17px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+    }
+
+    .section-link {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--primary);
+      text-decoration: none;
+    }
+
+    /* Featured course hero */
+    .course-hero {
+      background: var(--surface);
+      border: 1px solid var(--border-accent);
+      border-radius: 18px;
+      overflow: hidden;
+      margin-bottom: 24px;
+    }
+
+    .course-thumb {
+      height: 120px;
+      background:
+        linear-gradient(135deg, rgba(58,173,255,0.25) 0%, rgba(8,20,48,0.95) 100%);
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .course-thumb::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(180deg, transparent 40%, rgba(8,20,48,0.9) 100%);
+    }
+
+    .play-btn {
+      position: relative;
+      z-index: 1;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      border: 1px solid rgba(255,255,255,0.2);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+
+    .course-body { padding: 14px 16px 16px; }
+
+    .course-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--primary);
+      background: var(--primary-dim);
+      padding: 4px 8px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+    }
+
+    .course-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .course-meta {
+      font-size: 12px;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+    }
+
+    .progress-wrap { display: flex; flex-direction: column; gap: 6px; }
+
+    .progress-top {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .progress-bar {
+      height: 5px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.08);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 62%;
+      border-radius: 999px;
+      background: var(--primary);
+    }
+
+    /* Signal card compact */
+    .signal-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 24px;
+    }
+
+    .signal-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .pair-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .pair {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+    }
+
+    .dir-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .dir-badge.buy {
+      background: rgba(74,222,128,0.12);
+      color: var(--green);
+    }
+
+    .signal-status {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--green);
+    }
+
+    .status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+    }
+
+    .levels {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      background: var(--surface-2);
+      border-radius: 10px;
+      padding: 12px;
+      gap: 8px;
+    }
+
+    .level { text-align: center; }
+    .level-label { font-size: 11px; color: var(--text-muted); font-weight: 500; margin-bottom: 3px; }
+    .level-val { font-size: 13px; font-weight: 700; }
+    .level-val.red { color: #FF5A5A; }
+    .level-val.green { color: var(--green); }
+
+    /* Quick access 2x2 */
+    .quick-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+
+    .quick-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 16px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .quick-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 13px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border: 1px solid transparent;
+    }
+
+    .quick-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.75);
+      line-height: 1.25;
+    }
+
+    .quick-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      margin-top: 2px;
+    }
+
+    /* Tab bar */
+    .tab-bar {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 8px 8px 28px;
+      border-top: 1px solid rgba(58,173,255,0.12);
+      background: rgba(4, 12, 30, 0.97);
+      backdrop-filter: blur(20px);
+    }
+
+    .tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      min-width: 56px;
+    }
+
+    .tab-icon-wrap {
+      width: 34px;
+      height: 28px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tab.active .tab-icon-wrap {
+      background: rgba(58,173,255,0.12);
+    }
+
+    .tab-label {
+      font-size: 9px;
+      font-weight: 500;
+      color: var(--text-muted);
+    }
+
+    .tab.active .tab-label {
+      color: var(--primary);
+      font-weight: 700;
+    }
+
+    .tab.active .tab-icon { color: var(--primary); stroke-width: 2.35; }
+    .tab .tab-icon { color: rgba(255,255,255,0.42); }
+
+    /* Notes panel beside phone on wide screens */
+    .layout {
+      display: flex;
+      gap: 40px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .notes {
+      max-width: 320px;
+      padding-top: 20px;
+    }
+
+    .notes h2 {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 14px;
+      color: var(--text);
+    }
+
+    .notes ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .notes li {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      padding-left: 16px;
+      position: relative;
+    }
+
+    .notes li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 7px;
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--primary);
+    }
+
+    .notes .warn {
+      margin-top: 20px;
+      padding: 12px 14px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,193,7,0.25);
+      background: rgba(255,193,7,0.06);
+      font-size: 12px;
+      color: rgba(255,255,255,0.65);
+      line-height: 1.5;
+    }
+
+    .open-hint {
+      margin-top: 24px;
+      font-size: 12px;
+      color: var(--text-muted);
+      text-align: center;
+    }
+
+    .open-hint code {
+      background: rgba(255,255,255,0.06);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 11px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-header">
+    <h1>Home Screen — Mock v2</h1>
+    <p>Preview only. Uses Lucide icons (same library as the app). Your approved date + greeting is kept. Nothing in the app has been changed yet.</p>
+    <div class="badge-row">
+      <span class="badge accent">Lucide Icons</span>
+      <span class="badge">#3AADFF primary</span>
+      <span class="badge">Dark premium</span>
+      <span class="badge">Preview only</span>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="phone-shell">
+      <div class="phone">
+        <div class="phone-bg"></div>
+
+        <div class="status-bar">
+          <span>9:41</span>
+          <div class="status-icons">
+            <i data-lucide="signal" style="width:14px;height:14px"></i>
+            <i data-lucide="wifi" style="width:14px;height:14px"></i>
+            <i data-lucide="battery-full" style="width:16px;height:16px"></i>
+          </div>
+        </div>
+
+        <div class="scroll">
+          <!-- Header -->
+          <header class="app-header">
+            <div class="brand">
+              <div class="brand-mark">
+                <i data-lucide="compass" style="width:22px;height:22px"></i>
+              </div>
+              <div class="brand-text">
+                <div class="title">THE FX NAVIGATORS</div>
+                <div class="sub">Forex Education Platform</div>
+              </div>
+            </div>
+            <div class="header-actions">
+              <button class="icon-btn" aria-label="Notifications">
+                <i data-lucide="bell" style="width:20px;height:20px"></i>
+                <span class="dot"></span>
+              </button>
+              <div class="avatar">
+                <i data-lucide="user" style="width:18px;height:18px"></i>
+              </div>
+            </div>
+          </header>
+
+          <!-- Greeting (approved) -->
+          <div class="greeting-block">
+            <div class="date-line">Wednesday, June 17</div>
+            <div class="greeting-line">Good evening, <span class="name">Alex</span></div>
+          </div>
+
+          <!-- Stats -->
+          <div class="stats-row">
+            <div class="stat-card">
+              <div class="stat-icon" style="background:rgba(58,173,255,0.14)">
+                <i data-lucide="graduation-cap" style="width:18px;height:18px;color:#3AADFF"></i>
+              </div>
+              <div class="stat-value">3</div>
+              <div class="stat-label">Courses</div>
+            </div>
+            <div class="stat-card highlight">
+              <div class="stat-icon" style="background:rgba(74,222,128,0.14)">
+                <i data-lucide="radio" style="width:18px;height:18px;color:#4ADE80"></i>
+              </div>
+              <div class="stat-value">12</div>
+              <div class="stat-label">Signals</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background:rgba(167,139,250,0.14)">
+                <i data-lucide="award" style="width:18px;height:18px;color:#A78BFA"></i>
+              </div>
+              <div class="stat-value">1</div>
+              <div class="stat-label">Certs</div>
+            </div>
+          </div>
+
+          <!-- Continue learning -->
+          <div class="section-head">
+            <div class="section-title-wrap">
+              <div class="section-badge" style="background:rgba(58,173,255,0.14)">
+                <i data-lucide="book-open" style="width:14px;height:14px;color:#3AADFF"></i>
+              </div>
+              <span class="section-title">Continue Learning</span>
+            </div>
+            <a class="section-link" href="#">
+              All courses
+              <i data-lucide="chevron-right" style="width:14px;height:14px"></i>
+            </a>
+          </div>
+
+          <div class="course-hero">
+            <div class="course-thumb">
+              <div class="play-btn">
+                <i data-lucide="play" style="width:22px;height:22px;margin-left:2px"></i>
+              </div>
+            </div>
+            <div class="course-body">
+              <div class="course-tag">
+                <i data-lucide="layers" style="width:10px;height:10px"></i>
+                In progress
+              </div>
+              <div class="course-title">Advanced Price Action</div>
+              <div class="course-meta">Module 4 · 12 lessons · Instructor: Marcus</div>
+              <div class="progress-wrap">
+                <div class="progress-top">
+                  <span>Progress</span>
+                  <span>62%</span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Latest signal -->
+          <div class="section-head">
+            <div class="section-title-wrap">
+              <div class="section-badge" style="background:rgba(74,222,128,0.14)">
+                <i data-lucide="candlestick-chart" style="width:14px;height:14px;color:#4ADE80"></i>
+              </div>
+              <span class="section-title">Latest Signal</span>
+            </div>
+            <a class="section-link" href="#">
+              View all
+              <i data-lucide="chevron-right" style="width:14px;height:14px"></i>
+            </a>
+          </div>
+
+          <div class="signal-card">
+            <div class="signal-top">
+              <div class="pair-row">
+                <span class="pair">EUR/USD</span>
+                <span class="dir-badge buy">
+                  <i data-lucide="arrow-up-right" style="width:13px;height:13px"></i>
+                  BUY
+                </span>
+              </div>
+              <div class="signal-status">
+                <span class="status-dot"></span>
+                Active
+              </div>
+            </div>
+            <div class="levels">
+              <div class="level">
+                <div class="level-label">Entry</div>
+                <div class="level-val">1.0842</div>
+              </div>
+              <div class="level">
+                <div class="level-label">Stop Loss</div>
+                <div class="level-val red">1.0810</div>
+              </div>
+              <div class="level">
+                <div class="level-label">Take Profit</div>
+                <div class="level-val green">1.0895</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Quick access -->
+          <div class="section-head">
+            <div class="section-title-wrap">
+              <div class="section-badge" style="background:rgba(255,193,7,0.14)">
+                <i data-lucide="layout-grid" style="width:14px;height:14px;color:#FFC107"></i>
+              </div>
+              <span class="section-title">Quick Access</span>
+            </div>
+          </div>
+
+          <div class="quick-grid">
+            <div class="quick-card">
+              <div class="quick-icon" style="background:rgba(58,173,255,0.12);border-color:rgba(58,173,255,0.22);color:#3AADFF">
+                <i data-lucide="video" style="width:20px;height:20px"></i>
+              </div>
+              <div>
+                <div class="quick-label">Live Sessions</div>
+                <div class="quick-sub">Next in 2h</div>
+              </div>
+            </div>
+            <div class="quick-card">
+              <div class="quick-icon" style="background:rgba(34,211,238,0.12);border-color:rgba(34,211,238,0.22);color:#22D3EE">
+                <i data-lucide="users" style="width:20px;height:20px"></i>
+              </div>
+              <div>
+                <div class="quick-label">Community</div>
+                <div class="quick-sub">142 online</div>
+              </div>
+            </div>
+            <div class="quick-card">
+              <div class="quick-icon" style="background:rgba(167,139,250,0.12);border-color:rgba(167,139,250,0.22);color:#A78BFA">
+                <i data-lucide="award" style="width:20px;height:20px"></i>
+              </div>
+              <div>
+                <div class="quick-label">Certificates</div>
+                <div class="quick-sub">1 earned</div>
+              </div>
+            </div>
+            <div class="quick-card">
+              <div class="quick-icon" style="background:rgba(245,158,11,0.12);border-color:rgba(245,158,11,0.22);color:#F59E0B">
+                <i data-lucide="trending-up" style="width:20px;height:20px"></i>
+              </div>
+              <div>
+                <div class="quick-label">Live Charts</div>
+                <div class="quick-sub">TradingView</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab bar -->
+        <nav class="tab-bar">
+          <div class="tab active">
+            <div class="tab-icon-wrap">
+              <i data-lucide="home" class="tab-icon" style="width:20px;height:20px"></i>
+            </div>
+            <span class="tab-label">Home</span>
+          </div>
+          <div class="tab">
+            <div class="tab-icon-wrap">
+              <i data-lucide="graduation-cap" class="tab-icon" style="width:20px;height:20px"></i>
+            </div>
+            <span class="tab-label">Courses</span>
+          </div>
+          <div class="tab">
+            <div class="tab-icon-wrap">
+              <i data-lucide="message-square" class="tab-icon" style="width:20px;height:20px"></i>
+            </div>
+            <span class="tab-label">Community</span>
+          </div>
+          <div class="tab">
+            <div class="tab-icon-wrap">
+              <i data-lucide="candlestick-chart" class="tab-icon" style="width:20px;height:20px"></i>
+            </div>
+            <span class="tab-label">Signals</span>
+          </div>
+          <div class="tab">
+            <div class="tab-icon-wrap">
+              <i data-lucide="layout-grid" class="tab-icon" style="width:20px;height:20px"></i>
+            </div>
+            <span class="tab-label">More</span>
+          </div>
+        </nav>
+      </div>
+    </div>
+
+    <aside class="notes">
+      <h2>What's different in v2</h2>
+      <ul>
+        <li><strong>Kept:</strong> date line + time-based greeting with gold name</li>
+        <li><strong>Lucide icons</strong> throughout — same set already in the app via <code>AppIcon</code></li>
+        <li><strong>Continue Learning</strong> hero card replaces stacked course list — one focus item with progress</li>
+        <li><strong>Quick Access</strong> becomes a 2×2 row layout with subtitle hints (next session, online count)</li>
+        <li><strong>Latest Signal</strong> single featured card instead of a list when space is tight</li>
+        <li>No emoji, no rainbow glow — restrained accent colors only</li>
+      </ul>
+      <div class="warn">
+        This is a static preview. Tell me what to keep, cut, or change — I won't touch the app until you approve.
+      </div>
+    </aside>
+  </div>
+
+  <p class="open-hint">Open in browser: <code>mobile_app/design-mockups/home-v2-mock.html</code></p>
+
+  <script>
+    lucide.createIcons();
+  </script>
+</body>
+</html>

@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -10,10 +9,11 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { AppIcon, type AppIconName } from '../../components/AppIcon';
 import { clearAuth, getStoredUser, AuthUser } from '../../utils/auth';
 
 type MenuItem = {
-  icon: keyof typeof Ionicons.glyphMap;
+  icon: AppIconName;
   label: string;
   route?: string;
   color?: string;
@@ -35,47 +35,47 @@ export default function MoreScreen() {
     {
       title: 'Account',
       items: [
-        { icon: 'person-outline', label: 'My Profile', route: '/(app)/profile' },
-        { icon: 'notifications-outline', label: 'Notifications', route: '/(app)/notifications' },
-        { icon: 'settings-outline', label: 'Settings', route: '/(app)/settings' },
+        { icon: 'user', label: 'My Profile', route: '/(app)/profile' },
+        { icon: 'notifications', label: 'Notifications', route: '/(app)/notifications' },
+        { icon: 'settings', label: 'Settings', route: '/(app)/settings' },
       ],
     },
     {
       title: 'Trading & Learning',
       items: [
-        { icon: 'trending-up-outline', label: 'Trading Signals', route: '/(app)/signals' },
-        { icon: 'pulse-outline', label: 'Live Charts', color: '#F59E0B', route: '/(app)/trading-view' },
-        { icon: 'videocam-outline', label: 'Live Sessions', route: '/(app)/live-sessions' },
-        { icon: 'people-outline', label: 'Community', color: '#A78BFA', route: '/(app)/community' },
-        { icon: 'stats-chart-outline', label: 'My Progress', color: '#E879F9', route: '/(app)/progress' },
-        { icon: 'clipboard-outline', label: 'Assignments', color: '#22D3EE', route: '/(app)/assignments' },
-        { icon: 'swap-horizontal-outline', label: 'MT5 Trading', color: '#4ADE80', route: '/(app)/mt5' },
+        { icon: 'candlestick', label: 'Trading Signals', route: '/(app)/signals' },
+        { icon: 'file-text', label: 'Market News', color: '#00D4FF', route: '/(app)/news' },
+        { icon: 'live-charts', label: 'Live Charts', color: '#F59E0B', route: '/(app)/trading-view' },
+        { icon: 'video', label: 'Live Sessions', route: '/(app)/live-sessions' },
+        { icon: 'users', label: 'Community', color: '#A78BFA', route: '/(app)/community' },
+        { icon: 'bar-chart', label: 'My Progress', color: '#E879F9', route: '/(app)/progress' },
+        { icon: 'clipboard', label: 'Assignments', color: '#22D3EE', route: '/(app)/assignments' },
       ],
     },
     {
       title: 'Earnings',
       items: [
-        { icon: 'share-social-outline', label: 'Referrals', color: '#FFC107', route: '/(app)/referrals' },
-        { icon: 'trophy-outline', label: 'Rank Rewards', color: '#F59E0B', route: '/(app)/rank-rewards' },
-        { icon: 'wallet-outline', label: 'Withdrawals', color: '#4ADE80', route: '/(app)/withdrawals' },
-        { icon: 'ribbon-outline', label: 'Certificates', color: '#E879F9', route: '/(app)/certificates' },
-        { icon: 'document-text-outline', label: 'Certificate Tasks', color: '#A78BFA', route: '/(app)/certificate-assignments' },
-        { icon: 'layers-outline', label: 'My Subscription', color: '#3AADFF', route: '/(app)/subscription' },
+        { icon: 'share', label: 'Referrals', color: '#FFC107', route: '/(app)/referrals' },
+        { icon: 'trophy', label: 'Rank Rewards', color: '#F59E0B', route: '/(app)/rank-rewards' },
+        { icon: 'wallet', label: 'Withdrawals', color: '#4ADE80', route: '/(app)/withdrawals' },
+        { icon: 'award', label: 'Certificates', color: '#E879F9', route: '/(app)/certificates' },
+        { icon: 'file-text', label: 'Certificate Tasks', color: '#A78BFA', route: '/(app)/certificate-assignments' },
+        { icon: 'layers', label: 'My Subscription', color: '#3AADFF', route: '/(app)/subscription' },
       ],
     },
     {
       title: 'Help',
       items: [
-        { icon: 'help-circle-outline', label: 'FAQ', color: '#3AADFF', route: '/(app)/faq' },
-        { icon: 'headset-outline', label: 'Support', color: '#22D3EE', route: '/(app)/support' },
-        { icon: 'information-circle-outline', label: 'About Us', route: '/(app)/about' },
-        { icon: 'document-text-outline', label: 'Terms of Service', route: '/(app)/terms' },
+        { icon: 'help', label: 'FAQ', color: '#3AADFF', route: '/(app)/faq' },
+        { icon: 'headphones', label: 'Support', color: '#22D3EE', route: '/(app)/support' },
+        { icon: 'info', label: 'About Us', route: '/(app)/about' },
+        { icon: 'file-text', label: 'Terms of Service', route: '/(app)/terms' },
       ],
     },
     {
       title: '',
       items: [
-        { icon: 'log-out-outline', label: 'Sign Out', color: '#FF5A5A', onPress: handleLogout },
+        { icon: 'log-out', label: 'Sign Out', color: '#FF5A5A', onPress: handleLogout },
       ],
     },
   ];
@@ -89,7 +89,6 @@ export default function MoreScreen() {
       </SafeAreaView>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Profile card */}
         <Pressable style={styles.profileCard} onPress={() => router.push('/(app)/profile')}>
           <View style={styles.avatarWrap}>
             {user?.profileImage ? (
@@ -109,10 +108,9 @@ export default function MoreScreen() {
               <Text style={styles.roleText}>{(user?.role ?? 'student').toUpperCase()}</Text>
             </View>
           </View>
-          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.3)" />
+          <AppIcon name="chevron-right" size={18} color="rgba(255,255,255,0.3)" strokeWidth={2} />
         </Pressable>
 
-        {/* Menu sections */}
         {menuSections.map((section, si) => (
           <View key={si} style={styles.section}>
             {section.title ? <Text style={styles.sectionTitle}>{section.title}</Text> : null}
@@ -124,10 +122,10 @@ export default function MoreScreen() {
                     onPress={item.route ? () => router.push(item.route as any) : item.onPress}
                   >
                     <View style={[styles.menuIcon, { backgroundColor: `${item.color ?? '#3AADFF'}15` }]}>
-                      <Ionicons name={item.icon} size={19} color={item.color ?? '#3AADFF'} />
+                      <AppIcon name={item.icon} size={18} color={item.color ?? '#3AADFF'} strokeWidth={2.1} />
                     </View>
                     <Text style={[styles.menuLabel, item.color === '#FF5A5A' && { color: '#FF5A5A' }]}>{item.label}</Text>
-                    <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.2)" />
+                    <AppIcon name="chevron-right" size={16} color="rgba(255,255,255,0.2)" strokeWidth={2} />
                   </Pressable>
                   {idx < section.items.length - 1 && <View style={styles.menuDivider} />}
                 </View>

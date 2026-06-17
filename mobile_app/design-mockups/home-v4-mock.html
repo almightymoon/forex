@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FX Navigators — Home Mock v4 (Creative Pro)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root {
+      --bg: #020408;
+      --surface: rgba(12, 22, 42, 0.72);
+      --surface-solid: #0c1628;
+      --glass: rgba(255, 255, 255, 0.03);
+      --line: rgba(255, 255, 255, 0.07);
+      --line-bright: rgba(58, 173, 255, 0.25);
+      --primary: #3AADFF;
+      --primary-soft: rgba(58, 173, 255, 0.12);
+      --gold: #FFC107;
+      --green: #4ADE80;
+      --purple: #8B7CF6;
+      --cyan: #38BDF8;
+      --muted: rgba(255, 255, 255, 0.45);
+      --text: #F8FAFC;
+      --phone-w: 390px;
+      --phone-h: 844px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, sans-serif;
+      background: #060a12;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 32px 16px 48px;
+      color: var(--text);
+    }
+
+    .page-title {
+      text-align: center;
+      max-width: 560px;
+      margin-bottom: 28px;
+    }
+
+    .page-title h1 {
+      font-size: 22px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      margin-bottom: 8px;
+    }
+
+    .page-title p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .pill-row {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin-top: 14px;
+    }
+
+    .pill {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 5px 11px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      color: var(--muted);
+    }
+
+    .pill.hot {
+      border-color: rgba(58,173,255,0.35);
+      color: var(--primary);
+      background: var(--primary-soft);
+    }
+
+    .device {
+      width: calc(var(--phone-w) + 24px);
+      padding: 12px;
+      border-radius: 46px;
+      background: linear-gradient(160deg, #1c2433, #0a0e16);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.05),
+        0 48px 96px rgba(0,0,0,0.55);
+    }
+
+    .phone {
+      width: var(--phone-w);
+      height: var(--phone-h);
+      border-radius: 36px;
+      overflow: hidden;
+      position: relative;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Creative bg — subtle chart grid */
+    .phone-bg {
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(180deg, rgba(58,173,255,0.09) 0%, transparent 38%),
+        radial-gradient(ellipse 70% 50% at 85% 15%, rgba(139,124,246,0.08) 0%, transparent 55%),
+        var(--bg);
+    }
+
+    .grid-overlay {
+      position: absolute;
+      inset: 0;
+      opacity: 0.35;
+      background-image:
+        linear-gradient(rgba(58,173,255,0.06) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(58,173,255,0.06) 1px, transparent 1px);
+      background-size: 32px 32px;
+      mask-image: linear-gradient(180deg, black 0%, transparent 65%);
+    }
+
+    .scroll {
+      flex: 1;
+      overflow-y: auto;
+      position: relative;
+      z-index: 2;
+      padding: 52px 20px 16px;
+      scrollbar-width: none;
+    }
+    .scroll::-webkit-scrollbar { display: none; }
+
+    /* Header */
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 26px;
+    }
+
+    .brand-block {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+    }
+
+    .brand-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 14px;
+      background: linear-gradient(145deg, rgba(58,173,255,0.22), rgba(58,173,255,0.06));
+      border: 1px solid var(--line-bright);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--primary);
+      position: relative;
+    }
+
+    .brand-icon::after {
+      content: '';
+      position: absolute;
+      inset: -1px;
+      border-radius: 14px;
+      padding: 1px;
+      background: linear-gradient(145deg, rgba(58,173,255,0.5), transparent 60%);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    .brand-name {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 1.4px;
+    }
+
+    .brand-tag {
+      font-size: 10px;
+      color: var(--muted);
+      margin-top: 2px;
+      font-weight: 500;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .h-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: var(--glass);
+      border: 1px solid var(--line);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255,255,255,0.9);
+      position: relative;
+    }
+
+    .notif-dot {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--primary);
+      border: 1.5px solid var(--bg);
+    }
+
+    /* Greeting — approved pattern */
+    .date-line {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      letter-spacing: 0.2px;
+      margin-bottom: 6px;
+    }
+
+    .greeting {
+      font-size: 30px;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      line-height: 1.08;
+      margin-bottom: 24px;
+    }
+
+    .greeting span { color: var(--gold); }
+
+    /* BENTO GRID — creative asymmetric layout */
+    .bento {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto auto;
+      gap: 10px;
+      margin-bottom: 22px;
+    }
+
+    .tile {
+      border-radius: 18px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      backdrop-filter: blur(12px);
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* Featured course — spans 2 cols, tall */
+    .tile-feature {
+      grid-column: 1 / -1;
+      padding: 18px;
+      min-height: 168px;
+      display: flex;
+      gap: 16px;
+      border-color: rgba(58,173,255,0.2);
+      background:
+        linear-gradient(135deg, rgba(58,173,255,0.08) 0%, rgba(12,22,42,0.9) 50%),
+        var(--surface-solid);
+    }
+
+    .tile-feature::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      right: 0;
+      width: 140px;
+      height: 140px;
+      background: radial-gradient(circle, rgba(58,173,255,0.15) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .progress-ring-wrap {
+      flex-shrink: 0;
+      position: relative;
+      width: 72px;
+      height: 72px;
+    }
+
+    .progress-ring {
+      transform: rotate(-90deg);
+    }
+
+    .progress-ring-bg {
+      fill: none;
+      stroke: rgba(255,255,255,0.08);
+      stroke-width: 5;
+    }
+
+    .progress-ring-fill {
+      fill: none;
+      stroke: var(--primary);
+      stroke-width: 5;
+      stroke-linecap: round;
+      stroke-dasharray: 188.5;
+      stroke-dashoffset: 71.6; /* 62% */
+    }
+
+    .ring-center {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .ring-pct {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    .ring-label {
+      font-size: 8px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .feature-body {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      position: relative;
+      z-index: 1;
+    }
+
+    .feature-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.6px;
+      text-transform: uppercase;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+
+    .feature-title {
+      font-size: 17px;
+      font-weight: 800;
+      letter-spacing: -0.3px;
+      line-height: 1.25;
+      margin-bottom: 6px;
+    }
+
+    .feature-meta {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    .feature-cta {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      align-self: flex-start;
+      font-size: 12px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--primary);
+      padding: 8px 14px;
+      border-radius: 10px;
+      border: none;
+    }
+
+    /* Signal tile — creative mini chart */
+    .tile-signal {
+      grid-column: 1 / -1;
+      padding: 16px 18px;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      border-color: rgba(74,222,128,0.18);
+    }
+
+    .signal-left .pair {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+
+    .signal-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--green);
+      background: rgba(74,222,128,0.1);
+      padding: 4px 8px;
+      border-radius: 6px;
+    }
+
+    .signal-levels {
+      display: flex;
+      gap: 16px;
+      margin-top: 10px;
+    }
+
+    .signal-level span {
+      display: block;
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 2px;
+    }
+
+    .signal-level strong {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .signal-level strong.up { color: var(--green); }
+    .signal-level strong.down { color: #FF6B6B; }
+
+    .mini-chart {
+      width: 100px;
+      height: 48px;
+    }
+
+    .mini-chart svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* Small stat tiles */
+    .tile-stat {
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-height: 96px;
+    }
+
+    .tile-stat.wide {
+      grid-column: span 1;
+    }
+
+    .stat-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+    }
+
+    .stat-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .stat-num {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 22px;
+      font-weight: 600;
+      letter-spacing: -0.5px;
+    }
+
+    .stat-name {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--muted);
+      letter-spacing: 0.2px;
+    }
+
+    /* Quick launch — horizontal pills with flair */
+    .section-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg, var(--line), transparent);
+    }
+
+    .launch-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      margin: 0 -20px 24px;
+      padding: 0 20px 2px;
+      scrollbar-width: none;
+    }
+    .launch-row::-webkit-scrollbar { display: none; }
+
+    .launch-pill {
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 14px 10px 10px;
+      border-radius: 999px;
+      background: var(--glass);
+      border: 1px solid var(--line);
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.85);
+    }
+
+    .launch-pill .icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    /* Activity strip */
+    .activity-strip {
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .activity-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 16px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .activity-row:last-child { border-bottom: none; }
+
+    .activity-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .activity-text {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .activity-text strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      margin-bottom: 2px;
+    }
+
+    .activity-text span {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .activity-time {
+      font-family: 'IBM Plex Mono', monospace;
+      font-size: 10px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    /* Tab bar */
+    .tabs {
+      position: relative;
+      z-index: 3;
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 6px 28px;
+      border-top: 1px solid var(--line);
+      background: rgba(2,4,8,0.94);
+      backdrop-filter: blur(16px);
+    }
+
+    .tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      font-size: 9px;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .tab.active {
+      color: var(--primary);
+    }
+
+    .tab-icon {
+      width: 36px;
+      height: 30px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .tab.active .tab-icon {
+      background: var(--primary-soft);
+    }
+
+    .notes {
+      max-width: 560px;
+      margin-top: 28px;
+      padding: 18px 20px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .notes h2 {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .notes p {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+  </style>
+</head>
+<body>
+  <div class="page-title">
+    <h1>Home — Mock v4 · Creative Pro</h1>
+    <p>Premium bento layout with data-forward details. Creative structure, professional polish. Preview only — app not changed.</p>
+    <div class="pill-row">
+      <span class="pill hot">Bento grid</span>
+      <span class="pill">Progress ring</span>
+      <span class="pill">Mono data type</span>
+      <span class="pill">Lucide icons</span>
+    </div>
+  </div>
+
+  <div class="device">
+    <div class="phone">
+      <div class="phone-bg"></div>
+      <div class="grid-overlay"></div>
+
+      <div class="scroll">
+        <header class="header">
+          <div class="brand-block">
+            <div class="brand-icon">
+              <i data-lucide="compass" style="width:22px;height:22px"></i>
+            </div>
+            <div>
+              <div class="brand-name">FX NAVIGATORS</div>
+              <div class="brand-tag">Forex Education</div>
+            </div>
+          </div>
+          <div class="header-actions">
+            <div class="h-btn">
+              <i data-lucide="bell" style="width:18px;height:18px"></i>
+              <span class="notif-dot"></span>
+            </div>
+            <div class="h-btn">
+              <i data-lucide="user" style="width:18px;height:18px"></i>
+            </div>
+          </div>
+        </header>
+
+        <div class="date-line">WED · JUN 17</div>
+        <h1 class="greeting">Good evening, <span>Alex</span></h1>
+
+        <!-- Bento -->
+        <div class="bento">
+          <!-- Featured course with progress ring -->
+          <div class="tile tile-feature">
+            <div class="progress-ring-wrap">
+              <svg class="progress-ring" width="72" height="72" viewBox="0 0 72 72">
+                <circle class="progress-ring-bg" cx="36" cy="36" r="30" />
+                <circle class="progress-ring-fill" cx="36" cy="36" r="30" />
+              </svg>
+              <div class="ring-center">
+                <span class="ring-pct">62%</span>
+                <span class="ring-label">done</span>
+              </div>
+            </div>
+            <div class="feature-body">
+              <div class="feature-eyebrow">
+                <i data-lucide="play-circle" style="width:12px;height:12px"></i>
+                Continue
+              </div>
+              <div class="feature-title">Advanced Price Action</div>
+              <div class="feature-meta">Module 4 · 12 lessons remaining</div>
+              <button class="feature-cta">
+                Resume
+                <i data-lucide="arrow-right" style="width:14px;height:14px"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Live signal with sparkline -->
+          <div class="tile tile-signal">
+            <div class="signal-left">
+              <div class="pair">EUR/USD</div>
+              <span class="signal-badge">
+                <i data-lucide="arrow-up-right" style="width:12px;height:12px"></i>
+                BUY · Active
+              </span>
+              <div class="signal-levels">
+                <div class="signal-level">
+                  <span>Entry</span>
+                  <strong>1.0842</strong>
+                </div>
+                <div class="signal-level">
+                  <span>SL</span>
+                  <strong class="down">1.0810</strong>
+                </div>
+                <div class="signal-level">
+                  <span>TP</span>
+                  <strong class="up">1.0895</strong>
+                </div>
+              </div>
+            </div>
+            <div class="mini-chart">
+              <svg viewBox="0 0 100 48" fill="none">
+                <path d="M0 38 L12 32 L24 36 L36 22 L48 26 L60 14 L72 18 L84 8 L100 12" stroke="#4ADE80" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M0 38 L12 32 L24 36 L36 22 L48 26 L60 14 L72 18 L84 8 L100 12 L100 48 L0 48 Z" fill="url(#grad)" opacity="0.25"/>
+                <defs>
+                  <linearGradient id="grad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stop-color="#4ADE80"/>
+                    <stop offset="100%" stop-color="transparent"/>
+                  </linearGradient>
+                </defs>
+              </svg>
+            </div>
+          </div>
+
+          <!-- Compact stat tiles -->
+          <div class="tile tile-stat">
+            <div class="stat-top">
+              <div class="stat-icon" style="background:rgba(58,173,255,0.12);color:#3AADFF">
+                <i data-lucide="graduation-cap" style="width:16px;height:16px"></i>
+              </div>
+            </div>
+            <div class="stat-num">3</div>
+            <div class="stat-name">Courses</div>
+          </div>
+
+          <div class="tile tile-stat">
+            <div class="stat-top">
+              <div class="stat-icon" style="background:rgba(139,124,246,0.12);color:#8B7CF6">
+                <i data-lucide="award" style="width:16px;height:16px"></i>
+              </div>
+            </div>
+            <div class="stat-num">1</div>
+            <div class="stat-name">Certificate</div>
+          </div>
+        </div>
+
+        <!-- Launch pills -->
+        <div class="section-label">Launch</div>
+        <div class="launch-row">
+          <div class="launch-pill">
+            <span class="icon" style="background:rgba(58,173,255,0.15);color:#3AADFF">
+              <i data-lucide="video" style="width:14px;height:14px"></i>
+            </span>
+            Live Sessions
+          </div>
+          <div class="launch-pill">
+            <span class="icon" style="background:rgba(34,211,238,0.15);color:#38BDF8">
+              <i data-lucide="messages-square" style="width:14px;height:14px"></i>
+            </span>
+            Community
+          </div>
+          <div class="launch-pill">
+            <span class="icon" style="background:rgba(255,193,7,0.15);color:#FFC107">
+              <i data-lucide="trending-up" style="width:14px;height:14px"></i>
+            </span>
+            Charts
+          </div>
+          <div class="launch-pill">
+            <span class="icon" style="background:rgba(139,124,246,0.15);color:#8B7CF6">
+              <i data-lucide="wallet" style="width:14px;height:14px"></i>
+            </span>
+            Earnings
+          </div>
+        </div>
+
+        <!-- Activity -->
+        <div class="section-label">Activity</div>
+        <div class="activity-strip">
+          <div class="activity-row">
+            <div class="activity-icon" style="background:rgba(74,222,128,0.12);color:#4ADE80">
+              <i data-lucide="candlestick-chart" style="width:16px;height:16px"></i>
+            </div>
+            <div class="activity-text">
+              <strong>New BUY signal posted</strong>
+              <span>EUR/USD · Entry 1.0842</span>
+            </div>
+            <span class="activity-time">2h</span>
+          </div>
+          <div class="activity-row">
+            <div class="activity-icon" style="background:rgba(58,173,255,0.12);color:#3AADFF">
+              <i data-lucide="check-circle" style="width:16px;height:16px"></i>
+            </div>
+            <div class="activity-text">
+              <strong>Module 3 quiz passed</strong>
+              <span>Advanced Price Action</span>
+            </div>
+            <span class="activity-time">1d</span>
+          </div>
+        </div>
+      </div>
+
+      <nav class="tabs">
+        <div class="tab active">
+          <div class="tab-icon"><i data-lucide="home" style="width:20px;height:20px"></i></div>
+          Home
+        </div>
+        <div class="tab">
+          <div class="tab-icon"><i data-lucide="book-open" style="width:20px;height:20px"></i></div>
+          Courses
+        </div>
+        <div class="tab">
+          <div class="tab-icon"><i data-lucide="message-square" style="width:20px;height:20px"></i></div>
+          Chat
+        </div>
+        <div class="tab">
+          <div class="tab-icon"><i data-lucide="line-chart" style="width:20px;height:20px"></i></div>
+          Signals
+        </div>
+        <div class="tab">
+          <div class="tab-icon"><i data-lucide="layout-grid" style="width:20px;height:20px"></i></div>
+          More
+        </div>
+      </nav>
+    </div>
+  </div>
+
+  <div class="notes">
+    <h2>Why this direction</h2>
+    <p>
+      <strong>Creative:</strong> asymmetric bento grid, progress ring, live sparkline on signals, chart-grid background.<br>
+      <strong>Professional:</strong> IBM Plex Mono for prices/numbers, restrained palette, glass surfaces, no emoji or rainbow stats.<br>
+      <strong>Kept:</strong> your date + greeting with gold name.<br><br>
+      Tell me what to adjust — or approve and I'll build it in the app.
+    </p>
+  </div>
+
+  <script>lucide.createIcons();</script>
+</body>
+</html>

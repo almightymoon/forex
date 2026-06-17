@@ -5,7 +5,7 @@ export function normalizeList<T>(data: unknown): T[] {
   if (Array.isArray(data)) return data;
   if (data && typeof data === 'object') {
     const obj = data as Record<string, unknown>;
-    for (const key of ['courses', 'data', 'signals', 'items', 'results', 'activities']) {
+    for (const key of ['courses', 'data', 'signals', 'items', 'results', 'activities', 'articles']) {
       if (Array.isArray(obj[key])) return obj[key] as T[];
     }
   }
@@ -108,5 +108,25 @@ export function normalizeActivity(raw: Record<string, unknown>): ActivityItem {
     message: String(raw.message ?? ''),
     timestamp: (raw.timestamp ?? raw.createdAt) as string | undefined,
     type: raw.type as string | undefined,
+  };
+}
+
+export interface NormalizedNews {
+  id: string;
+  title: string;
+  summary: string;
+  url: string;
+  source: string;
+  publishedAt: string;
+}
+
+export function normalizeNews(raw: Record<string, unknown>): NormalizedNews {
+  return {
+    id: String(raw.id ?? raw._id ?? raw.url ?? Math.random()),
+    title: String(raw.title ?? 'Market update'),
+    summary: String(raw.summary ?? raw.description ?? ''),
+    url: String(raw.url ?? raw.link ?? ''),
+    source: String(raw.source ?? 'Markets'),
+    publishedAt: String(raw.publishedAt ?? raw.pubDate ?? new Date().toISOString()),
   };
 }

@@ -100,9 +100,9 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
   },
   compactIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: 10,
+    width: 38,
+    height: 38,
+    borderRadius: 11,
     alignItems: 'center',
     justifyContent: 'center',
   },
