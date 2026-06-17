@@ -1,0 +1,84 @@
+{
+  "expo": {
+    "name": "The FX Navigators",
+    "slug": "fx-navigators",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/logo.png",
+    "scheme": "fxnavigators",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#00050A",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/images/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#00050A"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fxnavigators.app",
+      "backgroundColor": "#00050A"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/logo.png",
+        "backgroundColor": "#00050A"
+      },
+      "package": "com.fxnavigators.app",
+      "backgroundColor": "#00050A"
+    },
+    "intentFilters": [
+      {
+        "action": "VIEW",
+        "autoVerify": true,
+        "data": [
+          { "scheme": "https", "host": "thefxnavigators.com", "pathPrefix": "/reset-password" }
+        ],
+        "category": ["BROWSABLE", "DEFAULT"]
+      }
+    ],
+    "plugins": [
+      "expo-router",
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#00050A",
+          "image": "./assets/images/logo.png",
+          "imageWidth": 200,
+          "resizeMode": "contain"
+        }
+      ],
+      "expo-video",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/logo.png",
+          "color": "#0060E6",
+          "sounds": []
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow The FX Navigators to access your photos to update your profile picture.",
+          "cameraPermission": "Allow The FX Navigators to use your camera to take a profile picture."
+        }
+      ],
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow The FX Navigators to use Face ID for quick and secure sign-in."
+        }
+      ],
+      "expo-secure-store"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

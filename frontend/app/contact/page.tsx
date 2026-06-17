@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle } from 'lucide-react';
 import MarketingPageShell from '../../components/landing-experience/MarketingPageShell';
+import { env } from '../../lib/env';
 
 function MktIcon({ d }: { d: string }) {
   const paths = d.split(/(?= M)/).map((segment) => segment.trim()).filter(Boolean);
@@ -106,7 +107,22 @@ export default function ContactPage() {
     setSubmitStatus('idle');
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1200));
+      const res = await fetch(`${env.API_BASE_URL}/support/contact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          email: formData.email.trim(),
+          subject: formData.subject.trim(),
+          message: formData.message.trim(),
+          inquiryType: formData.inquiryType,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const msg = data?.errors?.[0]?.msg || data?.error || 'Failed to send message. Please try again.';
+        throw new Error(msg);
+      }
       setSubmitStatus('success');
       setFormData({
         name: '',

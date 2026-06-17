@@ -1,9 +1,38 @@
 const express = require('express');
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 const router = express.Router();
 const Channel = require('../models/Channel');
 const Message = require('../models/Message');
 const { authenticateToken, requireVerifiedPayment } = require('../middleware/auth');
 const { broadcastMessage, broadcastToAll } = require('../websocket');
+const { uploadImage } = require('../config/cloudinary');
+
+const useCloudinary = !!(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
+
+const communityImageDir = path.join(__dirname, '..', 'uploads', 'community-images');
+if (!fs.existsSync(communityImageDir)) {
+  fs.mkdirSync(communityImageDir, { recursive: true });
+}
+
+const communityImageUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => cb(null, communityImageDir),
+    filename: (_req, file, cb) =>
+      cb(null, `community-${Date.now()}-${(file.originalname || 'image').replace(/\s+/g, '-')}`),
+  }),
+  limits: { fileSize: 8 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (allowed.includes(file.mimetype)) return cb(null, true);
+    cb(new Error('Only JPEG, PNG, GIF, or WebP images are allowed.'));
+  },
+});
 
 // Get all public channels
 router.get('/channels', authenticateToken, requireVerifiedPayment, async (req, res) => {
@@ -164,13 +193,29 @@ router.get('/channels/:id/messages', authenticateToken, async (req, res) => {
   }
 });
 
-// Send message to channel
-router.post('/channels/:id/messages', authenticateToken, async (req, res) => {
+// Send message to channel (JSON or multipart with optional image)
+router.post('/channels/:id/messages', authenticateToken, (req, res, next) => {
+  const contentType = req.headers['content-type'] || '';
+  if (!contentType.includes('multipart/form-data')) {
+    return next();
+  }
+  communityImageUpload.single('image')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: err.message || 'Invalid image file' });
+    }
+    next();
+  });
+}, async (req, res) => {
+  let tempFilePath = null;
   try {
-    const { content } = req.body;
-    
-    if (!content || content.trim().length === 0) {
-      return res.status(400).json({ success: false, message: 'Message content is required' });
+    const rawContent = req.body?.content;
+    const content = String(Array.isArray(rawContent) ? rawContent[0] : rawContent || '').trim();
+    const rawParentId = req.body?.parentMessageId;
+    const parentMessageId = String(Array.isArray(rawParentId) ? rawParentId[0] : rawParentId || '').trim() || null;
+    const hasImage = !!req.file;
+
+    if (!content && !hasImage) {
+      return res.status(400).json({ success: false, message: 'Message text or image is required' });
     }
 
     // Check if user is member (for private channels)
@@ -191,23 +236,73 @@ router.post('/channels/:id/messages', authenticateToken, async (req, res) => {
       return res.status(403).json({ success: false, message: 'Cannot send messages in this channel' });
     }
 
+    let parentMessage = null;
+    if (parentMessageId) {
+      parentMessage = await Message.findById(parentMessageId);
+      if (!parentMessage || parentMessage.channelId.toString() !== req.params.id) {
+        return res.status(400).json({ success: false, message: 'Invalid reply target' });
+      }
+    }
+
+    const attachments = [];
+    if (hasImage) {
+      tempFilePath = req.file.path;
+      let imageUrl = `/uploads/community-images/${req.file.filename}`;
+
+      if (useCloudinary) {
+        try {
+          const result = await uploadImage(tempFilePath, 'forex/community-images');
+          if (result?.url) imageUrl = result.url;
+        } catch (cloudErr) {
+          console.error('Cloudinary community image upload failed (using local):', cloudErr.message);
+        }
+      }
+
+      attachments.push({
+        filename: req.file.filename,
+        originalName: req.file.originalname,
+        mimeType: req.file.mimetype,
+        size: req.file.size,
+        url: imageUrl,
+      });
+    }
+
     // Create message
     const message = new Message({
-      content: content.trim(),
+      content: content || (hasImage ? '📷' : ''),
       author: req.user.id,
-      channelId: req.params.id
+      channelId: req.params.id,
+      attachments,
+      ...(parentMessage ? { parentMessage: parentMessage._id } : {}),
     });
 
     await message.save();
+
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try { fs.unlinkSync(tempFilePath); } catch (_) {}
+    }
+
+    if (parentMessage) {
+      parentMessage.threadCount = (parentMessage.threadCount || 0) + 1;
+      await parentMessage.save();
+    }
     
     // Populate author info
     await message.populate('author', 'firstName lastName role');
+    await message.populate({
+      path: 'parentMessage',
+      select: 'content author',
+      populate: { path: 'author', select: 'firstName lastName role' },
+    });
     
     // Broadcast new message via WebSocket
     broadcastMessage(req.params.id, 'message:new', message);
     
     res.status(201).json({ success: true, message });
   } catch (error) {
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try { fs.unlinkSync(tempFilePath); } catch (_) {}
+    }
     console.error('Error sending message:', error);
     res.status(500).json({ success: false, message: 'Failed to send message' });
   }

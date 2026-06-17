@@ -42,7 +42,9 @@ const tradeRoutes = require('./routes/trades');
 const packageRoutes = require('./routes/packages');
 const packagePerksRoutes = require('./routes/packagePerks');
 const rankRewardRoutes = require('./routes/rankRewards');
+const supportRoutes = require('./routes/support');
 const devRoutes = require('./routes/dev');
+const { buildCoursePackageFilter, getUserPackagePrice, canAccessCourseByPackage } = require('./utils/coursePackageAccess');
 const { initializeWebSocket } = require('./websocket');
 const { authenticateToken, requirePackageSubscription, requireAdmin } = require('./middleware/auth');
 
@@ -267,6 +269,8 @@ app.use('/api/settings/public', require('./routes/settings'));
 app.use('/api/monthly-progress/public', require('./routes/monthlyProgressPublic'));
 app.use('/api/new-joiners/public', require('./routes/newJoinersPublic'));
 app.use('/api/packages', packageRoutes);
+// Support — no package subscription required (payment-pending users need help)
+app.use('/api/support', checkSessionTimeout, supportRoutes);
 
 // Routes with session timeout check
 // Admin and teacher routes don't require package subscription
@@ -318,7 +322,7 @@ app.get('/api/courses', async (req, res) => {
     }
     
     // Try to get user's package if authenticated (optional auth header)
-    let userPackagePrice = null;
+    let packageContext = { userPackagePrice: null, isPrivileged: false, isAuthenticatedStudent: false };
     try {
       const authHeader = req.headers['authorization'];
       if (authHeader) {
@@ -328,41 +332,19 @@ app.get('/api/courses', async (req, res) => {
           const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
           const User = require('./models/User');
           const user = await User.findById(decoded.userId);
-          
-          if (user && (user.role === 'admin' || user.role === 'teacher' || user.role === 'instructor')) {
-            // Admin/teacher can see all courses
-            userPackagePrice = null; // null means show all
-          } else if (user) {
-            // Get user's package price from completed payment
-            const Payment = require('./models/Payment');
-            const completedPayment = await Payment.findOne({
-              user: user._id,
-              status: 'completed',
-              type: 'package'
-            }).sort({ createdAt: -1 });
-            
-            if (completedPayment && completedPayment.package && completedPayment.package.price) {
-              userPackagePrice = completedPayment.package.price;
-            }
+          if (user) {
+            packageContext = await getUserPackagePrice(user);
           }
         }
       }
     } catch (authError) {
-      // If auth fails, just continue without package filtering (show all)
-      console.log('Auth check failed, showing all courses:', authError.message);
+      console.log('Auth check failed, showing public courses:', authError.message);
     }
-    
-    // Filter by package: show courses where allowedPackages is null (for all) OR includes user's package
-    if (userPackagePrice !== null) {
+
+    const packageFilter = buildCoursePackageFilter(packageContext);
+    if (packageFilter) {
       query.$and = query.$and || [];
-      query.$and.push({
-        $or: [
-          { allowedPackages: null }, // For all packages
-          { allowedPackages: { $exists: false } }, // Backward compatibility
-          { allowedPackages: { $size: 0 } }, // Empty array means for all
-          { allowedPackages: userPackagePrice } // MongoDB matches if value is in array
-        ]
-      });
+      query.$and.push(packageFilter);
     }
     
     const sortObj = {};
@@ -569,6 +551,35 @@ app.get('/api/courses/:id', async (req, res) => {
     
     if (!course) {
       return res.status(404).json({ error: 'Course not found' });
+    }
+
+    let packageContext = { userPackagePrice: null, isPrivileged: false, isAuthenticatedStudent: false };
+    try {
+      const authHeader = req.headers['authorization'];
+      if (authHeader) {
+        const token = authHeader.split(' ')[1];
+        if (token) {
+          const jwt = require('jsonwebtoken');
+          const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+          const User = require('./models/User');
+          const user = await User.findById(decoded.userId);
+          if (user) {
+            packageContext = await getUserPackagePrice(user);
+            if (
+              !canAccessCourseByPackage(course, packageContext.userPackagePrice, {
+                isPrivileged: packageContext.isPrivileged,
+              })
+            ) {
+              return res.status(403).json({
+                error: 'This course is not included in your subscription package.',
+                code: 'PACKAGE_REQUIRED',
+              });
+            }
+          }
+        }
+      }
+    } catch (authError) {
+      console.log('Course detail auth check skipped:', authError.message);
     }
     
     // Calculate video count from content and videos arrays

@@ -208,16 +208,12 @@ export default function WithdrawalModal({
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Network
             </label>
-            <select
-              value={network}
-              onChange={(e) => setNetwork(e.target.value)}
-              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              disabled={userBalance <= 0}
-            >
-              <option value="TRC20">TRC20 (Tron) - Recommended</option>
-              <option value="ERC20">ERC20 (Ethereum)</option>
-              <option value="BEP20">BEP20 (Binance Smart Chain)</option>
-            </select>
+            <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-medium">
+              TRC20 (Tron) — only supported network
+            </div>
+            <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+              Withdrawals are processed on TRC20 only. Do not use ERC20 or BEP20 addresses.
+            </p>
           </div>
 
           {/* Warning */}

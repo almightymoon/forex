@@ -20,7 +20,8 @@ router.put('/preferences', [
   authenticateToken,
   body('emailNotifications').optional().isBoolean().withMessage('Email notifications must be boolean'),
   body('smsNotifications').optional().isBoolean().withMessage('SMS notifications must be boolean'),
-  body('pushNotifications').optional().isBoolean().withMessage('Push notifications must be boolean')
+  body('pushNotifications').optional().isBoolean().withMessage('Push notifications must be boolean'),
+  body('expoPushToken').optional().isString().withMessage('Expo push token must be a string')
 ], async (req, res) => {
   try {
     // Check validation errors
@@ -32,7 +33,7 @@ router.put('/preferences', [
       });
     }
 
-    const { emailNotifications, smsNotifications, pushNotifications } = req.body;
+    const { emailNotifications, smsNotifications, pushNotifications, expoPushToken } = req.body;
     const userId = req.user._id;
 
     // Build update object
@@ -45,6 +46,9 @@ router.put('/preferences', [
     }
     if (typeof pushNotifications === 'boolean') {
       updateObj['preferences.pushNotifications'] = pushNotifications;
+    }
+    if (typeof expoPushToken === 'string' && expoPushToken.trim()) {
+      updateObj['preferences.expoPushToken'] = expoPushToken.trim();
     }
 
     if (Object.keys(updateObj).length === 0) {

@@ -82,7 +82,6 @@ export default function ProfilePage() {
   const [showWithdrawalForm, setShowWithdrawalForm] = useState(false);
   const [withdrawalAmount, setWithdrawalAmount] = useState('');
   const [withdrawalWallet, setWithdrawalWallet] = useState('');
-  const [withdrawalNetwork, setWithdrawalNetwork] = useState('TRC20');
   const [withdrawing, setWithdrawing] = useState(false);
 
   const [mounted, setMounted] = useState(false);
@@ -1297,15 +1296,12 @@ export default function ProfilePage() {
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         Network
                       </label>
-                      <select
-                        value={withdrawalNetwork}
-                        onChange={(e) => setWithdrawalNetwork(e.target.value)}
-                        className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      >
-                        <option value="TRC20">TRC20 (Tron) - Recommended</option>
-                        <option value="ERC20">ERC20 (Ethereum)</option>
-                        <option value="BEP20">BEP20 (Binance Smart Chain)</option>
-                      </select>
+                      <div className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-medium">
+                        TRC20 (Tron) — only supported network
+                      </div>
+                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                        Withdrawals are processed on TRC20 only. Do not use ERC20 or BEP20 addresses.
+                      </p>
                     </div>
 
                     <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
@@ -1323,7 +1319,6 @@ export default function ProfilePage() {
                           setShowWithdrawalForm(false);
                           setWithdrawalAmount('');
                           setWithdrawalWallet('');
-                          setWithdrawalNetwork('TRC20');
                         }}
                         className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                       >
@@ -1362,7 +1357,7 @@ export default function ProfilePage() {
                               body: JSON.stringify({
                                 amount,
                                 walletAddress: withdrawalWallet,
-                                network: withdrawalNetwork
+                                network: 'TRC20'
                               })
                             });
 
@@ -1373,7 +1368,6 @@ export default function ProfilePage() {
                               setShowWithdrawalForm(false);
                               setWithdrawalAmount('');
                               setWithdrawalWallet('');
-                              setWithdrawalNetwork('TRC20');
                               // Refresh user data to update balance
                               fetchUserProfile();
                               await refreshUser();

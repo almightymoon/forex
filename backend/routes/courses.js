@@ -3,6 +3,11 @@ const { body, validationResult } = require('express-validator');
 const Course = require('../models/Course');
 const User = require('../models/User');
 const { authenticateToken, requireTeacher, requireOwnership, requireEnrollment, requireVerifiedPayment } = require('../middleware/auth');
+const {
+  buildCoursePackageFilter,
+  getUserPackagePrice,
+  canAccessCourseByPackage,
+} = require('../utils/coursePackageAccess');
 
 const router = express.Router();
 
@@ -27,37 +32,15 @@ router.get('/', async (req, res) => {
     }
     
     // Get user's package price if authenticated
-    let userPackagePrice = null;
+    let packageContext = { userPackagePrice: null, isPrivileged: false, isAuthenticatedStudent: false };
     if (req.user) {
-      // Admin/teacher can see all courses
-      if (req.user.role === 'admin' || req.user.role === 'teacher' || req.user.role === 'instructor') {
-        userPackagePrice = null; // null means show all
-      } else {
-        // Get user's package price from completed payment
-        const Payment = require('../models/Payment');
-        const completedPayment = await Payment.findOne({
-          user: req.user._id,
-          status: 'completed',
-          type: 'package'
-        }).sort({ createdAt: -1 });
-        
-        if (completedPayment && completedPayment.package && completedPayment.package.price) {
-          userPackagePrice = completedPayment.package.price;
-        }
-      }
+      packageContext = await getUserPackagePrice(req.user);
     }
-    
-    // Filter by package: show courses where allowedPackages is null (for all) OR includes user's package
-    if (userPackagePrice !== null) {
+
+    const packageFilter = buildCoursePackageFilter(packageContext);
+    if (packageFilter) {
       query.$and = query.$and || [];
-      query.$and.push({
-        $or: [
-          { allowedPackages: null }, // For all packages
-          { allowedPackages: { $exists: false } }, // Backward compatibility
-          { allowedPackages: { $size: 0 } }, // Empty array means for all
-          { allowedPackages: userPackagePrice } // MongoDB matches if value is in array
-        ]
-      });
+      query.$and.push(packageFilter);
     }
     
     const sortObj = {};
@@ -490,6 +473,18 @@ router.post('/:id/enroll', authenticateToken, requireVerifiedPayment, async (req
 
     if (isEnrolled) {
       return res.status(400).json({ error: 'Already enrolled in this course' });
+    }
+
+    const packageContext = await getUserPackagePrice(req.user);
+    if (
+      !canAccessCourseByPackage(course, packageContext.userPackagePrice, {
+        isPrivileged: packageContext.isPrivileged,
+      })
+    ) {
+      return res.status(403).json({
+        error: 'This course is not included in your subscription package. Upgrade to enroll.',
+        code: 'PACKAGE_REQUIRED',
+      });
     }
 
     course.enrollStudent(req.user._id);

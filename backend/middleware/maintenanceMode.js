@@ -26,7 +26,8 @@ const maintenanceMiddleware = async (req, res, next) => {
       '/api/settings/public',
       '/api/monthly-progress/public',
       '/api/new-joiners/public',
-      '/api/health'
+      '/api/health',
+      '/api/support/contact',
     ];
 
     const requestPath = (req.baseUrl && req.path) ? req.baseUrl + req.path : (req.originalUrl ? req.originalUrl.split('?')[0] : req.path);

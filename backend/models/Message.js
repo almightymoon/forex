@@ -168,6 +168,11 @@ messageSchema.methods.togglePin = function(userId) {
 messageSchema.statics.findByChannel = function(channelId, limit = 50, skip = 0) {
   return this.find({ channelId })
     .populate('author', 'firstName lastName role')
+    .populate({
+      path: 'parentMessage',
+      select: 'content author',
+      populate: { path: 'author', select: 'firstName lastName role' },
+    })
     .populate('attachments')
     .populate('mentions.userId', 'firstName lastName')
     .populate('reactions.users', 'firstName lastName')

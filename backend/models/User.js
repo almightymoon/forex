@@ -169,6 +169,10 @@ const userSchema = new mongoose.Schema({
       type: Boolean,
       default: true
     },
+    expoPushToken: {
+      type: String,
+      default: null
+    },
     marketingEmails: {
       type: Boolean,
       default: false
