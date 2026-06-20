@@ -175,10 +175,10 @@ const styles = StyleSheet.create({
   },
   stepsCard: {
     width: '100%',
-    backgroundColor: 'rgba(8,20,48,0.85)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.11)',
     padding: 18,
     gap: 14,
     marginBottom: 24,

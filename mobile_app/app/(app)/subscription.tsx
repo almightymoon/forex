@@ -87,7 +87,7 @@ export default function SubscriptionScreen() {
           <>
             {/* Active package card */}
             {activePackage ? (
-              <LinearGradient colors={['rgba(0,96,230,0.35)', 'rgba(8,20,48,0.95)']} style={styles.activeCard}>
+              <LinearGradient colors={['rgba(0,96,230,0.35)', 'rgba(255,255,255,0.03)']} style={styles.activeCard}>
                 <View style={styles.activeGlow} />
                 <View style={styles.activeBadge}>
                   <Ionicons name="checkmark-circle" size={14} color="#4ADE80" />
@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: { backgroundColor: 'transparent' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
   headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 16 },
@@ -225,14 +225,14 @@ const styles = StyleSheet.create({
   featureList: { marginTop: 8, gap: 8 },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   featureText: { fontSize: 13.5, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
-  noSubCard: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 32, alignItems: 'center', gap: 10 },
+  noSubCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 32, alignItems: 'center', gap: 10 },
   noSubTitle: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.55)' },
   noSubText: { fontSize: 13.5, color: 'rgba(255,255,255,0.35)', textAlign: 'center', lineHeight: 20 },
   noSubBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, height: 46, paddingHorizontal: 20, borderRadius: 13, backgroundColor: 'rgba(0,96,230,0.3)', borderWidth: 1, borderColor: 'rgba(58,173,255,0.4)' },
   noSubBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
   section: { gap: 10 },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  card: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 16, paddingVertical: 4 },
+  card: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', paddingHorizontal: 16, paddingVertical: 4 },
   payRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   payDivider: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   payIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
   payAmount: { fontSize: 15, fontWeight: '800', color: '#fff' },
   statusPill: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
   statusText: { fontSize: 10, fontWeight: '700', textTransform: 'capitalize' },
-  supportBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', padding: 14 },
+  supportBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', padding: 14 },
   supportText: { flex: 1, fontSize: 13.5, color: 'rgba(255,255,255,0.55)', fontWeight: '500' },
   upgradeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 8, height: 42, borderRadius: 12, backgroundColor: 'rgba(0,96,230,0.2)', borderWidth: 1, borderColor: 'rgba(58,173,255,0.35)' },
   upgradeText: { fontSize: 14, fontWeight: '700', color: '#3AADFF' },

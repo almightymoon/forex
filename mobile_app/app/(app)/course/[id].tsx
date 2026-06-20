@@ -451,7 +451,7 @@ const lessonStyles = StyleSheet.create({
   noContent: { padding: 16, fontSize: 13, color: 'rgba(255,255,255,0.35)', fontStyle: 'italic' },
   quizWrap: { padding: 14, gap: 10 },
   questionCard: {
-    backgroundColor: 'rgba(8,20,48,0.8)', borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12,
     borderWidth: 1, borderColor: 'rgba(58,173,255,0.1)',
     padding: 14, gap: 8,
   },
@@ -476,7 +476,7 @@ const lessonStyles = StyleSheet.create({
   result: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     justifyContent: 'center',
-    backgroundColor: 'rgba(8,20,48,0.9)', borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 10,
     borderWidth: 1, borderColor: 'rgba(255,193,7,0.3)',
     paddingVertical: 12,
   },
@@ -485,7 +485,7 @@ const lessonStyles = StyleSheet.create({
   pptWrap: { height: 320, borderRadius: 10, overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.3)' },
   openExternalBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
   openExternalText: { fontSize: 13, fontWeight: '600', color: '#3AADFF' },
-  assignmentWrap: { alignItems: 'center', gap: 12, padding: 20, backgroundColor: 'rgba(8,20,48,0.9)', borderRadius: 12 },
+  assignmentWrap: { alignItems: 'center', gap: 12, padding: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12 },
   assignmentText: { fontSize: 13.5, color: 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 20 },
   assignmentBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,96,230,0.3)', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(58,173,255,0.4)' },
   assignmentBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
@@ -625,7 +625,7 @@ export default function CourseDetailScreen() {
             {thumbnail ? (
               <Image source={{ uri: thumbnail }} style={styles.heroImage} />
             ) : (
-              <LinearGradient colors={['rgba(0,96,230,0.25)', 'rgba(8,20,48,0.95)']} style={styles.heroPlaceholder}>
+              <LinearGradient colors={['rgba(0,96,230,0.25)', 'rgba(255,255,255,0.03)']} style={styles.heroPlaceholder}>
                 <Ionicons name="play-circle" size={48} color="rgba(255,255,255,0.8)" />
               </LinearGradient>
             )}
@@ -710,7 +710,7 @@ export default function CourseDetailScreen() {
           {/* Enroll button — only when NOT enrolled */}
           {!isEnrolled ? (
             <LinearGradient
-              colors={['#0060E6', '#3AADFF']}
+              colors={['#0253BD', '#036FFC']}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
               style={styles.enrollGradient}
@@ -739,7 +739,7 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 14,
     backgroundColor: 'rgba(255,255,255,0.07)',
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)',
   },
   headerTitle: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: -0.2 },
   scroll: { flex: 1 },
@@ -747,7 +747,7 @@ const styles = StyleSheet.create({
   hero: {
     borderRadius: 18, overflow: 'hidden',
     borderWidth: 1, borderColor: 'rgba(58,173,255,0.14)',
-    backgroundColor: 'rgba(8,20,48,0.9)',
+    backgroundColor: 'rgba(255,255,255,0.05)',
   },
   heroImage: { width: '100%', height: 200 },
   heroPlaceholder: { width: '100%', height: 200, alignItems: 'center', justifyContent: 'center' },
@@ -771,7 +771,7 @@ const styles = StyleSheet.create({
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   metaText: { fontSize: 12, color: 'rgba(255,255,255,0.4)' },
   progressCard: {
-    backgroundColor: 'rgba(8,20,48,0.9)', borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14,
     borderWidth: 1, borderColor: 'rgba(58,173,255,0.2)',
     padding: 14, gap: 8,
   },
@@ -787,7 +787,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
   description: { fontSize: 13.5, color: 'rgba(255,255,255,0.5)', lineHeight: 21 },
   lessonList: {
-    backgroundColor: 'rgba(8,20,48,0.8)', borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14,
     borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
     overflow: 'hidden',
   },

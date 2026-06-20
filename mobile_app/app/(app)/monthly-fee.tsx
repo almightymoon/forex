@@ -156,7 +156,7 @@ export default function MonthlyFeeScreen() {
         ) : (
           <>
             <LinearGradient
-              colors={isPaid ? ['rgba(74,222,128,0.2)', 'rgba(8,20,48,0.95)'] : ['rgba(255,90,90,0.18)', 'rgba(8,20,48,0.95)']}
+              colors={isPaid ? ['rgba(74,222,128,0.2)', 'rgba(255,255,255,0.03)'] : ['rgba(255,90,90,0.18)', 'rgba(255,255,255,0.03)']}
               style={styles.statusCard}
             >
               <View style={[styles.statusIcon, { backgroundColor: isPaid ? 'rgba(74,222,128,0.2)' : 'rgba(255,90,90,0.15)' }]}>
@@ -216,7 +216,7 @@ export default function MonthlyFeeScreen() {
 
             {isPaid && (
               <Pressable style={styles.homeBtn} onPress={() => router.replace('/(app)/home')}>
-                <LinearGradient colors={['#0060E6', '#3AADFF']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.homeBtnGrad}>
+                <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.homeBtnGrad}>
                   <Ionicons name="home-outline" size={18} color="#fff" />
                   <Text style={styles.homeBtnText}>Back to Home</Text>
                 </LinearGradient>
@@ -230,10 +230,10 @@ export default function MonthlyFeeScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#00050A' },
+  screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: { backgroundColor: 'rgba(0,5,10,0.97)' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
   headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 16 },
@@ -245,10 +245,10 @@ const styles = StyleSheet.create({
   dueText: { fontSize: 12.5, fontWeight: '700', color: '#FF5A5A' },
   section: { gap: 8 },
   sectionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' },
-  walletRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(58,173,255,0.3)', padding: 14, gap: 10 },
+  walletRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(58,173,255,0.3)', padding: 14, gap: 10 },
   walletAddress: { flex: 1, fontSize: 13.5, color: '#3AADFF', fontWeight: '500' },
   walletNote: { fontSize: 11.5, color: 'rgba(255,255,255,0.3)' },
-  formCard: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 16, gap: 4 },
+  formCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 16, gap: 4 },
   alertBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,90,90,0.1)', borderRadius: 10, padding: 12, marginVertical: 4 },
   successBox: { backgroundColor: 'rgba(74,222,128,0.1)' },
   alertText: { flex: 1, fontSize: 13 },

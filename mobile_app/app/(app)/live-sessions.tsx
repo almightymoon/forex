@@ -233,7 +233,7 @@ function SessionCard({
       {!isPast && (
         <View style={styles.actionsRow}>
           {(isLive || booked) && s.meetingLink ? (
-            <LinearGradient colors={['#0060E6', '#3AADFF']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.joinGradient}>
+            <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.joinGradient}>
               <Pressable style={styles.actionPress} onPress={() => Linking.openURL(s.meetingLink!)}>
                 <Ionicons name="videocam" size={16} color="#fff" />
                 <Text style={styles.joinText}>Join Session</Text>
@@ -287,8 +287,8 @@ const styles = StyleSheet.create({
   section: { gap: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#fff' },
   card: {
-    backgroundColor: 'rgba(8,20,48,0.9)', borderRadius: 18,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 18,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)',
     padding: 16, gap: 10,
   },
   cardLive: { borderColor: 'rgba(74,222,128,0.3)', backgroundColor: 'rgba(8,30,18,0.9)' },

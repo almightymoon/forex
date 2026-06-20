@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useState } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -15,7 +16,6 @@ type Props = TextInputProps & {
   icon?: IconName;
   rightIcon?: IconName;
   onRightIconPress?: () => void;
-  /** Rendered to the right of the left icon, before the text input (e.g. phone flag) */
   leftPrefix?: React.ReactNode;
   error?: string;
 };
@@ -28,26 +28,40 @@ export function AuthInput({
   leftPrefix,
   error,
   style,
+  onFocus,
+  onBlur,
   ...props
 }: Props) {
+  const [focused, setFocused] = useState(false);
+
   return (
     <View style={styles.wrapper}>
       <Text style={styles.label}>{label}</Text>
-      <View style={[styles.inputRow, error ? styles.inputRowError : null]}>
-        {icon ? (
-          <Ionicons name={icon} size={16} color="rgba(255,255,255,0.4)" style={styles.leftIcon} />
-        ) : null}
-        {leftPrefix ?? null}
-        <TextInput
-          placeholderTextColor="rgba(255,255,255,0.28)"
-          style={[styles.input, style]}
-          {...props}
-        />
-        {rightIcon ? (
-          <Pressable onPress={onRightIconPress} hitSlop={10} style={styles.rightIcon}>
-            <Ionicons name={rightIcon} size={16} color="rgba(255,255,255,0.4)" />
-          </Pressable>
-        ) : null}
+      <View style={[styles.inputShell, focused && styles.inputShellFocused, error && styles.inputShellError]}>
+        <View style={[styles.inputRow, rightIcon ? styles.inputRowWithRightIcon : null]}>
+          {icon ? (
+            <Ionicons name={icon} size={17} color="rgba(255,255,255,0.35)" style={styles.leftIcon} />
+          ) : null}
+          {leftPrefix ?? null}
+          <TextInput
+            placeholderTextColor="rgba(255,255,255,0.32)"
+            style={[styles.input, style]}
+            onFocus={(e) => {
+              setFocused(true);
+              onFocus?.(e);
+            }}
+            onBlur={(e) => {
+              setFocused(false);
+              onBlur?.(e);
+            }}
+            {...props}
+          />
+          {rightIcon ? (
+            <Pressable onPress={onRightIconPress} hitSlop={12} style={styles.rightIcon}>
+              <Ionicons name={rightIcon} size={19} color="rgba(255,255,255,0.4)" />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
@@ -56,44 +70,56 @@ export function AuthInput({
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginBottom: 13,
+    marginBottom: 14,
   },
   label: {
-    fontSize: 12.5,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.65)',
-    marginBottom: 7,
-    letterSpacing: 0.1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    marginBottom: 8,
+  },
+  inputShell: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: 'rgba(0,0,0,0.18)',
+  },
+  inputShellFocused: {
+    borderColor: 'rgba(3,111,252,0.55)',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  inputShellError: {
+    borderColor: '#F87171',
   },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    height: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.13)',
-    backgroundColor: 'rgba(8, 20, 48, 0.82)',
-    paddingHorizontal: 14,
+    height: 54,
+    paddingHorizontal: 16,
   },
-  inputRowError: {
-    borderColor: '#FF5A5A',
+  inputRowWithRightIcon: {
+    paddingRight: 8,
   },
   leftIcon: {
     marginRight: 10,
   },
   input: {
     flex: 1,
-    fontSize: 14.5,
+    fontSize: 15,
     color: '#FFFFFF',
     paddingVertical: 0,
   },
   rightIcon: {
-    marginLeft: 8,
-    padding: 4,
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 4,
   },
   error: {
-    marginTop: 5,
+    marginTop: 6,
     fontSize: 12,
-    color: '#FF5A5A',
+    color: '#F87171',
   },
 });

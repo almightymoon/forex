@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatInstructor } from '../utils/formatInstructor';
+import { GlassCard } from './GlassCard';
 
 type Props = {
   title: string;
@@ -19,8 +20,9 @@ export function BrowseCourseCard({ title, instructor, instructorImage, thumbnail
   const levelLabel = level ? level.charAt(0).toUpperCase() + level.slice(1) : undefined;
 
   return (
-    <Pressable style={styles.card} onPress={onPress}>
-      <View style={styles.thumbWrap}>
+    <Pressable onPress={onPress} style={({ pressed }) => [pressed && styles.pressed]}>
+      <GlassCard contentStyle={styles.cardInner} radius={18}>
+        <View style={styles.thumbWrap}>
         {thumbnail ? (
           <Image source={{ uri: thumbnail }} style={styles.thumbImage} />
         ) : (
@@ -70,18 +72,15 @@ export function BrowseCourseCard({ title, instructor, instructorImage, thumbnail
           ) : null}
         </View>
       </View>
+      </GlassCard>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  pressed: { opacity: 0.92 },
+  cardInner: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(8,20,48,0.9)',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(58,173,255,0.12)',
-    overflow: 'hidden',
     gap: 14,
     padding: 12,
   },

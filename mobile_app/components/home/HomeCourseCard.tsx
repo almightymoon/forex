@@ -1,131 +1,137 @@
+import { Ionicons } from '@expo/vector-icons';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon } from '../AppIcon';
 import { colors } from '../../constants/theme';
-import { formatInstructor } from '../../utils/formatInstructor';
+import { GlassCard } from './GlassCard';
 
-const THUMB_W = 96;
-const CARD_H = 100;
+const THUMB_SIZE = 62;
+const THUMB_RADIUS = 20;
 
 type Props = {
   title: string;
-  instructor?: Parameters<typeof formatInstructor>[0];
-  progress?: number;
+  level?: string;
   thumbnail?: string;
   lessonCount?: number;
-  category?: string;
   onPress?: () => void;
 };
 
 export function HomeCourseCard({
   title,
-  instructor,
-  progress = 0,
+  level = 'Beginners',
   thumbnail,
   lessonCount,
-  category = 'Forex',
   onPress,
 }: Props) {
-  const instructorName = formatInstructor(instructor);
-  const pct = Math.min(Math.round(progress), 100);
-
   return (
-    <Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]} onPress={onPress}>
-      <View style={styles.thumb}>
-        {thumbnail ? (
-          <Image source={{ uri: thumbnail }} style={styles.thumbImage} resizeMode="cover" />
-        ) : (
-          <View style={styles.thumbPlaceholder}>
-            <AppIcon name="book-open" size={28} color={colors.blue} strokeWidth={1.8} />
-          </View>
-        )}
-      </View>
-      <View style={styles.body}>
-        <Text style={styles.category}>{category}</Text>
-        <Text style={styles.title} numberOfLines={2}>{title}</Text>
-        {instructorName ? <Text style={styles.instructor} numberOfLines={1}>{instructorName}</Text> : null}
-        <View style={styles.progressRow}>
-          <View style={styles.track}>
-            <View style={[styles.fill, { width: `${pct}%` }]} />
-          </View>
-          {lessonCount ? <Text style={styles.lessons}>{lessonCount} lessons</Text> : null}
+    <Pressable
+      style={({ pressed }) => [styles.outer, pressed && styles.pressed]}
+      onPress={onPress}
+    >
+      <GlassCard contentStyle={styles.cardInner} radius={26}>
+        <View style={styles.thumb}>
+          {thumbnail ? (
+            <Image source={{ uri: thumbnail }} style={styles.thumbImage} resizeMode="cover" />
+          ) : (
+            <View style={styles.thumbPlaceholder}>
+              <AppIcon name="book-open" size={30} color={colors.primary} strokeWidth={1.8} />
+            </View>
+          )}
         </View>
-      </View>
+
+        <View style={styles.body}>
+          <View style={styles.titleRow}>
+            <Text style={styles.title} numberOfLines={2}>
+              {title}
+            </Text>
+            <Pressable style={styles.menuBtn} hitSlop={8}>
+              <Ionicons name="ellipsis-horizontal" size={20} color="rgba(255,255,255,0.55)" />
+            </Pressable>
+          </View>
+
+          <View style={styles.footerRow}>
+            <Text style={styles.level}>{level}</Text>
+            {lessonCount != null ? (
+              <Text style={styles.lessons}>{lessonCount} Lessons</Text>
+            ) : null}
+          </View>
+        </View>
+      </GlassCard>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    height: CARD_H,
-    backgroundColor: '#0c1428',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    marginBottom: 10,
+  outer: {
+    width: '100%',
+    marginBottom: 12,
   },
-  pressed: { opacity: 0.92 },
+  pressed: {
+    opacity: 0.94,
+  },
+  cardInner: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    padding: 14,
+    gap: 14,
+    minHeight: THUMB_SIZE + 28,
+  },
   thumb: {
-    width: THUMB_W,
-    height: CARD_H,
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: THUMB_RADIUS,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    flexShrink: 0,
   },
   thumbImage: {
-    width: THUMB_W,
-    height: CARD_H,
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
   },
   thumbPlaceholder: {
-    width: THUMB_W,
-    height: CARD_H,
-    backgroundColor: 'rgba(0,102,255,0.12)',
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(3,111,252,0.12)',
   },
   body: {
     flex: 1,
-    height: CARD_H,
-    paddingVertical: 10,
-    paddingRight: 12,
-    paddingLeft: 10,
-    justifyContent: 'center',
-    gap: 1,
+    minWidth: 0,
+    minHeight: THUMB_SIZE,
+    justifyContent: 'space-between',
+    paddingVertical: 2,
   },
-  category: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.cyan,
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
   },
   title: {
-    fontSize: 13,
-    fontWeight: '700',
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '800',
     color: colors.text,
-    lineHeight: 17,
+    lineHeight: 20,
+    letterSpacing: -0.2,
   },
-  instructor: {
-    fontSize: 11,
-    color: colors.textMuted,
-    marginBottom: 4,
+  menuBtn: {
+    paddingTop: 2,
+    flexShrink: 0,
   },
-  progressRow: {
+  footerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'space-between',
+    marginTop: 8,
   },
-  track: {
-    flex: 1,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-    overflow: 'hidden',
-  },
-  fill: {
-    height: '100%',
-    backgroundColor: colors.blue,
-    borderRadius: 2,
+  level: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.78)',
   },
   lessons: {
-    fontSize: 10,
-    color: colors.textDim,
-    flexShrink: 0,
+    fontSize: 13,
+    fontWeight: '500',
+    color: 'rgba(255,255,255,0.78)',
   },
 });

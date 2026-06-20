@@ -158,7 +158,7 @@ export default function ReferralsScreen() {
       >
         {/* Hero card — code + share */}
         <LinearGradient
-          colors={['rgba(0,96,230,0.3)', 'rgba(8,20,48,0.95)']}
+          colors={['rgba(0,96,230,0.3)', 'rgba(255,255,255,0.03)']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.heroCard}
@@ -288,7 +288,7 @@ function StatBox({ icon, label, value, color }: { icon: keyof typeof Ionicons.gl
 
 const statStyles = StyleSheet.create({
   box: {
-    flex: 1, backgroundColor: 'rgba(8,20,48,0.9)', borderRadius: 16,
+    flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16,
     borderWidth: 1, padding: 16, gap: 10,
   },
   topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
     width: 40, height: 40, borderRadius: 14,
     backgroundColor: 'rgba(255,255,255,0.07)',
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)',
   },
   headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
   scroll: { flex: 1 },
@@ -352,8 +352,8 @@ const styles = StyleSheet.create({
   statsGrid: { gap: 10 },
   statsRow: { flexDirection: 'row', gap: 10 },
   card: {
-    backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 18,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18,
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)',
     padding: 16, gap: 12,
   },
   cardTitle: { fontSize: 13.5, fontWeight: '700', color: '#fff' },

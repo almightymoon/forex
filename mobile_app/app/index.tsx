@@ -2,6 +2,9 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { SplashLoader } from '../components/SplashLoader';
 import { getStoredToken, getStoredUser, resolvePostLoginRoute } from '../utils/auth';
+import { hasCompletedOnboarding } from '../utils/onboarding';
+import { isOnline } from '../utils/network';
+import { SPLASH_BOOT_MESSAGE } from '../components/splash/splashPhrases';
 
 const MIN_SPLASH_MS = 2200;
 
@@ -13,7 +16,7 @@ function wait(ms: number) {
 
 export default function SplashScreen() {
   const router = useRouter();
-  const [message, setMessage] = useState('Preparing your dashboard…');
+  const [message, setMessage] = useState(SPLASH_BOOT_MESSAGE);
 
   useEffect(() => {
     let cancelled = false;
@@ -27,14 +30,18 @@ export default function SplashScreen() {
       if (cancelled) return;
 
       if (token) {
-        setMessage('Loading your account…');
+        const online = await isOnline();
+        setMessage(online ? 'Loading your account…' : 'Loading offline…');
         const user = await getStoredUser();
         const route = await resolvePostLoginRoute(user);
         if (!cancelled) router.replace(route as never);
         return;
       }
 
-      if (!cancelled) router.replace('/auth');
+      if (!cancelled) {
+        const done = await hasCompletedOnboarding();
+        router.replace((done ? '/auth' : '/onboarding') as never);
+      }
     }
 
     boot();

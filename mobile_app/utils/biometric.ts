@@ -90,6 +90,41 @@ export async function saveBiometricCredentials(email: string, password: string):
   await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
 }
 
+export async function setupBiometricLogin(
+  email: string,
+  password: string,
+): Promise<{ success: true } | { success: false; error: string }> {
+  const { available, kind } = await getBiometricCapabilities();
+  if (!available) {
+    return { success: false, error: 'Biometric authentication is not available on this device.' };
+  }
+
+  const authenticated = await authenticateBiometric(`Enable ${getBiometricLabel(kind)} sign-in`);
+  if (!authenticated) {
+    return { success: false, error: 'Biometric verification was cancelled.' };
+  }
+
+  try {
+    const res = await apiFetch('api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.token) {
+      return {
+        success: false,
+        error: data.message ?? data.error ?? 'Incorrect password. Please try again.',
+      };
+    }
+
+    await storeAuth(data.token, data.user);
+    await saveBiometricCredentials(email, password);
+    return { success: true };
+  } catch {
+    return { success: false, error: 'Network error. Please check your connection.' };
+  }
+}
+
 export async function clearBiometricCredentials(): Promise<void> {
   await AsyncStorage.removeItem(BIOMETRIC_ENABLED_KEY);
   try {

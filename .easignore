@@ -1,0 +1,6 @@
+backend/
+frontend/
+website-screenshots/
+backups/
+*.md
+!mobile_app/README.md

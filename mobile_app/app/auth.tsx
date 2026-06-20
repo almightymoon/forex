@@ -2,70 +2,71 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { SpaceBackground } from '../components/SpaceBackground';
+import { AuthHeader } from '../components/auth/AuthHeader';
+import { AuthDateOfBirthField } from '../components/auth/AuthDateOfBirthField';
+import { AuthGlassPanel } from '../components/auth/AuthGlassPanel';
+import { AuthTabSlideTransition } from '../components/auth/AuthTabSlideTransition';
+import { CountryPhoneField } from '../components/auth/CountryPhoneField';
+import { PrimaryButton } from '../components/auth/PrimaryButton';
+import { SegmentedAuthToggle, type AuthTab } from '../components/auth/SegmentedAuthToggle';
 import { AuthInput } from '../components/AuthInput';
-import { AuthTabs } from '../components/AuthTabs';
-import { GradientButton } from '../components/GradientButton';
-import { Logo } from '../components/Logo';
-import { ScreenBackground } from '../components/ScreenBackground';
+import { formatPhoneForSubmit, getDefaultCountry, type Country } from '../constants/countries';
+import { spacing } from '../constants/theme';
 import { apiFetch } from '../utils/api';
+import {
+  dobToIso,
+  hasFieldErrors,
+  validateDateOfBirth,
+  validateEmail,
+  validateLoginForm,
+  validateName,
+  validatePassword,
+  validatePhone,
+  validateSignupForm,
+  type LoginFieldErrors,
+  type SignupFieldErrors,
+} from '../utils/authValidation';
 import { resolvePostLoginRoute, storeAuth } from '../utils/auth';
 import {
   getBiometricCapabilities,
   getBiometricIcon,
-  getBiometricLabel,
   hasBiometricCredentials,
   loginWithBiometrics,
-  saveBiometricCredentials,
   type BiometricKind,
 } from '../utils/biometric';
 
-type AuthTab = 'login' | 'signup';
+const LOGIN_COPY = {
+  title: 'Welcome Back',
+  tagline: 'Trade With Confidence',
+  subtitle: 'Access Signals, Risk Management, And Execution Tools In One Workspace.',
+};
 
-/** Phone prefix element — UK flag + chevron */
-function PhonePrefix() {
-  return (
-    <View style={phonePrefixStyles.row}>
-      <Text style={phonePrefixStyles.flag}>🇬🇧</Text>
-      <Ionicons name="chevron-down" size={12} color="rgba(255,255,255,0.45)" />
-      <View style={phonePrefixStyles.divider} />
-    </View>
-  );
-}
-
-const phonePrefixStyles = StyleSheet.create({
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 8,
-    gap: 4,
-  },
-  flag: {
-    fontSize: 18,
-    lineHeight: 22,
-  },
-  divider: {
-    width: 1,
-    height: 20,
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    marginLeft: 6,
-  },
-});
+const SIGNUP_COPY = {
+  title: 'Create Account',
+  tagline: 'Join The Desk',
+  subtitle: 'Packages, Des Tools And Mentorship - Pick Your Pathafter Signup',
+};
 
 export default function AuthScreen() {
   const router = useRouter();
+  const { height: screenH } = useWindowDimensions();
   const [activeTab, setActiveTab] = useState<AuthTab>('login');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [termsAgreed, setTermsAgreed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [biometricLoading, setBiometricLoading] = useState(false);
   const [error, setError] = useState('');
@@ -73,6 +74,38 @@ export default function AuthScreen() {
   const [biometricKind, setBiometricKind] = useState<BiometricKind>('none');
   const [hasSavedBiometricLogin, setHasSavedBiometricLogin] = useState(false);
   const autoBiometricAttempted = useRef(false);
+
+  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
+  const [signupForm, setSignupForm] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    dateOfBirth: '',
+    phone: '',
+    password: '',
+    referralCode: '',
+  });
+  const [phoneCountry, setPhoneCountry] = useState<Country>(getDefaultCountry);
+  const [loginErrors, setLoginErrors] = useState<LoginFieldErrors>({});
+  const [signupErrors, setSignupErrors] = useState<SignupFieldErrors>({});
+
+  const clearLoginError = (field: keyof LoginFieldErrors) => {
+    setLoginErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
+
+  const clearSignupError = (field: keyof SignupFieldErrors) => {
+    setSignupErrors((prev) => {
+      if (!prev[field]) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
+  };
 
   const refreshBiometricState = useCallback(async () => {
     const caps = await getBiometricCapabilities();
@@ -109,33 +142,31 @@ export default function AuthScreen() {
     handleBiometricLogin(true);
   }, [activeTab, hasSavedBiometricLogin, handleBiometricLogin]);
 
-  const [loginForm, setLoginForm] = useState({ email: '', password: '' });
-  const [signupForm, setSignupForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    dateOfBirth: '',
-    phone: '',
-    password: '',
-    referralCode: '',
-  });
+  const handleTabChange = (tab: AuthTab) => {
+    setError('');
+    setLoginErrors({});
+    setSignupErrors({});
+    setActiveTab(tab);
+  };
 
   const handleLogin = async () => {
-    if (!loginForm.email || !loginForm.password) { setError('Email and password are required'); return; }
+    const fieldErrors = validateLoginForm(loginForm.email, loginForm.password);
+    setLoginErrors(fieldErrors);
+    if (hasFieldErrors(fieldErrors)) return;
+
     setIsLoading(true);
     setError('');
     try {
       const res = await apiFetch('api/auth/login', {
         method: 'POST',
-        body: JSON.stringify({ email: loginForm.email.trim().toLowerCase(), password: loginForm.password }),
+        body: JSON.stringify({
+          email: loginForm.email.trim().toLowerCase(),
+          password: loginForm.password,
+        }),
       });
       const data = await res.json();
       if (res.ok && data.token) {
         await storeAuth(data.token, data.user);
-        if (rememberMe && biometricAvailable) {
-          await saveBiometricCredentials(loginForm.email, loginForm.password);
-          setHasSavedBiometricLogin(true);
-        }
         const route = await resolvePostLoginRoute(data.user);
         router.replace(route as any);
       } else {
@@ -149,20 +180,32 @@ export default function AuthScreen() {
   };
 
   const handleSignup = async () => {
-    if (!signupForm.firstName || !signupForm.lastName) { setError('First and last name are required'); return; }
-    if (!signupForm.email) { setError('Email is required'); return; }
-    if (!signupForm.password || signupForm.password.length < 6) { setError('Password must be at least 6 characters'); return; }
+    if (!termsAgreed) {
+      setError('Please accept the terms and conditions');
+      return;
+    }
+
+    const fieldErrors = validateSignupForm(signupForm);
+    setSignupErrors(fieldErrors);
+    if (hasFieldErrors(fieldErrors)) {
+      setError('');
+      return;
+    }
+
     setIsLoading(true);
     setError('');
     try {
+      const formattedPhone = formatPhoneForSubmit(signupForm.phone, phoneCountry);
+      const isoDob = dobToIso(signupForm.dateOfBirth);
       const body: Record<string, string> = {
         firstName: signupForm.firstName.trim(),
         lastName: signupForm.lastName.trim(),
         email: signupForm.email.trim().toLowerCase(),
         password: signupForm.password,
-        phone: signupForm.phone.trim(),
+        phone: formattedPhone,
+        country: phoneCountry.name,
       };
-      if (signupForm.dateOfBirth.trim()) body.dateOfBirth = signupForm.dateOfBirth.trim();
+      if (isoDob) body.dateOfBirth = isoDob;
       if (signupForm.referralCode) body.referralCode = signupForm.referralCode.trim().toUpperCase();
       const res = await apiFetch('api/auth/register', { method: 'POST', body: JSON.stringify(body) });
       const data = await res.json();
@@ -179,243 +222,294 @@ export default function AuthScreen() {
     }
   };
 
+  const loginFormContent = (
+    <>
+      <AuthInput
+        label="Email"
+        placeholder="you@example.com"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        value={loginForm.email}
+        error={loginErrors.email}
+        onChangeText={(email) => {
+          setLoginForm((p) => ({ ...p, email }));
+          clearLoginError('email');
+        }}
+        onBlur={() => setLoginErrors((prev) => ({ ...prev, email: validateEmail(loginForm.email) }))}
+      />
+      <AuthInput
+        label="Password"
+        placeholder="Enter your password"
+        secureTextEntry={!showLoginPassword}
+        value={loginForm.password}
+        error={loginErrors.password}
+        onChangeText={(password) => {
+          setLoginForm((p) => ({ ...p, password }));
+          clearLoginError('password');
+        }}
+        onBlur={() => setLoginErrors((prev) => ({ ...prev, password: validatePassword(loginForm.password) }))}
+        rightIcon={showLoginPassword ? 'eye-off-outline' : 'eye-outline'}
+        onRightIconPress={() => setShowLoginPassword((p) => !p)}
+      />
+      <View style={styles.loginMetaRow}>
+        <Pressable style={styles.rememberRow} onPress={() => setRememberMe((v) => !v)}>
+          <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+            {rememberMe ? <Ionicons name="checkmark" size={12} color="#FFFFFF" /> : null}
+          </View>
+          <Text style={styles.rememberText}>Remember me</Text>
+        </Pressable>
+        <Pressable onPress={() => router.push('/forgot-password')}>
+          <Text style={styles.forgotText}>Forgot Password?</Text>
+        </Pressable>
+      </View>
+      {error && activeTab === 'login' ? <Text style={styles.errorText}>{error}</Text> : null}
+      <PrimaryButton title="Login" loading={isLoading} onPress={handleLogin} style={styles.submitBtn} />
+    </>
+  );
+
+  const signupFormContent = (
+    <>
+      <View style={styles.nameRow}>
+        <View style={styles.nameField}>
+          <AuthInput
+            label="First Name"
+            placeholder="First name"
+            error={signupErrors.firstName}
+            onChangeText={(firstName) => {
+              setSignupForm((p) => ({ ...p, firstName }));
+              clearSignupError('firstName');
+            }}
+            onBlur={() =>
+              setSignupErrors((prev) => ({
+                ...prev,
+                firstName: validateName(signupForm.firstName, 'First name'),
+              }))
+            }
+          />
+        </View>
+        <View style={styles.nameField}>
+          <AuthInput
+            label="Last Name"
+            placeholder="Last name"
+            error={signupErrors.lastName}
+            onChangeText={(lastName) => {
+              setSignupForm((p) => ({ ...p, lastName }));
+              clearSignupError('lastName');
+            }}
+            onBlur={() =>
+              setSignupErrors((prev) => ({
+                ...prev,
+                lastName: validateName(signupForm.lastName, 'Last name'),
+              }))
+            }
+          />
+        </View>
+      </View>
+      <AuthInput
+        label="Email"
+        placeholder="you@example.com"
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoCorrect={false}
+        value={signupForm.email}
+        error={signupErrors.email}
+        onChangeText={(email) => {
+          setSignupForm((p) => ({ ...p, email }));
+          clearSignupError('email');
+        }}
+        onBlur={() => setSignupErrors((prev) => ({ ...prev, email: validateEmail(signupForm.email) }))}
+      />
+      <AuthDateOfBirthField
+        label="Date of birth"
+        value={signupForm.dateOfBirth}
+        error={signupErrors.dateOfBirth}
+        onChangeValue={(dateOfBirth) => {
+          setSignupForm((p) => ({ ...p, dateOfBirth }));
+          clearSignupError('dateOfBirth');
+        }}
+        onBlur={() =>
+          setSignupErrors((prev) => ({
+            ...prev,
+            dateOfBirth: validateDateOfBirth(signupForm.dateOfBirth),
+          }))
+        }
+      />
+      <CountryPhoneField
+        label="Phone Number"
+        placeholder="555 123 4567"
+        value={signupForm.phone}
+        country={phoneCountry}
+        error={signupErrors.phone}
+        onChangeValue={(phone) => {
+          setSignupForm((p) => ({ ...p, phone }));
+          clearSignupError('phone');
+        }}
+        onChangeCountry={setPhoneCountry}
+        onBlur={() =>
+          setSignupErrors((prev) => ({ ...prev, phone: validatePhone(signupForm.phone) }))
+        }
+      />
+      <AuthInput
+        label="Set Password"
+        placeholder="Create a password (min. 6 chars)"
+        secureTextEntry={!showSignupPassword}
+        value={signupForm.password}
+        error={signupErrors.password}
+        onChangeText={(password) => {
+          setSignupForm((p) => ({ ...p, password }));
+          clearSignupError('password');
+        }}
+        onBlur={() =>
+          setSignupErrors((prev) => ({ ...prev, password: validatePassword(signupForm.password) }))
+        }
+        rightIcon={showSignupPassword ? 'eye-off-outline' : 'eye-outline'}
+        onRightIconPress={() => setShowSignupPassword((p) => !p)}
+      />
+      <AuthInput
+        label="Referral code"
+        placeholder="Referral code (optional)"
+        autoCapitalize="characters"
+        value={signupForm.referralCode}
+        onChangeText={(referralCode) => setSignupForm((p) => ({ ...p, referralCode }))}
+      />
+      {error && activeTab === 'signup' ? <Text style={styles.errorText}>{error}</Text> : null}
+      <View style={styles.termsRow}>
+        <Pressable style={styles.checkboxHit} onPress={() => setTermsAgreed((v) => !v)}>
+          <View style={[styles.checkbox, termsAgreed && styles.checkboxChecked]}>
+            {termsAgreed ? <Ionicons name="checkmark" size={12} color="#FFFFFF" /> : null}
+          </View>
+        </Pressable>
+        <Text style={styles.termsText}>
+          I have read and agree to the{' '}
+          <Text style={styles.termsLink} onPress={() => router.push('/disclaimer')}>
+            disclaimer
+          </Text>
+          {' '}and{' '}
+          <Text style={styles.termsLink} onPress={() => router.push('/disclaimer')}>
+            terms and conditions
+          </Text>
+        </Text>
+      </View>
+      <PrimaryButton title="Sign Up" loading={isLoading} onPress={handleSignup} style={styles.submitBtn} />
+    </>
+  );
+
   return (
-    <ScreenBackground variant="auth">
-      <SafeAreaView style={styles.safeArea}>
+    <View style={styles.screen}>
+      <SpaceBackground />
+
+      <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <KeyboardAvoidingView
           style={styles.flex}
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         >
           <ScrollView
-            contentContainerStyle={styles.scrollContent}
+            style={styles.scroll}
+            contentContainerStyle={[styles.scrollContent, { minHeight: screenH - 32 }]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            {activeTab === 'login' ? (
-              // ─── LOGIN ───────────────────────────────────────────
-              <>
-                <View style={styles.header}>
-                  <Logo size="md" />
-                  <Text style={styles.title}>Welcome back</Text>
-                  <Text style={styles.subtitle}>
-                    Login to continue your trading journey{'\n'}with The FX Navigators
-                  </Text>
-                </View>
-
-                <AuthTabs activeTab={activeTab} onTabChange={setActiveTab} />
-
-                <AuthInput
-                  label="Email"
-                  icon="mail-outline"
-                  placeholder="Enter your email"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={loginForm.email}
-                  onChangeText={(email) => setLoginForm((p) => ({ ...p, email }))}
+            <AuthTabSlideTransition
+              activeTab={activeTab}
+              login={
+                <AuthHeader
+                  title={LOGIN_COPY.title}
+                  tagline={LOGIN_COPY.tagline}
+                  subtitle={LOGIN_COPY.subtitle}
                 />
-                <AuthInput
-                  label="Password"
-                  icon="lock-closed-outline"
-                  placeholder="Enter your password"
-                  secureTextEntry={!showLoginPassword}
-                  value={loginForm.password}
-                  onChangeText={(password) => setLoginForm((p) => ({ ...p, password }))}
-                  rightIcon={showLoginPassword ? 'eye-off-outline' : 'eye-outline'}
-                  onRightIconPress={() => setShowLoginPassword((p) => !p)}
+              }
+              signup={
+                <AuthHeader
+                  title={SIGNUP_COPY.title}
+                  tagline={SIGNUP_COPY.tagline}
+                  subtitle={SIGNUP_COPY.subtitle}
                 />
+              }
+            />
 
-                <View style={styles.metaRow}>
-                  <Pressable style={styles.rememberRow} onPress={() => setRememberMe((p) => !p)}>
-                    <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                      {rememberMe ? <Text style={styles.checkmark}>✓</Text> : null}
-                    </View>
-                    <Text style={styles.rememberText}>
-                      {biometricAvailable ? `Remember me · ${getBiometricLabel(biometricKind)}` : 'Remember me'}
-                    </Text>
-                  </Pressable>
-                  <Pressable onPress={() => router.push('/forgot-password')}>
-                    <Text style={styles.forgotText}>Forgot Password?</Text>
-                  </Pressable>
-                </View>
+            <SegmentedAuthToggle activeTab={activeTab} onTabChange={handleTabChange} />
 
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
-                <GradientButton title="Log In" loading={isLoading} onPress={handleLogin} />
+            <AuthGlassPanel>
+              <AuthTabSlideTransition
+                activeTab={activeTab}
+                login={loginFormContent}
+                signup={signupFormContent}
+              />
+            </AuthGlassPanel>
 
-                {hasSavedBiometricLogin && biometricAvailable ? (
-                  <>
-                    <View style={styles.orRow}>
-                      <View style={styles.orLine} />
-                      <Text style={styles.orText}>or</Text>
-                      <View style={styles.orLine} />
-                    </View>
-                    <Pressable
-                      style={[styles.biometricBtn, biometricLoading && styles.biometricBtnDisabled]}
-                      onPress={() => handleBiometricLogin(false)}
-                      disabled={biometricLoading || isLoading}
-                    >
-                      <Ionicons
-                        name={getBiometricIcon(biometricKind)}
-                        size={22}
-                        color="#3B9EFF"
-                      />
-                      <Text style={styles.biometricBtnText}>
-                        {biometricLoading
-                          ? 'Authenticating…'
-                          : `Sign in with ${getBiometricLabel(biometricKind)}`}
-                      </Text>
-                    </Pressable>
-                  </>
-                ) : null}
-              </>
-            ) : (
-              // ─── SIGN UP ─────────────────────────────────────────
-              <>
-                <View style={styles.headerNoLogo}>
-                  <Text style={styles.title}>Get Started now</Text>
-                  <Text style={styles.subtitle}>
-                    Create an account or log in to explore{'\n'}about our app
-                  </Text>
-                </View>
-
-                <AuthTabs activeTab={activeTab} onTabChange={setActiveTab} />
-
-                <View style={styles.nameRow}>
-                  <View style={styles.nameField}>
-                    <AuthInput
-                      label="First Name"
-                      icon="person-outline"
-                      placeholder="First name"
-                      autoCapitalize="words"
-                      value={signupForm.firstName}
-                      onChangeText={(firstName) => setSignupForm((p) => ({ ...p, firstName }))}
-                    />
-                  </View>
-                  <View style={styles.nameField}>
-                    <AuthInput
-                      label="Last Name"
-                      icon="person-outline"
-                      placeholder="Last name"
-                      autoCapitalize="words"
-                      value={signupForm.lastName}
-                      onChangeText={(lastName) => setSignupForm((p) => ({ ...p, lastName }))}
-                    />
-                  </View>
-                </View>
-
-                <AuthInput
-                  label="Email"
-                  icon="mail-outline"
-                  placeholder="Enter your email"
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  value={signupForm.email}
-                  onChangeText={(email) => setSignupForm((p) => ({ ...p, email }))}
-                />
-
-                {/* Date of birth — calendar icon on both sides */}
-                <AuthInput
-                  label="Birth of date"
-                  icon="calendar-outline"
-                  placeholder="DD / MM / YYYY"
-                  value={signupForm.dateOfBirth}
-                  onChangeText={(dateOfBirth) => setSignupForm((p) => ({ ...p, dateOfBirth }))}
-                  rightIcon="calendar-outline"
-                />
-
-                {/* Phone — UK flag prefix + number */}
-                <AuthInput
-                  label="Phone Number"
-                  leftPrefix={<PhonePrefix />}
-                  placeholder="+44 0000 000 000"
-                  keyboardType="phone-pad"
-                  value={signupForm.phone}
-                  onChangeText={(phone) => setSignupForm((p) => ({ ...p, phone }))}
-                />
-
-                <AuthInput
-                  label="Set Password"
-                  icon="lock-closed-outline"
-                  placeholder="Create a strong password"
-                  secureTextEntry={!showSignupPassword}
-                  value={signupForm.password}
-                  onChangeText={(password) => setSignupForm((p) => ({ ...p, password }))}
-                  rightIcon={showSignupPassword ? 'eye-off-outline' : 'eye-outline'}
-                  onRightIconPress={() => setShowSignupPassword((p) => !p)}
-                />
-
-                <AuthInput
-                  label="Referral code"
-                  icon="gift-outline"
-                  placeholder="Enter referral code"
-                  autoCapitalize="characters"
-                  value={signupForm.referralCode}
-                  onChangeText={(referralCode) => setSignupForm((p) => ({ ...p, referralCode }))}
-                />
-
-                {error ? <Text style={styles.errorText}>{error}</Text> : null}
-                <GradientButton title="Sign Up" loading={isLoading} onPress={handleSignup} />
-              </>
-            )}
+            <Pressable
+              style={styles.exploreLinkWrap}
+              onPress={() => router.push('/onboarding?preview=1')}
+              accessibilityRole="link"
+              accessibilityLabel="Explore welcome screens"
+            >
+              <Text style={styles.exploreLink}>Explore</Text>
+            </Pressable>
           </ScrollView>
+
+          {activeTab === 'login' && hasSavedBiometricLogin && biometricAvailable ? (
+            <View style={styles.biometricFooter}>
+              <Pressable
+                style={[styles.biometricBtn, biometricLoading && styles.biometricBtnDisabled]}
+                onPress={() => handleBiometricLogin(false)}
+                disabled={biometricLoading || isLoading}
+                accessibilityRole="button"
+                accessibilityLabel="Sign in with biometrics"
+              >
+                {biometricLoading ? (
+                  <ActivityIndicator color="#036FFC" size="small" />
+                ) : (
+                  <Ionicons name={getBiometricIcon(biometricKind)} size={38} color="#036FFC" />
+                )}
+              </Pressable>
+            </View>
+          ) : null}
         </KeyboardAvoidingView>
       </SafeAreaView>
-    </ScreenBackground>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#000000',
+  },
   safeArea: {
     flex: 1,
+    zIndex: 2,
+    backgroundColor: 'transparent',
   },
   flex: {
     flex: 1,
   },
+  scroll: {
+    flex: 1,
+    backgroundColor: 'transparent',
+  },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingTop: 8,
-    paddingBottom: 36,
+    paddingHorizontal: spacing.lg,
+    paddingTop: 16,
+    paddingBottom: 24,
   },
-
-  // Login header (with logo)
-  header: {
-    alignItems: 'center',
-    paddingTop: 40,
-    marginBottom: 26,
+  nameRow: {
+    flexDirection: 'row',
+    gap: 12,
   },
-
-  // Signup header (no logo, less top padding)
-  headerNoLogo: {
-    alignItems: 'center',
-    paddingTop: 20,
-    marginBottom: 26,
+  nameField: {
+    flex: 1,
   },
-
-  title: {
-    fontSize: 30,
-    fontWeight: '800' as const,
-    color: '#FFFFFF',
-    letterSpacing: -0.4,
-    marginTop: 10,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 13.5,
-    color: 'rgba(255,255,255,0.48)',
-    lineHeight: 20,
-    marginTop: 7,
-    textAlign: 'center',
-  },
-
-  // Remember me row
-  metaRow: {
+  loginMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 20,
-    marginTop: 2,
+    marginTop: 4,
+    marginBottom: 0,
+  },
+  submitBtn: {
+    marginTop: 18,
   },
   rememberRow: {
     flexDirection: 'row',
@@ -423,89 +517,83 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   checkbox: {
-    width: 16,
-    height: 16,
-    borderRadius: 3,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
+    width: 18,
+    height: 18,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.25)',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'transparent',
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
   checkboxChecked: {
-    borderColor: '#3B9EFF',
-    backgroundColor: 'rgba(59, 158, 255, 0.2)',
+    backgroundColor: '#036FFC',
+    borderColor: '#036FFC',
   },
-  checkmark: {
-    color: '#3B9EFF',
-    fontSize: 10,
-    fontWeight: '700',
+  termsRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    marginBottom: 16,
+    marginTop: 4,
+  },
+  checkboxHit: {
+    paddingTop: 2,
+  },
+  termsText: {
+    flex: 1,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.65)',
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: '#036FFC',
+    fontWeight: '600',
   },
   rememberText: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.45)',
+    color: 'rgba(255,255,255,0.65)',
   },
   forgotText: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#3B9EFF',
+    color: '#036FFC',
   },
   errorText: {
     fontSize: 13,
-    color: '#FF5A5A',
-    textAlign: 'center',
-    marginBottom: 10,
-    backgroundColor: 'rgba(255,90,90,0.1)',
-    borderRadius: 8,
-    padding: 10,
+    color: '#fecaca',
+    lineHeight: 18,
+    marginBottom: 12,
+    backgroundColor: 'rgba(127,29,29,0.4)',
+    borderRadius: 10,
+    padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,90,90,0.2)',
+    borderColor: 'rgba(239,68,68,0.25)',
   },
-
-  // Name row
-  nameRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  nameField: {
-    flex: 1,
-  },
-  orRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginTop: 22,
-    marginBottom: 18,
-  },
-  orLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-  },
-  orText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.35)',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  biometricBtn: {
-    flexDirection: 'row',
+  biometricFooter: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(59, 158, 255, 0.35)',
-    backgroundColor: 'rgba(59, 158, 255, 0.08)',
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  biometricBtn: {
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+
   },
   biometricBtnDisabled: {
     opacity: 0.6,
   },
-  biometricBtnText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: '#3B9EFF',
+  exploreLinkWrap: {
+    alignSelf: 'center',
+    marginTop: 16,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+  },
+  exploreLink: {
+    fontSize: 13,
+    color: '#036FFC',
+    fontWeight: '600',
   },
 });

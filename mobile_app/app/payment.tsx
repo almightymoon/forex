@@ -195,7 +195,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   summaryCard: {
-    backgroundColor: 'rgba(8,20,48,0.85)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 14,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
   walletRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(8,20,48,0.85)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(58,173,255,0.3)',

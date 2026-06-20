@@ -153,7 +153,7 @@ export default function CertificateAssignmentsScreen() {
                       multiline
                     />
                     <Pressable style={styles.completeBtn} onPress={() => markComplete(a._id)} disabled={completing === a._id}>
-                      <LinearGradient colors={['#0060E6', '#3AADFF']} style={styles.completeGrad}>
+                      <LinearGradient colors={['#0253BD', '#036FFC']} style={styles.completeGrad}>
                         {completing === a._id ? (
                           <ActivityIndicator color="#fff" size="small" />
                         ) : (
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.5)' },
   emptyText: { fontSize: 13.5, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingHorizontal: 20 },
-  card: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 16, gap: 8 },
+  card: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 16, gap: 8 },
   badge: { alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   badgeText: { fontSize: 11, fontWeight: '700' },
   title: { fontSize: 16, fontWeight: '800', color: '#fff' },

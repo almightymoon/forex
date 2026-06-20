@@ -1,4 +1,5 @@
 import { StyleSheet, Text, View } from 'react-native';
+import { GlassCard } from './GlassCard';
 
 type Props = {
   label: string;
@@ -17,39 +18,39 @@ export function StatCard({ label, value, icon, accent = '#3AADFF', highlighted, 
 
   if (compact) {
     return (
-      <View style={[styles.compactCard, highlighted && styles.cardHighlighted, highlightStyle]}>
+      <GlassCard
+        style={[styles.flex, highlighted && styles.cardHighlighted, highlightStyle]}
+        contentStyle={styles.compactInner}
+        radius={14}
+      >
         <View style={[styles.compactIcon, { backgroundColor: `${accent}18` }]}>{icon}</View>
         <Text style={styles.compactNumber}>{value}</Text>
         <Text style={styles.compactLabel}>{label}</Text>
-      </View>
+      </GlassCard>
     );
   }
 
   return (
-    <View style={[styles.card, highlighted && styles.cardHighlighted, highlightStyle]}>
+    <GlassCard
+      style={[styles.flex, highlighted && styles.cardHighlighted, highlightStyle]}
+      contentStyle={styles.cardInner}
+      radius={16}
+    >
       <View style={styles.cardTop}>
         <View style={[styles.iconWrap, { backgroundColor: `${accent}18` }]}>{icon}</View>
         <Text style={styles.value}>{value}</Text>
       </View>
       <Text style={styles.label}>{label}</Text>
       {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
-    </View>
+    </GlassCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    flex: 1,
-    backgroundColor: 'rgba(8,20,48,0.85)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+  flex: { flex: 1, minWidth: 0 },
+  cardInner: {
     padding: 14,
     gap: 4,
-    minWidth: 0,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
   },
   cardTop: {
     flexDirection: 'row',
@@ -84,20 +85,11 @@ const styles = StyleSheet.create({
     color: 'rgba(255,255,255,0.3)',
     marginTop: 2,
   },
-  compactCard: {
-    flex: 1,
-    backgroundColor: 'rgba(8,20,48,0.85)',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+  compactInner: {
     paddingVertical: 14,
     paddingHorizontal: 8,
     alignItems: 'center',
     gap: 6,
-    minWidth: 0,
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
   },
   compactIcon: {
     width: 38,

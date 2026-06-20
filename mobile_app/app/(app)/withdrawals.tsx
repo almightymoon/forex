@@ -135,7 +135,7 @@ export default function WithdrawalsScreen() {
           {loading ? <ActivityIndicator color="#3AADFF" style={{ marginTop: 40 }} /> : (
             <>
               {/* Balance card */}
-              <LinearGradient colors={['rgba(0,96,230,0.3)', 'rgba(8,20,48,0.95)']} style={styles.balanceCard}>
+              <LinearGradient colors={['rgba(0,96,230,0.3)', 'rgba(255,255,255,0.03)']} style={styles.balanceCard}>
                 <View style={styles.balanceIconWrap}>
                   <Ionicons name="wallet" size={26} color="#3AADFF" />
                 </View>
@@ -199,7 +199,7 @@ export default function WithdrawalsScreen() {
                   </View>
                 ) : null}
 
-                <LinearGradient colors={['#0060E6', '#3AADFF']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.submitGradient}>
+                <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.submitGradient}>
                   <Pressable style={styles.submitPress} onPress={handleWithdraw} disabled={submitting || balance <= 0}>
                     {submitting
                       ? <ActivityIndicator color="#fff" size="small" />
@@ -256,7 +256,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 10,
     borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
   },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
   headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 16 },
@@ -268,7 +268,7 @@ const styles = StyleSheet.create({
   balanceLabel: { fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: '600' },
   balanceValue: { fontSize: 36, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
   balanceSub: { fontSize: 12, color: 'rgba(255,255,255,0.35)' },
-  card: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 18, gap: 14 },
+  card: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 18, gap: 14 },
   cardTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
   fieldWrap: { gap: 6 },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.45)' },

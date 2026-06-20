@@ -3,6 +3,8 @@ import { useRouter } from 'expo-router';
 import { ScrollView, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DisclaimerBlock } from '../../components/DisclaimerBlock';
+
 const SECTIONS = [
   {
     title: '1. Acceptance of Terms',
@@ -63,6 +65,8 @@ export default function TermsScreen() {
           Please read these terms carefully before using The FX Navigators platform.
         </Text>
 
+        <DisclaimerBlock style={styles.disclaimer} />
+
         {SECTIONS.map((s) => (
           <View key={s.title} style={styles.section}>
             <Text style={styles.sectionTitle}>{s.title}</Text>
@@ -85,7 +89,8 @@ const styles = StyleSheet.create({
   updated: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   updatedText: { fontSize: 12.5, color: 'rgba(255,255,255,0.4)' },
   intro: { fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 21 },
-  section: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 16, gap: 8 },
+  disclaimer: { marginBottom: 4 },
+  section: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 16, gap: 8 },
   sectionTitle: { fontSize: 14, fontWeight: '800', color: '#fff' },
   sectionBody: { fontSize: 13.5, color: 'rgba(255,255,255,0.55)', lineHeight: 21 },
 });

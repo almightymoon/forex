@@ -171,7 +171,7 @@ export default function AssignmentsScreen() {
               ) : null}
               {!a.submission?.submittedAt || a.grade == null ? (
                 <Pressable style={styles.submitBtn} onPress={() => openSubmit(a)}>
-                  <LinearGradient colors={['#0060E6', '#3AADFF']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.submitGrad}>
+                  <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.submitGrad}>
                     <Ionicons name="cloud-upload-outline" size={16} color="#fff" />
                     <Text style={styles.submitText}>{a.submission?.submittedAt ? 'Resubmit' : 'Submit'}</Text>
                   </LinearGradient>
@@ -240,7 +240,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.5)' },
   emptyText: { fontSize: 13.5, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingHorizontal: 20 },
-  card: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 16, gap: 8 },
+  card: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 16, gap: 8 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statusPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   statusText: { fontSize: 11, fontWeight: '700' },
@@ -256,11 +256,11 @@ const styles = StyleSheet.create({
 });
 
 const modal = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#00050A' },
+  screen: { flex: 1, backgroundColor: 'transparent' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
   title: { flex: 1, fontSize: 17, fontWeight: '800', color: '#fff', marginRight: 12 },
   content: { padding: 18, gap: 14, paddingBottom: 40 },
-  instructionsBox: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 12, padding: 14, gap: 6 },
+  instructionsBox: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 14, gap: 6 },
   instructionsLabel: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.4)', letterSpacing: 0.8, textTransform: 'uppercase' },
   instructionsText: { fontSize: 13.5, color: 'rgba(255,255,255,0.7)', lineHeight: 20 },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.45)' },

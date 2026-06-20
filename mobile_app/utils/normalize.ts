@@ -118,9 +118,14 @@ export interface NormalizedNews {
   url: string;
   source: string;
   publishedAt: string;
+  thumbnail?: string;
 }
 
 export function normalizeNews(raw: Record<string, unknown>): NormalizedNews {
+  const thumbnail = String(
+    raw.thumbnail ?? raw.image ?? raw.imageUrl ?? raw.urlToImage ?? '',
+  ).trim();
+
   return {
     id: String(raw.id ?? raw._id ?? raw.url ?? Math.random()),
     title: String(raw.title ?? 'Market update'),
@@ -128,5 +133,6 @@ export function normalizeNews(raw: Record<string, unknown>): NormalizedNews {
     url: String(raw.url ?? raw.link ?? ''),
     source: String(raw.source ?? 'Markets'),
     publishedAt: String(raw.publishedAt ?? raw.pubDate ?? new Date().toISOString()),
+    thumbnail: thumbnail || undefined,
   };
 }

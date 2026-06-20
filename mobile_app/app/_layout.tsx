@@ -11,6 +11,10 @@ const preloadAssets = [
   require('../assets/images/bg-splash.png'),
   require('../assets/images/bg-auth.png'),
   require('../assets/images/logo.png'),
+  require('../assets/images/space-background.png'),
+  require('../assets/images/image 10.png'),
+  require('../assets/images/image 11.png'),
+  require('../assets/images/image 12.png'),
 ];
 
 export default function RootLayout() {
@@ -50,6 +54,8 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="index" options={{ animation: 'fade' }} />
+        <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
+        <Stack.Screen name="disclaimer" />
         <Stack.Screen name="auth" />
         <Stack.Screen name="forgot-password" />
         <Stack.Screen name="select-package" />

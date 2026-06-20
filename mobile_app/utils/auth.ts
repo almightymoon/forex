@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { apiFetch } from './api';
+import { isOnline } from './network';
 
 export type UserRole = 'student' | 'teacher' | 'admin' | 'developer' | 'instructor';
 
@@ -37,14 +38,32 @@ export async function clearAuth(): Promise<void> {
   await AsyncStorage.multiRemove(['token', 'user']);
 }
 
+const LAST_ROUTE_KEY = 'last_app_route';
+
+export async function saveLastAppRoute(route: string): Promise<void> {
+  if (route.startsWith('/(app)/')) {
+    await AsyncStorage.setItem(LAST_ROUTE_KEY, route);
+  }
+}
+
+async function getLastAppRoute(): Promise<string | null> {
+  return AsyncStorage.getItem(LAST_ROUTE_KEY);
+}
+
 /**
  * Determines where to navigate after a successful login.
  * Mirrors the exact logic in the frontend login page.
  */
 export async function resolvePostLoginRoute(user?: AuthUser | null): Promise<string> {
+  if (!(await isOnline())) {
+    if (!user) return '/auth';
+    return (await getLastAppRoute()) ?? '/(app)/home';
+  }
+
   // Non-student roles skip the package check entirely
   const NON_STUDENT_ROLES: UserRole[] = ['teacher', 'admin', 'developer', 'instructor'];
   if (user && NON_STUDENT_ROLES.includes(user.role)) {
+    await saveLastAppRoute('/(app)/home');
     return '/(app)/home';
   }
 
@@ -65,7 +84,10 @@ export async function resolvePostLoginRoute(user?: AuthUser | null): Promise<str
     const packagePayments = payments.filter((p) => !p.type || p.type === 'package');
 
     const completed = packagePayments.find((p) => p.status === 'completed');
-    if (completed) return '/(app)/home';
+    if (completed) {
+      await saveLastAppRoute('/(app)/home');
+      return '/(app)/home';
+    }
 
     const pending = packagePayments.find((p) => p.status === 'pending');
     if (pending) {
@@ -83,7 +105,7 @@ export async function resolvePostLoginRoute(user?: AuthUser | null): Promise<str
     // No package payment found at all
     return '/select-package';
   } catch {
-    // Network error — try profile as fallback rather than locking them out
+    if (!(await isOnline())) return (await getLastAppRoute()) ?? '/(app)/home';
     return resolveViaProfile();
   }
 }
@@ -95,7 +117,10 @@ export async function resolvePostLoginRoute(user?: AuthUser | null): Promise<str
 async function resolveViaProfile(): Promise<string> {
   try {
     const res = await apiFetch('api/users/profile/me');
-    if (res.ok) return '/(app)/home';
+    if (res.ok) {
+      await saveLastAppRoute('/(app)/home');
+      return '/(app)/home';
+    }
     if (res.status === 403) {
       const data = await res.json().catch(() => ({}));
       if (data.code === 'PACKAGE_REQUIRED') return '/select-package';
@@ -104,10 +129,10 @@ async function resolveViaProfile(): Promise<string> {
       if (data.code === 'MONTHLY_FEE_REQUIRED') return '/(app)/monthly-fee';
     }
     if (res.status === 401) return '/auth';
-    // Any other status — let them into the app
+    await saveLastAppRoute('/(app)/home');
     return '/(app)/home';
   } catch {
-    // Completely offline — let them into the app rather than bouncing them to select-package
+    if (!(await isOnline())) return (await getLastAppRoute()) ?? '/(app)/home';
     return '/(app)/home';
   }
 }

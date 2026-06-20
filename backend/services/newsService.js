@@ -44,6 +44,30 @@ function articleId(source, link) {
   return `${source}-${hash}`;
 }
 
+function extractEnclosureImage(block) {
+  const enclosure = /<enclosure[^>]+url=["']([^"']+)["'][^>]*>/i.exec(block);
+  if (enclosure && /image|\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(enclosure[0])) {
+    return enclosure[1];
+  }
+
+  const mediaThumb = /<media:thumbnail[^>]+url=["']([^"']+)["']/i.exec(block);
+  if (mediaThumb) return mediaThumb[1];
+
+  const mediaContent = /<media:content[^>]+url=["']([^"']+)["'][^>]*>/i.exec(block);
+  if (mediaContent && /image|\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(mediaContent[0])) {
+    return mediaContent[1];
+  }
+
+  const rawHtml =
+    extractTag(block, 'description') ||
+    extractTag(block, 'content:encoded') ||
+    extractTag(block, 'content');
+  const imgTag = /<img[^>]+src=["']([^"']+)["']/i.exec(rawHtml);
+  if (imgTag) return decodeEntities(imgTag[1]);
+
+  return '';
+}
+
 function parseRss(xml, source) {
   if (!xml || typeof xml !== 'string') return [];
 
@@ -57,6 +81,7 @@ function parseRss(xml, source) {
     const link = extractTag(block, 'link') || extractTag(block, 'guid');
     const description = stripHtml(extractTag(block, 'description') || extractTag(block, 'content:encoded'));
     const pubDate = extractTag(block, 'pubDate') || extractTag(block, 'dc:date');
+    const thumbnail = extractEnclosureImage(block);
 
     if (!title || !link) continue;
 
@@ -69,6 +94,7 @@ function parseRss(xml, source) {
       summary: description.slice(0, 220),
       url: link,
       source,
+      thumbnail: thumbnail || undefined,
       publishedAt: publishedAt.toISOString(),
     });
   }

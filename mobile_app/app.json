@@ -1,10 +1,10 @@
 {
   "expo": {
     "name": "The FX Navigators",
-    "slug": "fx-navigators",
+    "slug": "the-fx-navigators",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.png",
+    "icon": "./assets/images/icon.png",
     "scheme": "fxnavigators",
     "userInterfaceStyle": "dark",
     "backgroundColor": "#00050A",
@@ -12,7 +12,7 @@
       "ios",
       "android"
     ],
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/images/logo.png",
       "resizeMode": "contain",
@@ -25,22 +25,34 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/logo.png",
+        "foregroundImage": "./assets/images/icon.png",
         "backgroundColor": "#00050A"
       },
       "package": "com.fxnavigators.app",
-      "backgroundColor": "#00050A"
+      "backgroundColor": "#00050A",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "thefxnavigators.com",
+              "pathPrefix": "/reset-password"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
     },
-    "intentFilters": [
-      {
-        "action": "VIEW",
-        "autoVerify": true,
-        "data": [
-          { "scheme": "https", "host": "thefxnavigators.com", "pathPrefix": "/reset-password" }
-        ],
-        "category": ["BROWSABLE", "DEFAULT"]
-      }
-    ],
     "plugins": [
       "expo-router",
       "expo-asset",
@@ -57,8 +69,8 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/images/logo.png",
-          "color": "#0060E6",
+          "icon": "./assets/images/icon.png",
+          "color": "#036FFC",
           "sounds": []
         }
       ],
@@ -75,10 +87,18 @@
           "faceIDPermission": "Allow The FX Navigators to use Face ID for quick and secure sign-in."
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "6a3902ef-0f67-4a9f-b79b-3f6048acc816"
+      }
+    },
+    "owner": "moontech94"
   }
 }

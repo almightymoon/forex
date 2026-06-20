@@ -1,13 +1,17 @@
 import { Image, StyleSheet, View } from 'react-native';
 
 type Props = {
-  size?: 'mark' | 'brand' | 'compact' | 'header' | 'sm' | 'md' | 'lg';
+  size?: 'mark' | 'authCorner' | 'brand' | 'compact' | 'header' | 'auth' | 'sm' | 'md' | 'lg';
 };
 
 const SIZES = {
   lg: { wrapper: { width: 240, height: 240 }, image: { width: 300, height: 300 } },
   md: { wrapper: { width: 126, height: 126 }, image: { width: 260, height: 260 } },
   sm: { wrapper: { width: 100, height: 100 }, image: { width: 130, height: 130 } },
+  /** Auth screen — prominent brand mark */
+  auth: { wrapper: { width: 300, height: 72 }, image: { width: 300, height: 72 } },
+  /** Figma auth — FN mark top-right */
+  authCorner: { wrapper: { width: 225, height: 225, alignItems: 'flex-end', justifyContent: 'flex-start' }, image: { width: 225, height: 225 } },
   header: { wrapper: { width: 190, height: 44 }, image: { width: 190, height: 44 } },
   mark: { wrapper: { width: 48, height: 48 }, image: { width: 48, height: 48 } },
   brand: { wrapper: { width: 56, height: 56 }, image: { width: 76, height: 86 } },

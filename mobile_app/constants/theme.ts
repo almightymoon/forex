@@ -35,17 +35,18 @@ export const colors = {
   error: '#F87171',
   sell: '#FF6B6B',
 
-  /** Legacy aliases */
-  primary: '#3AADFF',
+  /** Brand primary — CTAs, toggles, accents */
+  primary: '#036FFC',
+  primaryDark: '#0253BD',
   primaryEnd: '#00D4FF',
-  primaryGlow: 'rgba(0, 212, 255, 0.35)',
+  primaryGlow: 'rgba(3, 111, 252, 0.35)',
 };
 
 export const gradients = {
   /** Hero card — logo blue → indigo */
   hero: ['#0055CC', '#003D99', '#0a1840'] as const,
-  /** Primary button — logo electric */
-  button: ['#0060E6', '#3AADFF'] as const,
+  /** Primary button */
+  button: ['#0253BD', '#036FFC'] as const,
   /** Cyan accent shimmer */
   accent: ['#00D4FF', '#3AADFF'] as const,
   /** Metallic silver hint */

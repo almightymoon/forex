@@ -150,7 +150,7 @@ export function RankRewardsProgress({ embedded = false }: Props) {
         </View>
         <View style={styles.progressTrack}>
           <LinearGradient
-            colors={['#0060E6', '#3AADFF']}
+            colors={['#0253BD', '#036FFC']}
             start={{ x: 0, y: 0.5 }}
             end={{ x: 1, y: 0.5 }}
             style={[styles.progressFill, { width: `${progressPct}%` as `${number}%` }]}
@@ -263,10 +263,10 @@ const styles = StyleSheet.create({
   loadingWrap: { paddingVertical: 32, alignItems: 'center' },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
   emptyCard: {
-    backgroundColor: 'rgba(8,20,48,0.85)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.11)',
     padding: 28,
     alignItems: 'center',
     gap: 8,
@@ -274,10 +274,10 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 16, fontWeight: '700', color: 'rgba(255,255,255,0.5)', marginTop: 4 },
   emptySub: { fontSize: 13, color: 'rgba(255,255,255,0.3)', textAlign: 'center' },
   summaryCard: {
-    backgroundColor: 'rgba(8,20,48,0.85)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.11)',
     padding: 18,
     gap: 10,
   },
@@ -321,10 +321,10 @@ const styles = StyleSheet.create({
   tipTitle: { fontSize: 13, fontWeight: '700', color: '#3AADFF' },
   tipSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2, lineHeight: 17 },
   listCard: {
-    backgroundColor: 'rgba(8,20,48,0.85)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     borderRadius: 18,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.11)',
     padding: 16,
     gap: 12,
   },
@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   ruleCard: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.11)',
     backgroundColor: 'rgba(255,255,255,0.03)',
     padding: 14,
     gap: 12,
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: 'rgba(255,255,255,0.11)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   statusFulfilled: { backgroundColor: '#16A34A' },
-  statusUnlocked: { backgroundColor: '#0060E6' },
+  statusUnlocked: { backgroundColor: '#036FFC' },
   statusLocked: { backgroundColor: 'rgba(255,255,255,0.08)' },
   statusText: { fontSize: 12, fontWeight: '700', color: '#fff' },
   needText: { fontSize: 11.5, color: 'rgba(255,255,255,0.4)', flexShrink: 1, textAlign: 'right' },

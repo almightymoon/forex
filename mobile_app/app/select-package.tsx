@@ -119,7 +119,7 @@ export default function SelectPackageScreen() {
                   </View>
                 )}
                 <LinearGradient
-                  colors={isSelected ? ['rgba(0,96,230,0.35)', 'rgba(58,173,255,0.15)'] : ['rgba(8,20,48,0.9)', 'rgba(8,20,48,0.9)']}
+                  colors={isSelected ? ['rgba(0,96,230,0.35)', 'rgba(58,173,255,0.15)'] : ['rgba(255,255,255,0.04)', 'rgba(255,255,255,0.04)']}
                   style={[styles.card, isSelected && styles.cardSelected, pkg.badge && styles.cardPopular]}
                 >
                   {/* Selected indicator */}
@@ -161,7 +161,7 @@ export default function SelectPackageScreen() {
             disabled={!selected || loading}
           >
             <LinearGradient
-              colors={selected ? ['#0060E6', '#3AADFF'] : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.08)']}
+              colors={selected ? ['#0253BD', '#036FFC'] : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.08)']}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
               style={styles.ctaGradient}
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   popularBadgeHighlight: {
-    backgroundColor: '#0060E6',
+    backgroundColor: '#036FFC',
   },
   popularText: {
     fontSize: 11,

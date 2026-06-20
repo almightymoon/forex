@@ -97,7 +97,7 @@ export default function CertificatesScreen() {
             return (
               <View key={cert.id} style={styles.certCard}>
                 {/* Top gradient strip */}
-                <LinearGradient colors={['#0060E6', '#3AADFF']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.certStrip} />
+                <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.certStrip} />
 
                 <View style={styles.certBody}>
                   {/* Thumbnail */}
@@ -178,14 +178,14 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: { backgroundColor: 'transparent' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
   headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
   countBadge: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(167,139,250,0.15)', alignItems: 'center', justifyContent: 'center' },
   countText: { fontSize: 15, fontWeight: '800', color: '#A78BFA' },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 16 },
   certCard: {
-    backgroundColor: 'rgba(8,20,48,0.9)', borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20,
     borderWidth: 1, borderColor: 'rgba(167,139,250,0.2)',
     overflow: 'hidden',
   },

@@ -321,7 +321,7 @@ function TabBtn({ label, active, onPress, count }: { label: string; active: bool
   return (
     <Pressable style={styles.tabBtn} onPress={onPress}>
       {active ? (
-        <LinearGradient colors={['#0060E6', '#3AADFF']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.tabActive}>
+        <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.tabActive}>
           <Text style={styles.tabTextActive}>{label}</Text>
           <View style={styles.tabCount}><Text style={styles.tabCountText}>{count}</Text></View>
         </LinearGradient>

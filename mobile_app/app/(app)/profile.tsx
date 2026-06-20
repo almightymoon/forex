@@ -19,6 +19,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassCard } from '../../components/GlassCard';
+import { GlassSurface } from '../../components/glass/GlassSurface';
 import { apiFetch, apiUpload } from '../../utils/api';
 import { AuthUser, getStoredUser, storeAuth, getStoredToken } from '../../utils/auth';
 import { resolveMediaUrl } from '../../utils/normalize';
@@ -268,10 +270,7 @@ export default function ProfileScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Hero avatar */}
-          <LinearGradient
-            colors={['rgba(0,96,230,0.2)', 'rgba(8,20,48,0.95)']}
-            style={styles.heroBanner}
-          >
+          <GlassSurface style={styles.heroBanner} contentStyle={styles.heroInner} radius={20} prominent>
             <Pressable
               style={styles.avatarWrap}
               onPress={pickProfileImage}
@@ -298,11 +297,11 @@ export default function ProfileScreen() {
               <Ionicons name="shield-checkmark" size={12} color="#3AADFF" />
               <Text style={styles.roleText}>{role.toUpperCase()}</Text>
             </View>
-          </LinearGradient>
+          </GlassSurface>
 
           {/* Edit form or info view */}
           {editing ? (
-            <View style={styles.formCard}>
+            <GlassSurface style={styles.formCard} contentStyle={styles.formInner} radius={18}>
               <Text style={styles.sectionLabel}>PERSONAL INFORMATION</Text>
               {FIELDS.map((f) => (
                 <View key={f.key} style={styles.fieldWrap}>
@@ -331,7 +330,7 @@ export default function ProfileScreen() {
                 </View>
               ) : null}
 
-              <LinearGradient colors={['#0060E6', '#3AADFF']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.saveGradient}>
+              <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.saveGradient}>
                 <Pressable style={styles.savePress} onPress={handleSave} disabled={saving}>
                   {saving
                     ? <ActivityIndicator color="#fff" size="small" />
@@ -341,21 +340,21 @@ export default function ProfileScreen() {
                       </>}
                 </Pressable>
               </LinearGradient>
-            </View>
+            </GlassSurface>
           ) : (
             <>
               {/* Info rows */}
-              <View style={styles.infoCard}>
+              <GlassSurface style={styles.infoCard} contentStyle={styles.infoInner} radius={18}>
                 <Text style={styles.sectionLabel}>PERSONAL INFORMATION</Text>
                 <InfoRow icon="person-outline" label="Full Name" value={displayName} />
                 <InfoRow icon="mail-outline" label="Email" value={email} />
                 {profile.phone ? <InfoRow icon="call-outline" label="Phone" value={profile.phone as string} /> : null}
                 {profile.country ? <InfoRow icon="globe-outline" label="Country" value={profile.country as string} /> : null}
-              </View>
+              </GlassSurface>
 
               {/* Referral */}
               {profile.referralCode ? (
-                <View style={styles.infoCard}>
+                <GlassSurface style={styles.infoCard} contentStyle={styles.infoInner} radius={18}>
                   <Text style={styles.sectionLabel}>REFERRAL</Text>
                   <Pressable style={styles.referralRow} onPress={copyReferralCode}>
                     <View style={styles.referralIcon}>
@@ -367,7 +366,7 @@ export default function ProfileScreen() {
                     </View>
                     <Ionicons name="open-outline" size={16} color="rgba(255,255,255,0.3)" />
                   </Pressable>
-                </View>
+                </GlassSurface>
               ) : null}
 
               {/* Stats */}
@@ -405,13 +404,13 @@ function InfoRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap;
 
 function StatCard({ icon, label, value, color }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; color: string }) {
   return (
-    <View style={[statStyles.card, { borderColor: `${color}30` }]}>
+    <GlassCard style={statStyles.flex} contentStyle={statStyles.inner} radius={14}>
       <View style={[statStyles.icon, { backgroundColor: `${color}18` }]}>
         <Ionicons name={icon} size={18} color={color} />
       </View>
       <Text style={[statStyles.value, { color }]}>{value}</Text>
       <Text style={statStyles.label}>{label}</Text>
-    </View>
+    </GlassCard>
   );
 }
 
@@ -430,10 +429,8 @@ const rowStyles = StyleSheet.create({
 });
 
 const statStyles = StyleSheet.create({
-  card: {
-    flex: 1, backgroundColor: 'rgba(8,20,48,0.9)', borderRadius: 14,
-    borderWidth: 1, padding: 14, alignItems: 'flex-start', gap: 6,
-  },
+  flex: { flex: 1 },
+  inner: { padding: 14, alignItems: 'flex-start', gap: 6 },
   icon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   value: { fontSize: 16, fontWeight: '800' },
   label: { fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: '500' },
@@ -466,8 +463,11 @@ const styles = StyleSheet.create({
   content: { paddingBottom: 40, gap: 16 },
   heroBanner: {
     margin: 18,
-    borderRadius: 20, padding: 28, alignItems: 'center', gap: 8,
-    borderWidth: 1, borderColor: 'rgba(58,173,255,0.15)', overflow: 'hidden',
+  },
+  heroInner: {
+    padding: 28,
+    alignItems: 'center',
+    gap: 8,
   },
   avatarWrap: { position: 'relative', marginBottom: 4 },
   avatarImage: {
@@ -484,7 +484,7 @@ const styles = StyleSheet.create({
   cameraBadge: {
     position: 'absolute', bottom: 0, right: 0,
     width: 26, height: 26, borderRadius: 13,
-    backgroundColor: '#0060E6',
+    backgroundColor: '#036FFC',
     alignItems: 'center', justifyContent: 'center',
     borderWidth: 2, borderColor: '#00050A',
   },
@@ -496,12 +496,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,96,230,0.2)', borderWidth: 1, borderColor: 'rgba(58,173,255,0.3)',
   },
   roleText: { fontSize: 11, fontWeight: '800', color: '#3AADFF', letterSpacing: 0.5 },
-  infoCard: {
-    marginHorizontal: 18,
-    backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 18,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4,
-  },
+  infoCard: { marginHorizontal: 18 },
+  infoInner: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
   statsRow: { flexDirection: 'row', gap: 12, marginHorizontal: 18 },
   sectionLabel: {
     fontSize: 10, fontWeight: '800', letterSpacing: 1.2,
@@ -517,12 +513,8 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   referralCode: { fontSize: 16, fontWeight: '800', color: '#FFC107', letterSpacing: 1 },
-  formCard: {
-    marginHorizontal: 18,
-    backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 18,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
-    padding: 18, gap: 14,
-  },
+  formCard: { marginHorizontal: 18 },
+  formInner: { padding: 18, gap: 14 },
   fieldWrap: { gap: 6 },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.45)' },
   input: {

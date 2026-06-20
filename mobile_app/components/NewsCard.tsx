@@ -1,7 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon } from './AppIcon';
 import { colors } from '../constants/theme';
 import type { NormalizedNews } from '../utils/normalize';
+import { GlassCard } from './GlassCard';
 
 type Props = {
   item: NormalizedNews;
@@ -26,15 +27,15 @@ function formatTime(iso: string) {
 }
 
 export function NewsCard({ item, compact, onPress }: Props) {
-  return (
-    <Pressable
-      style={({ pressed }) => [styles.card, compact && styles.cardCompact, pressed && styles.pressed]}
-      onPress={onPress}
-      disabled={!onPress}
-    >
-      <View style={styles.iconWrap}>
-        <AppIcon name="file-text" size={compact ? 16 : 18} color={colors.cyan} strokeWidth={2} />
-      </View>
+  const inner = (
+    <View style={[styles.row, compact && styles.rowCompact]}>
+      {item.thumbnail ? (
+        <Image source={{ uri: item.thumbnail }} style={[styles.thumb, compact && styles.thumbCompact]} />
+      ) : (
+        <View style={[styles.iconWrap, compact && styles.iconWrapCompact]}>
+          <AppIcon name="file-text" size={compact ? 16 : 18} color={colors.cyan} strokeWidth={2} />
+        </View>
+      )}
       <View style={styles.body}>
         <View style={styles.topRow}>
           <Text style={styles.source}>{item.source}</Text>
@@ -48,26 +49,51 @@ export function NewsCard({ item, compact, onPress }: Props) {
         ) : null}
       </View>
       <AppIcon name="chevron-right" size={16} color={colors.textDim} strokeWidth={2} />
-    </Pressable>
+    </View>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable
+        style={({ pressed }) => [pressed && styles.pressed]}
+        onPress={onPress}
+      >
+        <GlassCard contentStyle={compact ? styles.cardCompact : styles.cardInner} radius={compact ? 14 : 16}>
+          {inner}
+        </GlassCard>
+      </Pressable>
+    );
+  }
+
+  return (
+    <GlassCard contentStyle={compact ? styles.cardCompact : styles.cardInner} radius={compact ? 14 : 16}>
+      {inner}
+    </GlassCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  cardInner: { padding: 14 },
+  cardCompact: { padding: 12 },
+  row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: 'rgba(12, 20, 40, 0.72)',
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  cardCompact: {
-    padding: 12,
-    borderRadius: 14,
-  },
+  rowCompact: { gap: 10 },
   pressed: { opacity: 0.92 },
+  thumb: {
+    width: 52,
+    height: 52,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    flexShrink: 0,
+  },
+  thumbCompact: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+  },
   iconWrap: {
     width: 36,
     height: 36,
@@ -77,6 +103,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexShrink: 0,
     marginTop: 1,
+  },
+  iconWrapCompact: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
   },
   body: { flex: 1, minWidth: 0, gap: 4 },
   topRow: {

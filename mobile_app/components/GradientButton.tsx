@@ -13,7 +13,7 @@ import { colors, gradients } from '../constants/theme';
 type Props = Omit<PressableProps, 'style'> & {
   title: string;
   loading?: boolean;
-  variant?: 'primary' | 'ghost';
+  variant?: 'primary' | 'ghost' | 'portal';
   style?: StyleProp<ViewStyle>;
   noMargin?: boolean;
 };
@@ -45,6 +45,22 @@ export function GradientButton({
     );
   }
 
+  if (variant === 'portal') {
+    return (
+      <Pressable
+        style={[styles.portalButton, !noMargin && styles.wrapperMargin, isDisabled && styles.disabled, style]}
+        disabled={isDisabled}
+        {...props}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text style={styles.portalText}>{title}</Text>
+        )}
+      </Pressable>
+    );
+  }
+
   return (
     <Pressable
       style={[styles.wrapper, !noMargin && styles.wrapperMargin, isDisabled && styles.disabled, style]}
@@ -69,19 +85,19 @@ export function GradientButton({
 
 const styles = StyleSheet.create({
   wrapper: {
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
-    shadowColor: colors.indigoDeep,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.55,
-    shadowRadius: 16,
-    elevation: 8,
+    shadowColor: colors.cyan,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.45,
+    shadowRadius: 20,
+    elevation: 10,
   },
   wrapperMargin: {
     marginTop: 6,
   },
   gradient: {
-    height: 54,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -89,7 +105,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 0.2,
+    letterSpacing: 0.3,
   },
   ghostButton: {
     height: 54,
@@ -104,6 +120,20 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
     color: 'rgba(255,255,255,0.6)',
+  },
+  portalButton: {
+    height: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#2c2c31',
+  },
+  portalText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
   disabled: {
     opacity: 0.45,

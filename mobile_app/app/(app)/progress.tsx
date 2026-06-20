@@ -46,7 +46,7 @@ function StatPill({ label, value, color }: { label: string; value: number; color
   );
 }
 const statStyles = StyleSheet.create({
-  pill: { flex: 1, backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 14, borderWidth: 1, padding: 14, alignItems: 'center', gap: 4 },
+  pill: { flex: 1, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, padding: 14, alignItems: 'center', gap: 4 },
   val: { fontSize: 24, fontWeight: '900' },
   label: { fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: '600', textAlign: 'center' },
 });
@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: { backgroundColor: 'transparent' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
   headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 14 },
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   browseBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(58,173,255,0.3)', backgroundColor: 'rgba(0,96,230,0.1)' },
   browseBtnText: { fontSize: 14, fontWeight: '700', color: '#3AADFF' },
   statsRow: { flexDirection: 'row', gap: 10 },
-  overallCard: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 16, gap: 10 },
+  overallCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 16, gap: 10 },
   overallHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   overallLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
   overallPct: { fontSize: 22, fontWeight: '900', color: '#3AADFF' },
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   bigBarFill: { height: '100%', borderRadius: 5, backgroundColor: '#3AADFF' },
   overallSub: { fontSize: 12, color: 'rgba(255,255,255,0.35)' },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  courseCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 12 },
+  courseCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 12 },
   thumb: { width: 60, height: 60, borderRadius: 12, flexShrink: 0 },
   thumbPlaceholder: { backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
   courseInfo: { flex: 1, gap: 5 },

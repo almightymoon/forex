@@ -1,6 +1,7 @@
-import { Pressable, StyleSheet, Text, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon } from './AppIcon';
 import { colors } from '../constants/theme';
+import { GlassCard, glassInnerPanel } from './GlassCard';
 
 export type SignalDirection = 'BUY' | 'SELL';
 export type SignalStatus = 'active' | 'closed' | 'pending';
@@ -78,10 +79,8 @@ export function SignalCard({
   const directionColor = isBuy ? colors.blue : colors.sell;
   const iconColor = isBuy ? colors.cyan : colors.sell;
 
-  const cardStyle: ViewStyle[] = [
-    styles.card,
-    ...(variant === 'featured' ? [styles.cardFeatured] : []),
-  ];
+  const radius = variant === 'featured' ? 30 : 28;
+  const cardInnerStyle = [styles.cardInner, variant === 'featured' && styles.cardFeatured];
 
   const content = (
     <>
@@ -127,15 +126,25 @@ export function SignalCard({
     </>
   );
 
+  const card = (
+    <GlassCard
+      contentStyle={cardInnerStyle}
+      radius={radius}
+      prominent={variant === 'featured'}
+    >
+      {content}
+    </GlassCard>
+  );
+
   if (onPress) {
     return (
-      <Pressable style={({ pressed }) => [...cardStyle, pressed && styles.pressed]} onPress={onPress}>
-        {content}
+      <Pressable style={({ pressed }) => [pressed && styles.pressed]} onPress={onPress}>
+        {card}
       </Pressable>
     );
   }
 
-  return <View style={cardStyle}>{content}</View>;
+  return card;
 }
 
 function MetricCell({
@@ -168,17 +177,12 @@ function MetricCell({
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#0b1224',
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.07)',
+  cardInner: {
     padding: 18,
     gap: 16,
   },
   cardFeatured: {
     padding: 20,
-    borderRadius: 30,
   },
   pressed: { opacity: 0.94, transform: [{ scale: 0.995 }] },
   header: {
@@ -251,11 +255,8 @@ const styles = StyleSheet.create({
   },
   tray: {
     flexDirection: 'row',
-    backgroundColor: '#111a30',
+    ...glassInnerPanel,
     borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.05)',
-    overflow: 'hidden',
   },
   metricCell: {
     flex: 1,

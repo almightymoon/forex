@@ -34,7 +34,7 @@ export default function AboutScreen() {
       </SafeAreaView>
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['rgba(0,96,230,0.25)', 'rgba(8,20,48,0.95)']} style={styles.hero}>
+        <LinearGradient colors={['rgba(0,96,230,0.25)', 'rgba(255,255,255,0.03)']} style={styles.hero}>
           <Text style={styles.heroTitle}>The FX Navigators</Text>
           <Text style={styles.heroSub}>
             Empowering traders with education, signals, and a supportive community since 2015.
@@ -93,17 +93,17 @@ const styles = StyleSheet.create({
   heroTitle: { fontSize: 26, fontWeight: '900', color: '#fff', letterSpacing: -0.3 },
   heroSub: { fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 21 },
   statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  statBox: { flex: 1, minWidth: '44%', backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14, alignItems: 'center', gap: 4 },
+  statBox: { flex: 1, minWidth: '44%', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 14, alignItems: 'center', gap: 4 },
   statNum: { fontSize: 22, fontWeight: '900', color: '#3AADFF' },
   statLabel: { fontSize: 11.5, color: 'rgba(255,255,255,0.45)', textAlign: 'center' },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
   body: { fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 22 },
-  serviceCard: { flexDirection: 'row', gap: 12, backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14 },
+  serviceCard: { flexDirection: 'row', gap: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 14 },
   serviceIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(0,96,230,0.15)', alignItems: 'center', justifyContent: 'center' },
   serviceInfo: { flex: 1, gap: 4 },
   serviceTitle: { fontSize: 14, fontWeight: '700', color: '#fff' },
   serviceDesc: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)', lineHeight: 18 },
-  contactCard: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 16, gap: 6 },
+  contactCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 16, gap: 6 },
   contactLine: { fontSize: 14, fontWeight: '600', color: '#3AADFF' },
   contactSub: { fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 4 },
 });

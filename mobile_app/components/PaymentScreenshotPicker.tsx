@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(58,173,255,0.3)',
     borderStyle: 'dashed',
-    backgroundColor: 'rgba(8,20,48,0.85)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
     overflow: 'hidden',
   },
   boxError: { borderColor: 'rgba(255,90,90,0.5)' },

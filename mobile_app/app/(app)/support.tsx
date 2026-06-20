@@ -166,7 +166,7 @@ export default function SupportScreen() {
             />
           }
         >
-          <LinearGradient colors={['rgba(0,96,230,0.22)', 'rgba(8,20,48,0.95)']} style={styles.heroCard}>
+          <LinearGradient colors={['rgba(0,96,230,0.22)', 'rgba(255,255,255,0.03)']} style={styles.heroCard}>
             <View style={styles.heroIconWrap}>
               <Ionicons name="headset" size={32} color="#3AADFF" />
             </View>
@@ -294,7 +294,7 @@ export default function SupportScreen() {
               </View>
             ) : null}
 
-            <LinearGradient colors={['#0060E6', '#3AADFF']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.sendGradient}>
+            <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.sendGradient}>
               <Pressable style={styles.sendPress} onPress={handleSend} disabled={sending}>
                 {sending
                   ? <ActivityIndicator color="#fff" size="small" />
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: { backgroundColor: 'transparent' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
   headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
   faqBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7, borderWidth: 1, borderColor: 'rgba(58,173,255,0.35)', backgroundColor: 'rgba(0,96,230,0.1)' },
   faqBtnText: { fontSize: 13, fontWeight: '700', color: '#3AADFF' },
@@ -334,9 +334,9 @@ const styles = StyleSheet.create({
   heroTitle: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
   heroSub: { fontSize: 13.5, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 20 },
   sectionTitle: { fontSize: 14, fontWeight: '800', color: '#fff', letterSpacing: 0.2 },
-  emptyTickets: { alignItems: 'center', padding: 20, gap: 8, backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  emptyTickets: { alignItems: 'center', padding: 20, gap: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
   emptyTicketsText: { fontSize: 13, color: 'rgba(255,255,255,0.35)', textAlign: 'center' },
-  ticketsCard: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
+  ticketsCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', overflow: 'hidden' },
   ticketRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   ticketInfo: { flex: 1, gap: 2, minWidth: 0 },
   ticketNumber: { fontSize: 11, fontWeight: '700', color: '#3AADFF', letterSpacing: 0.3 },
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
   ticketDate: { fontSize: 11, color: 'rgba(255,255,255,0.35)' },
   statusPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   statusText: { fontSize: 10, fontWeight: '700' },
-  contactCard: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
+  contactCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', overflow: 'hidden' },
   contactRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   contactIcon: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   contactInfo: { flex: 1, gap: 2 },
@@ -352,11 +352,11 @@ const styles = StyleSheet.create({
   contactValue: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '500' },
   contactSub: { fontSize: 11, color: 'rgba(255,255,255,0.3)' },
   divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 14 },
-  hoursCard: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', paddingHorizontal: 16, paddingVertical: 6 },
+  hoursCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', paddingHorizontal: 16, paddingVertical: 6 },
   hoursRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)' },
   hoursDay: { fontSize: 13.5, fontWeight: '500', color: 'rgba(255,255,255,0.7)' },
   hoursTime: { fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: '500' },
-  formCard: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 18, gap: 14 },
+  formCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 18, gap: 14 },
   fieldWrap: { gap: 6 },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.45)' },
   typeRow: { gap: 8, paddingVertical: 2 },
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
   sendGradient: { borderRadius: 13, overflow: 'hidden' },
   sendPress: { height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   sendText: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  faqShortcut: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(58,173,255,0.15)', padding: 14 },
+  faqShortcut: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(58,173,255,0.15)', padding: 14 },
   faqShortcutIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(0,96,230,0.15)', alignItems: 'center', justifyContent: 'center' },
   faqShortcutInfo: { flex: 1 },
   faqShortcutTitle: { fontSize: 14, fontWeight: '700', color: '#fff' },

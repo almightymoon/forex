@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon } from './AppIcon';
+import { GlassCard } from './GlassCard';
 
 type Props = {
   title: string;
@@ -18,8 +19,8 @@ function formatDate(iso?: string) {
 }
 
 export function ActivityCard({ title, message, timestamp, onPress }: Props) {
-  return (
-    <Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]} onPress={onPress}>
+  const inner = (
+    <>
       <View style={styles.iconWrap}>
         <AppIcon name="activity" size={19} color="#3AADFF" strokeWidth={2.2} />
       </View>
@@ -29,19 +30,31 @@ export function ActivityCard({ title, message, timestamp, onPress }: Props) {
         {timestamp ? <Text style={styles.date}>{formatDate(timestamp)}</Text> : null}
       </View>
       <AppIcon name="chevron-right" size={18} color="rgba(255,255,255,0.25)" strokeWidth={2} />
-    </Pressable>
+    </>
+  );
+
+  if (onPress) {
+    return (
+      <Pressable style={({ pressed }) => [pressed && styles.pressed]} onPress={onPress}>
+        <GlassCard contentStyle={styles.cardInner} radius={16}>
+          {inner}
+        </GlassCard>
+      </Pressable>
+    );
+  }
+
+  return (
+    <GlassCard contentStyle={styles.cardInner} radius={16}>
+      {inner}
+    </GlassCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  cardInner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: 'rgba(8,20,48,0.85)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(58,173,255,0.12)',
     padding: 14,
   },
   pressed: {

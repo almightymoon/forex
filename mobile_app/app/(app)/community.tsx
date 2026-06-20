@@ -37,7 +37,7 @@ const C = {
   text: '#e8eaed',
   muted: 'rgba(255,255,255,0.4)',
   primary: '#3AADFF',
-  primaryDark: '#0060E6',
+  primaryDark: '#0253BD',
   green: '#4ADE80',
   headerBg: 'transparent',
 };

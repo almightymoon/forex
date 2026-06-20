@@ -146,7 +146,7 @@ export default function MT5Screen() {
           </View>
         ) : (
           <>
-            <LinearGradient colors={['rgba(0,96,230,0.3)', 'rgba(8,20,48,0.95)']} style={styles.accountCard}>
+            <LinearGradient colors={['rgba(0,96,230,0.3)', 'rgba(255,255,255,0.03)']} style={styles.accountCard}>
               <View style={styles.accountHeader}>
                 <View>
                   <Text style={styles.accountLabel}>MT5 Account</Text>
@@ -237,7 +237,7 @@ const styles = StyleSheet.create({
   refreshBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(0,96,230,0.15)', alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 14 },
-  connectCard: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 20, gap: 4, alignItems: 'stretch' },
+  connectCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 20, gap: 4, alignItems: 'stretch' },
   connectIcon: { width: 70, height: 70, borderRadius: 20, backgroundColor: 'rgba(0,96,230,0.15)', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 8 },
   connectTitle: { fontSize: 20, fontWeight: '800', color: '#fff', textAlign: 'center' },
   connectSub: { fontSize: 13.5, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 20, marginBottom: 12 },
@@ -254,9 +254,9 @@ const styles = StyleSheet.create({
   profitUp: { color: '#4ADE80' },
   profitDown: { color: '#FF5A5A' },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  emptyPos: { alignItems: 'center', padding: 24, gap: 8, backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 16 },
+  emptyPos: { alignItems: 'center', padding: 24, gap: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16 },
   emptyPosText: { fontSize: 13.5, color: 'rgba(255,255,255,0.35)' },
-  posCard: { backgroundColor: 'rgba(8,20,48,0.85)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 14, gap: 8 },
+  posCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 14, gap: 8 },
   posHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   posSymbol: { fontSize: 15, fontWeight: '800', color: '#fff' },
   posType: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
