@@ -5,6 +5,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
 import { AppIcon } from '../../components/AppIcon';
 import { colors } from '../../constants/theme';
+import { glassScreenStyles } from '../../components/glass/glassScreenStyles';
+import { WEBVIEW_CRASH_GUARD } from '../../utils/webviewCrashGuard';
 
 const MOBILE_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
@@ -22,8 +24,8 @@ export default function NewsArticleScreen() {
 
   if (!url) {
     return (
-      <View style={styles.screen}>
-        <SafeAreaView edges={['top']} style={styles.headerSafe}>
+      <View style={glassScreenStyles.screen}>
+        <SafeAreaView edges={['top']} style={glassScreenStyles.headerSafe}>
           <View style={styles.header}>
             <Pressable style={styles.iconBtn} onPress={() => router.back()}>
               <View style={styles.backIcon}>
@@ -42,8 +44,8 @@ export default function NewsArticleScreen() {
   }
 
   return (
-    <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
+    <View style={glassScreenStyles.screen}>
+      <SafeAreaView edges={['top']} style={glassScreenStyles.headerSafe}>
         <View style={styles.header}>
           <Pressable style={styles.iconBtn} onPress={() => (canGoBack ? webRef.current?.goBack() : router.back())}>
             <View style={styles.backIcon}>
@@ -83,6 +85,7 @@ export default function NewsArticleScreen() {
           thirdPartyCookiesEnabled
           javaScriptEnabled
           domStorageEnabled
+          {...WEBVIEW_CRASH_GUARD}
         />
       </View>
     </View>
@@ -90,8 +93,6 @@ export default function NewsArticleScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#060b18' },
-  headerSafe: { backgroundColor: '#060b18' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

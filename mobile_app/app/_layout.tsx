@@ -3,6 +3,11 @@ import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { ErrorBoundary } from '../components/ErrorBoundary';
+import { OfflineScreenIndicator } from '../components/OfflineScreenIndicator';
+import { preloadAuthStorage } from '../utils/auth';
 import { onSessionExpired } from '../utils/api';
 
 SplashScreen.preventAutoHideAsync();
@@ -21,7 +26,7 @@ export default function RootLayout() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    // When the token expires and can't be refreshed, send user back to login
+    void preloadAuthStorage();
     onSessionExpired(() => {
       router.replace('/auth');
     });
@@ -46,26 +51,39 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="light" />
-      <Stack
-        screenOptions={{
-          headerShown: false,
-          animation: 'slide_from_right',
-          contentStyle: { backgroundColor: '#00050A' },
-        }}
-      >
-        <Stack.Screen name="index" options={{ animation: 'fade' }} />
-        <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
-        <Stack.Screen name="disclaimer" />
-        <Stack.Screen name="auth" />
-        <Stack.Screen name="forgot-password" />
-        <Stack.Screen name="select-package" />
-        <Stack.Screen name="payment" />
-        <Stack.Screen name="payment-pending" />
-        <Stack.Screen name="subscription-upgrade" />
-        <Stack.Screen name="reset-password" />
-        {/* Main app — tab navigator lives inside (app) group */}
-        <Stack.Screen name="(app)" options={{ animation: 'fade' }} />
-      </Stack>
+      <SafeAreaProvider>
+        <ErrorBoundary>
+          <View style={styles.root}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                animation: 'slide_from_right',
+                contentStyle: { backgroundColor: 'transparent' },
+              }}
+            >
+              <Stack.Screen name="index" options={{ animation: 'fade' }} />
+              <Stack.Screen name="onboarding" options={{ animation: 'fade' }} />
+              <Stack.Screen name="disclaimer" />
+              <Stack.Screen name="auth" />
+              <Stack.Screen name="forgot-password" />
+              <Stack.Screen name="select-package" />
+              <Stack.Screen name="payment" />
+              <Stack.Screen name="payment-pending" />
+              <Stack.Screen name="subscription-upgrade" />
+              <Stack.Screen name="reset-password" />
+              {/* Main app — tab navigator lives inside (app) group */}
+              <Stack.Screen name="(app)" options={{ animation: 'fade' }} />
+            </Stack>
+            <OfflineScreenIndicator />
+          </View>
+        </ErrorBoundary>
+      </SafeAreaProvider>
     </>
   );
 }
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+  },
+});

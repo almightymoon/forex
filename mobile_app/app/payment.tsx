@@ -17,6 +17,7 @@ import { AuthInput } from '../components/AuthInput';
 import { GradientButton } from '../components/GradientButton';
 import { PaymentScreenshotPicker, ScreenshotAsset } from '../components/PaymentScreenshotPicker';
 import { ScreenBackground } from '../components/ScreenBackground';
+import { GlassListCard } from '../components/glass/GlassListCard';
 import { apiUpload } from '../utils/api';
 import { getStoredUser } from '../utils/auth';
 import { hapticSuccess } from '../utils/haptics';
@@ -98,7 +99,7 @@ export default function PaymentScreen() {
               <Text style={styles.subtitle}>Send USDT (TRC20) to the address below then submit your transaction details</Text>
             </View>
 
-            <View style={styles.summaryCard}>
+            <GlassListCard contentStyle={styles.summaryCard}>
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Package</Text>
                 <Text style={styles.summaryValue}>{packageName ?? '—'}</Text>
@@ -107,7 +108,7 @@ export default function PaymentScreen() {
                 <Text style={styles.summaryLabel}>Amount</Text>
                 <Text style={styles.amountValue}>{amount} USDT</Text>
               </View>
-            </View>
+            </GlassListCard>
 
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>USDT (TRC20) Wallet Address</Text>
@@ -195,10 +196,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   summaryCard: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
     padding: 16,
     marginBottom: 20,
     gap: 10,

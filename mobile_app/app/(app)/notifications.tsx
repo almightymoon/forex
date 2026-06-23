@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon, type AppIconName } from '../../components/AppIcon';
+import { ScreenError } from '../../components/ScreenError';
+import { GlassListCard } from '../../components/glass/GlassListCard';
 import { colors } from '../../constants/theme';
 import { apiFetch } from '../../utils/api';
 
@@ -76,7 +78,8 @@ function resolveRoute(n: Notification): string | null {
   if (t === 'trading_signal' || t === 'signal') return '/(app)/signals';
   if (t === 'live_session' || t === 'session') return '/(app)/live-sessions';
   if (t === 'course' || t === 'course_enrollment' || t === 'lesson_complete' || t === 'assignment') {
-    return '/(app)/courses';
+    const courseId = n.data?.courseId as string | undefined;
+    return courseId ? `/(app)/course/${courseId}` : '/(app)/courses';
   }
   if (t === 'certificate') return '/(app)/certificates';
   if (t === 'payment') return '/(app)/subscription';
@@ -154,16 +157,20 @@ export default function NotificationsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
   const [filter, setFilter] = useState<FilterKey>('all');
+  const [error, setError] = useState<string | null>(null);
 
   const fetchNotifications = async () => {
+    setError(null);
     try {
       const res = await apiFetch('api/notifications/user');
       if (res.ok) {
         const d = await res.json();
         setItems(d.notifications ?? d ?? []);
+      } else {
+        setError('Unable to load notifications.');
       }
     } catch {
-      /* ignore */
+      setError('No connection. Pull down to retry.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -285,6 +292,8 @@ export default function NotificationsScreen() {
       >
         {loading ? (
           <ActivityIndicator color={colors.cyan} style={styles.loader} />
+        ) : error ? (
+          <ScreenError message={error} onRetry={fetchNotifications} />
         ) : filtered.length === 0 ? (
           <View style={styles.empty}>
             <View style={styles.emptyIcon}>
@@ -309,7 +318,7 @@ export default function NotificationsScreen() {
                 ) : null}
               </View>
 
-              <View style={styles.listCard}>
+              <GlassListCard contentStyle={styles.listCard}>
                 {group.items.map((n, index) => {
                   const meta = TYPE_META[n.type ?? 'system'] ?? TYPE_META.system;
                   const isLast = index === group.items.length - 1;
@@ -350,7 +359,7 @@ export default function NotificationsScreen() {
                     </Pressable>
                   );
                 })}
-              </View>
+              </GlassListCard>
             </View>
           ))
         )}
@@ -480,14 +489,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.cyan,
   },
-  listCard: {
-    marginHorizontal: 12,
-    borderRadius: 16,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(12, 20, 40, 0.72)',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
+  listCard: { marginHorizontal: 12, padding: 0 },
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',

@@ -10,6 +10,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch } from '../../utils/api';
 
 interface FaqItem { question: string; answer: string; }
@@ -222,7 +223,7 @@ export default function FAQScreen() {
                 <Text style={styles.categoryTitle}>{cat.title}</Text>
                 <Text style={styles.categoryCount}>{cat.items.length}</Text>
               </View>
-              <View style={styles.categoryItems}>
+              <GlassListCard contentStyle={styles.categoryItems}>
                 {cat.items.map((item, idx) => {
                   const key = `${cat.id}-${idx}`;
                   return (
@@ -236,7 +237,7 @@ export default function FAQScreen() {
                     </View>
                   );
                 })}
-              </View>
+              </GlassListCard>
             </View>
           ))
         )}
@@ -268,7 +269,7 @@ const styles = StyleSheet.create({
   categoryIcon: { width: 30, height: 30, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   categoryTitle: { flex: 1, fontSize: 14, fontWeight: '800', color: '#fff' },
   categoryCount: { fontSize: 12, fontWeight: '700', color: 'rgba(255,255,255,0.3)', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
-  categoryItems: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', overflow: 'hidden' },
+  categoryItems: { padding: 0 },
   faqItem: { padding: 14 },
   faqQuestion: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   faqQuestionText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#fff', lineHeight: 20 },

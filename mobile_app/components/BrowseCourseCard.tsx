@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatInstructor } from '../utils/formatInstructor';
 import { GlassCard } from './GlassCard';
 
@@ -24,7 +25,7 @@ export function BrowseCourseCard({ title, instructor, instructorImage, thumbnail
       <GlassCard contentStyle={styles.cardInner} radius={18}>
         <View style={styles.thumbWrap}>
         {thumbnail ? (
-          <Image source={{ uri: thumbnail }} style={styles.thumbImage} />
+          <Image source={{ uri: thumbnail }} style={styles.thumbImage} cachePolicy="memory-disk" />
         ) : (
           <View style={styles.thumbPlaceholder}>
             <Ionicons name="book-outline" size={28} color="rgba(58,173,255,0.5)" />
@@ -43,7 +44,7 @@ export function BrowseCourseCard({ title, instructor, instructorImage, thumbnail
         {instructorName ? (
           <View style={styles.instructorRow}>
             {instructorImage ? (
-              <Image source={{ uri: instructorImage }} style={styles.avatarImage} />
+              <Image source={{ uri: instructorImage }} style={styles.avatarImage} cachePolicy="memory-disk" recyclingKey={instructorImage} />
             ) : (
               <View style={styles.avatar}>
                 <Ionicons name="person" size={12} color="rgba(255,255,255,0.6)" />

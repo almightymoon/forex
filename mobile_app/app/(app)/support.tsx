@@ -16,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch } from '../../utils/api';
 import { hapticSuccess } from '../../utils/haptics';
 
@@ -179,12 +180,12 @@ export default function SupportScreen() {
           {loadingTickets ? (
             <ActivityIndicator color="#3AADFF" style={{ marginVertical: 12 }} />
           ) : tickets.length === 0 ? (
-            <View style={styles.emptyTickets}>
+            <GlassListCard contentStyle={styles.emptyTickets}>
               <Ionicons name="ticket-outline" size={28} color="rgba(255,255,255,0.15)" />
               <Text style={styles.emptyTicketsText}>No tickets yet. Submit a message below.</Text>
-            </View>
+            </GlassListCard>
           ) : (
-            <View style={styles.ticketsCard}>
+            <GlassListCard contentStyle={styles.ticketsCard}>
               {tickets.map((t, idx) => {
                 const cfg = STATUS_CFG[t.status] ?? STATUS_CFG.open;
                 return (
@@ -205,11 +206,11 @@ export default function SupportScreen() {
                   </View>
                 );
               })}
-            </View>
+            </GlassListCard>
           )}
 
           <Text style={styles.sectionTitle}>Contact Us Directly</Text>
-          <View style={styles.contactCard}>
+          <GlassListCard contentStyle={styles.contactCard}>
             {CONTACT_METHODS.map((c, idx) => (
               <View key={c.label}>
                 <Pressable style={styles.contactRow} onPress={c.onPress}>
@@ -226,20 +227,20 @@ export default function SupportScreen() {
                 {idx < CONTACT_METHODS.length - 1 && <View style={styles.divider} />}
               </View>
             ))}
-          </View>
+          </GlassListCard>
 
           <Text style={styles.sectionTitle}>Business Hours</Text>
-          <View style={styles.hoursCard}>
+          <GlassListCard contentStyle={styles.hoursCard}>
             {HOURS.map((h) => (
               <View key={h.day} style={styles.hoursRow}>
                 <Text style={styles.hoursDay}>{h.day}</Text>
                 <Text style={[styles.hoursTime, h.day === 'Sunday' && { color: '#FF5A5A' }]}>{h.time}</Text>
               </View>
             ))}
-          </View>
+          </GlassListCard>
 
           <Text style={styles.sectionTitle}>Submit a Ticket</Text>
-          <View style={styles.formCard}>
+          <GlassListCard contentStyle={styles.formCard}>
             <View style={styles.fieldWrap}>
               <Text style={styles.fieldLabel}>Inquiry Type</Text>
               <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.typeRow}>
@@ -301,9 +302,9 @@ export default function SupportScreen() {
                   : <><Ionicons name="send" size={16} color="#fff" /><Text style={styles.sendText}>Submit Ticket</Text></>}
               </Pressable>
             </LinearGradient>
-          </View>
+          </GlassListCard>
 
-          <Pressable style={styles.faqShortcut} onPress={() => router.push('/(app)/faq')}>
+          <GlassListCard contentStyle={styles.faqShortcut} onPress={() => router.push('/(app)/faq')}>
             <View style={styles.faqShortcutIcon}>
               <Ionicons name="help-circle-outline" size={22} color="#3AADFF" />
             </View>
@@ -312,7 +313,7 @@ export default function SupportScreen() {
               <Text style={styles.faqShortcutSub}>Find instant answers to common questions</Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.2)" />
-          </Pressable>
+          </GlassListCard>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
@@ -334,9 +335,9 @@ const styles = StyleSheet.create({
   heroTitle: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
   heroSub: { fontSize: 13.5, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 20 },
   sectionTitle: { fontSize: 14, fontWeight: '800', color: '#fff', letterSpacing: 0.2 },
-  emptyTickets: { alignItems: 'center', padding: 20, gap: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
+  emptyTickets: { alignItems: 'center', padding: 20, gap: 8 },
   emptyTicketsText: { fontSize: 13, color: 'rgba(255,255,255,0.35)', textAlign: 'center' },
-  ticketsCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', overflow: 'hidden' },
+  ticketsCard: { padding: 0 },
   ticketRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   ticketInfo: { flex: 1, gap: 2, minWidth: 0 },
   ticketNumber: { fontSize: 11, fontWeight: '700', color: '#3AADFF', letterSpacing: 0.3 },
@@ -344,7 +345,7 @@ const styles = StyleSheet.create({
   ticketDate: { fontSize: 11, color: 'rgba(255,255,255,0.35)' },
   statusPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   statusText: { fontSize: 10, fontWeight: '700' },
-  contactCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', overflow: 'hidden' },
+  contactCard: { padding: 0 },
   contactRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   contactIcon: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   contactInfo: { flex: 1, gap: 2 },
@@ -352,11 +353,11 @@ const styles = StyleSheet.create({
   contactValue: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontWeight: '500' },
   contactSub: { fontSize: 11, color: 'rgba(255,255,255,0.3)' },
   divider: { height: 1, backgroundColor: 'rgba(255,255,255,0.05)', marginHorizontal: 14 },
-  hoursCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', paddingHorizontal: 16, paddingVertical: 6 },
+  hoursCard: { paddingHorizontal: 16, paddingVertical: 6 },
   hoursRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.04)' },
   hoursDay: { fontSize: 13.5, fontWeight: '500', color: 'rgba(255,255,255,0.7)' },
   hoursTime: { fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: '500' },
-  formCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 18, gap: 14 },
+  formCard: { padding: 18, gap: 14 },
   fieldWrap: { gap: 6 },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.45)' },
   typeRow: { gap: 8, paddingVertical: 2 },
@@ -373,7 +374,7 @@ const styles = StyleSheet.create({
   sendGradient: { borderRadius: 13, overflow: 'hidden' },
   sendPress: { height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   sendText: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  faqShortcut: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(58,173,255,0.15)', padding: 14 },
+  faqShortcut: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   faqShortcutIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: 'rgba(0,96,230,0.15)', alignItems: 'center', justifyContent: 'center' },
   faqShortcutInfo: { flex: 1 },
   faqShortcutTitle: { fontSize: 14, fontWeight: '700', color: '#fff' },

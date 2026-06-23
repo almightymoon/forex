@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassListCard } from '../../components/glass/GlassListCard';
 import { AuthInput } from '../../components/AuthInput';
 import { GradientButton } from '../../components/GradientButton';
 import { apiFetch } from '../../utils/api';
@@ -132,7 +133,7 @@ export default function MT5Screen() {
         {loading ? (
           <ActivityIndicator color="#3AADFF" style={{ marginTop: 60 }} />
         ) : showConnect || !account ? (
-          <View style={styles.connectCard}>
+          <GlassListCard contentStyle={styles.connectCard}>
             <View style={styles.connectIcon}>
               <Ionicons name="link-outline" size={36} color="#3AADFF" />
             </View>
@@ -143,7 +144,7 @@ export default function MT5Screen() {
             <AuthInput label="MT5 Server" icon="server-outline" placeholder="e.g. MetaQuotes-Demo" value={server} onChangeText={setServer} autoCapitalize="none" />
             {error ? <Text style={styles.error}>{error}</Text> : null}
             <GradientButton title="Connect Account" loading={connecting} onPress={handleConnect} />
-          </View>
+          </GlassListCard>
         ) : (
           <>
             <LinearGradient colors={['rgba(0,96,230,0.3)', 'rgba(255,255,255,0.03)']} style={styles.accountCard}>
@@ -175,13 +176,13 @@ export default function MT5Screen() {
 
             <Text style={styles.sectionTitle}>Open Positions ({positions.length})</Text>
             {positions.length === 0 ? (
-              <View style={styles.emptyPos}>
+              <GlassListCard contentStyle={styles.emptyPos}>
                 <Ionicons name="analytics-outline" size={32} color="rgba(255,255,255,0.15)" />
                 <Text style={styles.emptyPosText}>No open positions</Text>
-              </View>
+              </GlassListCard>
             ) : (
               positions.map((p) => (
-                <View key={p.ticket} style={styles.posCard}>
+                <GlassListCard key={p.ticket} contentStyle={styles.posCard}>
                   <View style={styles.posHeader}>
                     <Text style={styles.posSymbol}>{p.symbol}</Text>
                     <View style={[styles.posType, { backgroundColor: p.type?.toLowerCase().includes('buy') ? 'rgba(74,222,128,0.15)' : 'rgba(255,90,90,0.15)' }]}>
@@ -195,7 +196,7 @@ export default function MT5Screen() {
                       {p.profit >= 0 ? '+' : ''}{Number(p.profit).toFixed(2)}
                     </Text>
                   </View>
-                </View>
+                </GlassListCard>
               ))
             )}
 
@@ -237,7 +238,7 @@ const styles = StyleSheet.create({
   refreshBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(0,96,230,0.15)', alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 14 },
-  connectCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 20, gap: 4, alignItems: 'stretch' },
+  connectCard: { padding: 20, gap: 4, alignItems: 'stretch' },
   connectIcon: { width: 70, height: 70, borderRadius: 20, backgroundColor: 'rgba(0,96,230,0.15)', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 8 },
   connectTitle: { fontSize: 20, fontWeight: '800', color: '#fff', textAlign: 'center' },
   connectSub: { fontSize: 13.5, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 20, marginBottom: 12 },
@@ -254,9 +255,9 @@ const styles = StyleSheet.create({
   profitUp: { color: '#4ADE80' },
   profitDown: { color: '#FF5A5A' },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  emptyPos: { alignItems: 'center', padding: 24, gap: 8, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16 },
+  emptyPos: { alignItems: 'center', padding: 24, gap: 8 },
   emptyPosText: { fontSize: 13.5, color: 'rgba(255,255,255,0.35)' },
-  posCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 14, gap: 8 },
+  posCard: { padding: 14, gap: 8 },
   posHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   posSymbol: { fontSize: 15, fontWeight: '800', color: '#fff' },
   posType: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },

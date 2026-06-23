@@ -46,7 +46,7 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
       <View style={styles.barShadow}>
         <View style={styles.barShell}>
           <BlurView
-            intensity={Platform.OS === 'ios' ? 88 : 64}
+            intensity={Platform.OS === 'ios' ? 72 : 52}
             tint="dark"
             experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
             style={StyleSheet.absoluteFill}
@@ -129,21 +129,21 @@ const styles = StyleSheet.create({
   barShadow: {
     borderRadius: BAR_RADIUS,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.42,
-    shadowRadius: 20,
-    elevation: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.28,
+    shadowRadius: 14,
+    elevation: 8,
   },
   barShell: {
     borderRadius: BAR_RADIUS,
     overflow: 'hidden',
-    backgroundColor: Platform.OS === 'android' ? 'rgba(10,16,32,0.86)' : 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     minHeight: FLOATING_TAB_BAR_HEIGHT,
     justifyContent: 'center',
   },
   barTint: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    backgroundColor: 'rgba(12,22,48,0.18)',
   },
   barBorder: {
     ...StyleSheet.absoluteFillObject,

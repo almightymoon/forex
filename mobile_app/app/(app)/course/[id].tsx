@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, memo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
+import { buildVideoPlaybackSpec, CourseVideoPlayer } from '../../../components/course/CourseVideoPlayer';
+import { GlassListCard } from '../../../components/glass/GlassListCard';
 import { apiFetch } from '../../../utils/api';
 import { getEnrolledCourseIds } from '../../../utils/enrollment';
 import { formatInstructor } from '../../../utils/formatInstructor';
@@ -65,40 +67,11 @@ function formatDuration(seconds: number): string {
   return h > 0 ? `${h}h ${mins}m` : `${m}m`;
 }
 
-const CHROME_UA =
-  'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
-
-type VideoSpec =
-  | { kind: 'youtube'; videoId: string }
-  | { kind: 'vimeo'; uri: string }
-  | { kind: 'html5'; html: string }
-  | { kind: 'external'; label: string };
-
-/** Classify a video URL into the best playback strategy. */
-function buildVideoSpec(url: string): VideoSpec {
-  const u = url.toLowerCase();
-
-  // YouTube → in-app embed with Chrome UA to bypass Error 153
-  const ytMatch = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([^&\s]+)/);
-  if (ytMatch) return { kind: 'youtube', videoId: ytMatch[1] };
-
-  // Vimeo — embed works
-  const vimeoMatch = url.match(/vimeo\.com\/(\d+)/);
-  if (vimeoMatch) return { kind: 'vimeo', uri: `https://player.vimeo.com/video/${vimeoMatch[1]}?autoplay=1` };
-
-  // Zoom / auth-gated
-  if (u.includes('zoom.us/')) return { kind: 'external', label: 'Open in Zoom' };
-
-  // Direct / CDN-hosted file → HTML5 <video> in WebView (works on Android + iOS)
-  const html = `<!DOCTYPE html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><style>*{margin:0;padding:0;background:#000;}video{width:100%;height:100%;display:block;}</style></head><body><video src="${url}" controls autoplay playsinline style="width:100vw;height:100vh;"></video></body></html>`;
-  return { kind: 'html5', html };
-}
-
 /**
  * Very lightweight HTML → React Native renderer.
  * Handles the most common rich-text tags without a WebView.
  */
-function HtmlText({ html }: { html: string }) {
+function HtmlText({ html, compact }: { html: string; compact?: boolean }) {
   // Normalise line breaks
   const clean = html
     .replace(/<br\s*\/?>/gi, '\n')
@@ -107,17 +80,17 @@ function HtmlText({ html }: { html: string }) {
     .replace(/<li[^>]*>/gi, '• ')
     .replace(/<\/h[1-6]>/gi, '\n')
     .replace(/<h[1-6][^>]*>/gi, '\n')
-    .replace(/<[^>]+>/g, '')           // strip remaining tags
+    .replace(/<[^>]+>/g, '')
     .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&nbsp;/g, ' ')
     .replace(/&#\d+;/g, '')
-    .replace(/\n{3,}/g, '\n\n')        // collapse excessive blank lines
+    .replace(/\n{3,}/g, '\n\n')
     .trim();
 
   return (
-    <View style={htmlStyles.wrap}>
+    <View style={compact ? undefined : htmlStyles.wrap}>
       <Text style={htmlStyles.body} selectable>{clean}</Text>
     </View>
   );
@@ -144,17 +117,19 @@ const CONTENT_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 
 
 /** Inline accordion lesson item */
-function LessonItem({
+const LessonItem = memo(function LessonItem({
   item,
   courseId,
   isEnrolled,
   isOpen,
+  isLast,
   onToggle,
 }: {
   item: ContentItem;
   courseId: string;
   isEnrolled: boolean;
   isOpen: boolean;
+  isLast: boolean;
   onToggle: () => void;
 }) {
   const router = useRouter();
@@ -164,12 +139,12 @@ function LessonItem({
   const locked = !isEnrolled && !item.isPreview;
 
   const videoSrc = item.videoUrl ? (resolveMediaUrl(item.videoUrl) ?? item.videoUrl) : null;
-  const videoSpec = videoSrc ? buildVideoSpec(videoSrc) : null;
+  const videoSpec = videoSrc ? buildVideoPlaybackSpec(videoSrc) : null;
 
   return (
-    <View style={lessonStyles.container}>
+    <View style={[lessonStyles.container, isLast && lessonStyles.containerLast]}>
       <Pressable
-        style={[lessonStyles.row, isOpen && lessonStyles.rowOpen]}
+        style={({ pressed }) => [lessonStyles.row, pressed && !locked && lessonStyles.rowPressed]}
         onPress={locked ? undefined : onToggle}
       >
         <View style={[lessonStyles.icon, isOpen && lessonStyles.iconOpen]}>
@@ -201,68 +176,25 @@ function LessonItem({
           <Ionicons
             name={isOpen ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color="rgba(58,173,255,0.6)"
+            color={isOpen ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.35)'}
           />
         )}
       </Pressable>
 
-      {isOpen && !locked && (
+      {isOpen && !locked ? (
         <View style={lessonStyles.body}>
           {/* VIDEO */}
-          {item.type === 'video' && videoSpec?.kind === 'youtube' ? (
-            // Load YouTube's own mobile website — this plays without Error 153
-            <View style={lessonStyles.videoWrap}>
-              <WebView
-                source={{ uri: `https://m.youtube.com/watch?v=${videoSpec.videoId}` }}
-                style={{ flex: 1 }}
-                userAgent={CHROME_UA}
-                allowsFullscreenVideo
-                mediaPlaybackRequiresUserAction={false}
-                allowsInlineMediaPlayback
-                javaScriptEnabled
-                domStorageEnabled
-                sharedCookiesEnabled
-              />
-            </View>
-          ) : item.type === 'video' && videoSpec?.kind === 'vimeo' ? (
-            <View style={lessonStyles.videoWrap}>
-              <WebView
-                source={{ uri: videoSpec.uri }}
-                style={{ flex: 1 }}
-                allowsFullscreenVideo
-                mediaPlaybackRequiresUserAction={false}
-                allowsInlineMediaPlayback
-                javaScriptEnabled
-              />
-            </View>
-          ) : item.type === 'video' && videoSpec?.kind === 'html5' ? (
-            <View style={lessonStyles.videoWrap}>
-              <WebView
-                source={{ html: videoSpec.html }}
-                style={{ flex: 1 }}
-                allowsFullscreenVideo
-                mediaPlaybackRequiresUserAction={false}
-                allowsInlineMediaPlayback
-                javaScriptEnabled
-                mixedContentMode="always"
-                originWhitelist={['*']}
-              />
-            </View>
-          ) : item.type === 'video' && videoSpec?.kind === 'external' && videoSrc ? (
-            <View style={lessonStyles.fallbackWrap}>
-              <Ionicons name="play-circle-outline" size={44} color="rgba(58,173,255,0.5)" />
-              <Pressable style={lessonStyles.openBtn} onPress={() => Linking.openURL(videoSrc)}>
-                <Ionicons name="open-outline" size={14} color="#3AADFF" />
-                <Text style={lessonStyles.openBtnText}>{(videoSpec as { label: string }).label}</Text>
-              </Pressable>
-            </View>
+          {item.type === 'video' && videoSpec ? (
+            <CourseVideoPlayer spec={videoSpec} />
           ) : item.type === 'video' ? (
             <Text style={lessonStyles.noContent}>No video URL available.</Text>
           ) : null}
 
           {/* TEXT — rendered natively, no WebView, no height glitches */}
           {item.type === 'text' ? (
-            <HtmlText html={item.textContent ?? ''} />
+            <View style={lessonStyles.textBody}>
+              <HtmlText html={item.textContent ?? ''} compact />
+            </View>
           ) : null}
 
           {/* QUIZ */}
@@ -387,38 +319,53 @@ function LessonItem({
             </Text>
           ) : null}
         </View>
-      )}
+      ) : null}
     </View>
   );
-}
+});
 
 const lessonStyles = StyleSheet.create({
   container: {
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.1)',
+  },
+  containerLast: {
+    borderBottomWidth: 0,
   },
   row: {
-    flexDirection: 'row', alignItems: 'center',
-    padding: 14, gap: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 12,
   },
-  rowOpen: {
-    backgroundColor: 'rgba(0,96,230,0.08)',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(58,173,255,0.12)',
+  rowPressed: {
+    opacity: 0.85,
   },
   icon: {
-    width: 34, height: 34, borderRadius: 10,
-    backgroundColor: 'rgba(0,96,230,0.15)',
-    alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
-  iconOpen: { backgroundColor: 'rgba(0,96,230,0.3)' },
+  iconOpen: {
+    backgroundColor: 'rgba(58,173,255,0.22)',
+  },
   info: { flex: 1, gap: 3, minWidth: 0 },
-  title: { fontSize: 13.5, fontWeight: '700', color: '#fff', lineHeight: 19 },
+  title: { fontSize: 14, fontWeight: '700', color: '#fff', lineHeight: 20 },
   titleLocked: { color: 'rgba(255,255,255,0.4)' },
   meta: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   typeLabel: { fontSize: 11, fontWeight: '700', color: '#3AADFF' },
-  duration: { fontSize: 11, color: 'rgba(255,255,255,0.3)', fontWeight: '500' },
-  body: { backgroundColor: 'rgba(0,5,15,0.6)', overflow: 'hidden' },
+  duration: { fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: '500' },
+  body: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.1)',
+    paddingTop: 8,
+    paddingBottom: 12,
+    overflow: 'hidden',
+  },
   videoWrap: { width: '100%', height: 300, backgroundColor: '#000' },
   videoThumb: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000', position: 'relative' },
   thumbImage: { width: '100%', height: '100%' },
@@ -449,7 +396,8 @@ const lessonStyles = StyleSheet.create({
   },
   openBtnText: { fontSize: 13, fontWeight: '700', color: '#3AADFF' },
   noContent: { padding: 16, fontSize: 13, color: 'rgba(255,255,255,0.35)', fontStyle: 'italic' },
-  quizWrap: { padding: 14, gap: 10 },
+  textBody: { paddingTop: 4 },
+  quizWrap: { paddingTop: 4, gap: 10 },
   questionCard: {
     backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12,
     borderWidth: 1, borderColor: 'rgba(58,173,255,0.1)',
@@ -619,7 +567,12 @@ export default function CourseDetailScreen() {
           <Text style={styles.emptyTitle}>Course unavailable</Text>
         </View>
       ) : (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+          removeClippedSubviews
+        >
           {/* Hero */}
           <View style={styles.hero}>
             {thumbnail ? (
@@ -664,7 +617,7 @@ export default function CourseDetailScreen() {
 
           {/* Progress card */}
           {isEnrolled && (
-            <View style={styles.progressCard}>
+            <GlassListCard contentStyle={styles.progressCard}>
               <View style={styles.progressHeader}>
                 <Text style={styles.progressLabel}>Your Progress</Text>
                 <Text style={styles.progressPct}>{Math.round(progress)}%</Text>
@@ -672,14 +625,16 @@ export default function CourseDetailScreen() {
               <View style={styles.progressTrack}>
                 <View style={[styles.progressFillBar, { width: `${Math.min(progress, 100)}%` as `${number}%` }]} />
               </View>
-            </View>
+            </GlassListCard>
           )}
 
           {/* Description */}
           {course.description ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>About This Course</Text>
-              <Text style={styles.description}>{course.description}</Text>
+              <GlassListCard contentStyle={styles.contentCard}>
+                <HtmlText html={course.description} compact />
+              </GlassListCard>
             </View>
           ) : null}
 
@@ -687,13 +642,14 @@ export default function CourseDetailScreen() {
           {lessons.length > 0 ? (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Course Content</Text>
-              <View style={styles.lessonList}>
+              <GlassListCard contentStyle={styles.contentCard}>
                 {lessons.map((item, idx) => (
                   <LessonItem
                     key={item._id ?? idx}
                     item={item}
                     courseId={id!}
                     isEnrolled={isEnrolled}
+                    isLast={idx === lessons.length - 1}
                     isOpen={openLesson === (item._id ?? String(idx))}
                     onToggle={() => {
                       const key = item._id ?? String(idx);
@@ -703,7 +659,7 @@ export default function CourseDetailScreen() {
                     }}
                   />
                 ))}
-              </View>
+              </GlassListCard>
             </View>
           ) : null}
 
@@ -770,11 +726,7 @@ const styles = StyleSheet.create({
   ratingText: { fontSize: 13, fontWeight: '800', color: '#FFC107' },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   metaText: { fontSize: 12, color: 'rgba(255,255,255,0.4)' },
-  progressCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 14,
-    borderWidth: 1, borderColor: 'rgba(58,173,255,0.2)',
-    padding: 14, gap: 8,
-  },
+  progressCard: { padding: 14, gap: 8 },
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between' },
   progressLabel: { fontSize: 13, fontWeight: '700', color: '#fff' },
   progressPct: { fontSize: 13, fontWeight: '800', color: '#3AADFF' },
@@ -785,12 +737,7 @@ const styles = StyleSheet.create({
   progressFillBar: { height: '100%', backgroundColor: '#3AADFF', borderRadius: 3 },
   section: { gap: 10 },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  description: { fontSize: 13.5, color: 'rgba(255,255,255,0.5)', lineHeight: 21 },
-  lessonList: {
-    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)',
-    overflow: 'hidden',
-  },
+  contentCard: { padding: 16 },
   enrollGradient: { borderRadius: 14, overflow: 'hidden', marginTop: 4 },
   enrollPress: { height: 52, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
   enrollText: { fontSize: 15, fontWeight: '800', color: '#fff' },

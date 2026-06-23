@@ -1,4 +1,5 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { CachedImage } from '../CachedImage';
 import { AppIcon } from '../AppIcon';
 import { colors } from '../../constants/theme';
 import { resolveMediaUrl } from '../../utils/normalize';
@@ -28,7 +29,7 @@ export function HomeHeader({ onNotifications, onSettings, onProfile, profileImag
         </Pressable>
         <Pressable style={styles.avatarBtn} onPress={onProfile}>
           {avatarUri ? (
-            <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+            <CachedImage source={{ uri: avatarUri }} style={styles.avatarImage} />
           ) : (
             <AppIcon name="user" size={18} color={colors.cyan} strokeWidth={2} />
           )}

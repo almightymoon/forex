@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -9,6 +9,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -35,6 +36,9 @@ import {
   validatePassword,
   validatePhone,
   validateSignupForm,
+  validateConfirmPassword,
+  formatAuthApiError,
+  normalizeReferralCode,
   type LoginFieldErrors,
   type SignupFieldErrors,
 } from '../utils/authValidation';
@@ -56,15 +60,17 @@ const LOGIN_COPY = {
 const SIGNUP_COPY = {
   title: 'Create Account',
   tagline: 'Join The Desk',
-  subtitle: 'Packages, Des Tools And Mentorship - Pick Your Pathafter Signup',
+  subtitle: 'Packages, desk tools, and mentorship — pick your path after signup',
 };
 
 export default function AuthScreen() {
   const router = useRouter();
+  const { ref: refParam } = useLocalSearchParams<{ ref?: string }>();
   const { height: screenH } = useWindowDimensions();
   const [activeTab, setActiveTab] = useState<AuthTab>('login');
   const [showLoginPassword, setShowLoginPassword] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [termsAgreed, setTermsAgreed] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -83,11 +89,15 @@ export default function AuthScreen() {
     dateOfBirth: '',
     phone: '',
     password: '',
+    confirmPassword: '',
     referralCode: '',
+    promoCode: '',
   });
   const [phoneCountry, setPhoneCountry] = useState<Country>(getDefaultCountry);
   const [loginErrors, setLoginErrors] = useState<LoginFieldErrors>({});
   const [signupErrors, setSignupErrors] = useState<SignupFieldErrors>({});
+  const [pending2FA, setPending2FA] = useState<{ email: string; tempToken: string } | null>(null);
+  const [twoFactorCode, setTwoFactorCode] = useState('');
 
   const clearLoginError = (field: keyof LoginFieldErrors) => {
     setLoginErrors((prev) => {
@@ -118,6 +128,14 @@ export default function AuthScreen() {
     refreshBiometricState();
   }, [refreshBiometricState]);
 
+  // Pre-fill referral code from deep link (?ref=CODE), same as the website register page.
+  useEffect(() => {
+    if (refParam?.trim()) {
+      setSignupForm((p) => ({ ...p, referralCode: normalizeReferralCode(refParam) }));
+      setActiveTab('signup');
+    }
+  }, [refParam]);
+
   const handleBiometricLogin = useCallback(async (isAuto = false) => {
     if (biometricLoading || isLoading) return;
     setBiometricLoading(true);
@@ -146,6 +164,8 @@ export default function AuthScreen() {
     setError('');
     setLoginErrors({});
     setSignupErrors({});
+    setPending2FA(null);
+    setTwoFactorCode('');
     setActiveTab(tab);
   };
 
@@ -165,6 +185,14 @@ export default function AuthScreen() {
         }),
       });
       const data = await res.json();
+      if (res.ok && data.requiresTwoFactor && data.tempToken) {
+        setPending2FA({
+          email: data.email ?? loginForm.email.trim().toLowerCase(),
+          tempToken: data.tempToken,
+        });
+        setTwoFactorCode('');
+        return;
+      }
       if (res.ok && data.token) {
         await storeAuth(data.token, data.user);
         const route = await resolvePostLoginRoute(data.user);
@@ -177,6 +205,46 @@ export default function AuthScreen() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleVerify2FA = async () => {
+    if (!pending2FA) return;
+    const code = twoFactorCode.replace(/\D/g, '');
+    if (code.length !== 6) {
+      setError('Enter the 6-digit code from your authenticator app.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+    try {
+      const res = await apiFetch('api/auth/verify-2fa', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: pending2FA.email,
+          tempToken: pending2FA.tempToken,
+          twoFactorCode: code,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.token) {
+        await storeAuth(data.token, data.user);
+        const route = await resolvePostLoginRoute(data.user);
+        router.replace(route as any);
+      } else {
+        setError(data.message ?? data.error ?? 'Invalid verification code.');
+      }
+    } catch {
+      setError('Network error. Please check your connection.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const cancel2FA = () => {
+    setPending2FA(null);
+    setTwoFactorCode('');
+    setError('');
   };
 
   const handleSignup = async () => {
@@ -195,25 +263,34 @@ export default function AuthScreen() {
     setIsLoading(true);
     setError('');
     try {
+      const firstName = signupForm.firstName.trim();
+      const lastName = signupForm.lastName.trim();
+      const email = signupForm.email.trim().toLowerCase();
+      const password = signupForm.password.trim();
       const formattedPhone = formatPhoneForSubmit(signupForm.phone, phoneCountry);
       const isoDob = dobToIso(signupForm.dateOfBirth);
       const body: Record<string, string> = {
-        firstName: signupForm.firstName.trim(),
-        lastName: signupForm.lastName.trim(),
-        email: signupForm.email.trim().toLowerCase(),
-        password: signupForm.password,
-        phone: formattedPhone,
+        firstName,
+        lastName,
+        email,
+        password,
         country: phoneCountry.name,
       };
+      if (formattedPhone) body.phone = formattedPhone;
       if (isoDob) body.dateOfBirth = isoDob;
-      if (signupForm.referralCode) body.referralCode = signupForm.referralCode.trim().toUpperCase();
+      const referralCode = normalizeReferralCode(signupForm.referralCode);
+      if (referralCode) body.referralCode = referralCode;
+      const promoCode = signupForm.promoCode.trim().toUpperCase();
+      if (promoCode) body.promoCode = promoCode;
+
       const res = await apiFetch('api/auth/register', { method: 'POST', body: JSON.stringify(body) });
       const data = await res.json();
       if (res.ok && data.token) {
         await storeAuth(data.token, data.user);
-        router.replace('/select-package');
+        const route = await resolvePostLoginRoute(data.user);
+        router.replace(route as any);
       } else {
-        setError(data.message ?? data.error ?? 'Registration failed. Please try again.');
+        setError(formatAuthApiError(data));
       }
     } catch {
       setError('Network error. Please check your connection.');
@@ -222,7 +299,33 @@ export default function AuthScreen() {
     }
   };
 
-  const loginFormContent = (
+  const loginFormContent = pending2FA ? (
+    <>
+      <Text style={styles.twoFATitle}>Two-factor authentication</Text>
+      <Text style={styles.twoFASubtitle}>
+        Enter the 6-digit code from your authenticator app for {pending2FA.email}.
+      </Text>
+      <TextInput
+        style={styles.twoFAInput}
+        value={twoFactorCode}
+        onChangeText={(v) => {
+          setTwoFactorCode(v.replace(/\D/g, '').slice(0, 6));
+          setError('');
+        }}
+        placeholder="000000"
+        placeholderTextColor="rgba(255,255,255,0.25)"
+        keyboardType="number-pad"
+        maxLength={6}
+        textAlign="center"
+        autoFocus
+      />
+      {error && activeTab === 'login' ? <Text style={styles.errorText}>{error}</Text> : null}
+      <PrimaryButton title="Verify & Sign In" loading={isLoading} onPress={handleVerify2FA} style={styles.submitBtn} />
+      <Pressable onPress={cancel2FA} style={styles.twoFABack}>
+        <Text style={styles.twoFABackText}>Back to login</Text>
+      </Pressable>
+    </>
+  ) : (
     <>
       <AuthInput
         label="Email"
@@ -359,6 +462,7 @@ export default function AuthScreen() {
         onChangeText={(password) => {
           setSignupForm((p) => ({ ...p, password }));
           clearSignupError('password');
+          if (signupForm.confirmPassword) clearSignupError('confirmPassword');
         }}
         onBlur={() =>
           setSignupErrors((prev) => ({ ...prev, password: validatePassword(signupForm.password) }))
@@ -367,11 +471,40 @@ export default function AuthScreen() {
         onRightIconPress={() => setShowSignupPassword((p) => !p)}
       />
       <AuthInput
+        label="Confirm password"
+        placeholder="Repeat your password"
+        secureTextEntry={!showConfirmPassword}
+        value={signupForm.confirmPassword}
+        error={signupErrors.confirmPassword}
+        onChangeText={(confirmPassword) => {
+          setSignupForm((p) => ({ ...p, confirmPassword }));
+          clearSignupError('confirmPassword');
+        }}
+        onBlur={() =>
+          setSignupErrors((prev) => ({
+            ...prev,
+            confirmPassword: validateConfirmPassword(signupForm.password, signupForm.confirmPassword),
+          }))
+        }
+        rightIcon={showConfirmPassword ? 'eye-off-outline' : 'eye-outline'}
+        onRightIconPress={() => setShowConfirmPassword((p) => !p)}
+      />
+      <AuthInput
         label="Referral code"
         placeholder="Referral code (optional)"
         autoCapitalize="characters"
         value={signupForm.referralCode}
         onChangeText={(referralCode) => setSignupForm((p) => ({ ...p, referralCode }))}
+        onBlur={() =>
+          setSignupForm((p) => ({ ...p, referralCode: normalizeReferralCode(p.referralCode) }))
+        }
+      />
+      <AuthInput
+        label="Promo code"
+        placeholder="Promo code (optional)"
+        autoCapitalize="characters"
+        value={signupForm.promoCode}
+        onChangeText={(promoCode) => setSignupForm((p) => ({ ...p, promoCode }))}
       />
       {error && activeTab === 'signup' ? <Text style={styles.errorText}>{error}</Text> : null}
       <View style={styles.termsRow}>
@@ -448,7 +581,7 @@ export default function AuthScreen() {
             </Pressable>
           </ScrollView>
 
-          {activeTab === 'login' && hasSavedBiometricLogin && biometricAvailable ? (
+          {activeTab === 'login' && !pending2FA && hasSavedBiometricLogin && biometricAvailable ? (
             <View style={styles.biometricFooter}>
               <Pressable
                 style={[styles.biometricBtn, biometricLoading && styles.biometricBtnDisabled]}
@@ -556,6 +689,39 @@ const styles = StyleSheet.create({
   },
   forgotText: {
     fontSize: 13,
+    color: '#036FFC',
+  },
+  twoFATitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#fff',
+    marginBottom: 8,
+  },
+  twoFASubtitle: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: 'rgba(255,255,255,0.55)',
+    marginBottom: 16,
+  },
+  twoFAInput: {
+    height: 56,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(58,173,255,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    fontSize: 28,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 8,
+    marginBottom: 16,
+  },
+  twoFABack: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+  },
+  twoFABackText: {
+    fontSize: 14,
+    fontWeight: '600',
     color: '#036FFC',
   },
   errorText: {

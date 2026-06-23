@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -15,6 +16,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch } from '../../utils/api';
 
 interface Withdrawal {
@@ -56,6 +58,7 @@ export default function WithdrawalsScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const fetchAll = async () => {
     try {
@@ -110,6 +113,32 @@ export default function WithdrawalsScreen() {
     }
   };
 
+  const cancelWithdrawal = async (id: string) => {
+    Alert.alert('Cancel Withdrawal', 'Are you sure you want to cancel this withdrawal request?', [
+      { text: 'Keep It', style: 'cancel' },
+      {
+        text: 'Cancel Request', style: 'destructive',
+        onPress: async () => {
+          setCancellingId(id);
+          try {
+            const res = await apiFetch(`api/withdrawals/${id}/cancel`, { method: 'POST' });
+            const d = await res.json().catch(() => ({}));
+            if (res.ok) {
+              setSuccess('Withdrawal cancelled.');
+              fetchAll();
+            } else {
+              setError((d as { message?: string }).message ?? 'Could not cancel. Try again.');
+            }
+          } catch {
+            setError('Network error. Please try again.');
+          } finally {
+            setCancellingId(null);
+          }
+        },
+      },
+    ]);
+  };
+
   const balance = profile.balance ?? 0;
 
   return (
@@ -145,7 +174,7 @@ export default function WithdrawalsScreen() {
               </LinearGradient>
 
               {/* Withdraw form */}
-              <View style={styles.card}>
+              <GlassListCard contentStyle={styles.card}>
                 <Text style={styles.cardTitle}>Request Withdrawal</Text>
 
                 <View style={styles.fieldWrap}>
@@ -206,11 +235,11 @@ export default function WithdrawalsScreen() {
                       : <><Ionicons name="arrow-up-circle-outline" size={18} color="#fff" /><Text style={styles.submitText}>Submit Request</Text></>}
                   </Pressable>
                 </LinearGradient>
-              </View>
+              </GlassListCard>
 
               {/* History */}
               {withdrawals.length > 0 ? (
-                <View style={styles.card}>
+                <GlassListCard contentStyle={styles.card}>
                   <Text style={styles.cardTitle}>History</Text>
                   {withdrawals.map((w, idx) => {
                     const cfg = STATUS[w.status] ?? STATUS.pending;
@@ -229,11 +258,22 @@ export default function WithdrawalsScreen() {
                           <View style={[styles.statusPill, { backgroundColor: cfg.bg }]}>
                             <Text style={[styles.statusPillText, { color: cfg.color }]}>{cfg.label}</Text>
                           </View>
+                          {w.status === 'pending' && (
+                            <Pressable
+                              style={styles.cancelBtn}
+                              onPress={() => cancelWithdrawal(w._id)}
+                              disabled={cancellingId === w._id}
+                            >
+                              {cancellingId === w._id
+                                ? <ActivityIndicator size="small" color="#FF5A5A" />
+                                : <Text style={styles.cancelText}>Cancel</Text>}
+                            </Pressable>
+                          )}
                         </View>
                       </View>
                     );
                   })}
-                </View>
+                </GlassListCard>
               ) : !loading ? (
                 <View style={styles.empty}>
                   <Ionicons name="cash-outline" size={44} color="rgba(255,255,255,0.1)" />
@@ -268,7 +308,7 @@ const styles = StyleSheet.create({
   balanceLabel: { fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: '600' },
   balanceValue: { fontSize: 36, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
   balanceSub: { fontSize: 12, color: 'rgba(255,255,255,0.35)' },
-  card: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 18, gap: 14 },
+  card: { padding: 18, gap: 14 },
   cardTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
   fieldWrap: { gap: 6 },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.45)' },
@@ -311,6 +351,12 @@ const styles = StyleSheet.create({
   historyAmount: { fontSize: 15, fontWeight: '800' },
   statusPill: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
   statusPillText: { fontSize: 10, fontWeight: '700', textTransform: 'capitalize' },
+  cancelBtn: {
+    marginTop: 4, height: 26, paddingHorizontal: 10, borderRadius: 8,
+    backgroundColor: 'rgba(255,90,90,0.1)', borderWidth: 1, borderColor: 'rgba(255,90,90,0.25)',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  cancelText: { fontSize: 11, fontWeight: '700', color: '#FF5A5A' },
   empty: { alignItems: 'center', gap: 10, paddingVertical: 20 },
   emptyText: { fontSize: 14, color: 'rgba(255,255,255,0.35)', fontWeight: '500' },
 });

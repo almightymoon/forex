@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenBackground } from '../components/ScreenBackground';
+import { GlassListCard } from '../components/glass/GlassListCard';
 import { apiFetch } from '../utils/api';
 import { clearAuth, resolvePostLoginRoute } from '../utils/auth';
 
@@ -77,13 +78,13 @@ export default function PaymentPendingScreen() {
           </Text>
 
           {/* Status steps */}
-          <View style={styles.stepsCard}>
+          <GlassListCard contentStyle={styles.stepsCard}>
             <Step icon="checkmark-circle" color="#4ADE80" label="Payment proof submitted" done />
             <View style={styles.stepDivider} />
             <Step icon="time-outline" color="#3AADFF" label="Admin review in progress" active />
             <View style={styles.stepDivider} />
             <Step icon="lock-closed-outline" color="rgba(255,255,255,0.25)" label="Account activation" />
-          </View>
+          </GlassListCard>
 
           <Text style={styles.note}>
             You'll receive access to all features once your payment is confirmed. If you need help, contact us via Telegram.
@@ -175,10 +176,6 @@ const styles = StyleSheet.create({
   },
   stepsCard: {
     width: '100%',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.11)',
     padding: 18,
     gap: 14,
     marginBottom: 24,

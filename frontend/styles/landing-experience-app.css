@@ -2205,29 +2205,149 @@ html.scene-done .scroll-scene__layer {
 }
 
 @media (max-width: 1024px) {
-  .s5__cards {
-    flex-wrap: wrap;
-  }
-  .s5-card {
-    flex: 1 1 40%;
-    height: auto;
-    min-height: 420px;
-    transform: none !important;
-  }
+  /* ── Kill the 250vh scroll-animation space on mobile ───────────────────── */
   .s5 {
-    min-height: auto;
+    min-height: 0 !important;
+    height: auto !important;
   }
+
+  /* Unstick the wrapper — let it flow in the document normally */
   .s5__sticky {
-    position: relative;
+    position: relative !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0;
+    display: block;
+    perspective: none !important;
+  }
+
+  /* Override the JS inline opacity:0 / translateY(70px) so cards show immediately */
+  .s5__entry {
+    opacity: 1 !important;
+    transform: none !important;
+    height: auto !important;
+    /* reset flex centering — let inner grid stack heading → cards normally */
+    display: block !important;
+    will-change: auto !important;
+    transform-style: flat !important;
+  }
+
+  /* Inner grid: heading on top, cards below, with comfortable padding */
+  .s5__inner {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding: clamp(40px, 8vw, 60px) 0 clamp(32px, 6vw, 48px);
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .s5__head {
+    padding-inline: clamp(20px, 5vw, 32px);
+    margin-bottom: 28px;
+  }
+
+  /* Horizontal snap carousel — bleeds edge-to-edge */
+  .s5__cards {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: visible;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    gap: 16px;
+    padding: 4px 0 28px;
+    margin-inline: 0;
+    padding-inline: clamp(20px, 5vw, 32px);
+    perspective: none;
+  }
+  .s5__cards::-webkit-scrollbar { display: none; }
+
+  .s5-card {
+    flex: 0 0 min(300px, 82vw);
+    width: min(300px, 82vw);
+    max-width: min(300px, 82vw);
+    min-height: auto;
     height: auto;
-    padding: 64px 0;
+    transform: none !important;
+    scroll-snap-align: start;
+    overflow: visible;
+  }
+
+  /* ── Disable the scroll-driven flip — show the pricing front face ───────── */
+  .s5-card__inner {
+    transform-style: flat !important;
+    transform: none !important;
+    transition: none !important;
+    height: auto !important;
+    position: relative;
+  }
+  .s5-card__face {
+    position: relative !important;
+    inset: auto !important;
+    backface-visibility: visible !important;
+    -webkit-backface-visibility: visible !important;
+    height: auto !important;
+  }
+  /* Hide the image-only back face */
+  .s5-card__face.s5-card__face--back {
+    display: none !important;
+  }
+  /* Show the white pricing front face */
+  .s5-card__face--front {
+    transform: none !important;
+    display: flex !important;
+    background: #ffffff;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 24px 20px 20px;
+    border-radius: 20px;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    min-height: 380px;
+  }
+  /* Decorative bottom (flip) footer not needed on mobile — saves height */
+  .s5-card__footer {
+    display: none !important;
+  }
+
+  /* ── Stop the next section from overlapping the cards & scroll-jacking ──── */
+  .lw {
+    margin-top: 0 !important;
+    padding-top: clamp(48px, 10vw, 80px) !important;
+    min-height: auto !important;
+    z-index: 1 !important;
+  }
+  .lw__sticky {
+    position: relative !important;
+    height: auto !important;
+    padding: clamp(48px, 10vw, 80px) 0 !important;
+  }
+  /* Override the JS inline opacity/translate so the CTA shows immediately */
+  .lw__inner {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }
 
 @media (max-width: 600px) {
+  .s5__title {
+    font-size: clamp(1.85rem, 8vw, 2.35rem);
+  }
   .s5-card {
-    flex: 1 1 100%;
-    max-width: 520px;
+    flex: 0 0 min(280px, 84vw);
+    width: min(280px, 84vw);
+    max-width: min(280px, 84vw);
+    min-height: auto;
+  }
+  .s5-card__list li {
+    padding: 10px 0;
+    font-size: 13px;
+  }
+  .s5-card__face--front {
+    padding: 20px 16px 16px;
+    min-height: 340px;
   }
 }
 

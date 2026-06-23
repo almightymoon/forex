@@ -12,10 +12,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon } from '../../components/AppIcon';
 import { NewsCard } from '../../components/NewsCard';
+import { GlassEmptyState } from '../../components/glass/GlassPressable';
 import { colors } from '../../constants/theme';
 import { apiFetch } from '../../utils/api';
 import { openNewsArticle } from '../../utils/openNews';
-import { NormalizedNews, normalizeList, normalizeNews } from '../../utils/normalize';
+import { NormalizedNews, dedupeByKey, normalizeList, normalizeNews } from '../../utils/normalize';
 
 type FilterKey = 'all' | 'ForexLive' | 'FXStreet' | 'ForexFactory';
 
@@ -67,12 +68,13 @@ export default function NewsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<FilterKey>('all');
 
-  const fetchNews = async () => {
+  const fetchNews = async (force = false) => {
     try {
-      const res = await apiFetch('api/news?limit=30');
+      const res = await apiFetch('api/news?limit=30', { cache: force ? 'reload' : 'default' });
       if (res.ok) {
         const data = await res.json();
-        setArticles(normalizeList<Record<string, unknown>>(data).map(normalizeNews));
+        const list = normalizeList<Record<string, unknown>>(data).map(normalizeNews);
+        setArticles(dedupeByKey(list, (item) => item.url || item.id));
       }
     } catch {
       /* ignore */
@@ -129,24 +131,23 @@ export default function NewsScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchNews(); }} tintColor={colors.cyan} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchNews(true); }} tintColor={colors.cyan} />}
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
           <ActivityIndicator color={colors.cyan} style={styles.loader} />
         ) : filtered.length === 0 ? (
-          <View style={styles.empty}>
-            <AppIcon name="file-text" size={34} color={colors.textDim} strokeWidth={1.8} />
-            <Text style={styles.emptyTitle}>No headlines right now</Text>
-            <Text style={styles.emptyText}>Pull to refresh and try again in a moment.</Text>
-          </View>
+          <GlassEmptyState
+            title="No headlines right now"
+            message="Pull to refresh and try again in a moment."
+          />
         ) : (
           grouped.map((group) => (
             <View key={group.label} style={styles.section}>
               <Text style={styles.sectionTitle}>{group.label}</Text>
               <View style={styles.list}>
                 {group.items.map((item, index) => (
-                  <View key={item.url || item.id} style={index > 0 ? styles.itemGap : undefined}>
+                  <View key={`${group.label}-${item.id}-${index}`} style={index > 0 ? styles.itemGap : undefined}>
                     <NewsCard item={item} onPress={() => openNewsArticle(router, item)} />
                   </View>
                 ))}
@@ -161,7 +162,7 @@ export default function NewsScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
-  headerSafe: { backgroundColor: 'transparent' },
+  headerSafe: { backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

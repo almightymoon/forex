@@ -1,7 +1,10 @@
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { memo } from 'react';
+import { memo, useContext, useMemo } from 'react';
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import { AppBackgroundContext } from '../contexts/AppBackgroundContext';
+import { DEFAULT_APP_BACKGROUND } from '../utils/appBackground';
+import { getCardStyleSpec } from '../utils/appCardStyle';
 
 type Props = {
   children: React.ReactNode;
@@ -21,50 +24,92 @@ function GlassCardInner({
   radius = 20,
   prominent = false,
 }: Props) {
-  const blurIntensity = prominent
-    ? Platform.OS === 'ios'
-      ? 78
-      : 68
-    : Platform.OS === 'ios'
-      ? 62
-      : 52;
+  const ctx = useContext(AppBackgroundContext);
+  const prefs = ctx?.prefs ?? DEFAULT_APP_BACKGROUND;
+  const spec = useMemo(
+    () => getCardStyleSpec(prefs.cardStyle, prominent, prefs.solidCardColor),
+    [prefs.cardStyle, prominent, prefs.solidCardColor],
+  );
 
   return (
-    <View style={[styles.shadow, { borderRadius: radius }, style]}>
+    <View
+      style={[
+        styles.outer,
+        {
+          borderRadius: radius,
+          shadowOpacity: spec.shadowOpacity,
+          shadowRadius: spec.shadowRadius,
+          elevation: spec.elevation,
+        },
+        style,
+      ]}
+    >
+      {/*
+        Single shell — keeps iOS blur compositing correct (BlurView samples
+        the scene behind the card the same way as the original glass look).
+        Decorations live in an absoluteFill child so Android BlurView
+        bringToFront() cannot paint over the content sibling.
+      */}
       <View
         style={[
           styles.shell,
-          prominent ? styles.shellProminent : styles.shellStandard,
-          { borderRadius: radius },
+          {
+            borderRadius: radius,
+            backgroundColor: spec.shellBackground,
+          },
         ]}
       >
-        {backdrop}
+        <View style={styles.decorations} pointerEvents="none">
+          {backdrop ? <View style={StyleSheet.absoluteFill}>{backdrop}</View> : null}
 
-        <BlurView
-          intensity={blurIntensity}
-          tint="dark"
-          experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
-          style={StyleSheet.absoluteFill}
-        />
+          <BlurView
+            intensity={spec.blurIntensity}
+            tint="dark"
+            experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
+            style={[StyleSheet.absoluteFill, !spec.useBlur && styles.hidden]}
+            pointerEvents="none"
+          />
+
+          {spec.tintColor !== 'transparent' ? (
+            <View
+              style={[StyleSheet.absoluteFill, { backgroundColor: spec.tintColor }]}
+              pointerEvents="none"
+            />
+          ) : null}
+
+          {spec.showShine ? (
+            <LinearGradient
+              colors={spec.shineColors as [string, string, string]}
+              locations={[0, 0.22, 0.62]}
+              style={[
+                styles.shine,
+                { borderTopLeftRadius: radius, borderTopRightRadius: radius },
+              ]}
+              pointerEvents="none"
+            />
+          ) : null}
+
+          {spec.borderMode === 'overlay' ? (
+            <View
+              style={[
+                StyleSheet.absoluteFill,
+                styles.borderOverlay,
+                { borderRadius: radius, borderColor: spec.borderColor },
+              ]}
+              pointerEvents="none"
+            />
+          ) : null}
+        </View>
 
         <View
-          style={[styles.tint, prominent && styles.tintProminent]}
-          pointerEvents="none"
-        />
-
-        <LinearGradient
-          colors={
-            prominent
-              ? ['rgba(255,255,255,0.16)', 'rgba(255,255,255,0.05)', 'transparent']
-              : ['rgba(255,255,255,0.13)', 'rgba(255,255,255,0.04)', 'transparent']
-          }
-          locations={[0, 0.22, 0.62]}
-          style={[styles.shine, { borderTopLeftRadius: radius, borderTopRightRadius: radius }]}
-          pointerEvents="none"
-        />
-
-        <View style={[styles.border, { borderRadius: radius }]} pointerEvents="none" />
-        <View style={[styles.content, contentStyle]}>{children}</View>
+          style={[
+            styles.content,
+            Platform.OS === 'android' && styles.contentAndroid,
+            contentStyle,
+          ]}
+        >
+          {children}
+        </View>
       </View>
     </View>
   );
@@ -76,8 +121,6 @@ export const GlassCard = memo(GlassCardInner);
 export const glassInnerPanel = {
   backgroundColor: 'rgba(255,255,255,0.06)',
   borderRadius: 16,
-  borderWidth: 1,
-  borderColor: 'rgba(255,255,255,0.1)',
   overflow: 'hidden' as const,
 };
 
@@ -91,26 +134,19 @@ export const glassSectionLabel = {
 };
 
 const styles = StyleSheet.create({
-  shadow: {
+  outer: {
     width: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.28,
-    shadowRadius: 16,
-    elevation: 8,
   },
   shell: {
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.03)',
   },
-  shellStandard: {},
-  shellProminent: {},
-  tint: {
+  decorations: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(12,22,48,0.22)',
   },
-  tintProminent: {
-    backgroundColor: 'rgba(12,22,48,0.16)',
+  hidden: {
+    opacity: 0,
   },
   shine: {
     position: 'absolute',
@@ -119,12 +155,14 @@ const styles = StyleSheet.create({
     right: 0,
     height: 48,
   },
-  border: {
-    ...StyleSheet.absoluteFillObject,
+  borderOverlay: {
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
   },
   content: {
     position: 'relative',
+    zIndex: 1,
+  },
+  contentAndroid: {
+    elevation: 1,
   },
 });

@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { ScreenError } from '../../components/ScreenError';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   RefreshControl,
@@ -11,7 +13,9 @@ import {
   Text,
   View,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch } from '../../utils/api';
 import { resolveMediaUrl } from '../../utils/normalize';
 
@@ -56,15 +60,41 @@ export default function ProgressScreen() {
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [generatingCert, setGeneratingCert] = useState<string | null>(null);
+
+  const generateCertificate = async (courseId: string, courseTitle: string) => {
+    if (generatingCert) return;
+    setGeneratingCert(courseId);
+    try {
+      const res = await apiFetch(`api/certificates/generate/${courseId}`, { method: 'POST' });
+      const d = await res.json().catch(() => ({}));
+      if (res.ok) {
+        Alert.alert('Certificate Generated!', `Your certificate for "${courseTitle}" has been issued. Check the Certificates tab.`);
+        fetchOverview(); // refresh to show certificateIssued
+      } else {
+        Alert.alert('Generation Failed', (d as { error?: string; message?: string }).error ?? (d as { message?: string }).message ?? 'Could not generate certificate. Please try again.');
+      }
+    } catch {
+      Alert.alert('Error', 'Network error. Please check your connection.');
+    } finally {
+      setGeneratingCert(null);
+    }
+  };
 
   const fetchOverview = async () => {
+    setError(null);
     try {
       const res = await apiFetch('api/progress/student/overview');
       if (res.ok) {
         const d = await res.json();
         setOverview(d.overview ?? d);
+      } else {
+        setError('Unable to load your progress.');
       }
-    } catch { /* ignore */ } finally {
+    } catch {
+      setError('No connection. Pull down to retry.');
+    } finally {
       setLoading(false);
       setRefreshing(false);
     }
@@ -99,6 +129,8 @@ export default function ProgressScreen() {
       >
         {loading ? (
           <ActivityIndicator color="#3AADFF" style={{ marginTop: 60 }} />
+        ) : error ? (
+          <ScreenError message={error} onRetry={fetchOverview} />
         ) : !overview || overview.totalCourses === 0 ? (
           <View style={styles.emptyWrap}>
             <Ionicons name="bar-chart-outline" size={52} color="rgba(255,255,255,0.1)" />
@@ -120,7 +152,7 @@ export default function ProgressScreen() {
             </View>
 
             {/* Overall completion bar */}
-            <View style={styles.overallCard}>
+            <GlassListCard contentStyle={styles.overallCard}>
               <View style={styles.overallHeader}>
                 <Text style={styles.overallLabel}>Overall Completion</Text>
                 <Text style={styles.overallPct}>
@@ -144,7 +176,7 @@ export default function ProgressScreen() {
               <Text style={styles.overallSub}>
                 {overview.completedCourses} of {overview.totalCourses} courses completed
               </Text>
-            </View>
+            </GlassListCard>
 
             {/* Course list */}
             <Text style={styles.sectionTitle}>Course Progress</Text>
@@ -153,9 +185,9 @@ export default function ProgressScreen() {
               const pct = c.progress.percentage;
               const color = pct >= 100 ? '#4ADE80' : pct > 0 ? '#3AADFF' : 'rgba(255,255,255,0.2)';
               return (
-                <Pressable
+                <GlassListCard
                   key={c.courseId}
-                  style={styles.courseCard}
+                  contentStyle={styles.courseCard}
                   onPress={() => router.push(`/(app)/course/${c.courseId}`)}
                 >
                   {thumb ? (
@@ -190,14 +222,24 @@ export default function ProgressScreen() {
                       </View>
                     )}
                     {c.certificateEligible && !c.certificateIssued && (
-                      <View style={[styles.certBadge, styles.certEligible]}>
-                        <Ionicons name="ribbon-outline" size={11} color="#FFC107" />
-                        <Text style={[styles.certText, { color: '#FFC107' }]}>Certificate Available</Text>
-                      </View>
+                      <Pressable
+                        style={[styles.certBadge, styles.certEligible, styles.certBtn]}
+                        onPress={() => generateCertificate(c.courseId, c.courseTitle)}
+                        disabled={generatingCert === c.courseId}
+                      >
+                        {generatingCert === c.courseId ? (
+                          <ActivityIndicator size="small" color="#FFC107" style={{ width: 11, height: 11 }} />
+                        ) : (
+                          <Ionicons name="ribbon-outline" size={11} color="#FFC107" />
+                        )}
+                        <Text style={[styles.certText, { color: '#FFC107' }]}>
+                          {generatingCert === c.courseId ? 'Generating…' : 'Get Certificate'}
+                        </Text>
+                      </Pressable>
                     )}
                   </View>
                   <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.2)" />
-                </Pressable>
+                </GlassListCard>
               );
             })}
           </>
@@ -221,7 +263,7 @@ const styles = StyleSheet.create({
   browseBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(58,173,255,0.3)', backgroundColor: 'rgba(0,96,230,0.1)' },
   browseBtnText: { fontSize: 14, fontWeight: '700', color: '#3AADFF' },
   statsRow: { flexDirection: 'row', gap: 10 },
-  overallCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 16, gap: 10 },
+  overallCard: { padding: 16, gap: 10 },
   overallHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   overallLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
   overallPct: { fontSize: 22, fontWeight: '900', color: '#3AADFF' },
@@ -229,7 +271,7 @@ const styles = StyleSheet.create({
   bigBarFill: { height: '100%', borderRadius: 5, backgroundColor: '#3AADFF' },
   overallSub: { fontSize: 12, color: 'rgba(255,255,255,0.35)' },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  courseCard: { flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 12 },
+  courseCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
   thumb: { width: 60, height: 60, borderRadius: 12, flexShrink: 0 },
   thumbPlaceholder: { backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
   courseInfo: { flex: 1, gap: 5 },
@@ -243,5 +285,6 @@ const styles = StyleSheet.create({
   pct: { fontSize: 11, fontWeight: '800', width: 34, textAlign: 'right' },
   certBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: 'rgba(232,121,249,0.1)', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
   certEligible: { backgroundColor: 'rgba(255,193,7,0.1)' },
+  certBtn: { borderWidth: 1, borderColor: 'rgba(255,193,7,0.3)' },
   certText: { fontSize: 10, fontWeight: '700', color: '#E879F9' },
 });

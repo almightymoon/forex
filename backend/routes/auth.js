@@ -442,6 +442,87 @@ router.post('/login', [
   }
 });
 
+// @route   POST /api/auth/verify-2fa
+// @desc    Complete login after 2FA challenge
+// @access  Public
+router.post('/verify-2fa', [
+  body('email').trim().isEmail().normalizeEmail().withMessage('Valid email is required'),
+  body('tempToken').notEmpty().withMessage('Temporary login token is required'),
+  body('twoFactorCode').notEmpty().withMessage('2FA code is required')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        error: 'Validation failed',
+        details: errors.array()
+      });
+    }
+
+    const { email, tempToken, twoFactorCode } = req.body;
+
+    let tempTokenData;
+    try {
+      tempTokenData = jwt.verify(tempToken, process.env.JWT_SECRET + '_2FA_TEMP');
+    } catch (error) {
+      return res.status(401).json({
+        error: 'Invalid temporary token',
+        message: 'Your login session has expired. Please start over.'
+      });
+    }
+
+    if (tempTokenData.email !== email) {
+      return res.status(401).json({
+        error: 'Token mismatch',
+        message: 'Invalid login session'
+      });
+    }
+
+    const user = await User.findOne({ email });
+    if (!user) {
+      return res.status(401).json({
+        error: 'User not found',
+        message: 'Invalid login session'
+      });
+    }
+
+    const verificationResult = await TwoFactorAuthService.verifyLogin(user, twoFactorCode);
+    if (!verificationResult.success) {
+      return res.status(401).json({
+        error: '2FA verification failed',
+        message: verificationResult.message || 'Invalid verification code'
+      });
+    }
+
+    await User.findByIdAndUpdate(user._id, { lastLogin: new Date() }, { validateBeforeSave: false });
+
+    const token = await generateTokenWithTimeout(user._id, user.role);
+
+    await logActivity({
+      req,
+      actor: { userId: user._id, email: user.email, role: user.role },
+      action: 'user.login',
+      entity: { type: 'user', id: user._id, label: user.email }
+    });
+
+    res.json({
+      message: 'Login successful',
+      user: user.getPublicProfile(),
+      token,
+      twoFactorVerified: true,
+      ...(verificationResult.backupCodeUsed && {
+        warning: `Backup code used. ${verificationResult.remainingBackupCodes} backup codes remaining.`
+      })
+    });
+  } catch (error) {
+    console.error('2FA login verification error:', error);
+    res.status(500).json({
+      error: '2FA verification failed',
+      message: 'An error occurred during two-factor authentication'
+    });
+  }
+});
+
 // @route   GET /api/auth/me
 // @desc    Get current user profile
 // @access  Private

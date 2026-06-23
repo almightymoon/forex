@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { ScrollView, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassListCard } from '../../components/glass/GlassListCard';
 
 import { DisclaimerBlock } from '../../components/DisclaimerBlock';
 
@@ -68,10 +69,10 @@ export default function TermsScreen() {
         <DisclaimerBlock style={styles.disclaimer} />
 
         {SECTIONS.map((s) => (
-          <View key={s.title} style={styles.section}>
+          <GlassListCard key={s.title} contentStyle={styles.section}>
             <Text style={styles.sectionTitle}>{s.title}</Text>
             <Text style={styles.sectionBody}>{s.body}</Text>
-          </View>
+          </GlassListCard>
         ))}
       </ScrollView>
     </View>
@@ -90,7 +91,7 @@ const styles = StyleSheet.create({
   updatedText: { fontSize: 12.5, color: 'rgba(255,255,255,0.4)' },
   intro: { fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 21 },
   disclaimer: { marginBottom: 4 },
-  section: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 16, gap: 8 },
+  section: { padding: 16, gap: 8 },
   sectionTitle: { fontSize: 14, fontWeight: '800', color: '#fff' },
   sectionBody: { fontSize: 13.5, color: 'rgba(255,255,255,0.55)', lineHeight: 21 },
 });

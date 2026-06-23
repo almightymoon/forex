@@ -1,12 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   Pressable,
   RefreshControl,
@@ -19,6 +17,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RankRewardsProgress } from '../../components/RankRewardsProgress';
+import { ScreenError } from '../../components/ScreenError';
+import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch } from '../../utils/api';
 
 interface ReferralStats {
@@ -42,6 +42,21 @@ interface EarningItem {
   referredUser?: { firstName?: string; lastName?: string };
 }
 
+interface NetworkMember {
+  _id?: string;
+  user?: { firstName?: string; lastName?: string; email?: string };
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  level?: number;
+  isVerified?: boolean;
+  status?: string;
+  joinedAt?: string;
+  createdAt?: string;
+}
+
+const LEVEL_COLORS = ['#3AADFF', '#4ADE80', '#FFC107', '#E879F9', '#FB923C'];
+
 function toast(msg: string) {
   if (Platform.OS === 'android') ToastAndroid.show(msg, ToastAndroid.SHORT);
 }
@@ -51,15 +66,34 @@ function formatDate(iso?: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
+type NetworkTab = 'overview' | 'network';
+
 export default function ReferralsScreen() {
   const router = useRouter();
+  const [tab, setTab] = useState<NetworkTab>('overview');
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [code, setCode] = useState('');
   const [earnings, setEarnings] = useState<EarningItem[]>([]);
+  const [network, setNetwork] = useState<NetworkMember[]>([]);
+  const [networkFilter, setNetworkFilter] = useState<'all' | 'verified' | 'unverified'>('all');
   const [loading, setLoading] = useState(true);
+  const [networkLoading, setNetworkLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const resolveRank = (r: unknown): string => {
+    if (!r) return 'Member';
+    if (typeof r === 'string') return r;
+    if (typeof r === 'object') {
+      const obj = r as Record<string, unknown>;
+      if (obj.current) return resolveRank(obj.current);
+      if (typeof obj.name === 'string') return obj.name;
+    }
+    return 'Member';
+  };
 
   const fetchAll = async () => {
+    setError(null);
     try {
       const [codeRes, statsRes, earningsRes] = await Promise.allSettled([
         apiFetch('api/referrals/code'),
@@ -74,33 +108,53 @@ export default function ReferralsScreen() {
       if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
         const d = await statsRes.value.json();
         const raw = d.data ?? d;
-        // rank can be a string, { current, next, progressToNext }, or { name, ... }
-        const resolveRank = (r: unknown): string => {
-          if (!r) return 'Member';
-          if (typeof r === 'string') return r;
-          if (typeof r === 'object') {
-            const obj = r as Record<string, unknown>;
-            // { current: { name, ... }, next, progressToNext }
-            if (obj.current) return resolveRank(obj.current);
-            // { name, icon, ... }
-            if (typeof obj.name === 'string') return obj.name;
-          }
-          return 'Member';
-        };
         raw.rank = resolveRank(raw.rank);
         setStats(raw);
+      } else if (statsRes.status === 'rejected') {
+        setError('No connection. Pull down to retry.');
       }
       if (earningsRes.status === 'fulfilled' && earningsRes.value.ok) {
         const d = await earningsRes.value.json();
         const list = d.data?.earnings ?? d.data ?? d.earnings ?? d ?? [];
         setEarnings(Array.isArray(list) ? list.slice(0, 20) : []);
       }
-    } catch { /* ignore */ }
-    finally { setLoading(false); setRefreshing(false); }
+    } catch {
+      setError('No connection. Pull down to retry.');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const fetchNetwork = async (filter: 'all' | 'verified' | 'unverified' = networkFilter) => {
+    setNetworkLoading(true);
+    try {
+      const res = await apiFetch(`api/referrals/list?filter=${filter}`);
+      if (res.ok) {
+        const d = await res.json();
+        const list: NetworkMember[] = d.data?.list ?? d.list ?? [];
+        setNetwork(list);
+      }
+    } catch { /* show empty */ } finally {
+      setNetworkLoading(false);
+    }
   };
 
   useEffect(() => { fetchAll(); }, []);
-  const onRefresh = () => { setRefreshing(true); fetchAll(); };
+  useEffect(() => {
+    if (tab === 'network' && network.length === 0) fetchNetwork();
+  }, [tab]);
+
+  const onRefresh = () => {
+    setRefreshing(true);
+    fetchAll();
+    if (tab === 'network') fetchNetwork();
+  };
+
+  const switchNetworkFilter = (f: 'all' | 'verified' | 'unverified') => {
+    setNetworkFilter(f);
+    fetchNetwork(f);
+  };
 
   const referralUrl = `https://thefxnavigators.com/register?ref=${code}`;
 
@@ -121,34 +175,157 @@ export default function ReferralsScreen() {
     toast('Referral link copied!');
   };
 
+  const headerNode = (
+    <SafeAreaView edges={['top']} style={styles.headerSafe}>
+      <View style={styles.header}>
+        <Pressable style={styles.backBtn} onPress={() => router.back()}>
+          <Ionicons name="arrow-back" size={20} color="#fff" />
+        </Pressable>
+        <Text style={styles.headerTitle}>Referrals</Text>
+        <View style={{ width: 40 }} />
+      </View>
+      {/* Tab switcher */}
+      <View style={styles.tabRow}>
+        <Pressable
+          style={[styles.tabBtn, tab === 'overview' && styles.tabBtnActive]}
+          onPress={() => setTab('overview')}
+        >
+          <Text style={[styles.tabBtnText, tab === 'overview' && styles.tabBtnTextActive]}>Overview</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.tabBtn, tab === 'network' && styles.tabBtnActive]}
+          onPress={() => setTab('network')}
+        >
+          <Text style={[styles.tabBtnText, tab === 'network' && styles.tabBtnTextActive]}>
+            My Network {stats?.totalReferrals ? `(${stats.totalReferrals})` : ''}
+          </Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
+  );
+
   if (loading) {
     return (
       <View style={styles.screen}>
-        <SafeAreaView edges={['top']} style={styles.headerSafe}>
-          <View style={styles.header}>
-            <Pressable style={styles.backBtn} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={20} color="#fff" />
-            </Pressable>
-            <Text style={styles.headerTitle}>Referrals</Text>
-            <View style={{ width: 40 }} />
-          </View>
-        </SafeAreaView>
+        {headerNode}
         <ActivityIndicator color="#3AADFF" style={{ marginTop: 60 }} />
       </View>
     );
   }
 
+  if (error) {
+    return (
+      <View style={styles.screen}>
+        {headerNode}
+        <ScreenError message={error} onRetry={() => { setLoading(true); fetchAll(); }} />
+      </View>
+    );
+  }
+
+  /* ── Network tab ─────────────────────────────────────────── */
+  if (tab === 'network') {
+    const levelGroups: Record<number, NetworkMember[]> = {};
+    for (const m of network) {
+      const lvl = m.level ?? 1;
+      if (!levelGroups[lvl]) levelGroups[lvl] = [];
+      levelGroups[lvl].push(m);
+    }
+
+    return (
+      <View style={styles.screen}>
+        {headerNode}
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.content}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3AADFF" />}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Filter chips */}
+          <View style={styles.networkFilters}>
+            {(['all', 'verified', 'unverified'] as const).map((f) => (
+              <Pressable
+                key={f}
+                style={[styles.nfChip, networkFilter === f && styles.nfChipActive]}
+                onPress={() => switchNetworkFilter(f)}
+              >
+                <Text style={[styles.nfChipText, networkFilter === f && styles.nfChipTextActive]}>
+                  {f.charAt(0).toUpperCase() + f.slice(1)}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          {networkLoading ? (
+            <ActivityIndicator color="#3AADFF" style={{ marginTop: 40 }} />
+          ) : network.length === 0 ? (
+            <View style={styles.noEarnings}>
+              <Ionicons name="people-outline" size={44} color="rgba(255,255,255,0.1)" />
+              <Text style={styles.noEarningsText}>No referrals yet</Text>
+              <Text style={styles.noEarningsSub}>Share your code to grow your network.</Text>
+            </View>
+          ) : (
+            Object.entries(levelGroups)
+              .sort(([a], [b]) => Number(a) - Number(b))
+              .map(([lvl, members]) => {
+                const color = LEVEL_COLORS[(Number(lvl) - 1) % LEVEL_COLORS.length];
+                return (
+                  <View key={lvl}>
+                    <View style={styles.levelHeading}>
+                      <View style={[styles.levelDot, { backgroundColor: color }]} />
+                      <Text style={[styles.levelHeadingText, { color }]}>
+                        Level {lvl}
+                      </Text>
+                      <Text style={styles.levelHeadingCount}>{members.length} member{members.length !== 1 ? 's' : ''}</Text>
+                    </View>
+                    <GlassListCard contentStyle={styles.card}>
+                      {members.map((m, idx) => {
+                        const fname = m.user?.firstName ?? m.firstName ?? '';
+                        const lname = m.user?.lastName ?? m.lastName ?? '';
+                        const name = `${fname} ${lname}`.trim() || (m.user?.email ?? m.email ?? 'Unknown');
+                        const initials = ((fname[0] ?? '') + (lname[0] ?? '')).toUpperCase() || '?';
+                        const verified = m.isVerified ?? m.status === 'verified';
+                        const joined = m.joinedAt ?? m.createdAt;
+                        return (
+                          <View
+                            key={m._id ?? idx}
+                            style={[styles.memberRow, idx < members.length - 1 && styles.memberDivider]}
+                          >
+                            <View style={[styles.memberAvatar, { backgroundColor: `${color}20`, borderColor: `${color}30` }]}>
+                              <Text style={[styles.memberInitials, { color }]}>{initials}</Text>
+                            </View>
+                            <View style={styles.memberInfo}>
+                              <Text style={styles.memberName} numberOfLines={1}>{name}</Text>
+                              {joined ? (
+                                <Text style={styles.memberDate}>Joined {formatDate(joined)}</Text>
+                              ) : null}
+                            </View>
+                            <View style={[styles.memberBadge, verified ? styles.memberBadgeVerified : styles.memberBadgePending]}>
+                              <Ionicons
+                                name={verified ? 'checkmark-circle' : 'time-outline'}
+                                size={11}
+                                color={verified ? '#4ADE80' : '#FFC107'}
+                              />
+                              <Text style={[styles.memberBadgeText, { color: verified ? '#4ADE80' : '#FFC107' }]}>
+                                {verified ? 'Verified' : 'Pending'}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      })}
+                    </GlassListCard>
+                  </View>
+                );
+              })
+          )}
+        </ScrollView>
+      </View>
+    );
+  }
+
+  /* ── Overview tab ────────────────────────────────────────── */
   return (
     <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
-        <View style={styles.header}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
-          </Pressable>
-          <Text style={styles.headerTitle}>Referrals</Text>
-          <View style={{ width: 40 }} />
-        </View>
-      </SafeAreaView>
+      {headerNode}
 
       <ScrollView
         style={styles.scroll}
@@ -206,22 +383,28 @@ export default function ReferralsScreen() {
 
             {/* Level breakdown */}
             {stats.levelCounts && Object.values(stats.levelCounts).some((v) => v > 0) ? (
-              <View style={styles.card}>
+              <GlassListCard contentStyle={styles.card}>
                 <Text style={styles.cardTitle}>Referral Network Levels</Text>
                 {[1, 2, 3, 4, 5].map((lvl) => {
                   const count = stats.levelCounts?.[String(lvl)] ?? 0;
+                  const color = LEVEL_COLORS[lvl - 1];
                   const pct = stats.totalReferrals > 0 ? (count / stats.totalReferrals) * 100 : 0;
                   return (
                     <View key={lvl} style={styles.levelRow}>
-                      <Text style={styles.levelLabel}>Level {lvl}</Text>
+                      <Text style={[styles.levelLabel, { color }]}>Level {lvl}</Text>
                       <View style={styles.levelBar}>
-                        <View style={[styles.levelFill, { width: `${pct}%` as `${number}%` }]} />
+                        <View style={[styles.levelFill, { width: `${pct}%` as `${number}%`, backgroundColor: color }]} />
                       </View>
                       <Text style={styles.levelCount}>{count}</Text>
                     </View>
                   );
                 })}
-              </View>
+                <Pressable style={styles.viewTreeBtn} onPress={() => setTab('network')}>
+                  <Ionicons name="people-outline" size={14} color="#3AADFF" />
+                  <Text style={styles.viewTreeBtnText}>View My Network</Text>
+                  <Ionicons name="arrow-forward" size={13} color="#3AADFF" />
+                </Pressable>
+              </GlassListCard>
             ) : null}
 
             <RankRewardsProgress />
@@ -232,7 +415,7 @@ export default function ReferralsScreen() {
         {earnings.length > 0 ? (
           <>
             <Text style={styles.sectionTitle}>Earnings History</Text>
-            <View style={styles.card}>
+            <GlassListCard contentStyle={styles.card}>
               {earnings.map((e, idx) => {
                 const name = e.referredUser
                   ? `${e.referredUser.firstName ?? ''} ${e.referredUser.lastName ?? ''}`.trim()
@@ -258,7 +441,7 @@ export default function ReferralsScreen() {
                   </View>
                 );
               })}
-            </View>
+            </GlassListCard>
           </>
         ) : (
           <View style={styles.noEarnings}>
@@ -351,11 +534,7 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
   statsGrid: { gap: 10 },
   statsRow: { flexDirection: 'row', gap: 10 },
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)',
-    padding: 16, gap: 12,
-  },
+  card: { padding: 16, gap: 12 },
   cardTitle: { fontSize: 13.5, fontWeight: '700', color: '#fff' },
   levelRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   levelLabel: { fontSize: 12, color: 'rgba(255,255,255,0.5)', width: 50, fontWeight: '600' },
@@ -375,7 +554,72 @@ const styles = StyleSheet.create({
   earningRight: { alignItems: 'flex-end', gap: 2 },
   earningAmount: { fontSize: 15, fontWeight: '800', color: '#4ADE80' },
   earningStatus: { fontSize: 10, fontWeight: '700', textTransform: 'capitalize' },
-  noEarnings: { alignItems: 'center', gap: 10, paddingVertical: 20 },
+  noEarnings: { alignItems: 'center', gap: 10, paddingVertical: 30 },
   noEarningsText: { fontSize: 16, fontWeight: '700', color: 'rgba(255,255,255,0.4)' },
   noEarningsSub: { fontSize: 13, color: 'rgba(255,255,255,0.25)', textAlign: 'center' },
+
+  // tab switcher
+  tabRow: {
+    flexDirection: 'row', gap: 8,
+    paddingHorizontal: 18, paddingBottom: 12,
+  },
+  tabBtn: {
+    flex: 1, paddingVertical: 9, borderRadius: 12, alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+  },
+  tabBtnActive: {
+    backgroundColor: 'rgba(58,173,255,0.15)',
+    borderColor: 'rgba(58,173,255,0.35)',
+  },
+  tabBtnText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.4)' },
+  tabBtnTextActive: { color: '#3AADFF', fontWeight: '800' },
+
+  // network filter chips
+  networkFilters: { flexDirection: 'row', gap: 8 },
+  nfChip: {
+    paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+  },
+  nfChipActive: {
+    backgroundColor: 'rgba(58,173,255,0.12)',
+    borderColor: 'rgba(58,173,255,0.3)',
+  },
+  nfChipText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.4)' },
+  nfChipTextActive: { color: '#3AADFF', fontWeight: '700' },
+
+  // level group headings
+  levelHeading: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  levelDot: { width: 8, height: 8, borderRadius: 4 },
+  levelHeadingText: { fontSize: 13, fontWeight: '800', flex: 1 },
+  levelHeadingCount: { fontSize: 12, color: 'rgba(255,255,255,0.3)', fontWeight: '600' },
+
+  // member rows
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 11 },
+  memberDivider: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  memberAvatar: {
+    width: 38, height: 38, borderRadius: 19,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, flexShrink: 0,
+  },
+  memberInitials: { fontSize: 13, fontWeight: '800' },
+  memberInfo: { flex: 1, gap: 2, minWidth: 0 },
+  memberName: { fontSize: 13.5, fontWeight: '600', color: '#fff' },
+  memberDate: { fontSize: 11, color: 'rgba(255,255,255,0.35)' },
+  memberBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    paddingHorizontal: 8, paddingVertical: 4, borderRadius: 20,
+  },
+  memberBadgeVerified: { backgroundColor: 'rgba(74,222,128,0.1)' },
+  memberBadgePending: { backgroundColor: 'rgba(255,193,7,0.1)' },
+  memberBadgeText: { fontSize: 10, fontWeight: '700' },
+
+  // view tree button
+  viewTreeBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    marginTop: 4, paddingVertical: 8,
+    borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.08)',
+  },
+  viewTreeBtnText: { flex: 1, fontSize: 13, fontWeight: '700', color: '#3AADFF' },
 });

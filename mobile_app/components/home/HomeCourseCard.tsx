@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { CachedImage } from '../CachedImage';
 import { AppIcon } from '../AppIcon';
 import { colors } from '../../constants/theme';
 import { GlassCard } from './GlassCard';
@@ -30,7 +31,7 @@ export function HomeCourseCard({
       <GlassCard contentStyle={styles.cardInner} radius={26}>
         <View style={styles.thumb}>
           {thumbnail ? (
-            <Image source={{ uri: thumbnail }} style={styles.thumbImage} resizeMode="cover" />
+            <CachedImage source={{ uri: thumbnail }} style={styles.thumbImage} contentFit="cover" />
           ) : (
             <View style={styles.thumbPlaceholder}>
               <AppIcon name="book-open" size={30} color={colors.primary} strokeWidth={1.8} />

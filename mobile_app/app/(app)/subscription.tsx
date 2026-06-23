@@ -14,7 +14,15 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch } from '../../utils/api';
+
+interface Perk {
+  key: string;
+  description: string;
+  enabled: boolean;
+  detail?: string;
+}
 
 interface Payment {
   _id: string;
@@ -41,25 +49,49 @@ const STATUS_CFG: Record<string, { color: string; bg: string; label: string }> =
   cancelled: { color: 'rgba(255,255,255,0.35)', bg: 'rgba(255,255,255,0.06)', label: 'Cancelled' },
 };
 
+const DEFAULT_FEATURES = ['Full course access', 'Live trading sessions', 'Trading signals', 'Community chat', 'Certificates'];
+
 export default function SubscriptionScreen() {
   const router = useRouter();
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [perks, setPerks] = useState<Perk[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchPayments = async () => {
+  const fetchAll = async () => {
     try {
-      const res = await apiFetch('api/payments/user');
-      if (res.ok) {
-        const raw = await res.json();
+      const [paymentsRes, perksRes] = await Promise.allSettled([
+        apiFetch('api/payments/user'),
+        apiFetch('api/package-perks'),
+      ]);
+      if (paymentsRes.status === 'fulfilled' && paymentsRes.value.ok) {
+        const raw = await paymentsRes.value.json();
         const list: Payment[] = Array.isArray(raw) ? raw : raw.data ?? raw.payments ?? [];
         setPayments(list);
+      }
+      if (perksRes.status === 'fulfilled' && perksRes.value.ok) {
+        const d = await perksRes.value.json();
+        const rawPerks = d.perks ?? {};
+        const parsed: Perk[] = Object.entries(rawPerks).map(([key, val]) => {
+          const v = val as Record<string, unknown>;
+          return {
+            key,
+            description: (v.description as string) ?? key,
+            enabled: !!(v.enabled),
+            detail: (v.sessionsPerMonth ? `${v.sessionsPerMonth} sessions/mo` : undefined) ??
+                    (v.type ? String(v.type) : undefined) ??
+                    (v.access ? String(v.access) : undefined),
+          };
+        });
+        setPerks(parsed);
       }
     } catch { /* ignore */ }
     finally { setLoading(false); setRefreshing(false); }
   };
 
-  useEffect(() => { fetchPayments(); }, []);
+  const fetchPayments = fetchAll; // alias for RefreshControl usage
+
+  useEffect(() => { fetchAll(); }, []);
 
   const packagePayments = payments.filter((p) => !p.type || p.type === 'package');
   const monthlyPayments = payments.filter((p) => p.type === 'monthly_fee');
@@ -80,7 +112,7 @@ export default function SubscriptionScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchPayments(); }} tintColor="#3AADFF" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAll(); }} tintColor="#3AADFF" />}
         showsVerticalScrollIndicator={false}
       >
         {loading ? <ActivityIndicator color="#3AADFF" style={{ marginTop: 40 }} /> : (
@@ -102,12 +134,27 @@ export default function SubscriptionScreen() {
                 <Text style={styles.activeDate}>Purchased {fmt(activePackage.createdAt)}</Text>
 
                 <View style={styles.featureList}>
-                  {['Full course access', 'Live trading sessions', 'Trading signals', 'Community chat', 'Certificates'].map((f) => (
-                    <View key={f} style={styles.featureRow}>
-                      <Ionicons name="checkmark" size={14} color="#3AADFF" />
-                      <Text style={styles.featureText}>{f}</Text>
-                    </View>
-                  ))}
+                  {perks.length > 0
+                    ? perks.map((p) => (
+                        <View key={p.key} style={styles.featureRow}>
+                          <Ionicons
+                            name={p.enabled ? 'checkmark' : 'close'}
+                            size={14}
+                            color={p.enabled ? '#3AADFF' : 'rgba(255,255,255,0.2)'}
+                          />
+                          <Text style={[styles.featureText, !p.enabled && styles.featureDisabled]}>
+                            {p.description}
+                            {p.detail ? <Text style={styles.featureDetail}>  ·  {p.detail}</Text> : null}
+                          </Text>
+                        </View>
+                      ))
+                    : DEFAULT_FEATURES.map((f) => (
+                        <View key={f} style={styles.featureRow}>
+                          <Ionicons name="checkmark" size={14} color="#3AADFF" />
+                          <Text style={styles.featureText}>{f}</Text>
+                        </View>
+                      ))
+                  }
                 </View>
                 <Pressable style={styles.upgradeBtn} onPress={() => router.push('/subscription-upgrade')}>
                   <Ionicons name="arrow-up-circle-outline" size={16} color="#3AADFF" />
@@ -119,7 +166,7 @@ export default function SubscriptionScreen() {
                 </Pressable>
               </LinearGradient>
             ) : (
-              <View style={styles.noSubCard}>
+              <GlassListCard contentStyle={styles.noSubCard}>
                 <Ionicons name="layers-outline" size={44} color="rgba(255,255,255,0.15)" />
                 <Text style={styles.noSubTitle}>No Active Subscription</Text>
                 <Text style={styles.noSubText}>Choose a package to get access to all features.</Text>
@@ -127,14 +174,14 @@ export default function SubscriptionScreen() {
                   <Text style={styles.noSubBtnText}>View Packages</Text>
                   <Ionicons name="arrow-forward" size={14} color="#fff" />
                 </Pressable>
-              </View>
+              </GlassListCard>
             )}
 
             {/* Package payments */}
             {packagePayments.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Package History</Text>
-                <View style={styles.card}>
+                <GlassListCard contentStyle={styles.card}>
                   {packagePayments.map((p, idx) => {
                     const cfg = STATUS_CFG[p.status] ?? STATUS_CFG.pending;
                     return (
@@ -158,7 +205,7 @@ export default function SubscriptionScreen() {
                       </View>
                     );
                   })}
-                </View>
+                </GlassListCard>
               </View>
             )}
 
@@ -166,7 +213,7 @@ export default function SubscriptionScreen() {
             {monthlyPayments.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Monthly Fees</Text>
-                <View style={styles.card}>
+                <GlassListCard contentStyle={styles.card}>
                   {monthlyPayments.map((p, idx) => {
                     const cfg = STATUS_CFG[p.status] ?? STATUS_CFG.pending;
                     return (
@@ -187,16 +234,16 @@ export default function SubscriptionScreen() {
                       </View>
                     );
                   })}
-                </View>
+                </GlassListCard>
               </View>
             )}
 
             {/* Support CTA */}
-            <Pressable style={styles.supportBtn} onPress={() => Linking.openURL('https://thefxnavigators.com/support')}>
+            <GlassListCard contentStyle={styles.supportBtn} onPress={() => Linking.openURL('https://thefxnavigators.com/support')}>
               <Ionicons name="help-circle-outline" size={18} color="#3AADFF" />
               <Text style={styles.supportText}>Need help with billing? Contact support</Text>
               <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.3)" />
-            </Pressable>
+            </GlassListCard>
           </>
         )}
       </ScrollView>
@@ -224,15 +271,17 @@ const styles = StyleSheet.create({
   activeDate: { fontSize: 12, color: 'rgba(255,255,255,0.45)' },
   featureList: { marginTop: 8, gap: 8 },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  featureText: { fontSize: 13.5, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
-  noSubCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 32, alignItems: 'center', gap: 10 },
+  featureText: { flex: 1, fontSize: 13.5, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
+  featureDisabled: { color: 'rgba(255,255,255,0.25)' },
+  featureDetail: { fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: '400' },
+  noSubCard: { padding: 32, alignItems: 'center', gap: 10 },
   noSubTitle: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.55)' },
   noSubText: { fontSize: 13.5, color: 'rgba(255,255,255,0.35)', textAlign: 'center', lineHeight: 20 },
   noSubBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, height: 46, paddingHorizontal: 20, borderRadius: 13, backgroundColor: 'rgba(0,96,230,0.3)', borderWidth: 1, borderColor: 'rgba(58,173,255,0.4)' },
   noSubBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
   section: { gap: 10 },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  card: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', paddingHorizontal: 16, paddingVertical: 4 },
+  card: { paddingHorizontal: 16, paddingVertical: 4 },
   payRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
   payDivider: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   payIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
@@ -244,7 +293,7 @@ const styles = StyleSheet.create({
   payAmount: { fontSize: 15, fontWeight: '800', color: '#fff' },
   statusPill: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
   statusText: { fontSize: 10, fontWeight: '700', textTransform: 'capitalize' },
-  supportBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)', padding: 14 },
+  supportBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },
   supportText: { flex: 1, fontSize: 13.5, color: 'rgba(255,255,255,0.55)', fontWeight: '500' },
   upgradeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 8, height: 42, borderRadius: 12, backgroundColor: 'rgba(0,96,230,0.2)', borderWidth: 1, borderColor: 'rgba(58,173,255,0.35)' },
   upgradeText: { fontSize: 14, fontWeight: '700', color: '#3AADFF' },

@@ -24,9 +24,9 @@ export function MarketNewsSection({ items, onPressArticle, onViewAll }: Props) {
       </View>
 
       {visible.length > 0 ? (
-        visible.map((item) => (
+        visible.map((item, index) => (
           <HomeNewsCard
-            key={item.id}
+            key={`${item.id}-${item.url}-${index}`}
             item={item}
             onPress={() => onPressArticle?.(item)}
           />

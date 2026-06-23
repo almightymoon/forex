@@ -18,6 +18,7 @@ import { WelcomeHeroCard } from '../../components/home/WelcomeHeroCard';
 import { colors } from '../../constants/theme';
 import { apiFetch } from '../../utils/api';
 import { AuthUser, getStoredUser } from '../../utils/auth';
+import { loadDashboardSnapshot, saveDashboardSnapshot } from '../../utils/dashboardCache';
 import { getEnrolledCourseIds } from '../../utils/enrollment';
 import { openNewsArticle } from '../../utils/openNews';
 import {
@@ -30,6 +31,7 @@ import {
   normalizeList,
   normalizeNews,
   normalizeSignal,
+  dedupeByKey,
 } from '../../utils/normalize';
 
 interface DashboardData {
@@ -64,14 +66,15 @@ export default function HomeScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
 
-  const fetchData = async () => {
+  const fetchData = async (opts?: { force?: boolean }) => {
+    const cache = opts?.force ? 'reload' : 'default';
     try {
       const [enrolledRes, catalogRes, signalsRes, activityRes, newsRes] = await Promise.allSettled([
-        apiFetch('api/courses/enrolled'),
-        apiFetch('api/courses'),
-        apiFetch('api/signals'),
-        apiFetch('api/users/activity/recent?limit=4'),
-        apiFetch('api/news?limit=5'),
+        apiFetch('api/courses/enrolled', { cache }),
+        apiFetch('api/courses', { cache }),
+        apiFetch('api/signals', { cache }),
+        apiFetch('api/users/activity/recent?limit=4', { cache }),
+        apiFetch('api/news?limit=5', { cache }),
       ]);
 
       const catalog =
@@ -122,22 +125,30 @@ export default function HomeScreen() {
       if (activityRes.status === 'fulfilled' && activityRes.value.ok) {
         const raw = await activityRes.value.json();
         const list = raw.activities ?? raw.data ?? [];
-        recentActivity = normalizeList<Record<string, unknown>>(list).map(normalizeActivity);
+        recentActivity = dedupeByKey(
+          normalizeList<Record<string, unknown>>(list).map(normalizeActivity),
+          (item) => item.id,
+        );
       }
 
       let news: NormalizedNews[] = [];
       if (newsRes.status === 'fulfilled' && newsRes.value.ok) {
         const raw = await newsRes.value.json();
-        news = normalizeList<Record<string, unknown>>(raw).map(normalizeNews);
+        news = dedupeByKey(
+          normalizeList<Record<string, unknown>>(raw).map(normalizeNews),
+          (item) => item.url || item.id,
+        );
       }
 
-      setData({
+      const next: DashboardData = {
         enrolledCourses: courses.length,
         courses: courses.slice(0, 2),
         recentSignals: signals,
         recentActivity,
         news,
-      });
+      };
+      setData(next);
+      void saveDashboardSnapshot(next);
     } catch {
       /* ignore */
     } finally {
@@ -147,17 +158,40 @@ export default function HomeScreen() {
   };
 
   useEffect(() => {
-    fetchData();
+    let active = true;
+    (async () => {
+      const [snapshot, storedUser] = await Promise.all([loadDashboardSnapshot(), getStoredUser()]);
+      if (!active) return;
+      if (storedUser) setUser(storedUser);
+      if (snapshot) {
+        setData({
+          enrolledCourses: snapshot.enrolledCourses,
+          courses: snapshot.courses,
+          recentSignals: snapshot.recentSignals,
+          recentActivity: snapshot.recentActivity,
+          news: snapshot.news,
+        });
+        setLoading(false);
+      }
+      fetchData();
+    })();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       getStoredUser().then(setUser);
-      apiFetch('api/notifications')
+      apiFetch('api/notifications/user')
         .then(async (r) => {
           if (r.ok) {
             const d = await r.json();
-            const list: Array<{ read?: boolean }> = d.notifications ?? d ?? [];
+            if (typeof d.unreadCount === 'number') {
+              setUnreadCount(d.unreadCount);
+              return;
+            }
+            const list: Array<{ read?: boolean }> = d.notifications ?? [];
             setUnreadCount(list.filter((n) => !n.read).length);
           }
         })
@@ -167,7 +201,7 @@ export default function HomeScreen() {
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchData();
+    fetchData({ force: true });
   };
 
   const firstName = user?.firstName ?? 'User';

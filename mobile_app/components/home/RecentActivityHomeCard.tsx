@@ -71,7 +71,7 @@ export function RecentActivityHomeCard({ items, onPress, onItemPress }: Props) {
         <View style={styles.list}>
           {visible.length > 0 ? (
             visible.map((item, index) => (
-              <View key={item.id}>
+              <View key={`${item.id}-${index}`}>
                 <ActivityRow item={item} onPress={() => onItemPress?.(item)} />
                 {index < visible.length - 1 ? <View style={styles.divider} /> : null}
               </View>

@@ -12,6 +12,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { WebView } from 'react-native-webview';
+import { glassScreenStyles } from '../../components/glass/glassScreenStyles';
+import { WEBVIEW_CRASH_GUARD } from '../../utils/webviewCrashGuard';
 
 const SYMBOLS = ['FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:USDCAD', 'FX:XAUUSD'];
 const INTERVALS = ['1', '5', '15', '60', '240', 'D'];
@@ -77,8 +79,8 @@ export default function TradingViewScreen() {
   };
 
   return (
-    <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
+    <View style={glassScreenStyles.screen}>
+      <SafeAreaView edges={['top']} style={glassScreenStyles.headerSafe}>
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={20} color="#fff" />
@@ -140,6 +142,7 @@ export default function TradingViewScreen() {
           mediaPlaybackRequiresUserAction={false}
           onLoadEnd={() => setLoading(false)}
           originWhitelist={['*']}
+          {...WEBVIEW_CRASH_GUARD}
           userAgent={
             Platform.OS === 'android'
               ? 'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36'
@@ -152,8 +155,6 @@ export default function TradingViewScreen() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#010A18' },
-  headerSafe: { backgroundColor: 'rgba(1,10,24,0.97)' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },

@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch } from '../../utils/api';
 import { hapticSuccess } from '../../utils/haptics';
 import { resolveMediaUrl } from '../../utils/normalize';
@@ -119,7 +120,7 @@ export default function CertificateAssignmentsScreen() {
             const cert = a.teacherCertificateId;
             const title = cert?.title ?? 'Certificate Assignment';
             return (
-              <View key={a._id} style={styles.card}>
+              <GlassListCard key={a._id} contentStyle={styles.card}>
                 <View style={[styles.badge, { backgroundColor: `${cfg.color}18` }]}>
                   <Text style={[styles.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
                 </View>
@@ -168,7 +169,7 @@ export default function CertificateAssignmentsScreen() {
                 ) : a.studentNotes ? (
                   <Text style={styles.completedNotes}>Your notes: {a.studentNotes}</Text>
                 ) : null}
-              </View>
+              </GlassListCard>
             );
           })
         )}
@@ -188,7 +189,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.5)' },
   emptyText: { fontSize: 13.5, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingHorizontal: 20 },
-  card: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 16, gap: 8 },
+  card: { padding: 16, gap: 8 },
   badge: { alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   badgeText: { fontSize: 11, fontWeight: '700' },
   title: { fontSize: 16, fontWeight: '800', color: '#fff' },

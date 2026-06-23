@@ -18,6 +18,7 @@ import { AuthInput } from '../components/AuthInput';
 import { GradientButton } from '../components/GradientButton';
 import { PaymentScreenshotPicker, ScreenshotAsset } from '../components/PaymentScreenshotPicker';
 import { ScreenBackground } from '../components/ScreenBackground';
+import { GlassListCard } from '../components/glass/GlassListCard';
 import { apiFetch, apiUpload } from '../utils/api';
 import { getStoredUser } from '../utils/auth';
 import { hapticSuccess } from '../utils/haptics';
@@ -155,23 +156,23 @@ export default function SubscriptionUpgradeScreen() {
             </Text>
 
             {packages.length === 0 ? (
-              <View style={styles.noUpgrade}>
+              <GlassListCard contentStyle={styles.noUpgrade}>
                 <Ionicons name="trophy-outline" size={40} color="rgba(255,255,255,0.2)" />
                 <Text style={styles.noUpgradeText}>You're already on the top tier — no upgrade available.</Text>
-              </View>
+              </GlassListCard>
             ) : (
               <>
                 <Text style={styles.sectionLabel}>SELECT PACKAGE</Text>
                 {packages.map((p) => (
-                  <Pressable
+                  <GlassListCard
                     key={p.name}
-                    style={[styles.pkgCard, selected?.name === p.name && styles.pkgCardSelected]}
+                    contentStyle={[styles.pkgCard, selected?.name === p.name && styles.pkgCardSelected]}
                     onPress={() => setSelected(p)}
                   >
                     <Text style={styles.pkgName}>{p.name}</Text>
                     <Text style={styles.pkgPrice}>${p.price} USDT</Text>
                     {selected?.name === p.name ? <Ionicons name="checkmark-circle" size={20} color="#3AADFF" /> : null}
-                  </Pressable>
+                  </GlassListCard>
                 ))}
 
                 <View style={styles.walletSection}>
@@ -213,8 +214,8 @@ const styles = StyleSheet.create({
   title: { fontSize: 26, fontWeight: '800', color: '#fff', marginBottom: 6 },
   subtitle: { fontSize: 13.5, color: 'rgba(255,255,255,0.45)', lineHeight: 20, marginBottom: 20 },
   sectionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1, color: 'rgba(255,255,255,0.4)', marginBottom: 8, textTransform: 'uppercase' },
-  pkgCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', padding: 14, marginBottom: 8, gap: 10 },
-  pkgCardSelected: { borderColor: 'rgba(58,173,255,0.5)', backgroundColor: 'rgba(0,96,230,0.12)' },
+  pkgCard: { flexDirection: 'row', alignItems: 'center', padding: 14, marginBottom: 8, gap: 10 },
+  pkgCardSelected: {},
   pkgName: { flex: 1, fontSize: 15, fontWeight: '700', color: '#fff' },
   pkgPrice: { fontSize: 15, fontWeight: '800', color: '#3AADFF' },
   walletSection: { marginTop: 12, marginBottom: 8 },

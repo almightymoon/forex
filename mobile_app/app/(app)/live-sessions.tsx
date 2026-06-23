@@ -15,6 +15,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch } from '../../utils/api';
 import { formatInstructor } from '../../utils/formatInstructor';
 import { getStoredUser } from '../../utils/auth';
@@ -64,6 +65,7 @@ export default function LiveSessionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [bookingId, setBookingId] = useState<string | null>(null);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
 
   const fetchSessions = async () => {
     try {
@@ -97,6 +99,33 @@ export default function LiveSessionsScreen() {
     } catch {
       Alert.alert('Error', 'Network error. Please check your connection.');
     } finally { setBookingId(null); }
+  };
+
+  const cancelSession = async (sessionId: string) => {
+    if (cancellingId) return;
+    Alert.alert('Cancel Booking', 'Are you sure you want to cancel your spot?', [
+      { text: 'Keep It', style: 'cancel' },
+      {
+        text: 'Cancel Booking', style: 'destructive',
+        onPress: async () => {
+          setCancellingId(sessionId);
+          try {
+            const res = await apiFetch(`api/sessions/${sessionId}/cancel`, { method: 'POST' });
+            if (res.ok) {
+              toast('Booking cancelled.');
+              fetchSessions();
+            } else {
+              const d = await res.json().catch(() => ({}));
+              Alert.alert('Failed', (d as { message?: string; error?: string }).message ?? 'Could not cancel. Try again.');
+            }
+          } catch {
+            Alert.alert('Error', 'Network error. Please check your connection.');
+          } finally {
+            setCancellingId(null);
+          }
+        },
+      },
+    ]);
   };
 
   const isBooked = (s: LiveSession) => {
@@ -146,19 +175,19 @@ export default function LiveSessionsScreen() {
             {live.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Happening Now</Text>
-                {live.map((s) => <SessionCard key={s._id} session={s} booked={isBooked(s)} onBook={bookSession} bookingId={bookingId} />)}
+                {live.map((s) => <SessionCard key={s._id} session={s} booked={isBooked(s)} onBook={bookSession} onCancel={cancelSession} bookingId={bookingId} cancellingId={cancellingId} />)}
               </View>
             )}
             {upcoming.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Upcoming</Text>
-                {upcoming.map((s) => <SessionCard key={s._id} session={s} booked={isBooked(s)} onBook={bookSession} bookingId={bookingId} />)}
+                {upcoming.map((s) => <SessionCard key={s._id} session={s} booked={isBooked(s)} onBook={bookSession} onCancel={cancelSession} bookingId={bookingId} cancellingId={cancellingId} />)}
               </View>
             )}
             {past.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>Past Sessions</Text>
-                {past.map((s) => <SessionCard key={s._id} session={s} booked={isBooked(s)} onBook={bookSession} bookingId={bookingId} />)}
+                {past.map((s) => <SessionCard key={s._id} session={s} booked={isBooked(s)} onBook={bookSession} onCancel={cancelSession} bookingId={bookingId} cancellingId={cancellingId} />)}
               </View>
             )}
           </>
@@ -172,21 +201,26 @@ function SessionCard({
   session: s,
   booked,
   onBook,
+  onCancel,
   bookingId,
+  cancellingId,
 }: {
   session: LiveSession;
   booked: boolean;
   onBook: (id: string) => void;
+  onCancel: (id: string) => void;
   bookingId: string | null;
+  cancellingId: string | null;
 }) {
   const cfg = STATUS_CONFIG[s.status] ?? STATUS_CONFIG.scheduled;
   const instructorName = formatInstructor(s.teacher);
   const isLive = s.status === 'live';
   const isPast = s.status === 'completed' || s.status === 'cancelled';
   const isBusy = bookingId === s._id;
+  const isCancelling = cancellingId === s._id;
 
   return (
-    <View style={[styles.card, isLive && styles.cardLive]}>
+    <GlassListCard contentStyle={[styles.card, isLive && styles.cardLive]}>
       {/* Status chip */}
       <View style={styles.cardHeader}>
         <View style={[styles.statusPill, { backgroundColor: cfg.bg }]}>
@@ -255,9 +289,22 @@ function SessionCard({
               )}
             </Pressable>
           ) : (
-            <View style={styles.bookedBadge}>
-              <Ionicons name="checkmark-circle" size={15} color="#4ADE80" />
-              <Text style={styles.bookedText}>Signed Up</Text>
+            <View style={styles.bookedRow}>
+              <View style={styles.bookedBadge}>
+                <Ionicons name="checkmark-circle" size={15} color="#4ADE80" />
+                <Text style={styles.bookedText}>Signed Up</Text>
+              </View>
+              <Pressable
+                style={styles.cancelBtn}
+                onPress={() => onCancel(s._id)}
+                disabled={!!cancellingId}
+              >
+                {isCancelling ? (
+                  <ActivityIndicator size="small" color="#FF5A5A" />
+                ) : (
+                  <Text style={styles.cancelText}>Cancel</Text>
+                )}
+              </Pressable>
             </View>
           )}
         </View>
@@ -270,7 +317,7 @@ function SessionCard({
           <Text style={styles.recordingText}>Watch Recording</Text>
         </Pressable>
       ) : null}
-    </View>
+    </GlassListCard>
   );
 }
 
@@ -286,12 +333,8 @@ const styles = StyleSheet.create({
   content: { padding: 18, paddingBottom: 32, gap: 24 },
   section: { gap: 12 },
   sectionTitle: { fontSize: 16, fontWeight: '700', color: '#fff' },
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 18,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)',
-    padding: 16, gap: 10,
-  },
-  cardLive: { borderColor: 'rgba(74,222,128,0.3)', backgroundColor: 'rgba(8,30,18,0.9)' },
+  card: { padding: 16, gap: 10 },
+  cardLive: {},
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statusPill: { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   statusText: { fontSize: 11, fontWeight: '800' },
@@ -313,12 +356,18 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,96,230,0.12)',
   },
   bookText: { fontSize: 14, fontWeight: '700', color: '#3AADFF' },
+  bookedRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
   bookedBadge: {
-    height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
+    flex: 1, height: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     borderRadius: 12, backgroundColor: 'rgba(74,222,128,0.1)',
     borderWidth: 1, borderColor: 'rgba(74,222,128,0.25)',
   },
   bookedText: { fontSize: 14, fontWeight: '700', color: '#4ADE80' },
+  cancelBtn: {
+    height: 44, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: 'rgba(255,90,90,0.1)', borderWidth: 1, borderColor: 'rgba(255,90,90,0.3)',
+  },
+  cancelText: { fontSize: 13, fontWeight: '700', color: '#FF5A5A' },
   recordingBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7,
     height: 40, borderRadius: 10, marginTop: 4,

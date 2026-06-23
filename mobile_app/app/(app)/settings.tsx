@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -21,13 +22,22 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthInput } from '../../components/AuthInput';
 import { GradientButton } from '../../components/GradientButton';
 import { GlassDivider, GlassSection } from '../../components/glass/GlassSection';
+import { BackgroundColorPickerModal } from '../../components/settings/BackgroundColorPickerModal';
+import { CardMaterialColorPicker } from '../../components/settings/CardMaterialColorPicker';
 import { useAppBackground } from '../../contexts/AppBackgroundContext';
+import {
+  CARD_STYLE_PRESETS,
+  type CardStylePreset,
+} from '../../utils/appCardStyle';
 import {
   BACKGROUND_PRESET_COLORS,
   BACKGROUND_PRESET_IMAGES,
+  isPresetSolidColor,
   type AppBackgroundMode,
 } from '../../utils/appBackground';
+import { colorsEqual } from '../../utils/color';
 import { apiFetch } from '../../utils/api';
+import { clearAppCache } from '../../utils/clearAppCache';
 import { isPushNotificationsSupported, registerPushToken } from '../../utils/pushNotifications';
 import { getStoredUser } from '../../utils/auth';
 import {
@@ -49,6 +59,8 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { prefs: bgPrefs, updatePrefs: updateBgPrefs, resetPrefs: resetBgPrefs } = useAppBackground();
   const [bgSaving, setBgSaving] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const [showCardColorPicker, setShowCardColorPicker] = useState(false);
 
   // Notification prefs
   const [pushNotif, setPushNotif] = useState(true);
@@ -87,6 +99,7 @@ export default function SettingsScreen() {
   const [biometricPassword, setBiometricPassword] = useState('');
   const [showBiometricPassword, setShowBiometricPassword] = useState(false);
   const [biometricError, setBiometricError] = useState('');
+  const [cacheClearing, setCacheClearing] = useState(false);
 
   useEffect(() => {
     // Load notification prefs
@@ -158,6 +171,24 @@ export default function SettingsScreen() {
     setBgSaving(true);
     try {
       await updateBgPrefs({ mode: 'solid', solidColor });
+    } finally {
+      setBgSaving(false);
+    }
+  };
+
+  const selectCardStyle = async (cardStyle: CardStylePreset) => {
+    setBgSaving(true);
+    try {
+      await updateBgPrefs({ cardStyle });
+    } finally {
+      setBgSaving(false);
+    }
+  };
+
+  const selectSolidCardColor = async (solidCardColor: string) => {
+    setBgSaving(true);
+    try {
+      await updateBgPrefs({ solidCardColor, cardStyle: 'solid' });
     } finally {
       setBgSaving(false);
     }
@@ -314,13 +345,28 @@ export default function SettingsScreen() {
     } finally { setTwoFALoading2(false); }
   };
 
+  const handleClearCache = async () => {
+    setCacheClearing(true);
+    try {
+      await clearAppCache();
+      Alert.alert(
+        'Cache cleared',
+        'Downloaded data and images were removed. Your account and settings are unchanged.',
+      );
+    } catch {
+      Alert.alert('Could not clear cache', 'Please try again in a moment.');
+    } finally {
+      setCacheClearing(false);
+    }
+  };
+
   const handleChangePassword = async () => {
     if (!currentPw || !newPw) { setPwError('Both fields are required'); return; }
     if (newPw.length < 6) { setPwError('New password must be at least 6 characters'); return; }
     setPwLoading(true); setPwError(''); setPwSuccess('');
     try {
-      const res = await apiFetch('api/auth/change-password', {
-        method: 'POST',
+      const res = await apiFetch('api/auth/password', {
+        method: 'PUT',
         body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
       });
       if (res.ok) {
@@ -352,6 +398,7 @@ export default function SettingsScreen() {
 
           {/* Appearance */}
           <GlassSection title="Appearance">
+            <Text style={styles.bgSectionLabel}>Background</Text>
             <Text style={styles.bgHint}>Choose the background for the main app screens.</Text>
             <View style={styles.modeRow}>
               {([
@@ -417,7 +464,7 @@ export default function SettingsScreen() {
                 <Text style={styles.bgSubLabel}>Solid color</Text>
                 <View style={styles.colorRow}>
                   {BACKGROUND_PRESET_COLORS.map((preset) => {
-                    const active = bgPrefs.solidColor === preset.color;
+                    const active = colorsEqual(bgPrefs.solidColor, preset.color);
                     return (
                       <Pressable
                         key={preset.color}
@@ -428,8 +475,98 @@ export default function SettingsScreen() {
                       />
                     );
                   })}
+                  <Pressable
+                    style={[
+                      styles.colorSwatch,
+                      styles.customColorSwatch,
+                      bgPrefs.mode === 'solid' && !isPresetSolidColor(bgPrefs.solidColor) && styles.colorSwatchActive,
+                    ]}
+                    onPress={() => setShowColorPicker(true)}
+                    disabled={bgSaving}
+                    accessibilityLabel="Custom color"
+                  >
+                    <LinearGradient
+                      colors={['#FF5A5A', '#FFC107', '#4ADE80', '#3AADFF', '#A78BFA', '#FF5A5A']}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.customColorGradient}
+                    />
+                    <View style={styles.customColorInner}>
+                      {!isPresetSolidColor(bgPrefs.solidColor) ? (
+                        <View style={[styles.customColorFill, { backgroundColor: bgPrefs.solidColor }]} />
+                      ) : (
+                        <Ionicons name="color-palette" size={18} color="#fff" />
+                      )}
+                    </View>
+                  </Pressable>
                 </View>
+
+                <Pressable
+                  style={styles.customColorRow}
+                  onPress={() => setShowColorPicker(true)}
+                  disabled={bgSaving}
+                >
+                  <View style={[styles.customColorPreview, { backgroundColor: bgPrefs.solidColor }]} />
+                  <View style={styles.customColorCopy}>
+                    <Text style={styles.customColorTitle}>Custom color</Text>
+                    <Text style={styles.customColorHex}>{bgPrefs.solidColor.toUpperCase()}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.35)" />
+                </Pressable>
               </View>
+            ) : null}
+
+            <GlassDivider />
+            <Text style={styles.bgSectionLabel}>Cards</Text>
+            <Text style={styles.bgHint}>Choose how cards and panels look across the app. Glassy is the default.</Text>
+            <View style={styles.cardStyleGrid}>
+              {CARD_STYLE_PRESETS.map((preset) => {
+                const active = bgPrefs.cardStyle === preset.key;
+                const solidPreviewColor =
+                  active && preset.key === 'solid' ? bgPrefs.solidCardColor : preset.previewBg;
+                return (
+                  <Pressable
+                    key={preset.key}
+                    style={[styles.cardStyleOption, active && styles.cardStyleOptionActive]}
+                    onPress={() => selectCardStyle(preset.key)}
+                    disabled={bgSaving}
+                  >
+                    <View
+                      style={[
+                        styles.cardStylePreview,
+                        preset.key === 'solid'
+                          ? { backgroundColor: solidPreviewColor, borderWidth: 0 }
+                          : { backgroundColor: preset.previewBg, borderColor: preset.previewBorder },
+                      ]}
+                    >
+                      {preset.key === 'glass' || preset.key === 'soft' ? (
+                        <LinearGradient
+                          colors={['rgba(255,255,255,0.35)', 'transparent']}
+                          style={styles.cardStylePreviewShine}
+                        />
+                      ) : null}
+                      <View style={styles.cardStylePreviewLine} />
+                      <View style={[styles.cardStylePreviewLine, styles.cardStylePreviewLineShort]} />
+                    </View>
+                    <Text style={[styles.cardStyleLabel, active && styles.cardStyleLabelActive]}>
+                      {preset.label}
+                    </Text>
+                    <Text style={styles.cardStyleDesc}>{preset.description}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {bgPrefs.cardStyle === 'solid' ? (
+              <CardMaterialColorPicker
+                title="Card fill color"
+                hint="Wood, metal, classic darks, or any custom color."
+                color={bgPrefs.solidCardColor}
+                customTitle="Custom fill color"
+                disabled={bgSaving}
+                onSelect={selectSolidCardColor}
+                onOpenCustom={() => setShowCardColorPicker(true)}
+              />
             ) : null}
 
             <GlassDivider />
@@ -437,7 +574,7 @@ export default function SettingsScreen() {
               {bgSaving ? (
                 <ActivityIndicator size="small" color="#3AADFF" />
               ) : (
-                <Text style={styles.resetBgText}>Reset to default background</Text>
+                <Text style={styles.resetBgText}>Reset appearance to defaults</Text>
               )}
             </Pressable>
           </GlassSection>
@@ -467,6 +604,24 @@ export default function SettingsScreen() {
               <ToggleRow label="Email Alerts" sublabel="Get updates via email" value={emailNotif} onChange={handleEmailToggle} saving={prefsSaving} />
             </GlassSection>
           )}
+
+          <GlassSection title="Storage">
+            <Text style={styles.storageHint}>
+              Clears cached API responses and images. Sign-in and appearance settings are kept.
+            </Text>
+            <GlassDivider />
+            <Pressable
+              style={styles.resetBgBtn}
+              onPress={handleClearCache}
+              disabled={cacheClearing}
+            >
+              {cacheClearing ? (
+                <ActivityIndicator size="small" color="#3AADFF" />
+              ) : (
+                <Text style={styles.resetBgText}>Clear app cache</Text>
+              )}
+            </Pressable>
+          </GlassSection>
 
           {/* Security – 2FA */}
           <GlassSection title="Security">
@@ -659,6 +814,25 @@ export default function SettingsScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      <BackgroundColorPickerModal
+        visible={showColorPicker}
+        initialColor={bgPrefs.solidColor}
+        onClose={() => setShowColorPicker(false)}
+        onApply={(hex) => {
+          void selectSolidColor(hex);
+        }}
+      />
+
+      <BackgroundColorPickerModal
+        visible={showCardColorPicker}
+        initialColor={bgPrefs.solidCardColor}
+        onClose={() => setShowCardColorPicker(false)}
+        onApply={(hex) => {
+          void selectSolidCardColor(hex);
+        }}
+      />
+
     </View>
   );
 }
@@ -730,7 +904,78 @@ const styles = StyleSheet.create({
   errorText: { flex: 1, fontSize: 13, color: '#FF5A5A' },
   successBox: { flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: 'rgba(74,222,128,0.1)', borderRadius: 8, padding: 10, marginBottom: 12 },
   successText: { flex: 1, fontSize: 13, color: '#4ADE80' },
-  bgHint: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)', lineHeight: 18, paddingHorizontal: 14, paddingTop: 14 },
+  bgHint: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)', lineHeight: 18, paddingHorizontal: 14, paddingTop: 6 },
+  bgSectionLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.38)',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    paddingHorizontal: 14,
+    paddingTop: 14,
+  },
+  cardStyleGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  cardStyleOption: {
+    width: '47%',
+    flexGrow: 1,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    padding: 10,
+    gap: 6,
+  },
+  cardStyleOptionActive: {
+    borderColor: 'rgba(58,173,255,0.65)',
+    backgroundColor: 'rgba(0,96,230,0.12)',
+  },
+  cardStylePreview: {
+    height: 52,
+    borderRadius: 10,
+    borderWidth: 1,
+    padding: 10,
+    gap: 6,
+    justifyContent: 'center',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cardStylePreviewShine: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 18,
+  },
+  cardStylePreviewLine: {
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    width: '80%',
+  },
+  cardStylePreviewLineShort: {
+    width: '50%',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  cardStyleLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.72)',
+  },
+  cardStyleLabelActive: {
+    color: '#fff',
+  },
+  cardStyleDesc: {
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.38)',
+    lineHeight: 15,
+  },
   modeRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 14, paddingTop: 12, paddingBottom: 4 },
   modeChip: {
     flex: 1,
@@ -803,10 +1048,70 @@ const styles = StyleSheet.create({
     borderColor: '#3AADFF',
     borderWidth: 3,
   },
+  customColorSwatch: {
+    padding: 2,
+    overflow: 'hidden',
+    backgroundColor: 'transparent',
+  },
+  customColorGradient: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  customColorInner: {
+    flex: 1,
+    borderRadius: 16,
+    backgroundColor: 'rgba(4,8,24,0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  customColorFill: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  customColorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 14,
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  customColorPreview: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  customColorCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  customColorTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  customColorHex: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255,255,255,0.45)',
+    letterSpacing: 0.8,
+  },
   resetBgBtn: {
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
   },
   resetBgText: { fontSize: 13, fontWeight: '600', color: '#3AADFF' },
+  storageHint: {
+    fontSize: 13,
+    lineHeight: 19,
+    color: 'rgba(255,255,255,0.45)',
+    paddingHorizontal: 4,
+    paddingBottom: 4,
+  },
 });

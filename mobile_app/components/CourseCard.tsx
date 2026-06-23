@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image } from 'expo-image';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { formatInstructor } from '../utils/formatInstructor';
 import { GlassCard } from './GlassCard';
 
@@ -20,7 +21,7 @@ export function CourseCard({ title, instructor, progress = 0, thumbnail, lessonC
       <GlassCard contentStyle={styles.cardInner} radius={16}>
         <View style={styles.thumb}>
         {thumbnail ? (
-          <Image source={{ uri: thumbnail }} style={styles.thumbImage} />
+          <Image source={{ uri: thumbnail }} style={styles.thumbImage} cachePolicy="memory-disk" />
         ) : (
           <View style={styles.thumbPlaceholder}>
             <Ionicons name="play-circle-outline" size={30} color="rgba(58,173,255,0.6)" />

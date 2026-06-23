@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -31,7 +31,7 @@ import { resolveMediaUrl } from '../../utils/normalize';
 const C = {
   bg: 'transparent',
   sidebarBg: 'transparent',
-  cardBg: 'rgba(8,24,56,0.85)',
+  cardBg: 'transparent',
   inputBg: 'rgba(255,255,255,0.07)',
   border: 'rgba(58,173,255,0.1)',
   text: '#e8eaed',
@@ -216,6 +216,8 @@ export default function CommunityScreen() {
   const [sending, setSending] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
   const [showEmoji, setShowEmoji] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedEmojiGroup, setSelectedEmojiGroup] = useState(0);
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
@@ -230,15 +232,37 @@ export default function CommunityScreen() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const socketRef = useRef<Awaited<ReturnType<typeof getChatSocket>>>(null);
   const inputRef = useRef<TextInput>(null);
+  const selectedRef = useRef<Channel | null>(null);
+  const activeChannelRef = useRef<string | null>(null);
 
   useEffect(() => {
     deletedIdsRef.current = deletedIds;
   }, [deletedIds]);
 
   useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
+  const teardownChannel = (chId?: string) => {
+    if (chId) leaveChannel(chId);
+    if (socketRef.current) {
+      socketRef.current.removeAllListeners('message:new');
+      socketRef.current.removeAllListeners('message:update');
+      socketRef.current.removeAllListeners('message:delete');
+      socketRef.current = null;
+    }
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  useEffect(() => {
     getStoredUser().then(setUser);
     fetchChannels();
-    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+    return () => {
+      teardownChannel(selectedRef.current?._id);
+    };
   }, []);
 
   const fetchChannels = async () => {
@@ -250,6 +274,10 @@ export default function CommunityScreen() {
   };
 
   const openChannel = async (ch: Channel) => {
+    if (selected?._id && selected._id !== ch._id) {
+      teardownChannel(selected._id);
+    }
+    activeChannelRef.current = ch._id;
     setSelected(ch);
     setMessages([]);
     setReplyTo(null);
@@ -258,12 +286,17 @@ export default function CommunityScreen() {
     setDeletedIds(new Set());
     setLoadingMsgs(true);
     await loadMessages(ch._id);
+    if (activeChannelRef.current !== ch._id) return;
     setLoadingMsgs(false);
     if (pollRef.current) clearInterval(pollRef.current);
     // WebSocket for real-time updates
     const sock = await getChatSocket();
+    if (activeChannelRef.current !== ch._id) return;
     socketRef.current = sock;
     if (sock) {
+      sock.removeAllListeners('message:new');
+      sock.removeAllListeners('message:update');
+      sock.removeAllListeners('message:delete');
       joinChannel(ch._id);
       const onNew = (message: Message) => {
         if (deletedIdsRef.current.has(message._id)) return;
@@ -288,15 +321,8 @@ export default function CommunityScreen() {
   };
 
   const closeChannel = () => {
-    const chId = selected?._id;
-    if (chId) leaveChannel(chId);
-    if (socketRef.current) {
-      socketRef.current.removeAllListeners('message:new');
-      socketRef.current.removeAllListeners('message:update');
-      socketRef.current.removeAllListeners('message:delete');
-      socketRef.current = null;
-    }
-    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+    activeChannelRef.current = null;
+    teardownChannel(selected?._id);
     setSelected(null);
     setShowEmoji(false);
     setReplyTo(null);
@@ -324,16 +350,15 @@ export default function CommunityScreen() {
   const loadMessages = async (cid: string) => {
     try {
       const res = await apiFetch(`api/community/channels/${cid}/messages?limit=60`);
-      if (res.ok) {
-        const d = await res.json();
-        const raw: Message[] = (d.messages ?? d ?? []).filter(
-          (m: Message) => !deletedIdsRef.current.has(m._id),
-        );
-        setMessages((current) =>
-          normalizeMessages(raw, getChannelReplyMeta(cid), current),
-        );
-        setTimeout(() => flatRef.current?.scrollToEnd({ animated: false }), 80);
-      }
+      if (!res.ok || activeChannelRef.current !== cid) return;
+      const d = await res.json();
+      const raw: Message[] = (d.messages ?? d ?? []).filter(
+        (m: Message) => !deletedIdsRef.current.has(m._id),
+      );
+      setMessages((current) =>
+        normalizeMessages(raw, getChannelReplyMeta(cid), current),
+      );
+      setTimeout(() => flatRef.current?.scrollToEnd({ animated: false }), 80);
     } catch { /* ignore */ }
   };
 
@@ -613,9 +638,21 @@ export default function CommunityScreen() {
     inputRef.current?.focus();
   };
 
+  // Memoize so typing in the input box does NOT re-group all messages
+  const allGroups = useMemo(() => groupMessages(messages), [messages]);
+
+  const messageGroups = useMemo(() => {
+    if (!searchQuery.trim()) return allGroups;
+    const q = searchQuery.trim().toLowerCase();
+    return allGroups.filter((g) =>
+      g.messages.some((m) => m.content?.toLowerCase().includes(q)) ||
+      displayName(g.author).toLowerCase().includes(q)
+    );
+  }, [allGroups, searchQuery]);
+
   // ── Chat view ─────────────────────────────────────────────────────────────
   if (selected) {
-    const groups = groupMessages(messages);
+    const groups = messageGroups;
 
     return (
       <View style={{ flex: 1, backgroundColor: C.bg }}>
@@ -636,6 +673,9 @@ export default function CommunityScreen() {
               </View>
             </View>
             <View style={{ flexDirection: 'row', gap: 6 }}>
+              <Pressable style={s.iconBtn} onPress={() => { setShowSearch((v) => !v); setSearchQuery(''); }}>
+                <Ionicons name={showSearch ? 'close' : 'search-outline'} size={17} color={C.muted} />
+              </Pressable>
               <Pressable style={s.iconBtn} onPress={() => loadMessages(selected._id)}>
                 <Ionicons name="refresh" size={17} color={C.muted} />
               </Pressable>
@@ -648,6 +688,26 @@ export default function CommunityScreen() {
             </View>
           </View>
         </SafeAreaView>
+
+        {showSearch && (
+          <View style={s.searchBar}>
+            <Ionicons name="search" size={15} color="rgba(255,255,255,0.35)" />
+            <TextInput
+              style={s.searchInput}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholder="Search messages…"
+              placeholderTextColor="rgba(255,255,255,0.25)"
+              autoFocus
+              returnKeyType="search"
+            />
+            {searchQuery.length > 0 && (
+              <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={15} color="rgba(255,255,255,0.35)" />
+              </Pressable>
+            )}
+          </View>
+        )}
 
         <KeyboardAvoidingView
           style={{ flex: 1 }}
@@ -1041,6 +1101,15 @@ const s = StyleSheet.create({
   serverLogoText: { fontSize: 14, fontWeight: '900', color: '#fff' },
   serverName: { fontSize: 15, fontWeight: '800', color: C.text },
   serverSub: { fontSize: 11, color: C.muted },
+  searchBar: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 14, paddingVertical: 8,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
+  },
+  searchInput: {
+    flex: 1, fontSize: 14, color: '#fff', height: 36,
+  },
   iconBtn: {
     width: 36, height: 36, borderRadius: 11,
     backgroundColor: 'rgba(255,255,255,0.06)',
@@ -1190,7 +1259,7 @@ const s = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   actionSheet: {
-    backgroundColor: '#0A1628',
+    backgroundColor: 'transparent',
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     paddingTop: 12,
@@ -1203,7 +1272,7 @@ const s = StyleSheet.create({
     padding: 12,
     marginBottom: 8,
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
     borderLeftWidth: 3,
     borderLeftColor: C.primary,
   },

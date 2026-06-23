@@ -1,4 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getAuthToken } from './api';
 import { io, Socket } from 'socket.io-client';
 
 const SOCKET_URL = 'https://thefxnavigators.com';
@@ -12,7 +12,7 @@ export async function getChatSocket(): Promise<Socket | null> {
 
   connectPromise = (async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
+      const token = await getAuthToken();
       if (!token) return null;
 
       if (socket) {

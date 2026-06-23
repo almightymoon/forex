@@ -98,6 +98,7 @@ const styles = StyleSheet.create({
   },
   gradient: {
     height: 52,
+    width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
   },

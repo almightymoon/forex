@@ -1,4 +1,5 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { CachedImage } from './CachedImage';
 import { AppIcon } from './AppIcon';
 import { colors } from '../constants/theme';
 import type { NormalizedNews } from '../utils/normalize';
@@ -30,7 +31,7 @@ export function NewsCard({ item, compact, onPress }: Props) {
   const inner = (
     <View style={[styles.row, compact && styles.rowCompact]}>
       {item.thumbnail ? (
-        <Image source={{ uri: item.thumbnail }} style={[styles.thumb, compact && styles.thumbCompact]} />
+        <CachedImage source={{ uri: item.thumbnail }} style={[styles.thumb, compact && styles.thumbCompact]} contentFit="cover" />
       ) : (
         <View style={[styles.iconWrap, compact && styles.iconWrapCompact]}>
           <AppIcon name="file-text" size={compact ? 16 : 18} color={colors.cyan} strokeWidth={2} />

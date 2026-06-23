@@ -14,6 +14,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassCard } from '../../components/GlassCard';
 import { apiFetch } from '../../utils/api';
 import { resolveMediaUrl } from '../../utils/normalize';
 
@@ -95,7 +96,7 @@ export default function CertificatesScreen() {
             const thumb = resolveMediaUrl(cert.course?.thumbnail);
             const certUrl = resolveMediaUrl(cert.certificateUrl) ?? cert.certificateUrl;
             return (
-              <View key={cert.id} style={styles.certCard}>
+              <GlassCard key={cert.id} contentStyle={styles.certCard} radius={20}>
                 {/* Top gradient strip */}
                 <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.certStrip} />
 
@@ -165,7 +166,7 @@ export default function CertificatesScreen() {
                   <Text style={styles.certIdLabel}>Certificate ID</Text>
                   <Text style={styles.certId}>{cert.certificateId}</Text>
                 </View>
-              </View>
+              </GlassCard>
             );
           })
         )}
@@ -184,11 +185,7 @@ const styles = StyleSheet.create({
   countText: { fontSize: 15, fontWeight: '800', color: '#A78BFA' },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 16 },
-  certCard: {
-    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 20,
-    borderWidth: 1, borderColor: 'rgba(167,139,250,0.2)',
-    overflow: 'hidden',
-  },
+  certCard: { gap: 0 },
   certStrip: { height: 4 },
   certBody: { flexDirection: 'row', gap: 14, padding: 16 },
   thumbWrap: { width: 80, height: 80, borderRadius: 14, overflow: 'hidden', flexShrink: 0 },

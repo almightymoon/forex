@@ -16,6 +16,8 @@ type AppBackgroundContextValue = {
 
 const AppBackgroundContext = createContext<AppBackgroundContextValue | null>(null);
 
+export { AppBackgroundContext };
+
 export function AppBackgroundProvider({ children }: { children: React.ReactNode }) {
   const [prefs, setPrefsState] = useState<AppBackgroundPrefs>(DEFAULT_APP_BACKGROUND);
   const [loading, setLoading] = useState(true);

@@ -141,13 +141,35 @@ export type SignupFieldErrors = {
   dateOfBirth?: string;
   phone?: string;
   password?: string;
+  confirmPassword?: string;
 };
 
-export function validateLoginForm(email: string, password: string): LoginFieldErrors {
-  return {
-    email: validateEmail(email),
-    password: validatePassword(password),
-  };
+export function normalizeReferralCode(code: string): string {
+  return code.trim().toUpperCase().replace(/\s/g, '');
+}
+
+export function validateConfirmPassword(password: string, confirmPassword: string): string | undefined {
+  if (!confirmPassword) return 'Please confirm your password';
+  if (password !== confirmPassword) return 'Passwords do not match';
+  return undefined;
+}
+
+/** Map backend auth/register validation payloads to a single user-facing message. */
+export function formatAuthApiError(data: {
+  message?: string;
+  error?: string;
+  details?: Array<{ msg?: string; message?: string } | string>;
+}): string {
+  if (data.details && Array.isArray(data.details) && data.details.length > 0) {
+    const msgs = data.details
+      .map((err) => {
+        if (typeof err === 'string') return err;
+        return err.msg ?? err.message;
+      })
+      .filter(Boolean);
+    if (msgs.length > 0) return msgs.join(', ');
+  }
+  return data.message ?? data.error ?? 'Something went wrong. Please try again.';
 }
 
 export function validateSignupForm(form: {
@@ -157,6 +179,7 @@ export function validateSignupForm(form: {
   dateOfBirth: string;
   phone: string;
   password: string;
+  confirmPassword: string;
 }): SignupFieldErrors {
   return {
     firstName: validateName(form.firstName, 'First name'),
@@ -165,6 +188,14 @@ export function validateSignupForm(form: {
     dateOfBirth: validateDateOfBirth(form.dateOfBirth),
     phone: validatePhone(form.phone),
     password: validatePassword(form.password),
+    confirmPassword: validateConfirmPassword(form.password, form.confirmPassword),
+  };
+}
+
+export function validateLoginForm(email: string, password: string): LoginFieldErrors {
+  return {
+    email: validateEmail(email),
+    password: validatePassword(password),
   };
 }
 

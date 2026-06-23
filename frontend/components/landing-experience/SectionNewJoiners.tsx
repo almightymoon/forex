@@ -391,23 +391,41 @@ export default function SectionNewJoiners() {
             flex-direction: column;
             align-items: stretch;
           }
+
           .nj__nav {
-            display: none;
+            display: flex;
+            align-self: flex-end;
           }
+
+          .nj__arrow {
+            width: 42px;
+            height: 42px;
+            font-size: 20px;
+          }
+
+          .nj__rail-wrap {
+            margin-inline: calc(-1 * clamp(20px, 3.5vw, 52px));
+            padding-inline: clamp(20px, 3.5vw, 52px);
+          }
+
           .nj__rail {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 20px;
-            overflow-x: visible;
-            scroll-snap-type: none;
-            padding-bottom: 8px;
+            display: flex;
+            flex-wrap: nowrap;
+            gap: 16px;
+            overflow-x: auto;
+            overflow-y: visible;
+            scroll-snap-type: x mandatory;
+            scroll-padding-inline: clamp(20px, 3.5vw, 52px);
+            padding: 8px 0 16px;
+            -webkit-overflow-scrolling: touch;
           }
+
           .nj-card {
-            width: 100%;
-            max-width: 420px;
-            margin: 0 auto;
-            flex: none;
-            scroll-snap-align: unset;
+            flex: 0 0 min(280px, 78vw);
+            width: min(280px, 78vw);
+            max-width: none;
+            margin: 0;
+            scroll-snap-align: start;
           }
         }
       `}</style>

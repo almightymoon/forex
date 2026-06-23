@@ -10,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import { apiFetch } from '../utils/api';
+import { GlassCard } from '../components/GlassCard';
+import { GlassListCard } from '../components/glass/GlassListCard';
 import { resolveMediaUrl } from '../utils/normalize';
 
 type UnlockStatus = 'unlocked' | 'fulfilled' | 'cancelled';
@@ -106,11 +108,11 @@ export function RankRewardsProgress({ embedded = false }: Props) {
 
   if (!data || rules.length === 0) {
     return (
-      <View style={styles.emptyCard}>
+      <GlassListCard contentStyle={styles.emptyCard}>
         <Ionicons name="trophy-outline" size={36} color="rgba(255,255,255,0.2)" />
         <Text style={styles.emptyTitle}>No rank rewards configured yet</Text>
         <Text style={styles.emptySub}>Please check back later.</Text>
-      </View>
+      </GlassListCard>
     );
   }
 
@@ -119,7 +121,7 @@ export function RankRewardsProgress({ embedded = false }: Props) {
       {!embedded ? <Text style={styles.sectionTitle}>Rank Rewards</Text> : null}
 
       {/* Summary */}
-      <View style={styles.summaryCard}>
+      <GlassCard prominent contentStyle={styles.summaryCard}>
         <Text style={styles.summaryLabel}>Business volume (direct referrals)</Text>
         <Text style={styles.summaryValue}>${formatMoney(directBusinessVolumeUsd)} USDT</Text>
         <Text style={styles.currentTier}>
@@ -168,10 +170,10 @@ export function RankRewardsProgress({ embedded = false }: Props) {
             </View>
           </View>
         )}
-      </View>
+      </GlassCard>
 
       {/* Rules list */}
-      <View style={styles.listCard}>
+      <GlassListCard contentStyle={styles.listCard}>
         <View style={styles.listHeader}>
           <View>
             <Text style={styles.listTitle}>Rewards</Text>
@@ -194,13 +196,14 @@ export function RankRewardsProgress({ embedded = false }: Props) {
           const imageUri = resolveMediaUrl(r.imageUrl);
 
           return (
-            <View
+            <GlassCard
               key={r._id}
-              style={[
+              contentStyle={[
                 styles.ruleCard,
                 isFulfilled && styles.ruleFulfilled,
                 isUnlocked && !isFulfilled && styles.ruleUnlocked,
               ]}
+              radius={14}
             >
               <View style={styles.ruleTop}>
                 {imageUri ? (
@@ -250,10 +253,10 @@ export function RankRewardsProgress({ embedded = false }: Props) {
                   </Text>
                 ) : null}
               </View>
-            </View>
+            </GlassCard>
           );
         })}
-      </View>
+      </GlassListCard>
     </View>
   );
 }
@@ -262,25 +265,10 @@ const styles = StyleSheet.create({
   wrap: { gap: 12 },
   loadingWrap: { paddingVertical: 32, alignItems: 'center' },
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
-  emptyCard: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.11)',
-    padding: 28,
-    alignItems: 'center',
-    gap: 8,
-  },
+  emptyCard: { padding: 28, alignItems: 'center', gap: 8 },
   emptyTitle: { fontSize: 16, fontWeight: '700', color: 'rgba(255,255,255,0.5)', marginTop: 4 },
   emptySub: { fontSize: 13, color: 'rgba(255,255,255,0.3)', textAlign: 'center' },
-  summaryCard: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.11)',
-    padding: 18,
-    gap: 10,
-  },
+  summaryCard: { padding: 18, gap: 10 },
   summaryLabel: { fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: '500' },
   summaryValue: { fontSize: 28, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
   currentTier: { fontSize: 13, color: 'rgba(255,255,255,0.5)' },
@@ -320,14 +308,7 @@ const styles = StyleSheet.create({
   },
   tipTitle: { fontSize: 13, fontWeight: '700', color: '#3AADFF' },
   tipSub: { fontSize: 12, color: 'rgba(255,255,255,0.5)', marginTop: 2, lineHeight: 17 },
-  listCard: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.11)',
-    padding: 16,
-    gap: 12,
-  },
+  listCard: { padding: 16, gap: 12 },
   listHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   listTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
   listSub: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
@@ -343,22 +324,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,96,230,0.1)',
   },
   refreshText: { fontSize: 12, fontWeight: '700', color: '#3AADFF' },
-  ruleCard: {
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.11)',
-    backgroundColor: 'rgba(255,255,255,0.03)',
-    padding: 14,
-    gap: 12,
-  },
-  ruleFulfilled: {
-    borderColor: 'rgba(74,222,128,0.3)',
-    backgroundColor: 'rgba(74,222,128,0.06)',
-  },
-  ruleUnlocked: {
-    borderColor: 'rgba(58,173,255,0.3)',
-    backgroundColor: 'rgba(0,96,230,0.08)',
-  },
+  ruleCard: { padding: 14, gap: 12 },
+  ruleFulfilled: {},
+  ruleUnlocked: {},
   ruleTop: { flexDirection: 'row', gap: 12 },
   ruleImage: {
     width: 52,

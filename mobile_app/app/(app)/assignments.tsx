@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GradientButton } from '../../components/GradientButton';
+import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch, apiUpload } from '../../utils/api';
 import { hapticSuccess } from '../../utils/haptics';
 
@@ -43,6 +44,7 @@ export default function AssignmentsScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selected, setSelected] = useState<Assignment | null>(null);
+  const [modalMode, setModalMode] = useState<'view' | 'submit'>('submit');
   const [textContent, setTextContent] = useState('');
   const [files, setFiles] = useState<DocumentPicker.DocumentPickerAsset[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -61,8 +63,15 @@ export default function AssignmentsScreen() {
 
   useEffect(() => { fetchAssignments(); }, []);
 
+  const openView = (a: Assignment) => {
+    setSelected(a);
+    setModalMode('view');
+    setError('');
+  };
+
   const openSubmit = (a: Assignment) => {
     setSelected(a);
+    setModalMode('submit');
     setTextContent(a.submission?.textContent ?? '');
     setFiles([]);
     setError('');
@@ -151,7 +160,7 @@ export default function AssignmentsScreen() {
           </View>
         ) : (
           assignments.map((a) => (
-            <View key={a._id} style={styles.card}>
+            <GlassListCard key={a._id} contentStyle={styles.card}>
               <View style={styles.cardHeader}>
                 <View style={[styles.statusPill, { backgroundColor: `${statusColor(a)}18` }]}>
                   <Text style={[styles.statusText, { color: statusColor(a) }]}>{statusLabel(a)}</Text>
@@ -169,59 +178,106 @@ export default function AssignmentsScreen() {
                   <Text style={styles.feedbackText}>{a.feedback}</Text>
                 </View>
               ) : null}
-              {!a.submission?.submittedAt || a.grade == null ? (
-                <Pressable style={styles.submitBtn} onPress={() => openSubmit(a)}>
-                  <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.submitGrad}>
-                    <Ionicons name="cloud-upload-outline" size={16} color="#fff" />
-                    <Text style={styles.submitText}>{a.submission?.submittedAt ? 'Resubmit' : 'Submit'}</Text>
-                  </LinearGradient>
+              <View style={styles.actionsRow}>
+                <Pressable style={styles.viewBtn} onPress={() => openView(a)}>
+                  <Ionicons name="eye-outline" size={15} color="rgba(255,255,255,0.6)" />
+                  <Text style={styles.viewText}>Details</Text>
                 </Pressable>
-              ) : null}
-            </View>
+                {!a.submission?.submittedAt || a.grade == null ? (
+                  <Pressable style={styles.submitBtn} onPress={() => openSubmit(a)}>
+                    <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.submitGrad}>
+                      <Ionicons name="cloud-upload-outline" size={16} color="#fff" />
+                      <Text style={styles.submitText}>{a.submission?.submittedAt ? 'Resubmit' : 'Submit'}</Text>
+                    </LinearGradient>
+                  </Pressable>
+                ) : null}
+              </View>
+            </GlassListCard>
           ))
         )}
       </ScrollView>
 
-      <Modal visible={!!selected} animationType="slide" presentationStyle="pageSheet">
+      <Modal visible={!!selected} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSelected(null)}>
         <View style={modal.screen}>
           <View style={modal.header}>
             <Text style={modal.title} numberOfLines={1}>{selected?.title}</Text>
-            <Pressable onPress={() => setSelected(null)}>
+            <Pressable onPress={() => setSelected(null)} hitSlop={12}>
               <Ionicons name="close" size={24} color="#fff" />
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={modal.content} keyboardShouldPersistTaps="handled">
+            {/* Always shown: full description + instructions */}
+            {selected?.description ? (
+              <GlassListCard contentStyle={modal.instructionsBox} radius={12}>
+                <Text style={modal.instructionsLabel}>Overview</Text>
+                <Text style={modal.instructionsText}>{selected.description}</Text>
+              </GlassListCard>
+            ) : null}
             {selected?.instructions ? (
-              <View style={modal.instructionsBox}>
+              <GlassListCard contentStyle={modal.instructionsBox} radius={12}>
                 <Text style={modal.instructionsLabel}>Instructions</Text>
                 <Text style={modal.instructionsText}>{selected.instructions}</Text>
+              </GlassListCard>
+            ) : null}
+            {selected?.maxPoints ? (
+              <View style={modal.metaRow}>
+                <Ionicons name="trophy-outline" size={14} color="#FFC107" />
+                <Text style={modal.metaText}>Max points: {selected.maxPoints}</Text>
               </View>
             ) : null}
-            <Text style={modal.fieldLabel}>Your Response</Text>
-            <TextInput
-              style={modal.textarea}
-              value={textContent}
-              onChangeText={setTextContent}
-              placeholder="Write your answer here..."
-              placeholderTextColor="rgba(255,255,255,0.25)"
-              multiline
-              textAlignVertical="top"
-            />
-            <Pressable style={modal.fileBtn} onPress={pickFiles}>
-              <Ionicons name="attach-outline" size={18} color="#3AADFF" />
-              <Text style={modal.fileBtnText}>Attach files ({files.length})</Text>
-            </Pressable>
-            {files.map((f, i) => (
-              <View key={i} style={modal.fileRow}>
-                <Ionicons name="document-outline" size={16} color="rgba(255,255,255,0.5)" />
-                <Text style={modal.fileName} numberOfLines={1}>{f.name}</Text>
-                <Pressable onPress={() => setFiles((p) => p.filter((_, j) => j !== i))}>
-                  <Ionicons name="close-circle" size={18} color="#FF5A5A" />
-                </Pressable>
+            {selected?.dueDate ? (
+              <View style={modal.metaRow}>
+                <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.4)" />
+                <Text style={modal.metaText}>Due {new Date(selected.dueDate).toLocaleDateString()}</Text>
               </View>
-            ))}
-            {error ? <Text style={modal.error}>{error}</Text> : null}
-            <GradientButton title="Submit Assignment" loading={submitting} onPress={handleSubmit} />
+            ) : null}
+            {selected?.feedback ? (
+              <GlassListCard contentStyle={modal.instructionsBox} radius={12}>
+                <Text style={modal.instructionsLabel}>Instructor Feedback</Text>
+                <Text style={[modal.instructionsText, { color: '#3AADFF' }]}>{selected.feedback}</Text>
+              </GlassListCard>
+            ) : null}
+
+            {/* Submit form — only shown in submit mode */}
+            {modalMode === 'submit' ? (
+              <>
+                <Text style={modal.fieldLabel}>Your Response</Text>
+                <TextInput
+                  style={modal.textarea}
+                  value={textContent}
+                  onChangeText={setTextContent}
+                  placeholder="Write your answer here..."
+                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  multiline
+                  textAlignVertical="top"
+                />
+                <Pressable style={modal.fileBtn} onPress={pickFiles}>
+                  <Ionicons name="attach-outline" size={18} color="#3AADFF" />
+                  <Text style={modal.fileBtnText}>Attach files ({files.length})</Text>
+                </Pressable>
+                {files.map((f, i) => (
+                  <View key={i} style={modal.fileRow}>
+                    <Ionicons name="document-outline" size={16} color="rgba(255,255,255,0.5)" />
+                    <Text style={modal.fileName} numberOfLines={1}>{f.name}</Text>
+                    <Pressable onPress={() => setFiles((p) => p.filter((_, j) => j !== i))}>
+                      <Ionicons name="close-circle" size={18} color="#FF5A5A" />
+                    </Pressable>
+                  </View>
+                ))}
+                {error ? <Text style={modal.error}>{error}</Text> : null}
+                <GradientButton title="Submit Assignment" loading={submitting} onPress={handleSubmit} />
+              </>
+            ) : (
+              /* View mode: show submit button if not yet graded */
+              selected && (!selected.submission?.submittedAt || selected.grade == null) ? (
+                <Pressable style={modal.switchToSubmit} onPress={() => setModalMode('submit')}>
+                  <Ionicons name="cloud-upload-outline" size={16} color="#3AADFF" />
+                  <Text style={modal.switchToSubmitText}>
+                    {selected.submission?.submittedAt ? 'Resubmit Assignment' : 'Submit Assignment'}
+                  </Text>
+                </Pressable>
+              ) : null
+            )}
           </ScrollView>
         </View>
       </Modal>
@@ -240,7 +296,7 @@ const styles = StyleSheet.create({
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.5)' },
   emptyText: { fontSize: 13.5, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingHorizontal: 20 },
-  card: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 16, gap: 8 },
+  card: { padding: 16, gap: 8 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statusPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   statusText: { fontSize: 11, fontWeight: '700' },
@@ -250,7 +306,13 @@ const styles = StyleSheet.create({
   desc: { fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 19 },
   feedbackBox: { flexDirection: 'row', gap: 8, backgroundColor: 'rgba(0,96,230,0.1)', borderRadius: 10, padding: 10 },
   feedbackText: { flex: 1, fontSize: 12.5, color: 'rgba(255,255,255,0.7)', lineHeight: 18 },
-  submitBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 4 },
+  actionsRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  viewBtn: {
+    height: 42, paddingHorizontal: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+  },
+  viewText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
+  submitBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
   submitGrad: { height: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
   submitText: { fontSize: 14, fontWeight: '800', color: '#fff' },
 });
@@ -260,7 +322,7 @@ const modal = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
   title: { flex: 1, fontSize: 17, fontWeight: '800', color: '#fff', marginRight: 12 },
   content: { padding: 18, gap: 14, paddingBottom: 40 },
-  instructionsBox: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 14, gap: 6 },
+  instructionsBox: { padding: 14, gap: 6 },
   instructionsLabel: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.4)', letterSpacing: 0.8, textTransform: 'uppercase' },
   instructionsText: { fontSize: 13.5, color: 'rgba(255,255,255,0.7)', lineHeight: 20 },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.45)' },
@@ -270,4 +332,11 @@ const modal = StyleSheet.create({
   fileRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
   fileName: { flex: 1, fontSize: 13, color: 'rgba(255,255,255,0.6)' },
   error: { fontSize: 13, color: '#FF5A5A' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  metaText: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)' },
+  switchToSubmit: {
+    marginTop: 8, height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    borderRadius: 13, borderWidth: 1, borderColor: 'rgba(58,173,255,0.4)', backgroundColor: 'rgba(0,96,230,0.1)',
+  },
+  switchToSubmitText: { fontSize: 15, fontWeight: '700', color: '#3AADFF' },
 });

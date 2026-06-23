@@ -160,7 +160,25 @@ export default function SelectPackagePage() {
 
         <div
           ref={scrollerRef}
-          className="grid gap-5 lg:grid-cols-3 lg:gap-6 max-lg:flex max-lg:snap-x max-lg:snap-mandatory max-lg:overflow-x-auto max-lg:pb-3 max-lg:[scrollbar-width:none] max-lg:[-ms-overflow-style:none]"
+          className="grid gap-5 lg:grid-cols-3 lg:gap-6 max-lg:flex max-lg:flex-nowrap max-lg:snap-x max-lg:snap-mandatory max-lg:overflow-x-auto max-lg:gap-4 max-lg:pb-4 max-lg:[scrollbar-width:none] max-lg:[-ms-overflow-style:none] max-lg:[&::-webkit-scrollbar]:hidden"
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            const children = cardRefs.current.filter(Boolean);
+            if (!children.length) return;
+            const center = el.scrollLeft + el.clientWidth / 2;
+            let best = 0;
+            let bestDist = Infinity;
+            children.forEach((child, i) => {
+              if (!child) return;
+              const childCenter = child.offsetLeft + child.offsetWidth / 2;
+              const dist = Math.abs(center - childCenter);
+              if (dist < bestDist) {
+                bestDist = dist;
+                best = i;
+              }
+            });
+            if (best !== activeIndex) setActiveIndex(best);
+          }}
         >
           {orderedPackages.map((pkg, idx) => {
             const isSelected = selectedPackage?.name === pkg.name;
@@ -177,7 +195,7 @@ export default function SelectPackagePage() {
                 ref={(el) => {
                   cardRefs.current[idx] = el;
                 }}
-                className="max-lg:snap-center"
+                className="max-lg:snap-center max-lg:flex-shrink-0 max-lg:first:ml-0"
               >
                 <button
                   type="button"
@@ -187,7 +205,7 @@ export default function SelectPackagePage() {
                     setActiveIndex(idx);
                   }}
                   className={[
-                    'group relative w-[min(92vw,420px)] text-left lg:w-full',
+                    'group relative w-[min(88vw,360px)] shrink-0 text-left lg:w-full',
                     'overflow-hidden rounded-3xl border border-white/[0.08] bg-white/[0.03]',
                     'ring-1 transition-shadow',
                     isSelected ? `ring-2 ${meta.ring} shadow-2xl ${meta.glow}` : 'ring-white/[0.06] hover:bg-white/[0.045]',

@@ -1,4 +1,5 @@
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { CachedImage } from '../CachedImage';
 import { AppIcon } from '../AppIcon';
 import { colors } from '../../constants/theme';
 import type { NormalizedNews } from '../../utils/normalize';
@@ -39,7 +40,7 @@ export function HomeNewsCard({ item, onPress }: Props) {
       <GlassCard contentStyle={styles.inner} radius={20}>
         <View style={styles.thumb}>
           {hasThumb ? (
-            <Image source={{ uri: item.thumbnail }} style={styles.thumbImage} resizeMode="cover" />
+            <CachedImage source={{ uri: item.thumbnail }} style={styles.thumbImage} contentFit="cover" />
           ) : (
             <View style={styles.thumbPlaceholder}>
               <AppIcon name="file-text" size={24} color={colors.cyan} strokeWidth={2} />

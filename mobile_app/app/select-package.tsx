@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -34,7 +37,12 @@ const FALLBACK_PACKAGES: Package[] = [
     price: 100,
     currency: 'USD',
     badge: 'Starter',
-    features: ['Forex Trading Signals', 'Forex Basic Mentorship', 'Premium Indicators', 'Auto Trading Access'],
+    features: [
+      'Forex Trading Signals',
+      'Forex Basic Mentorship',
+      'Premium Indicators',
+      'Auto Trading Access',
+    ],
   },
   {
     name: 'FX Scale',
@@ -43,7 +51,12 @@ const FALLBACK_PACKAGES: Package[] = [
     currency: 'USD',
     badge: 'Most Popular',
     highlight: true,
-    features: ['Forex Trading Signals', 'Live Online Mentorship Sessions', 'Premium Indicators', 'Auto Trading Access'],
+    features: [
+      'Forex Trading Signals',
+      'Live Online Mentorship Sessions',
+      'Premium Indicators',
+      'Auto Trading Access',
+    ],
   },
   {
     name: 'FX Legacy',
@@ -51,13 +64,31 @@ const FALLBACK_PACKAGES: Package[] = [
     price: 1000,
     currency: 'USD',
     badge: 'Elite Program',
-    features: ['Forex Trading Signals', 'Forex Pro Mentorship', 'Premium Indicators', 'Auto Trading Access', 'Physical (On-Ground) Classes'],
+    features: [
+      'Forex Trading Signals',
+      'Forex Pro Mentorship',
+      'Premium Indicators',
+      'Auto Trading Access',
+      'Physical (On-Ground) Classes',
+    ],
   },
 ];
 
+// Per-plan accent palette
+const ACCENTS: Record<number, { top: [string, string]; glow: string; dot: string }> = {
+  0: { top: ['#00C97B', '#00875A'], glow: '#00C97B', dot: '#00C97B' },
+  1: { top: ['#036FFC', '#0253BD'], glow: '#036FFC', dot: '#036FFC' },
+  2: { top: ['#9B5CFF', '#6B2EFF'], glow: '#9B5CFF', dot: '#9B5CFF' },
+};
+const fallbackAccent = { top: ['#036FFC', '#0253BD'] as [string, string], glow: '#036FFC', dot: '#036FFC' };
+
+const { width: SW, height: SH } = Dimensions.get('window');
+
 export default function SelectPackageScreen() {
   const router = useRouter();
+  const scrollRef = useRef<ScrollView>(null);
   const [selected, setSelected] = useState<Package | null>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
   const [packages, setPackages] = useState<Package[]>(FALLBACK_PACKAGES);
   const [fetchLoading, setFetchLoading] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -74,9 +105,41 @@ export default function SelectPackageScreen() {
           if (active.length > 0) setPackages(active);
         }
       })
-      .catch(() => {/* keep fallback */})
+      .catch(() => {})
       .finally(() => setFetchLoading(false));
   }, []);
+
+  const defaultIndex = useMemo(() => {
+    const idx = packages.findIndex((p) => p.highlight);
+    return idx >= 0 ? idx : 0;
+  }, [packages]);
+
+  useEffect(() => {
+    if (fetchLoading || packages.length === 0) return;
+    setSelected(packages[defaultIndex]);
+    setActiveIndex(defaultIndex);
+    if (defaultIndex > 0) {
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ x: defaultIndex * SW, animated: false });
+      });
+    }
+  }, [fetchLoading, packages, defaultIndex]);
+
+  const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const idx = Math.max(
+      0,
+      Math.min(packages.length - 1, Math.round(e.nativeEvent.contentOffset.x / SW)),
+    );
+    setActiveIndex(idx);
+    setSelected(packages[idx]);
+  };
+
+  const scrollToIndex = (idx: number) => {
+    const clamped = Math.max(0, Math.min(packages.length - 1, idx));
+    scrollRef.current?.scrollTo({ x: clamped * SW, animated: true });
+    setActiveIndex(clamped);
+    setSelected(packages[clamped]);
+  };
 
   const handleSelect = async () => {
     if (!selected) return;
@@ -85,7 +148,11 @@ export default function SelectPackageScreen() {
     try {
       router.push({
         pathname: '/payment',
-        params: { packageId: selected._id ?? selected.name, packageName: selected.name, amount: selected.price },
+        params: {
+          packageId: selected._id ?? selected.name,
+          packageName: selected.name,
+          amount: selected.price,
+        },
       });
     } catch {
       setError('Something went wrong. Please try again.');
@@ -94,84 +161,152 @@ export default function SelectPackageScreen() {
     }
   };
 
+  const accent = ACCENTS[activeIndex] ?? fallbackAccent;
+
   return (
     <ScreenBackground variant="auth">
       <SafeAreaView style={styles.safe}>
+        {/* ── Header ─────────────────────────────────────── */}
         <View style={styles.header}>
-          <Text style={styles.title}>Choose Your Plan</Text>
-          <Text style={styles.subtitle}>Select the package that fits your trading journey</Text>
+          <Pressable style={styles.backBtn} onPress={() => router.back()}>
+            <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.7)" />
+          </Pressable>
+          <View style={styles.headerCenter}>
+            <Text style={styles.title}>Choose Your Plan</Text>
+            <Text style={styles.subtitle}>Swipe to compare · pay with USDT</Text>
+          </View>
+          {/* spacer so title is centred */}
+          <View style={styles.backBtn} />
         </View>
 
+        {/* ── Dot indicators ─────────────────────────────── */}
+        {!fetchLoading && packages.length > 1 ? (
+          <View style={styles.dotsRow}>
+            {packages.map((_, idx) => (
+              <Pressable key={idx} onPress={() => scrollToIndex(idx)}>
+                <View
+                  style={[
+                    styles.dot,
+                    activeIndex === idx && {
+                      width: 24,
+                      backgroundColor: accent.dot,
+                    },
+                  ]}
+                />
+              </Pressable>
+            ))}
+          </View>
+        ) : null}
+
+        {/* ── Cards ──────────────────────────────────────── */}
         {fetchLoading ? (
-          <ActivityIndicator color="#3AADFF" style={{ marginTop: 40 }} />
+          <View style={styles.loaderWrap}>
+            <ActivityIndicator color="#3AADFF" size="large" />
+          </View>
         ) : (
-        <ScrollView
-          contentContainerStyle={styles.content}
-          showsVerticalScrollIndicator={false}
-        >
-          {packages.map((pkg, idx) => {
-            const isSelected = selected?.name === pkg.name;
-            return (
-              <Pressable key={pkg._id ?? pkg.name ?? idx} onPress={() => setSelected(pkg)} style={styles.cardWrapper}>
-                {pkg.badge && (
-                  <View style={[styles.popularBadge, pkg.highlight && styles.popularBadgeHighlight]}>
-                    <Text style={styles.popularText}>{pkg.badge}</Text>
-                  </View>
-                )}
-                <LinearGradient
-                  colors={isSelected ? ['rgba(0,96,230,0.35)', 'rgba(58,173,255,0.15)'] : ['rgba(255,255,255,0.04)', 'rgba(255,255,255,0.04)']}
-                  style={[styles.card, isSelected && styles.cardSelected, pkg.badge && styles.cardPopular]}
-                >
-                  {/* Selected indicator */}
-                  <View style={styles.cardRow}>
-                    <View>
-                      <Text style={styles.packageName}>{pkg.name}</Text>
-                      {pkg.subtitle ? <Text style={styles.packageSubtitle}>{pkg.subtitle}</Text> : null}
+          <ScrollView
+            ref={scrollRef}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            decelerationRate="fast"
+            disableIntervalMomentum
+            onMomentumScrollEnd={onScrollEnd}
+            onScrollEndDrag={onScrollEnd}
+            style={styles.scroll}
+            contentContainerStyle={styles.scrollContent}
+          >
+            {packages.map((pkg, idx) => {
+              const ac = ACCENTS[idx] ?? fallbackAccent;
+              const isPopular = pkg.highlight || pkg.badge === 'Most Popular';
+              return (
+                <View key={pkg._id ?? pkg.name ?? idx} style={styles.page}>
+                  <View style={styles.card}>
+                    {/* Gradient top stripe */}
+                    <LinearGradient
+                      colors={ac.top}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.cardTop}
+                    >
+                      {isPopular ? (
+                        <View style={styles.popularRibbon}>
+                          <Ionicons name="star" size={11} color="#fff" />
+                          <Text style={styles.popularText}>MOST POPULAR</Text>
+                        </View>
+                      ) : pkg.badge ? (
+                        <View style={styles.badge}>
+                          <Text style={styles.badgeText}>{pkg.badge.toUpperCase()}</Text>
+                        </View>
+                      ) : null}
+
+                      <Text style={styles.planName}>{pkg.name}</Text>
+                      {pkg.subtitle ? (
+                        <Text style={styles.planSubtitle}>{pkg.subtitle}</Text>
+                      ) : null}
+
+                      {/* Price */}
                       <View style={styles.priceRow}>
-                        <Text style={styles.price}>{pkg.price}</Text>
-                        <Text style={styles.currency}> {pkg.currency ?? 'USD'} · USDT</Text>
+                        <Text style={styles.priceDollar}>$</Text>
+                        <Text style={styles.priceNum}>{pkg.price}</Text>
+                      </View>
+                      <Text style={styles.priceSub}>{pkg.currency ?? 'USD'} · Paid via USDT (TRC20)</Text>
+                    </LinearGradient>
+
+                    {/* Features */}
+                    <View style={styles.featuresWrap}>
+                      <Text style={styles.featuresLabel}>WHAT'S INCLUDED</Text>
+                      <View style={styles.featuresList}>
+                        {pkg.features.map((f, i) => (
+                          <View key={i} style={styles.featureRow}>
+                            <LinearGradient
+                              colors={ac.top}
+                              start={{ x: 0, y: 0 }}
+                              end={{ x: 1, y: 1 }}
+                              style={styles.checkCircle}
+                            >
+                              <Ionicons name="checkmark" size={13} color="#fff" />
+                            </LinearGradient>
+                            <Text style={styles.featureText}>{f}</Text>
+                          </View>
+                        ))}
+                      </View>
+
+                      <View style={styles.trustRow}>
+                        <Ionicons name="shield-checkmark-outline" size={14} color="rgba(255,255,255,0.3)" />
+                        <Text style={styles.trustText}>Admin-reviewed · Secure checkout</Text>
                       </View>
                     </View>
-                    <View style={[styles.radioOuter, isSelected && styles.radioOuterActive]}>
-                      {isSelected && <View style={styles.radioInner} />}
-                    </View>
                   </View>
-
-                  <View style={styles.divider} />
-
-                  {pkg.features.map((f, i) => (
-                    <View key={i} style={styles.featureRow}>
-                      <Ionicons name="checkmark-circle" size={16} color={isSelected ? '#3AADFF' : 'rgba(255,255,255,0.4)'} />
-                      <Text style={[styles.featureText, isSelected && styles.featureTextActive]}>{f}</Text>
-                    </View>
-                  ))}
-                </LinearGradient>
-              </Pressable>
-            );
-          })}
-
-          {error ? <Text style={styles.error}>{error}</Text> : null}
-        </ScrollView>
+                </View>
+              );
+            })}
+          </ScrollView>
         )}
 
+        {/* ── CTA ────────────────────────────────────────── */}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.footer}>
           <Pressable
-            style={[styles.ctaBtn, !selected && styles.ctaDisabled]}
+            style={[styles.ctaBtn, (!selected || loading) && styles.ctaDisabled]}
             onPress={handleSelect}
             disabled={!selected || loading}
           >
             <LinearGradient
-              colors={selected ? ['#0253BD', '#036FFC'] : ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.08)']}
-              start={{ x: 0, y: 0.5 }}
-              end={{ x: 1, y: 0.5 }}
+              colors={accent.top}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
               style={styles.ctaGradient}
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={[styles.ctaText, !selected && styles.ctaTextDisabled]}>
-                  {selected ? `Continue with ${selected.name}` : 'Select a Plan'}
-                </Text>
+                <>
+                  <Text style={styles.ctaText}>
+                    {selected ? `Get ${selected.name}` : 'Select a Plan'}
+                  </Text>
+                  <Ionicons name="arrow-forward" size={18} color="#fff" />
+                </>
               )}
             </LinearGradient>
           </Pressable>
@@ -181,165 +316,239 @@ export default function SelectPackageScreen() {
   );
 }
 
+const CARD_H = SH * 0.68;
+
 const styles = StyleSheet.create({
   safe: { flex: 1 },
+
+  /* header */
   header: {
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingTop: 20,
-    paddingHorizontal: 24,
-    marginBottom: 20,
+    paddingHorizontal: 16,
+    paddingTop: 6,
+    paddingBottom: 10,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: -0.4,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.48)',
-    marginTop: 6,
-    textAlign: 'center',
-    lineHeight: 20,
-  },
-  content: {
-    paddingHorizontal: 18,
-    paddingBottom: 16,
-    gap: 14,
-  },
-  cardWrapper: {
-    position: 'relative',
-  },
-  card: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    padding: 18,
-  },
-  cardSelected: {
-    borderColor: '#3AADFF',
-    borderWidth: 1.5,
-  },
-  cardPopular: {
-    marginTop: 8,
-  },
-  popularBadge: {
-    position: 'absolute',
-    top: -6,
-    left: 18,
-    zIndex: 1,
-    backgroundColor: 'rgba(0,96,230,0.85)',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  popularBadgeHighlight: {
-    backgroundColor: '#036FFC',
-  },
-  popularText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#fff',
-    letterSpacing: 0.3,
-  },
-  packageSubtitle: {
-    fontSize: 12,
-    color: 'rgba(255,255,255,0.45)',
-    marginBottom: 4,
-  },
-  cardRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 14,
-  },
-  packageName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#fff',
-    marginBottom: 4,
-  },
-  priceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-  },
-  price: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: '#fff',
-  },
-  currency: {
-    fontSize: 14,
-    color: 'rgba(255,255,255,0.55)',
-    fontWeight: '600',
-  },
-  radioOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.25)',
+  backBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.08)',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  radioOuterActive: {
-    borderColor: '#3AADFF',
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
   },
-  radioInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: '#3AADFF',
+  title: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.3,
   },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+  subtitle: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.42)',
+    marginTop: 2,
+  },
+
+  /* dots */
+  dotsRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+  },
+
+  /* scroll */
+  loaderWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scroll: { flex: 1 },
+  scrollContent: { alignItems: 'flex-start' },
+
+  /* page = one full-width slot */
+  page: {
+    width: SW,
+    paddingHorizontal: 20,
+  },
+
+  /* card */
+  card: {
+    width: '100%',
+    height: CARD_H,
+    borderRadius: 28,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.5,
+    shadowRadius: 24,
+    elevation: 16,
+  },
+
+  /* gradient top section */
+  cardTop: {
+    paddingTop: 28,
+    paddingHorizontal: 26,
+    paddingBottom: 28,
+  },
+  popularRibbon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     marginBottom: 14,
+  },
+  popularText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.6,
+  },
+  badge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginBottom: 14,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.6,
+  },
+  planName: {
+    fontSize: 32,
+    fontWeight: '900',
+    color: '#fff',
+    letterSpacing: -0.5,
+  },
+  planSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.72)',
+    marginTop: 4,
+    marginBottom: 18,
+  },
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 4,
+  },
+  priceDollar: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#fff',
+    marginTop: 8,
+    marginRight: 2,
+  },
+  priceNum: {
+    fontSize: 72,
+    fontWeight: '900',
+    color: '#fff',
+    letterSpacing: -3,
+    lineHeight: 78,
+  },
+  priceSub: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.62)',
+    marginTop: 4,
+    fontWeight: '600',
+  },
+
+  /* features */
+  featuresWrap: {
+    flex: 1,
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 18,
+  },
+  featuresLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: 'rgba(255,255,255,0.3)',
+    letterSpacing: 1.2,
+    marginBottom: 14,
+  },
+  featuresList: {
+    gap: 12,
+    flex: 1,
   },
   featureRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
+    gap: 12,
+  },
+  checkCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
   },
   featureText: {
-    fontSize: 13.5,
-    color: 'rgba(255,255,255,0.45)',
     flex: 1,
-  },
-  featureTextActive: {
+    fontSize: 14.5,
     color: 'rgba(255,255,255,0.8)',
+    fontWeight: '500',
+    lineHeight: 20,
   },
+  trustRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 16,
+  },
+  trustText: {
+    fontSize: 11.5,
+    color: 'rgba(255,255,255,0.28)',
+    fontWeight: '500',
+  },
+
+  /* footer */
   error: {
     textAlign: 'center',
     color: '#FF5A5A',
     fontSize: 13,
-    marginTop: 8,
+    marginHorizontal: 20,
+    marginBottom: 6,
   },
   footer: {
-    paddingHorizontal: 18,
-    paddingBottom: 24,
-    paddingTop: 8,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    paddingTop: 14,
   },
   ctaBtn: {
-    borderRadius: 14,
+    borderRadius: 16,
     overflow: 'hidden',
   },
-  ctaDisabled: {
-    opacity: 0.6,
-  },
+  ctaDisabled: { opacity: 0.55 },
   ctaGradient: {
-    height: 54,
+    height: 56,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 10,
   },
   ctaText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
     color: '#fff',
-  },
-  ctaTextDisabled: {
-    color: 'rgba(255,255,255,0.4)',
+    letterSpacing: -0.2,
   },
 });

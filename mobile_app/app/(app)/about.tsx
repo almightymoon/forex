@@ -3,6 +3,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { ScrollView, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { GlassListCard } from '../../components/glass/GlassListCard';
 
 const STATS = [
   { num: '9+', label: 'Years experience' },
@@ -43,10 +44,10 @@ export default function AboutScreen() {
 
         <View style={styles.statsRow}>
           {STATS.map((s) => (
-            <View key={s.label} style={styles.statBox}>
+            <GlassListCard key={s.label} style={styles.statBoxWrap} contentStyle={styles.statBox}>
               <Text style={styles.statNum}>{s.num}</Text>
               <Text style={styles.statLabel}>{s.label}</Text>
-            </View>
+            </GlassListCard>
           ))}
         </View>
 
@@ -59,7 +60,7 @@ export default function AboutScreen() {
 
         <Text style={styles.sectionTitle}>What We Offer</Text>
         {SERVICES.map((s) => (
-          <View key={s.title} style={styles.serviceCard}>
+          <GlassListCard key={s.title} contentStyle={styles.serviceCard}>
             <View style={styles.serviceIcon}>
               <Ionicons name={s.icon} size={20} color="#3AADFF" />
             </View>
@@ -67,15 +68,15 @@ export default function AboutScreen() {
               <Text style={styles.serviceTitle}>{s.title}</Text>
               <Text style={styles.serviceDesc}>{s.desc}</Text>
             </View>
-          </View>
+          </GlassListCard>
         ))}
 
         <Text style={styles.sectionTitle}>Contact</Text>
-        <View style={styles.contactCard}>
+        <GlassListCard contentStyle={styles.contactCard}>
           <Text style={styles.contactLine}>thefxnavigators@gmail.com</Text>
           <Text style={styles.contactLine}>+92 348 8566147</Text>
           <Text style={styles.contactSub}>Mon–Sat, 9AM–6PM (PKT)</Text>
-        </View>
+        </GlassListCard>
       </ScrollView>
     </View>
   );
@@ -93,17 +94,18 @@ const styles = StyleSheet.create({
   heroTitle: { fontSize: 26, fontWeight: '900', color: '#fff', letterSpacing: -0.3 },
   heroSub: { fontSize: 14, color: 'rgba(255,255,255,0.55)', lineHeight: 21 },
   statsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  statBox: { flex: 1, minWidth: '44%', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 14, alignItems: 'center', gap: 4 },
+  statBoxWrap: { flex: 1, minWidth: '44%' },
+  statBox: { padding: 14, alignItems: 'center', gap: 4 },
   statNum: { fontSize: 22, fontWeight: '900', color: '#3AADFF' },
   statLabel: { fontSize: 11.5, color: 'rgba(255,255,255,0.45)', textAlign: 'center' },
   sectionTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
   body: { fontSize: 14, color: 'rgba(255,255,255,0.6)', lineHeight: 22 },
-  serviceCard: { flexDirection: 'row', gap: 12, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 14 },
+  serviceCard: { flexDirection: 'row', gap: 12, padding: 14 },
   serviceIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: 'rgba(0,96,230,0.15)', alignItems: 'center', justifyContent: 'center' },
   serviceInfo: { flex: 1, gap: 4 },
   serviceTitle: { fontSize: 14, fontWeight: '700', color: '#fff' },
   serviceDesc: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)', lineHeight: 18 },
-  contactCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 16, gap: 6 },
+  contactCard: { padding: 16, gap: 6 },
   contactLine: { fontSize: 14, fontWeight: '600', color: '#3AADFF' },
   contactSub: { fontSize: 12, color: 'rgba(255,255,255,0.35)', marginTop: 4 },
 });

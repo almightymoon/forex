@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AuthInput } from '../../components/AuthInput';
+import { GlassListCard } from '../../components/glass/GlassListCard';
+import { glassScreenStyles } from '../../components/glass/glassScreenStyles';
 import { GradientButton } from '../../components/GradientButton';
 import { PaymentScreenshotPicker, ScreenshotAsset } from '../../components/PaymentScreenshotPicker';
 import { apiFetch, apiUpload } from '../../utils/api';
@@ -140,7 +142,7 @@ export default function MonthlyFeeScreen() {
 
   return (
     <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
+      <SafeAreaView edges={['top']} style={glassScreenStyles.headerSafe}>
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={20} color="#fff" />
@@ -189,7 +191,7 @@ export default function MonthlyFeeScreen() {
                   <Text style={styles.walletNote}>Tap to copy. Send exact amount via TRC20 network only.</Text>
                 </View>
 
-                <View style={styles.formCard}>
+                <GlassListCard contentStyle={styles.formCard}>
                   <Text style={styles.sectionLabel}>PAYMENT PROOF</Text>
                   <AuthInput label="Transaction ID / Hash" icon="receipt-outline" placeholder="Paste your transaction ID" autoCapitalize="none" value={txId} onChangeText={(v) => { setTxId(v); setError(''); }} />
                   <AuthInput label="Payer Name" icon="person-outline" placeholder="Name on exchange" autoCapitalize="words" value={payerName} onChangeText={(v) => { setPayerName(v); setError(''); }} />
@@ -210,7 +212,7 @@ export default function MonthlyFeeScreen() {
                   ) : null}
 
                   <GradientButton title="Submit Payment Proof" loading={submitting} onPress={handleSubmit} />
-                </View>
+                </GlassListCard>
               </>
             )}
 
@@ -231,7 +233,6 @@ export default function MonthlyFeeScreen() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
-  headerSafe: { backgroundColor: 'rgba(0,5,10,0.97)' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
   backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
   headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
@@ -248,7 +249,7 @@ const styles = StyleSheet.create({
   walletRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(58,173,255,0.3)', padding: 14, gap: 10 },
   walletAddress: { flex: 1, fontSize: 13.5, color: '#3AADFF', fontWeight: '500' },
   walletNote: { fontSize: 11.5, color: 'rgba(255,255,255,0.3)' },
-  formCard: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 18, borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)', padding: 16, gap: 4 },
+  formCard: { padding: 16, gap: 4 },
   alertBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,90,90,0.1)', borderRadius: 10, padding: 12, marginVertical: 4 },
   successBox: { backgroundColor: 'rgba(74,222,128,0.1)' },
   alertText: { flex: 1, fontSize: 13 },

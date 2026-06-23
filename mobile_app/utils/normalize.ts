@@ -12,6 +12,19 @@ export function normalizeList<T>(data: unknown): T[] {
   return [];
 }
 
+/** Keep first occurrence per key — prevents duplicate React list keys / rows. */
+export function dedupeByKey<T>(items: T[], keyFn: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  const out: T[] = [];
+  for (const item of items) {
+    const key = keyFn(item).trim();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(item);
+  }
+  return out;
+}
+
 /** Turn relative upload paths into absolute URLs for Image components. */
 export function resolveMediaUrl(url?: string | null): string | undefined {
   if (!url || typeof url !== 'string') return undefined;
@@ -102,11 +115,13 @@ export interface ActivityItem {
 }
 
 export function normalizeActivity(raw: Record<string, unknown>): ActivityItem {
+  const title = String(raw.title ?? 'Activity');
+  const timestamp = String(raw.timestamp ?? raw.createdAt ?? '');
   return {
-    id: String(raw.id ?? raw._id ?? Math.random()),
-    title: String(raw.title ?? 'Activity'),
+    id: String(raw.id ?? raw._id ?? `${title}-${timestamp}`),
+    title,
     message: String(raw.message ?? ''),
-    timestamp: (raw.timestamp ?? raw.createdAt) as string | undefined,
+    timestamp: timestamp || undefined,
     type: raw.type as string | undefined,
   };
 }
@@ -125,14 +140,17 @@ export function normalizeNews(raw: Record<string, unknown>): NormalizedNews {
   const thumbnail = String(
     raw.thumbnail ?? raw.image ?? raw.imageUrl ?? raw.urlToImage ?? '',
   ).trim();
+  const url = String(raw.url ?? raw.link ?? '').trim();
+  const title = String(raw.title ?? 'Market update');
+  const publishedAt = String(raw.publishedAt ?? raw.pubDate ?? new Date().toISOString());
 
   return {
-    id: String(raw.id ?? raw._id ?? raw.url ?? Math.random()),
-    title: String(raw.title ?? 'Market update'),
+    id: String(raw.id ?? raw._id ?? (url || `${title}-${publishedAt}`)),
+    title,
     summary: String(raw.summary ?? raw.description ?? ''),
-    url: String(raw.url ?? raw.link ?? ''),
+    url,
     source: String(raw.source ?? 'Markets'),
-    publishedAt: String(raw.publishedAt ?? raw.pubDate ?? new Date().toISOString()),
+    publishedAt,
     thumbnail: thumbnail || undefined,
   };
 }
