@@ -6,6 +6,8 @@ const MAX_AGE_MS = 24 * 60 * 60_000;
 
 export type DashboardSnapshot = {
   enrolledCourses: number;
+  catalogTotal?: number;
+  allCourses?: NormalizedCourse[];
   courses: NormalizedCourse[];
   recentSignals: NormalizedSignal[];
   recentActivity: ActivityItem[];

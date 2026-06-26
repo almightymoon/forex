@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import * as Linking from 'expo-linking';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,7 +13,7 @@ import {
   View,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { MenuStackHeader } from '../../components/navigation/MenuStackHeader';
 import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch } from '../../utils/api';
 
@@ -42,16 +42,19 @@ function fmt(iso?: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-const STATUS_CFG: Record<string, { color: string; bg: string; label: string }> = {
+const statusCfg = (colors: AppColors): Record<string, { color: string; bg: string; label: string }> => ({
   completed: { color: '#4ADE80', bg: 'rgba(74,222,128,0.12)', label: 'Active' },
   pending:   { color: '#FFC107', bg: 'rgba(255,193,7,0.12)',  label: 'Pending' },
   failed:    { color: '#FF5A5A', bg: 'rgba(255,90,90,0.1)',   label: 'Failed' },
-  cancelled: { color: 'rgba(255,255,255,0.35)', bg: 'rgba(255,255,255,0.06)', label: 'Cancelled' },
-};
+  cancelled: { color: colors.textDim, bg: colors.surfaceHover, label: 'Cancelled' },
+});
 
 const DEFAULT_FEATURES = ['Full course access', 'Live trading sessions', 'Trading signals', 'Community chat', 'Certificates'];
 
 export default function SubscriptionScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const STATUS_CFG = useMemo(() => statusCfg(colors), [colors]);
   const router = useRouter();
   const [payments, setPayments] = useState<Payment[]>([]);
   const [perks, setPerks] = useState<Perk[]>([]);
@@ -99,27 +102,19 @@ export default function SubscriptionScreen() {
 
   return (
     <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
-        <View style={styles.header}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
-          </Pressable>
-          <Text style={styles.headerTitle}>My Subscription</Text>
-          <View style={{ width: 40 }} />
-        </View>
-      </SafeAreaView>
+      <MenuStackHeader title="Subscription" subtitle="Plan & billing" onBack={() => router.back()} />
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAll(); }} tintColor="#3AADFF" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAll(); }} tintColor={colors.black} />}
         showsVerticalScrollIndicator={false}
       >
-        {loading ? <ActivityIndicator color="#3AADFF" style={{ marginTop: 40 }} /> : (
+        {loading ? <ActivityIndicator color={colors.black} style={{ marginTop: 40 }} /> : (
           <>
             {/* Active package card */}
             {activePackage ? (
-              <LinearGradient colors={['rgba(0,96,230,0.35)', 'rgba(255,255,255,0.03)']} style={styles.activeCard}>
+              <View style={styles.activeCard}>
                 <View style={styles.activeGlow} />
                 <View style={styles.activeBadge}>
                   <Ionicons name="checkmark-circle" size={14} color="#4ADE80" />
@@ -140,7 +135,7 @@ export default function SubscriptionScreen() {
                           <Ionicons
                             name={p.enabled ? 'checkmark' : 'close'}
                             size={14}
-                            color={p.enabled ? '#3AADFF' : 'rgba(255,255,255,0.2)'}
+                            color={p.enabled ? colors.blue : colors.textDim}
                           />
                           <Text style={[styles.featureText, !p.enabled && styles.featureDisabled]}>
                             {p.description}
@@ -150,29 +145,29 @@ export default function SubscriptionScreen() {
                       ))
                     : DEFAULT_FEATURES.map((f) => (
                         <View key={f} style={styles.featureRow}>
-                          <Ionicons name="checkmark" size={14} color="#3AADFF" />
+                          <Ionicons name="checkmark" size={14} color={colors.text} />
                           <Text style={styles.featureText}>{f}</Text>
                         </View>
                       ))
                   }
                 </View>
                 <Pressable style={styles.upgradeBtn} onPress={() => router.push('/subscription-upgrade')}>
-                  <Ionicons name="arrow-up-circle-outline" size={16} color="#3AADFF" />
+                  <Ionicons name="arrow-up-circle-outline" size={16} color={colors.primaryForeground} />
                   <Text style={styles.upgradeText}>Upgrade Package</Text>
                 </Pressable>
                 <Pressable style={styles.monthlyFeeBtn} onPress={() => router.push('/(app)/monthly-fee')}>
-                  <Ionicons name="calendar-outline" size={16} color="#FFC107" />
+                  <Ionicons name="calendar-outline" size={16} color={colors.text} />
                   <Text style={styles.monthlyFeeText}>Pay Monthly Fee</Text>
                 </Pressable>
-              </LinearGradient>
+              </View>
             ) : (
               <GlassListCard contentStyle={styles.noSubCard}>
-                <Ionicons name="layers-outline" size={44} color="rgba(255,255,255,0.15)" />
+                <Ionicons name="layers-outline" size={44} color={colors.textMuted} />
                 <Text style={styles.noSubTitle}>No Active Subscription</Text>
                 <Text style={styles.noSubText}>Choose a package to get access to all features.</Text>
                 <Pressable style={styles.noSubBtn} onPress={() => router.replace('/select-package')}>
                   <Text style={styles.noSubBtnText}>View Packages</Text>
-                  <Ionicons name="arrow-forward" size={14} color="#fff" />
+                  <Ionicons name="arrow-forward" size={14} color={colors.primaryForeground} />
                 </Pressable>
               </GlassListCard>
             )}
@@ -239,10 +234,10 @@ export default function SubscriptionScreen() {
             )}
 
             {/* Support CTA */}
-            <GlassListCard contentStyle={styles.supportBtn} onPress={() => Linking.openURL('https://thefxnavigators.com/support')}>
-              <Ionicons name="help-circle-outline" size={18} color="#3AADFF" />
+            <GlassListCard contentStyle={styles.supportBtn} onPress={() => router.push('/(app)/support')}>
+              <Ionicons name="help-circle-outline" size={18} color={colors.text} />
               <Text style={styles.supportText}>Need help with billing? Contact support</Text>
-              <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.3)" />
+              <Ionicons name="chevron-forward" size={14} color={colors.textMuted} />
             </GlassListCard>
           </>
         )}
@@ -251,52 +246,56 @@ export default function SubscriptionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
-  headerSafe: { backgroundColor: 'transparent' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 16 },
   activeCard: {
     borderRadius: 22, padding: 24, gap: 8,
-    borderWidth: 1, borderColor: 'rgba(58,173,255,0.2)', overflow: 'hidden',
+    borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+    backgroundColor: colors.surface,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 2,
   },
-  activeGlow: { position: 'absolute', top: -30, right: -30, width: 160, height: 160, borderRadius: 80, backgroundColor: 'rgba(58,173,255,0.1)' },
-  activeBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: 'rgba(74,222,128,0.15)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(74,222,128,0.3)' },
-  activeBadgeText: { fontSize: 10, fontWeight: '800', color: '#4ADE80', letterSpacing: 0.8 },
-  activePkgName: { fontSize: 24, fontWeight: '900', color: '#fff', letterSpacing: -0.3 },
-  activeAmount: { fontSize: 36, fontWeight: '900', color: '#3AADFF', letterSpacing: -0.5 },
-  activeDate: { fontSize: 12, color: 'rgba(255,255,255,0.45)' },
+  activeGlow: { position: 'absolute', top: -30, right: -30, width: 160, height: 160, borderRadius: 80, backgroundColor: colors.surfaceHover },
+  activeBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: 'rgba(52,199,89,0.15)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: 'rgba(52,199,89,0.35)' },
+  activeBadgeText: { fontSize: 10, fontWeight: '800', color: colors.success, letterSpacing: 0.8 },
+  activePkgName: { fontSize: 24, fontWeight: '900', color: colors.text, letterSpacing: -0.3 },
+  activeAmount: { fontSize: 36, fontWeight: '900', color: colors.text, letterSpacing: -0.5 },
+  activeDate: { fontSize: 12, color: colors.textMuted },
   featureList: { marginTop: 8, gap: 8 },
   featureRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  featureText: { flex: 1, fontSize: 13.5, color: 'rgba(255,255,255,0.7)', fontWeight: '500' },
-  featureDisabled: { color: 'rgba(255,255,255,0.25)' },
-  featureDetail: { fontSize: 12, color: 'rgba(255,255,255,0.4)', fontWeight: '400' },
+  featureText: { flex: 1, fontSize: 13.5, color: colors.textSilver, fontWeight: '500' },
+  featureDisabled: { color: colors.textDim },
+  featureDetail: { fontSize: 12, color: colors.textMuted, fontWeight: '400' },
   noSubCard: { padding: 32, alignItems: 'center', gap: 10 },
-  noSubTitle: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.55)' },
-  noSubText: { fontSize: 13.5, color: 'rgba(255,255,255,0.35)', textAlign: 'center', lineHeight: 20 },
-  noSubBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, height: 46, paddingHorizontal: 20, borderRadius: 13, backgroundColor: 'rgba(0,96,230,0.3)', borderWidth: 1, borderColor: 'rgba(58,173,255,0.4)' },
-  noSubBtnText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  noSubTitle: { fontSize: 18, fontWeight: '700', color: colors.textSecondary },
+  noSubText: { fontSize: 13.5, color: colors.textDim, textAlign: 'center', lineHeight: 20 },
+  noSubBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6, height: 48, paddingHorizontal: 22, borderRadius: 14, backgroundColor: colors.primary },
+  noSubBtnText: { fontSize: 14, fontWeight: '800', color: colors.primaryForeground },
   section: { gap: 10 },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: colors.text },
   card: { paddingHorizontal: 16, paddingVertical: 4 },
   payRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 12 },
-  payDivider: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  payDivider: { borderBottomWidth: 1, borderBottomColor: colors.border },
   payIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   payInfo: { flex: 1, gap: 2, minWidth: 0 },
-  payName: { fontSize: 13.5, fontWeight: '600', color: '#fff' },
-  payDate: { fontSize: 11, color: 'rgba(255,255,255,0.35)' },
-  payTxId: { fontSize: 10, color: 'rgba(255,255,255,0.25)', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
+  payName: { fontSize: 13.5, fontWeight: '600', color: colors.text },
+  payDate: { fontSize: 11, color: colors.textDim },
+  payTxId: { fontSize: 10, color: colors.textDim, fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace' },
   payRight: { alignItems: 'flex-end', gap: 4 },
-  payAmount: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  payAmount: { fontSize: 15, fontWeight: '800', color: colors.text },
   statusPill: { borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 },
   statusText: { fontSize: 10, fontWeight: '700', textTransform: 'capitalize' },
   supportBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 14 },
-  supportText: { flex: 1, fontSize: 13.5, color: 'rgba(255,255,255,0.55)', fontWeight: '500' },
-  upgradeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 8, height: 42, borderRadius: 12, backgroundColor: 'rgba(0,96,230,0.2)', borderWidth: 1, borderColor: 'rgba(58,173,255,0.35)' },
-  upgradeText: { fontSize: 14, fontWeight: '700', color: '#3AADFF' },
-  monthlyFeeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 6, height: 42, borderRadius: 12, backgroundColor: 'rgba(255,193,7,0.12)', borderWidth: 1, borderColor: 'rgba(255,193,7,0.3)' },
-  monthlyFeeText: { fontSize: 14, fontWeight: '700', color: '#FFC107' },
+  supportText: { flex: 1, fontSize: 13.5, color: colors.textSecondary, fontWeight: '500' },
+  upgradeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 8, height: 44, borderRadius: 14, backgroundColor: colors.primary },
+  upgradeText: { fontSize: 14, fontWeight: '700', color: colors.primaryForeground },
+  monthlyFeeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, marginTop: 6, height: 44, borderRadius: 14, backgroundColor: colors.surfaceHover, borderWidth: 1, borderColor: colors.border },
+  monthlyFeeText: { fontSize: 14, fontWeight: '700', color: colors.text },
 });
+}

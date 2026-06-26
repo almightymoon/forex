@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { GlassCard } from './GlassCard';
 
 type Props = {
@@ -10,6 +12,9 @@ type Props = {
 };
 
 export function LiveSessionHomeCard({ title, scheduleLabel, onPress, onReserve }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.flex}>
       <GlassCard style={styles.card} contentStyle={styles.inner} radius={20}>
@@ -31,7 +36,8 @@ export function LiveSessionHomeCard({ title, scheduleLabel, onPress, onReserve }
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   card: { flex: 1, minWidth: 0 },
   inner: {
@@ -45,7 +51,7 @@ const styles = StyleSheet.create({
   eyebrow: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.textSecondary,
     marginBottom: 8,
   },
   title: {
@@ -57,7 +63,7 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 13,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.78)',
+    color: colors.textSilver,
     marginTop: 10,
   },
   btn: {
@@ -75,3 +81,4 @@ const styles = StyleSheet.create({
     color: colors.primary,
   },
 });
+}

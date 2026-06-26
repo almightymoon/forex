@@ -1,4 +1,7 @@
+import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import * as ImagePicker from 'expo-image-picker';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -15,6 +18,9 @@ type Props = {
 };
 
 export function PaymentScreenshotPicker({ value, onChange, error }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const pick = async () => {
     const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!perm.granted) return;
@@ -43,7 +49,7 @@ export function PaymentScreenshotPicker({ value, onChange, error }: Props) {
           </>
         ) : (
           <View style={styles.placeholder}>
-            <Ionicons name="image-outline" size={28} color="#3AADFF" />
+            <Ionicons name="image-outline" size={28} color={colors.brandBlue} />
             <Text style={styles.placeholderText}>Tap to upload screenshot</Text>
             <Text style={styles.placeholderSub}>Required — JPG or PNG</Text>
           </View>
@@ -54,12 +60,13 @@ export function PaymentScreenshotPicker({ value, onChange, error }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   wrap: { gap: 8, marginBottom: 8 },
   label: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.textSecondary,
     letterSpacing: 0.2,
   },
   box: {
@@ -68,14 +75,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(58,173,255,0.3)',
     borderStyle: 'dashed',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surfaceHover,
     overflow: 'hidden',
   },
   boxError: { borderColor: 'rgba(255,90,90,0.5)' },
   preview: { width: '100%', height: '100%' },
   removeBtn: { position: 'absolute', top: 8, right: 8 },
   placeholder: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  placeholderText: { fontSize: 14, fontWeight: '600', color: '#3AADFF' },
-  placeholderSub: { fontSize: 11.5, color: 'rgba(255,255,255,0.35)' },
+  placeholderText: { fontSize: 14, fontWeight: '600', color: colors.brandBlue },
+  placeholderSub: { fontSize: 11.5, color: colors.textDim },
   errorText: { fontSize: 12, color: '#FF5A5A' },
 });
+}

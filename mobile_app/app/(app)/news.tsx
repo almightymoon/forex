@@ -9,11 +9,12 @@ import {
   Text,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { AppIcon } from '../../components/AppIcon';
+import { ExploreScreenHeader } from '../../components/explore/ExploreScreenHeader';
+import { createExploreChipStyles } from '../../components/explore/exploreStyles';
 import { NewsCard } from '../../components/NewsCard';
 import { GlassEmptyState } from '../../components/glass/GlassPressable';
-import { colors } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { apiFetch } from '../../utils/api';
 import { openNewsArticle } from '../../utils/openNews';
 import { NormalizedNews, dedupeByKey, normalizeList, normalizeNews } from '../../utils/normalize';
@@ -62,6 +63,9 @@ function groupArticles(items: NormalizedNews[]) {
 }
 
 export default function NewsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const exploreChipStyles = useMemo(() => createExploreChipStyles(colors), [colors]);
   const router = useRouter();
   const [articles, setArticles] = useState<NormalizedNews[]>([]);
   const [loading, setLoading] = useState(true);
@@ -96,20 +100,12 @@ export default function NewsScreen() {
 
   return (
     <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
-        <View style={styles.header}>
-          <Pressable style={styles.iconBtn} onPress={() => router.back()}>
-            <View style={styles.backIcon}>
-              <AppIcon name="chevron-right" size={20} color={colors.text} strokeWidth={2.2} />
-            </View>
-          </Pressable>
-          <View style={styles.titleBlock}>
-            <Text style={styles.pageTitle}>Market News</Text>
-            <Text style={styles.subtitle}>Live forex headlines</Text>
-          </View>
-          <View style={styles.iconBtnPlaceholder} />
-        </View>
-
+      <ExploreScreenHeader
+        showBack
+        eyebrow="Markets"
+        title="Market News"
+        subtitle="Headlines and analysis from top forex sources"
+      >
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
           {FILTERS.map((f) => {
             const active = filter === f.key;
@@ -117,25 +113,36 @@ export default function NewsScreen() {
             return (
               <Pressable
                 key={f.key}
-                style={[styles.chip, active && styles.chipActive]}
+                style={[exploreChipStyles.chip, active && exploreChipStyles.chipActive]}
                 onPress={() => setFilter(f.key)}
               >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>{f.label}</Text>
-                {count > 0 ? <Text style={[styles.chipCount, active && styles.chipCountActive]}>{count}</Text> : null}
+                <Text style={[exploreChipStyles.chipText, active && exploreChipStyles.chipTextActive]}>{f.label}</Text>
+                {count > 0 ? (
+                  <Text style={[exploreChipStyles.chipCount, active && exploreChipStyles.chipCountActive]}>{count}</Text>
+                ) : null}
               </Pressable>
             );
           })}
         </ScrollView>
-      </SafeAreaView>
+      </ExploreScreenHeader>
 
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchNews(true); }} tintColor={colors.cyan} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => {
+              setRefreshing(true);
+              fetchNews(true);
+            }}
+            tintColor={colors.black}
+          />
+        }
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
-          <ActivityIndicator color={colors.cyan} style={styles.loader} />
+          <ActivityIndicator color={colors.black} style={styles.loader} />
         ) : filtered.length === 0 ? (
           <GlassEmptyState
             title="No headlines right now"
@@ -144,7 +151,7 @@ export default function NewsScreen() {
         ) : (
           grouped.map((group) => (
             <View key={group.label} style={styles.section}>
-              <Text style={styles.sectionTitle}>{group.label}</Text>
+              <Text style={exploreChipStyles.sectionTitle}>{group.label}</Text>
               <View style={styles.list}>
                 {group.items.map((item, index) => (
                   <View key={`${group.label}-${item.id}-${index}`} style={index > 0 ? styles.itemGap : undefined}>
@@ -160,71 +167,15 @@ export default function NewsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: 'transparent' },
-  headerSafe: { backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 8,
-    gap: 10,
-  },
-  iconBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  iconBtnPlaceholder: { width: 40, height: 40 },
-  backIcon: { transform: [{ rotate: '180deg' }] },
-  titleBlock: { flex: 1, minWidth: 0 },
-  pageTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
-  subtitle: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
-  filters: { paddingHorizontal: 16, paddingBottom: 12, gap: 8 },
-  chip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
-  },
-  chipActive: {
-    backgroundColor: 'rgba(0,212,255,0.12)',
-    borderColor: 'rgba(0,212,255,0.35)',
-  },
-  chipText: { fontSize: 13, fontWeight: '600', color: colors.textMuted },
-  chipTextActive: { color: colors.cyan, fontWeight: '700' },
-  chipCount: { fontSize: 11, fontWeight: '800', color: colors.textDim },
-  chipCountActive: { color: colors.cyan },
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
+  filters: { gap: 8, paddingBottom: 4 },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingBottom: 40 },
+  content: { paddingHorizontal: 16, paddingBottom: 40, paddingTop: 8 },
   loader: { marginTop: 48 },
-  section: { marginBottom: 18 },
-  sectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.textMuted,
-    marginBottom: 10,
-    paddingHorizontal: 2,
-  },
+  section: { marginBottom: 20 },
   list: {},
-  itemGap: { marginTop: 10 },
-  empty: {
-    alignItems: 'center',
-    marginTop: 72,
-    paddingHorizontal: 32,
-    gap: 10,
-  },
-  emptyTitle: { fontSize: 18, fontWeight: '800', color: colors.textSecondary },
-  emptyText: { fontSize: 13, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
+  itemGap: { marginTop: 12 },
 });
+}

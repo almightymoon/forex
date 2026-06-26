@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import * as Clipboard from 'expo-clipboard';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -22,6 +24,7 @@ import { PaymentScreenshotPicker, ScreenshotAsset } from '../../components/Payme
 import { apiFetch, apiUpload } from '../../utils/api';
 import { getStoredUser } from '../../utils/auth';
 import { hapticSuccess } from '../../utils/haptics';
+import { primaryButtonGradient } from '../../utils/primaryButton';
 
 const WALLET_ADDRESS = 'TApaMK8BcN67GDRqVs45qnzbb4oQGt2Pna';
 
@@ -42,6 +45,9 @@ interface MonthlyFeeData {
 }
 
 export default function MonthlyFeeScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const homeGradientColors = useMemo(() => primaryButtonGradient(isDark), [isDark]);
   const router = useRouter();
   const [data, setData] = useState<MonthlyFeeData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -145,7 +151,7 @@ export default function MonthlyFeeScreen() {
       <SafeAreaView edges={['top']} style={glassScreenStyles.headerSafe}>
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Monthly Fee</Text>
           <View style={{ width: 40 }} />
@@ -154,11 +160,11 @@ export default function MonthlyFeeScreen() {
 
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         {loading ? (
-          <ActivityIndicator color="#3AADFF" style={{ marginTop: 60 }} />
+          <ActivityIndicator color={colors.black} style={{ marginTop: 60 }} />
         ) : (
           <>
             <LinearGradient
-              colors={isPaid ? ['rgba(74,222,128,0.2)', 'rgba(255,255,255,0.03)'] : ['rgba(255,90,90,0.18)', 'rgba(255,255,255,0.03)']}
+              colors={isPaid ? ['rgba(52,199,89,0.18)', colors.surface] : ['rgba(255,59,48,0.12)', colors.surface]}
               style={styles.statusCard}
             >
               <View style={[styles.statusIcon, { backgroundColor: isPaid ? 'rgba(74,222,128,0.2)' : 'rgba(255,90,90,0.15)' }]}>
@@ -186,7 +192,7 @@ export default function MonthlyFeeScreen() {
                     <Text style={styles.walletAddress} numberOfLines={1} ellipsizeMode="middle">
                       {WALLET_ADDRESS}
                     </Text>
-                    <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={18} color={copied ? '#4ADE80' : '#3AADFF'} />
+                    <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={18} color={copied ? '#4ADE80' : colors.brandBlue} />
                   </Pressable>
                   <Text style={styles.walletNote}>Tap to copy. Send exact amount via TRC20 network only.</Text>
                 </View>
@@ -218,8 +224,8 @@ export default function MonthlyFeeScreen() {
 
             {isPaid && (
               <Pressable style={styles.homeBtn} onPress={() => router.replace('/(app)/home')}>
-                <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.homeBtnGrad}>
-                  <Ionicons name="home-outline" size={18} color="#fff" />
+                <LinearGradient colors={homeGradientColors} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.homeBtnGrad}>
+                  <Ionicons name="home-outline" size={18} color={colors.primaryForeground} />
                   <Text style={styles.homeBtnText}>Back to Home</Text>
                 </LinearGradient>
               </Pressable>
@@ -231,29 +237,31 @@ export default function MonthlyFeeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 16 },
-  statusCard: { borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', padding: 24, alignItems: 'center', gap: 10, overflow: 'hidden' },
+  statusCard: { borderRadius: 20, borderWidth: 1, borderColor: colors.border, padding: 24, alignItems: 'center', gap: 10, overflow: 'hidden' },
   statusIcon: { width: 70, height: 70, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
-  statusTitle: { fontSize: 18, fontWeight: '800', color: '#fff', textAlign: 'center' },
-  statusAmount: { fontSize: 30, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
+  statusTitle: { fontSize: 18, fontWeight: '800', color: colors.text, textAlign: 'center' },
+  statusAmount: { fontSize: 30, fontWeight: '900', color: colors.text, letterSpacing: -0.5 },
   dueBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(255,90,90,0.15)', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 5 },
   dueText: { fontSize: 12.5, fontWeight: '700', color: '#FF5A5A' },
   section: { gap: 8 },
-  sectionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1, color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase' },
-  walletRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(58,173,255,0.3)', padding: 14, gap: 10 },
-  walletAddress: { flex: 1, fontSize: 13.5, color: '#3AADFF', fontWeight: '500' },
-  walletNote: { fontSize: 11.5, color: 'rgba(255,255,255,0.3)' },
+  sectionLabel: { fontSize: 11, fontWeight: '800', letterSpacing: 1, color: colors.textMuted, textTransform: 'uppercase' },
+  walletRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceHover, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: 14, gap: 10 },
+  walletAddress: { flex: 1, fontSize: 13.5, color: colors.text, fontWeight: '500' },
+  walletNote: { fontSize: 11.5, color: colors.textDim },
   formCard: { padding: 16, gap: 4 },
   alertBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,90,90,0.1)', borderRadius: 10, padding: 12, marginVertical: 4 },
   successBox: { backgroundColor: 'rgba(74,222,128,0.1)' },
   alertText: { flex: 1, fontSize: 13 },
   homeBtn: { borderRadius: 14, overflow: 'hidden' },
   homeBtnGrad: { height: 52, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  homeBtnText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  homeBtnText: { fontSize: 15, fontWeight: '800', color: colors.primaryForeground },
 });
+}

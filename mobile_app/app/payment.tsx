@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import * as Clipboard from 'expo-clipboard';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -29,6 +31,8 @@ function toast(msg: string) {
 }
 
 export default function PaymentScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const params = useLocalSearchParams<{ packageId: string; packageName: string; amount: string }>();
   const { packageName, amount } = params;
@@ -116,7 +120,7 @@ export default function PaymentScreen() {
                 <Text style={styles.walletAddress} numberOfLines={1} ellipsizeMode="middle">
                   {WALLET_ADDRESS}
                 </Text>
-                <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={18} color={copied ? '#4ADE80' : '#3AADFF'} />
+                <Ionicons name={copied ? 'checkmark' : 'copy-outline'} size={18} color={copied ? '#4ADE80' : colors.brandBlue} />
               </Pressable>
               <Text style={styles.walletNote}>Tap to copy. Send exact amount to this address.</Text>
             </View>
@@ -159,7 +163,7 @@ export default function PaymentScreen() {
             <GradientButton title="Submit Payment Proof" loading={loading} onPress={handleSubmit} />
 
             <View style={styles.notice}>
-              <Ionicons name="information-circle-outline" size={16} color="rgba(255,255,255,0.35)" />
+              <Ionicons name="information-circle-outline" size={16} color={colors.textMuted} />
               <Text style={styles.noticeText}>
                 Your payment will be reviewed within 24 hours. Do not send from an exchange that doesn't support TRC20.
               </Text>
@@ -171,7 +175,8 @@ export default function PaymentScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   safe: { flex: 1 },
   flex: { flex: 1 },
   content: {
@@ -186,13 +191,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     letterSpacing: -0.3,
     marginBottom: 6,
   },
   subtitle: {
     fontSize: 13.5,
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.textMuted,
     lineHeight: 20,
   },
   summaryCard: {
@@ -207,17 +212,17 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.textMuted,
   },
   summaryValue: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.text,
   },
   amountValue: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#3AADFF',
+    color: colors.brandBlue,
   },
   section: {
     marginBottom: 20,
@@ -225,14 +230,14 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: 12.5,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.textSecondary,
     marginBottom: 8,
     letterSpacing: 0.2,
   },
   walletRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surfaceHover,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: 'rgba(58,173,255,0.3)',
@@ -242,12 +247,12 @@ const styles = StyleSheet.create({
   walletAddress: {
     flex: 1,
     fontSize: 13.5,
-    color: '#3AADFF',
+    color: colors.brandBlue,
     fontWeight: '500',
   },
   walletNote: {
     fontSize: 11.5,
-    color: 'rgba(255,255,255,0.3)',
+    color: colors.textDim,
     marginTop: 6,
   },
   errorBox: {
@@ -275,7 +280,8 @@ const styles = StyleSheet.create({
   noticeText: {
     flex: 1,
     fontSize: 12,
-    color: 'rgba(255,255,255,0.3)',
+    color: colors.textDim,
     lineHeight: 18,
   },
 });
+}

@@ -1,4 +1,8 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { AppColors } from '../constants/theme';
+import { lightColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { AppIcon, type AppIconName } from './AppIcon';
 import { GlassCard } from './GlassCard';
 
@@ -9,7 +13,10 @@ type Props = {
   onPress?: () => void;
 };
 
-export function QuickAccessCard({ icon, label, color = '#3AADFF', onPress }: Props) {
+export function QuickAccessCard({ icon, label, color = lightColors.brandBlue, onPress }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <Pressable style={({ pressed }) => [styles.flex, pressed && styles.pressed]} onPress={onPress}>
       <GlassCard contentStyle={styles.cardInner} radius={16} style={styles.flex}>
@@ -22,7 +29,8 @@ export function QuickAccessCard({ icon, label, color = '#3AADFF', onPress }: Pro
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   cardInner: {
     paddingVertical: 16,
@@ -45,8 +53,9 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.65)',
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 14,
   },
 });
+}

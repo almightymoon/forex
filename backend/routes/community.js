@@ -6,6 +6,7 @@ const router = express.Router();
 const Channel = require('../models/Channel');
 const Message = require('../models/Message');
 const { authenticateToken, requireVerifiedPayment } = require('../middleware/auth');
+const { canModerateCommunity, canDeleteCommunityMessage } = require('../utils/communityPermissions');
 const { broadcastMessage, broadcastToAll } = require('../websocket');
 const { uploadImage } = require('../config/cloudinary');
 
@@ -350,11 +351,8 @@ router.delete('/messages/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Message not found' });
     }
 
-    // Users can delete their own messages
-    // Teachers and admins can delete any message
-    if (message.author.toString() !== req.user.id && 
-        req.user.role !== 'teacher' && 
-        req.user.role !== 'admin') {
+    // Users can delete their own messages; developers, admins, and teachers can delete any message
+    if (!canDeleteCommunityMessage(req.user, message.author)) {
       return res.status(403).json({ success: false, message: 'Cannot delete this message' });
     }
 
@@ -376,9 +374,8 @@ router.delete('/messages/:id', authenticateToken, async (req, res) => {
 // Purge all messages in a channel (admin/teacher only)
 router.delete('/channels/:id/purge', authenticateToken, async (req, res) => {
   try {
-    // Only admins and teachers can purge channels
-    if (req.user.role !== 'admin' && req.user.role !== 'teacher') {
-      return res.status(403).json({ success: false, message: 'Only admins and teachers can purge channels' });
+    if (!canModerateCommunity(req.user)) {
+      return res.status(403).json({ success: false, message: 'Only moderators can purge channels' });
     }
 
     const channel = await Channel.findById(req.params.id);
@@ -530,9 +527,8 @@ router.delete('/channels/:id', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Channel not found' });
     }
 
-    // Check if user is teacher or admin
-    if (req.user.role !== 'teacher' && req.user.role !== 'admin') {
-      return res.status(403).json({ success: false, message: 'Only teachers and admins can delete channels' });
+    if (!canModerateCommunity(req.user)) {
+      return res.status(403).json({ success: false, message: 'Only moderators can delete channels' });
     }
 
     const channelId = req.params.id;

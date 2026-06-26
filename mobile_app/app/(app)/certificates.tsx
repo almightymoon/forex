@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -17,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard } from '../../components/GlassCard';
 import { apiFetch } from '../../utils/api';
 import { resolveMediaUrl } from '../../utils/normalize';
+import { primaryButtonGradient } from '../../utils/primaryButton';
 
 interface Certificate {
   id: string;
@@ -37,6 +40,9 @@ function fmt(iso?: string) {
 }
 
 export default function CertificatesScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const accentGradient = useMemo(() => primaryButtonGradient(isDark), [isDark]);
   const router = useRouter();
   const [certs, setCerts] = useState<Certificate[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +66,7 @@ export default function CertificatesScreen() {
       <SafeAreaView edges={['top']} style={styles.headerSafe}>
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>My Certificates</Text>
           <View style={styles.countBadge}>
@@ -72,15 +78,15 @@ export default function CertificatesScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetch(); }} tintColor="#3AADFF" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetch(); }} tintColor={colors.black} />}
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
-          <ActivityIndicator color="#3AADFF" style={{ marginTop: 40 }} />
+          <ActivityIndicator color={colors.black} style={{ marginTop: 40 }} />
         ) : certs.length === 0 ? (
           <View style={styles.empty}>
             <View style={styles.emptyIcon}>
-              <Ionicons name="ribbon-outline" size={40} color="rgba(255,255,255,0.2)" />
+              <Ionicons name="ribbon-outline" size={40} color={colors.textMuted} />
             </View>
             <Text style={styles.emptyTitle}>No certificates yet</Text>
             <Text style={styles.emptyText}>
@@ -88,7 +94,7 @@ export default function CertificatesScreen() {
             </Text>
             <Pressable style={styles.emptyBtn} onPress={() => router.push('/(app)/courses')}>
               <Text style={styles.emptyBtnText}>Browse Courses</Text>
-              <Ionicons name="arrow-forward" size={14} color="#3AADFF" />
+              <Ionicons name="arrow-forward" size={14} color={colors.text} />
             </Pressable>
           </View>
         ) : (
@@ -98,7 +104,7 @@ export default function CertificatesScreen() {
             return (
               <GlassCard key={cert.id} contentStyle={styles.certCard} radius={20}>
                 {/* Top gradient strip */}
-                <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.certStrip} />
+                <LinearGradient colors={accentGradient} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.certStrip} />
 
                 <View style={styles.certBody}>
                   {/* Thumbnail */}
@@ -107,7 +113,7 @@ export default function CertificatesScreen() {
                       <Image source={{ uri: thumb }} style={styles.thumbImg} />
                     ) : (
                       <View style={styles.thumbPlaceholder}>
-                        <Ionicons name="school-outline" size={26} color="#3AADFF" />
+                        <Ionicons name="school-outline" size={26} color={colors.text} />
                       </View>
                     )}
                   </View>
@@ -115,7 +121,7 @@ export default function CertificatesScreen() {
                   {/* Info */}
                   <View style={styles.certInfo}>
                     <View style={styles.certBadge}>
-                      <Ionicons name="ribbon" size={12} color="#A78BFA" />
+                      <Ionicons name="ribbon" size={12} color={colors.brandPurple} />
                       <Text style={styles.certBadgeText}>CERTIFICATE</Text>
                     </View>
                     <Text style={styles.certTitle} numberOfLines={2}>{cert.courseTitle}</Text>
@@ -127,7 +133,7 @@ export default function CertificatesScreen() {
                     <View style={styles.certMeta}>
                       {cert.completionDate ? (
                         <View style={styles.certMetaItem}>
-                          <Ionicons name="calendar-outline" size={12} color="rgba(255,255,255,0.35)" />
+                          <Ionicons name="calendar-outline" size={12} color={colors.textMuted} />
                           <Text style={styles.certMetaText}>{fmt(cert.completionDate)}</Text>
                         </View>
                       ) : null}
@@ -143,7 +149,7 @@ export default function CertificatesScreen() {
                     <View style={styles.certActions}>
                       {certUrl ? (
                         <Pressable style={styles.downloadBtn} onPress={() => Linking.openURL(certUrl)}>
-                          <Ionicons name="download-outline" size={14} color="#fff" />
+                          <Ionicons name="download-outline" size={14} color={colors.primaryForeground} />
                           <Text style={styles.downloadText}>Download</Text>
                         </Pressable>
                       ) : null}
@@ -154,7 +160,7 @@ export default function CertificatesScreen() {
                           Linking.openURL(verifyUrl);
                         }}
                       >
-                        <Ionicons name="open-outline" size={13} color="#3AADFF" />
+                        <Ionicons name="open-outline" size={13} color={colors.text} />
                         <Text style={styles.viewBtnText}>Verify</Text>
                       </Pressable>
                     </View>
@@ -175,14 +181,15 @@ export default function CertificatesScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: { backgroundColor: 'transparent' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
   countBadge: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(167,139,250,0.15)', alignItems: 'center', justifyContent: 'center' },
-  countText: { fontSize: 15, fontWeight: '800', color: '#A78BFA' },
+  countText: { fontSize: 15, fontWeight: '800', color: colors.brandPurple },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 16 },
   certCard: { gap: 0 },
@@ -190,27 +197,28 @@ const styles = StyleSheet.create({
   certBody: { flexDirection: 'row', gap: 14, padding: 16 },
   thumbWrap: { width: 80, height: 80, borderRadius: 14, overflow: 'hidden', flexShrink: 0 },
   thumbImg: { width: '100%', height: '100%' },
-  thumbPlaceholder: { width: '100%', height: '100%', backgroundColor: 'rgba(0,96,230,0.2)', alignItems: 'center', justifyContent: 'center' },
+  thumbPlaceholder: { width: '100%', height: '100%', backgroundColor: colors.surfaceHover, alignItems: 'center', justifyContent: 'center' },
   certInfo: { flex: 1, gap: 6, minWidth: 0 },
   certBadge: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', backgroundColor: 'rgba(167,139,250,0.15)', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, borderWidth: 1, borderColor: 'rgba(167,139,250,0.3)' },
-  certBadgeText: { fontSize: 10, fontWeight: '800', color: '#A78BFA', letterSpacing: 0.5 },
-  certTitle: { fontSize: 14.5, fontWeight: '700', color: '#fff', lineHeight: 20 },
-  certInstructor: { fontSize: 12, color: 'rgba(255,255,255,0.45)', fontWeight: '500' },
+  certBadgeText: { fontSize: 10, fontWeight: '800', color: colors.brandPurple, letterSpacing: 0.5 },
+  certTitle: { fontSize: 14.5, fontWeight: '700', color: colors.text, lineHeight: 20 },
+  certInstructor: { fontSize: 12, color: colors.textMuted, fontWeight: '500' },
   certMeta: { gap: 4 },
   certMetaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  certMetaText: { fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: '500' },
+  certMetaText: { fontSize: 11, color: colors.textMuted, fontWeight: '500' },
   certActions: { flexDirection: 'row', gap: 8, marginTop: 4 },
-  downloadBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: 'rgba(0,96,230,0.3)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(58,173,255,0.35)' },
-  downloadText: { fontSize: 12, fontWeight: '700', color: '#fff' },
-  viewBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(58,173,255,0.3)', backgroundColor: 'rgba(58,173,255,0.08)' },
-  viewBtnText: { fontSize: 12, fontWeight: '700', color: '#3AADFF' },
-  certFooter: { borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)', paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  certIdLabel: { fontSize: 10, fontWeight: '700', color: 'rgba(255,255,255,0.3)', letterSpacing: 0.8, textTransform: 'uppercase' },
-  certId: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.5)', letterSpacing: 0.5 },
+  downloadBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: colors.primary, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: colors.primary },
+  downloadText: { fontSize: 12, fontWeight: '700', color: colors.primaryForeground },
+  viewBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: 1, borderColor: colors.border, backgroundColor: 'rgba(58,173,255,0.08)' },
+  viewBtnText: { fontSize: 12, fontWeight: '700', color: colors.text },
+  certFooter: { borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  certIdLabel: { fontSize: 10, fontWeight: '700', color: colors.textDim, letterSpacing: 0.8, textTransform: 'uppercase' },
+  certId: { fontSize: 11, fontWeight: '700', color: colors.textSecondary, letterSpacing: 0.5 },
   empty: { alignItems: 'center', marginTop: 60, gap: 14, paddingHorizontal: 24 },
   emptyIcon: { width: 80, height: 80, borderRadius: 24, backgroundColor: 'rgba(167,139,250,0.1)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(167,139,250,0.2)' },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.5)' },
-  emptyText: { fontSize: 13.5, color: 'rgba(255,255,255,0.3)', textAlign: 'center', lineHeight: 20 },
-  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, borderRadius: 20, paddingHorizontal: 18, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(58,173,255,0.35)', backgroundColor: 'rgba(0,96,230,0.12)' },
-  emptyBtnText: { fontSize: 14, fontWeight: '700', color: '#3AADFF' },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textSecondary },
+  emptyText: { fontSize: 13.5, color: colors.textDim, textAlign: 'center', lineHeight: 20 },
+  emptyBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 4, borderRadius: 20, paddingHorizontal: 18, paddingVertical: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceHover },
+  emptyBtnText: { fontSize: 14, fontWeight: '700', color: colors.text },
 });
+}

@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -17,6 +19,8 @@ import { ScreenBackground } from '../components/ScreenBackground';
 import { apiFetch } from '../utils/api';
 
 export default function ForgotPasswordScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [loading, setLoading] = useState(false);
@@ -52,11 +56,11 @@ export default function ForgotPasswordScreen() {
           <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
             {/* Back button */}
             <Pressable style={styles.back} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={22} color="#fff" />
+              <Ionicons name="arrow-back" size={22} color={colors.text} />
             </Pressable>
 
             <View style={styles.iconWrap}>
-              <Ionicons name="lock-open-outline" size={48} color="#3AADFF" />
+              <Ionicons name="lock-open-outline" size={48} color={colors.brandBlue} />
             </View>
 
             <Text style={styles.title}>Forgot Password?</Text>
@@ -98,7 +102,8 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   safe: { flex: 1 },
   flex: { flex: 1 },
   content: {
@@ -111,7 +116,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 32,
@@ -131,14 +136,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     textAlign: 'center',
     letterSpacing: -0.4,
     marginBottom: 10,
   },
   subtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.48)',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 21,
     marginBottom: 32,
@@ -168,6 +173,7 @@ const styles = StyleSheet.create({
   backToLoginText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#3AADFF',
+    color: colors.brandBlue,
   },
 });
+}

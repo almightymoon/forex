@@ -1,4 +1,7 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { AppIcon } from './AppIcon';
 import { GlassCard } from './GlassCard';
 
@@ -10,6 +13,9 @@ type Props = {
 };
 
 function formatDate(iso?: string) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (!iso) return '';
   try {
     return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -19,17 +25,20 @@ function formatDate(iso?: string) {
 }
 
 export function ActivityCard({ title, message, timestamp, onPress }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const inner = (
     <>
       <View style={styles.iconWrap}>
-        <AppIcon name="activity" size={19} color="#3AADFF" strokeWidth={2.2} />
+        <AppIcon name="activity" size={19} color={colors.brandBlue} strokeWidth={2.2} />
       </View>
       <View style={styles.content}>
         <Text style={styles.title}>{title}</Text>
         <Text style={styles.message} numberOfLines={2}>{message}</Text>
         {timestamp ? <Text style={styles.date}>{formatDate(timestamp)}</Text> : null}
       </View>
-      <AppIcon name="chevron-right" size={18} color="rgba(255,255,255,0.25)" strokeWidth={2} />
+      <AppIcon name="chevron-right" size={18} color={colors.textMuted} strokeWidth={2} />
     </>
   );
 
@@ -50,7 +59,8 @@ export function ActivityCard({ title, message, timestamp, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   cardInner: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -78,16 +88,17 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.text,
   },
   message: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.5)',
+    color: colors.textSecondary,
     lineHeight: 17,
   },
   date: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.3)',
+    color: colors.textDim,
     marginTop: 2,
   },
 });
+}

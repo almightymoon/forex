@@ -15,7 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppIcon, type AppIconName } from '../../components/AppIcon';
 import { ScreenError } from '../../components/ScreenError';
 import { GlassListCard } from '../../components/glass/GlassListCard';
-import { colors } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { apiFetch } from '../../utils/api';
 
 interface Notification {
@@ -50,7 +51,8 @@ const LEARNING_TYPES = new Set([
 ]);
 const SYSTEM_TYPES = new Set(['system', 'payment', 'referral', 'rank_reward_unlocked', 'security', 'commission', 'message']);
 
-const TYPE_META: Record<string, { icon: AppIconName; color: string; bg: string }> = {
+function typeMeta(colors: AppColors): Record<string, { icon: AppIconName; color: string; bg: string }> {
+  return {
   course: { icon: 'book-open', color: colors.blue, bg: 'rgba(58,173,255,0.12)' },
   course_enrollment: { icon: 'book-open', color: colors.blue, bg: 'rgba(58,173,255,0.12)' },
   lesson_complete: { icon: 'graduation-cap', color: colors.cyan, bg: 'rgba(0,212,255,0.12)' },
@@ -58,16 +60,17 @@ const TYPE_META: Record<string, { icon: AppIconName; color: string; bg: string }
   signal: { icon: 'candlestick', color: colors.success, bg: 'rgba(52,211,153,0.12)' },
   trading_signal: { icon: 'candlestick', color: colors.success, bg: 'rgba(52,211,153,0.12)' },
   payment: { icon: 'wallet', color: colors.gold, bg: 'rgba(255,193,7,0.12)' },
-  session: { icon: 'video', color: '#A78BFA', bg: 'rgba(167,139,250,0.12)' },
-  live_session: { icon: 'video', color: '#A78BFA', bg: 'rgba(167,139,250,0.12)' },
+  session: { icon: 'video', color: colors.brandPurple, bg: 'rgba(167,139,250,0.12)' },
+  live_session: { icon: 'video', color: colors.brandPurple, bg: 'rgba(167,139,250,0.12)' },
   referral: { icon: 'share', color: colors.gold, bg: 'rgba(255,193,7,0.12)' },
   rank_reward_unlocked: { icon: 'trophy', color: '#F59E0B', bg: 'rgba(245,158,11,0.12)' },
   certificate: { icon: 'award', color: '#E879F9', bg: 'rgba(232,121,249,0.12)' },
   security: { icon: 'info', color: colors.sell, bg: 'rgba(255,107,107,0.12)' },
   commission: { icon: 'wallet', color: colors.gold, bg: 'rgba(255,193,7,0.12)' },
   message: { icon: 'community', color: colors.cyan, bg: 'rgba(0,212,255,0.12)' },
-  system: { icon: 'info', color: colors.textMuted, bg: 'rgba(255,255,255,0.06)' },
-};
+  system: { icon: 'info', color: colors.textMuted, bg: colors.surfaceHover },
+  };
+}
 
 function toast(msg: string) {
   if (Platform.OS === 'android') ToastAndroid.show(msg, ToastAndroid.SHORT);
@@ -151,6 +154,8 @@ function groupNotifications(items: Notification[]) {
 }
 
 export default function NotificationsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -320,7 +325,7 @@ export default function NotificationsScreen() {
 
               <GlassListCard contentStyle={styles.listCard}>
                 {group.items.map((n, index) => {
-                  const meta = TYPE_META[n.type ?? 'system'] ?? TYPE_META.system;
+                  const meta = typeMeta(colors)[n.type ?? 'system'] ?? typeMeta(colors).system;
                   const isLast = index === group.items.length - 1;
 
                   return (
@@ -368,7 +373,8 @@ export default function NotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: { backgroundColor: 'transparent' },
   header: {
@@ -385,7 +391,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surfaceHover,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -430,9 +436,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surfaceHover,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: colors.border,
   },
   chipActive: {
     backgroundColor: 'rgba(0,212,255,0.12)',
@@ -454,7 +460,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.surface,
   },
   chipBadgeActive: {
     backgroundColor: 'rgba(0,212,255,0.18)',
@@ -502,11 +508,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 212, 255, 0.04)',
   },
   rowPressed: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surfaceHover,
   },
   rowDivider: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: colors.border,
   },
   rowIcon: {
     width: 38,
@@ -531,7 +537,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.72)',
+    color: colors.textSilver,
   },
   rowTitleUnread: {
     color: colors.text,
@@ -573,7 +579,7 @@ const styles = StyleSheet.create({
     borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surfaceHover,
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: 6,
@@ -590,3 +596,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+}

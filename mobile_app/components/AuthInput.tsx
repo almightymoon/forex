@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Pressable,
   StyleSheet,
@@ -8,6 +8,8 @@ import {
   View,
   type TextInputProps,
 } from 'react-native';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
@@ -32,6 +34,9 @@ export function AuthInput({
   onBlur,
   ...props
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [focused, setFocused] = useState(false);
 
   return (
@@ -40,11 +45,11 @@ export function AuthInput({
       <View style={[styles.inputShell, focused && styles.inputShellFocused, error && styles.inputShellError]}>
         <View style={[styles.inputRow, rightIcon ? styles.inputRowWithRightIcon : null]}>
           {icon ? (
-            <Ionicons name={icon} size={17} color="rgba(255,255,255,0.35)" style={styles.leftIcon} />
+            <Ionicons name={icon} size={17} color={colors.textMuted} style={styles.leftIcon} />
           ) : null}
           {leftPrefix ?? null}
           <TextInput
-            placeholderTextColor="rgba(255,255,255,0.32)"
+            placeholderTextColor={colors.textDim}
             style={[styles.input, style]}
             onFocus={(e) => {
               setFocused(true);
@@ -58,7 +63,7 @@ export function AuthInput({
           />
           {rightIcon ? (
             <Pressable onPress={onRightIconPress} hitSlop={12} style={styles.rightIcon}>
-              <Ionicons name={rightIcon} size={19} color="rgba(255,255,255,0.4)" />
+              <Ionicons name={rightIcon} size={19} color={colors.textMuted} />
             </Pressable>
           ) : null}
         </View>
@@ -68,29 +73,30 @@ export function AuthInput({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   wrapper: {
     marginBottom: 14,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
     marginBottom: 8,
   },
   inputShell: {
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
-    backgroundColor: 'rgba(0,0,0,0.18)',
+    borderColor: colors.border,
+    backgroundColor: '#F9F9F9',
   },
   inputShellFocused: {
-    borderColor: 'rgba(3,111,252,0.55)',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.text,
+    backgroundColor: colors.surface,
   },
   inputShellError: {
-    borderColor: '#F87171',
+    borderColor: colors.error,
   },
   inputRow: {
     flexDirection: 'row',
@@ -107,7 +113,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: '#FFFFFF',
+    color: colors.text,
     paddingVertical: 0,
   },
   rightIcon: {
@@ -120,6 +126,7 @@ const styles = StyleSheet.create({
   error: {
     marginTop: 6,
     fontSize: 12,
-    color: '#F87171',
+    color: colors.error,
   },
 });
+}

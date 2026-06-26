@@ -1,5 +1,7 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useEffect, useState, useMemo } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { GlassCard } from '../../components/GlassCard';
@@ -15,6 +17,8 @@ type MenuSection = {
 };
 
 export default function MoreScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
 
@@ -30,133 +34,121 @@ export default function MoreScreen() {
   };
 
   const quickAccess: QuickAccessItem[] = [
-      { icon: 'video', label: 'Live Sessions', color: '#A78BFA', onPress: () => push('/(app)/live-sessions') },
-      { icon: 'file-text', label: 'Market News', color: '#00D4FF', onPress: () => push('/(app)/news') },
-      { icon: 'live-charts', label: 'Live Charts', color: '#F59E0B', onPress: () => push('/(app)/trading-view') },
-      { icon: 'bar-chart', label: 'MT5 Account', color: '#4ADE80', onPress: () => push('/(app)/mt5') },
-      { icon: 'candlestick', label: 'Signals', color: '#3AADFF', onPress: () => push('/(app)/signals') },
-      { icon: 'users', label: 'Community', color: '#A78BFA', onPress: () => push('/(app)/community') },
+    { icon: 'courses', label: 'Courses', onPress: () => push('/(app)/courses') },
+    { icon: 'file-text', label: 'Market News', onPress: () => push('/(app)/news') },
+    { icon: 'candlestick', label: 'Signals', onPress: () => push('/(app)/signals') },
+    { icon: 'users', label: 'Community', onPress: () => push('/(app)/community') },
   ];
 
   const sections: MenuSection[] = [
-      {
-        title: 'Account',
-        items: [
-          {
-            icon: 'notifications',
-            label: 'Notifications',
-            subtitle: 'Alerts, signals and updates',
-            onPress: () => push('/(app)/notifications'),
-          },
-          {
-            icon: 'settings',
-            label: 'Settings',
-            subtitle: 'Security, password and appearance',
-            onPress: () => push('/(app)/settings'),
-          },
-          {
-            icon: 'layers',
-            label: 'Subscription',
-            subtitle: 'Plan, billing and upgrades',
-            color: '#3AADFF',
-            onPress: () => push('/(app)/subscription'),
-          },
-        ],
-      },
-      {
-        title: 'Learning',
-        items: [
-          {
-            icon: 'book-open',
-            label: 'All Courses',
-            subtitle: 'Browse and continue learning',
-            onPress: () => push('/(app)/courses'),
-          },
-          {
-            icon: 'bar-chart',
-            label: 'My Progress',
-            subtitle: 'Track completion and stats',
-            color: '#E879F9',
-            onPress: () => push('/(app)/progress'),
-          },
-          {
-            icon: 'clipboard',
-            label: 'Assignments',
-            subtitle: 'Submit and review tasks',
-            color: '#22D3EE',
-            onPress: () => push('/(app)/assignments'),
-          },
-          {
-            icon: 'award',
-            label: 'Certificates',
-            subtitle: 'Download your credentials',
-            color: '#E879F9',
-            onPress: () => push('/(app)/certificates'),
-          },
-          {
-            icon: 'graduation-cap',
-            label: 'Certificate Tasks',
-            subtitle: 'Complete tasks to earn certificates',
-            color: '#A78BFA',
-            onPress: () => push('/(app)/certificate-assignments'),
-          },
-        ],
-      },
-      {
-        title: 'Rewards & payouts',
-        items: [
-          {
-            icon: 'share',
-            label: 'Referrals',
-            subtitle: 'Invite friends and earn',
-            color: '#FFC107',
-            onPress: () => push('/(app)/referrals'),
-          },
-          {
-            icon: 'trophy',
-            label: 'Rank Rewards',
-            subtitle: 'Unlock milestone bonuses',
-            color: '#F59E0B',
-            onPress: () => push('/(app)/rank-rewards'),
-          },
-          {
-            icon: 'wallet',
-            label: 'Withdrawals',
-            subtitle: 'Request USDT payouts',
-            color: '#4ADE80',
-            onPress: () => push('/(app)/withdrawals'),
-          },
-        ],
-      },
-      {
-        title: 'Help & legal',
-        items: [
-          {
-            icon: 'help',
-            label: 'FAQ',
-            subtitle: 'Common questions answered',
-            color: '#3AADFF',
-            onPress: () => push('/(app)/faq'),
-          },
-          {
-            icon: 'headphones',
-            label: 'Contact Support',
-            subtitle: 'Get help from our team',
-            color: '#22D3EE',
-            onPress: () => push('/(app)/support'),
-          },
-          {
-            icon: 'info',
-            label: 'About FX Navigators',
-            onPress: () => push('/(app)/about'),
-          },
-          {
-            icon: 'file-text',
-            label: 'Terms of Service',
-            onPress: () => push('/(app)/terms'),
-          },
-        ],
-      },
+    {
+      title: 'Account',
+      items: [
+        {
+          icon: 'notifications',
+          label: 'Notifications',
+          subtitle: 'Alerts, signals and updates',
+          onPress: () => push('/(app)/notifications'),
+        },
+        {
+          icon: 'settings',
+          label: 'Settings',
+          subtitle: 'Security, password and appearance',
+          onPress: () => push('/(app)/settings'),
+        },
+        {
+          icon: 'layers',
+          label: 'Subscription',
+          subtitle: 'Plan, billing and upgrades',
+          onPress: () => push('/(app)/subscription'),
+        },
+      ],
+    },
+    {
+      title: 'Learning',
+      items: [
+        {
+          icon: 'book-open',
+          label: 'All Courses',
+          subtitle: 'Browse and continue learning',
+          onPress: () => push('/(app)/courses'),
+        },
+        {
+          icon: 'bar-chart',
+          label: 'My Progress',
+          subtitle: 'Track completion and stats',
+          onPress: () => push('/(app)/progress'),
+        },
+        {
+          icon: 'clipboard',
+          label: 'Assignments',
+          subtitle: 'Submit and review tasks',
+          onPress: () => push('/(app)/assignments'),
+        },
+        {
+          icon: 'award',
+          label: 'Certificates',
+          subtitle: 'Download your credentials',
+          onPress: () => push('/(app)/certificates'),
+        },
+        {
+          icon: 'graduation-cap',
+          label: 'Certificate Tasks',
+          subtitle: 'Complete tasks to earn certificates',
+          onPress: () => push('/(app)/certificate-assignments'),
+        },
+      ],
+    },
+    {
+      title: 'Rewards & payouts',
+      items: [
+        {
+          icon: 'share',
+          label: 'Referrals',
+          subtitle: 'Invite friends and earn',
+          onPress: () => push('/(app)/referrals'),
+        },
+        {
+          icon: 'trophy',
+          label: 'Rank Rewards',
+          subtitle: 'Unlock milestone bonuses',
+          onPress: () => push('/(app)/rank-rewards'),
+        },
+        {
+          icon: 'wallet',
+          label: 'Withdrawals',
+          subtitle: 'Request USDT payouts',
+          onPress: () => push('/(app)/withdrawals'),
+        },
+      ],
+    },
+    {
+      title: 'Help & legal',
+      items: [
+        {
+          icon: 'help',
+          label: 'FAQ',
+          subtitle: 'Common questions answered',
+          onPress: () => push('/(app)/faq'),
+        },
+        {
+          icon: 'headphones',
+          label: 'Contact Support',
+          subtitle: 'Get help from our team',
+          onPress: () => push('/(app)/support'),
+        },
+        {
+          icon: 'info',
+          label: 'About FX Navigators',
+          onPress: () => push('/(app)/about'),
+        },
+        {
+          icon: 'file-text',
+          label: 'Terms of Service',
+          onPress: () => push('/(app)/terms'),
+        },
+      ],
+    },
   ];
 
   return (
@@ -207,12 +199,13 @@ export default function MoreScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: {
     backgroundColor: 'transparent',
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: colors.border,
   },
   header: {
     paddingHorizontal: 20,
@@ -223,23 +216,24 @@ const styles = StyleSheet.create({
   pageTitle: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     letterSpacing: -0.4,
   },
   pageSubtitle: {
     fontSize: 13,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.42)',
+    color: colors.textMuted,
   },
   scroll: { flex: 1 },
-  content: { padding: 18, paddingBottom: 48, gap: 18 },
+  content: { padding: 16, paddingBottom: 48, gap: 16 },
   signOutWrap: { gap: 12, marginTop: 4 },
   signOutCard: { padding: 0 },
   versionHint: {
     fontSize: 11,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.22)',
+    color: colors.textDim,
     textAlign: 'center',
     letterSpacing: 0.3,
   },
 });
+}

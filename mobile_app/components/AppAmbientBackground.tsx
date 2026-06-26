@@ -1,8 +1,14 @@
+import { useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { StyleSheet, View, useWindowDimensions } from 'react-native';
 
 /** Dark base with soft blue/indigo bokeh — blurs nicely under GlassCard */
 export function AppAmbientBackground() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const { width, height } = useWindowDimensions();
 
   return (
@@ -74,17 +80,19 @@ export function AppAmbientBackground() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   root: {
     ...StyleSheet.absoluteFillObject,
     overflow: 'hidden',
   },
   base: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#040818',
+    backgroundColor: colors.background,
   },
   orb: {
     position: 'absolute',
     borderRadius: 9999,
   },
 });
+}

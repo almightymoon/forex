@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -43,6 +44,9 @@ interface Position {
 }
 
 export default function MT5Screen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const stat = useMemo(() => createStatStyles(colors), [colors]);
   const router = useRouter();
   const [account, setAccount] = useState<MT5Account | null>(null);
   const [positions, setPositions] = useState<Position[]>([]);
@@ -116,11 +120,11 @@ export default function MT5Screen() {
       <SafeAreaView edges={['top']} style={styles.headerSafe}>
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>MT5 Trading</Text>
           <Pressable style={styles.refreshBtn} onPress={() => { setRefreshing(true); fetchData(); }}>
-            <Ionicons name="refresh-outline" size={18} color="#3AADFF" />
+            <Ionicons name="refresh-outline" size={18} color={colors.text} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -128,14 +132,14 @@ export default function MT5Screen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#3AADFF" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={colors.black} />}
       >
         {loading ? (
-          <ActivityIndicator color="#3AADFF" style={{ marginTop: 60 }} />
+          <ActivityIndicator color={colors.black} style={{ marginTop: 60 }} />
         ) : showConnect || !account ? (
           <GlassListCard contentStyle={styles.connectCard}>
             <View style={styles.connectIcon}>
-              <Ionicons name="link-outline" size={36} color="#3AADFF" />
+              <Ionicons name="link-outline" size={36} color={colors.text} />
             </View>
             <Text style={styles.connectTitle}>Connect MT5 Account</Text>
             <Text style={styles.connectSub}>Link your MetaTrader 5 account to view balance, equity, and open positions.</Text>
@@ -147,7 +151,7 @@ export default function MT5Screen() {
           </GlassListCard>
         ) : (
           <>
-            <LinearGradient colors={['rgba(0,96,230,0.3)', 'rgba(255,255,255,0.03)']} style={styles.accountCard}>
+            <View style={styles.accountCard}>
               <View style={styles.accountHeader}>
                 <View>
                   <Text style={styles.accountLabel}>MT5 Account</Text>
@@ -172,12 +176,12 @@ export default function MT5Screen() {
                   Floating P/L: {fmt(account.profit)}
                 </Text>
               ) : null}
-            </LinearGradient>
+            </View>
 
             <Text style={styles.sectionTitle}>Open Positions ({positions.length})</Text>
             {positions.length === 0 ? (
               <GlassListCard contentStyle={styles.emptyPos}>
-                <Ionicons name="analytics-outline" size={32} color="rgba(255,255,255,0.15)" />
+                <Ionicons name="analytics-outline" size={32} color={colors.textMuted} />
                 <Text style={styles.emptyPosText}>No open positions</Text>
               </GlassListCard>
             ) : (
@@ -204,7 +208,7 @@ export default function MT5Screen() {
               style={styles.reconnectBtn}
               onPress={() => { setShowConnect(true); setAccount(null); }}
             >
-              <Ionicons name="swap-horizontal-outline" size={16} color="#3AADFF" />
+              <Ionicons name="swap-horizontal-outline" size={16} color={colors.text} />
               <Text style={styles.reconnectText}>Reconnect different account</Text>
             </Pressable>
           </>
@@ -215,6 +219,8 @@ export default function MT5Screen() {
 }
 
 function StatBox({ label, value }: { label: string; value: string }) {
+  const { colors } = useTheme();
+  const stat = useMemo(() => createStatStyles(colors), [colors]);
   return (
     <View style={stat.box}>
       <Text style={stat.label}>{label}</Text>
@@ -223,48 +229,52 @@ function StatBox({ label, value }: { label: string; value: string }) {
   );
 }
 
-const stat = StyleSheet.create({
-  box: { flex: 1, minWidth: '45%', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 10, padding: 10, gap: 2 },
-  label: { fontSize: 10.5, color: 'rgba(255,255,255,0.4)', fontWeight: '600' },
-  value: { fontSize: 15, fontWeight: '800', color: '#fff' },
+function createStatStyles(colors: AppColors) {
+  return StyleSheet.create({
+  box: { flex: 1, minWidth: '45%', backgroundColor: colors.surfaceHover, borderRadius: 10, padding: 10, gap: 2 },
+  label: { fontSize: 10.5, color: colors.textMuted, fontWeight: '600' },
+  value: { fontSize: 15, fontWeight: '800', color: colors.text },
 });
+}
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: { backgroundColor: 'transparent' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
-  refreshBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(0,96,230,0.15)', alignItems: 'center', justifyContent: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
+  refreshBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: colors.surfaceHover, alignItems: 'center', justifyContent: 'center' },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 14 },
   connectCard: { padding: 20, gap: 4, alignItems: 'stretch' },
-  connectIcon: { width: 70, height: 70, borderRadius: 20, backgroundColor: 'rgba(0,96,230,0.15)', alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 8 },
-  connectTitle: { fontSize: 20, fontWeight: '800', color: '#fff', textAlign: 'center' },
-  connectSub: { fontSize: 13.5, color: 'rgba(255,255,255,0.5)', textAlign: 'center', lineHeight: 20, marginBottom: 12 },
+  connectIcon: { width: 70, height: 70, borderRadius: 20, backgroundColor: colors.surfaceHover, alignItems: 'center', justifyContent: 'center', alignSelf: 'center', marginBottom: 8 },
+  connectTitle: { fontSize: 20, fontWeight: '800', color: colors.text, textAlign: 'center' },
+  connectSub: { fontSize: 13.5, color: colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 12 },
   error: { fontSize: 13, color: '#FF5A5A', marginBottom: 8 },
-  accountCard: { borderRadius: 20, borderWidth: 1, borderColor: 'rgba(58,173,255,0.2)', padding: 18, gap: 14 },
+  accountCard: { borderRadius: 20, borderWidth: 1, borderColor: colors.border, padding: 18, gap: 14, backgroundColor: colors.surface },
   accountHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-  accountLabel: { fontSize: 11, fontWeight: '700', color: 'rgba(255,255,255,0.4)', letterSpacing: 0.8, textTransform: 'uppercase' },
-  accountLogin: { fontSize: 22, fontWeight: '900', color: '#fff' },
-  accountServer: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)' },
+  accountLabel: { fontSize: 11, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.8, textTransform: 'uppercase' },
+  accountLogin: { fontSize: 22, fontWeight: '900', color: colors.text },
+  accountServer: { fontSize: 12.5, color: colors.textMuted },
   verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(74,222,128,0.15)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   verifiedText: { fontSize: 11, fontWeight: '700', color: '#4ADE80' },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   profitText: { fontSize: 15, fontWeight: '800', textAlign: 'center' },
   profitUp: { color: '#4ADE80' },
   profitDown: { color: '#FF5A5A' },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: colors.text },
   emptyPos: { alignItems: 'center', padding: 24, gap: 8 },
-  emptyPosText: { fontSize: 13.5, color: 'rgba(255,255,255,0.35)' },
+  emptyPosText: { fontSize: 13.5, color: colors.textDim },
   posCard: { padding: 14, gap: 8 },
   posHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  posSymbol: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  posSymbol: { fontSize: 15, fontWeight: '800', color: colors.text },
   posType: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 },
   posTypeText: { fontSize: 11, fontWeight: '700' },
   posMeta: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  posMetaText: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)' },
+  posMetaText: { fontSize: 12.5, color: colors.textMuted },
   posProfit: { marginLeft: 'auto', fontSize: 14, fontWeight: '800' },
   reconnectBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, padding: 14 },
-  reconnectText: { fontSize: 13.5, fontWeight: '600', color: '#3AADFF' },
+  reconnectText: { fontSize: 13.5, fontWeight: '600', color: colors.text },
 });
+}

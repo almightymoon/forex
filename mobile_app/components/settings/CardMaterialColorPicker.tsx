@@ -1,4 +1,7 @@
+import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import {
@@ -28,6 +31,9 @@ export function CardMaterialColorPicker({
   onSelect,
   onOpenCustom,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const isCustom = !isPresetCardMaterialColor(color);
 
   return (
@@ -88,13 +94,14 @@ export function CardMaterialColorPicker({
           <Text style={styles.customRowTitle}>{customTitle}</Text>
           <Text style={styles.customHex}>{color.toUpperCase()}</Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.35)" />
+        <Ionicons name="chevron-forward" size={18} color={colors.textMuted} />
       </Pressable>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   wrap: {
     paddingTop: 10,
     paddingBottom: 4,
@@ -103,14 +110,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.38)',
+    color: colors.textDim,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     paddingHorizontal: 14,
   },
   hint: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.4)',
+    color: colors.textMuted,
     lineHeight: 17,
     paddingHorizontal: 14,
     paddingBottom: 4,
@@ -122,7 +129,7 @@ const styles = StyleSheet.create({
   groupLabel: {
     fontSize: 10,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.32)',
+    color: colors.textDim,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
     paddingHorizontal: 14,
@@ -139,7 +146,7 @@ const styles = StyleSheet.create({
     height: 36,
     borderRadius: 18,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: colors.border,
   },
   swatchActive: {
     borderColor: '#3AADFF',
@@ -173,16 +180,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 12,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surfaceHover,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.border,
   },
   customPreview: {
     width: 36,
     height: 36,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: colors.border,
   },
   customCopy: {
     flex: 1,
@@ -191,12 +198,13 @@ const styles = StyleSheet.create({
   customRowTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#fff',
+    color: colors.text,
   },
   customHex: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.4)',
+    color: colors.textMuted,
     letterSpacing: 0.5,
   },
 });
+}

@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenBackground } from '../components/ScreenBackground';
@@ -12,6 +14,9 @@ import { clearAuth, resolvePostLoginRoute } from '../utils/auth';
 const POLL_INTERVAL_MS = 12000; // check every 12 seconds
 
 export default function PaymentPendingScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const stepStyles = useMemo(() => createStepStyles(colors), [colors]);
   const router = useRouter();
   const pulse = useRef(new Animated.Value(1)).current;
   const [checking, setChecking] = useState(false);
@@ -68,7 +73,7 @@ export default function PaymentPendingScreen() {
               colors={['rgba(0,96,230,0.25)', 'rgba(58,173,255,0.15)']}
               style={styles.iconGradient}
             >
-              <Ionicons name="time-outline" size={52} color="#3AADFF" />
+              <Ionicons name="time-outline" size={52} color={colors.brandBlue} />
             </LinearGradient>
           </Animated.View>
 
@@ -81,9 +86,9 @@ export default function PaymentPendingScreen() {
           <GlassListCard contentStyle={styles.stepsCard}>
             <Step icon="checkmark-circle" color="#4ADE80" label="Payment proof submitted" done />
             <View style={styles.stepDivider} />
-            <Step icon="time-outline" color="#3AADFF" label="Admin review in progress" active />
+            <Step icon="time-outline" color={colors.brandBlue} label="Admin review in progress" active />
             <View style={styles.stepDivider} />
-            <Step icon="lock-closed-outline" color="rgba(255,255,255,0.25)" label="Account activation" />
+            <Step icon="lock-closed-outline" color={colors.textMuted} label="Account activation" />
           </GlassListCard>
 
           <Text style={styles.note}>
@@ -93,7 +98,7 @@ export default function PaymentPendingScreen() {
           <View style={styles.checkingRow}>
             {checking ? (
               <>
-                <Ionicons name="sync-outline" size={14} color="#3AADFF" />
+                <Ionicons name="sync-outline" size={14} color={colors.brandBlue} />
                 <Text style={styles.checkingText}>Checking approval status…</Text>
               </>
             ) : lastChecked ? (
@@ -106,7 +111,7 @@ export default function PaymentPendingScreen() {
           </View>
 
           <Pressable style={styles.logoutBtn} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={18} color="rgba(255,255,255,0.4)" />
+            <Ionicons name="log-out-outline" size={18} color={colors.textMuted} />
             <Text style={styles.logoutText}>Sign out</Text>
           </Pressable>
         </View>
@@ -121,7 +126,9 @@ function Step({ icon, color, label, done, active }: {
   label: string;
   done?: boolean;
   active?: boolean;
-}) {
+}) {  const { colors } = useTheme();
+  const stepStyles = useMemo(() => createStepStyles(colors), [colors]);
+
   return (
     <View style={stepStyles.row}>
       <Ionicons name={icon} size={22} color={color} />
@@ -132,14 +139,17 @@ function Step({ icon, color, label, done, active }: {
   );
 }
 
-const stepStyles = StyleSheet.create({
+function createStepStyles(colors: AppColors) {
+  return StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  label: { fontSize: 14, color: 'rgba(255,255,255,0.3)', flex: 1 },
+  label: { fontSize: 14, color: colors.textDim, flex: 1 },
   done: { color: '#4ADE80' },
-  active: { color: '#fff', fontWeight: '600' },
+  active: { color: colors.text, fontWeight: '600' },
 });
+}
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   safe: { flex: 1 },
   container: {
     flex: 1,
@@ -162,14 +172,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     textAlign: 'center',
     letterSpacing: -0.3,
     marginBottom: 12,
   },
   subtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.48)',
+    color: colors.textMuted,
     textAlign: 'center',
     lineHeight: 21,
     marginBottom: 32,
@@ -182,12 +192,12 @@ const styles = StyleSheet.create({
   },
   stepDivider: {
     height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceHover,
     marginLeft: 34,
   },
   note: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.35)',
+    color: colors.textDim,
     textAlign: 'center',
     lineHeight: 19,
     marginBottom: 16,
@@ -203,7 +213,7 @@ const styles = StyleSheet.create({
   },
   checkingText: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.35)',
+    color: colors.textDim,
     textAlign: 'center',
   },
   logoutBtn: {
@@ -213,7 +223,8 @@ const styles = StyleSheet.create({
   },
   logoutText: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.4)',
+    color: colors.textMuted,
     fontWeight: '500',
   },
 });
+}

@@ -1,10 +1,16 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 type Props = {
   compact?: boolean;
 };
 
 export function AuthWordmark({ compact = false }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={compact ? styles.wrapCompact : styles.wrap}>
       <Text style={compact ? styles.textCompact : styles.text}>
@@ -14,7 +20,8 @@ export function AuthWordmark({ compact = false }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   wrap: {
     marginBottom: 28,
   },
@@ -24,13 +31,13 @@ const styles = StyleSheet.create({
   text: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.5,
   },
   textCompact: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.4,
   },
   fx: {
@@ -38,3 +45,4 @@ const styles = StyleSheet.create({
     fontWeight: '900',
   },
 });
+}

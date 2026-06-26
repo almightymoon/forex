@@ -1,10 +1,14 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { AppIcon, type AppIconName } from '../AppIcon';
 
 export type MenuRowItem = {
   icon: AppIconName;
   label: string;
   subtitle?: string;
+  /** @deprecated ignored — menu uses unified monochrome icons */
   color?: string;
   destructive?: boolean;
   onPress: () => void;
@@ -15,28 +19,37 @@ type Props = {
 };
 
 export function MenuRow({ item }: Props) {
-  const accent = item.destructive ? '#FF5A5A' : (item.color ?? '#3AADFF');
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const destructive = item.destructive === true;
 
   return (
     <Pressable
       style={({ pressed }) => [styles.row, pressed && styles.pressed]}
       onPress={item.onPress}
     >
-      <View style={[styles.iconWrap, { backgroundColor: `${accent}14` }]}>
-        <AppIcon name={item.icon} size={18} color={accent} strokeWidth={2.1} />
+      <View style={[styles.iconWrap, destructive && styles.iconWrapDestructive]}>
+        <AppIcon
+          name={item.icon}
+          size={18}
+          color={destructive ? colors.error : colors.text}
+          strokeWidth={2.1}
+        />
       </View>
       <View style={styles.copy}>
-        <Text style={[styles.label, item.destructive && styles.destructiveLabel]}>{item.label}</Text>
+        <Text style={[styles.label, destructive && styles.destructiveLabel]}>{item.label}</Text>
         {item.subtitle ? <Text style={styles.subtitle} numberOfLines={1}>{item.subtitle}</Text> : null}
       </View>
-      {!item.destructive ? (
-        <AppIcon name="chevron-right" size={16} color="rgba(255,255,255,0.22)" strokeWidth={2} />
+      {!destructive ? (
+        <AppIcon name="chevron-right" size={16} color={colors.textMuted} strokeWidth={2} />
       ) : null}
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -44,7 +57,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     gap: 12,
   },
-  pressed: { backgroundColor: 'rgba(255,255,255,0.04)' },
+  pressed: { backgroundColor: colors.surfaceHover },
   iconWrap: {
     width: 36,
     height: 36,
@@ -52,9 +65,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
+    backgroundColor: colors.surfaceHover,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  iconWrapDestructive: {
+    backgroundColor: 'rgba(255,59,48,0.08)',
+    borderColor: 'rgba(255,59,48,0.2)',
   },
   copy: { flex: 1, minWidth: 0, gap: 2 },
-  label: { fontSize: 15, fontWeight: '600', color: '#fff' },
-  destructiveLabel: { color: '#FF5A5A' },
-  subtitle: { fontSize: 12, color: 'rgba(255,255,255,0.38)', lineHeight: 16 },
+  label: { fontSize: 15, fontWeight: '600', color: colors.text },
+  destructiveLabel: { color: colors.error },
+  subtitle: { fontSize: 12, color: colors.textDim, lineHeight: 16 },
 });
+}

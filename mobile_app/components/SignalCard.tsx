@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon } from './AppIcon';
-import { colors } from '../constants/theme';
-import { GlassCard, glassInnerPanel } from './GlassCard';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
+import { GlassCard } from './GlassCard';
 
 export type SignalDirection = 'BUY' | 'SELL';
 export type SignalStatus = 'active' | 'closed' | 'pending';
@@ -16,7 +18,7 @@ export type SignalCardProps = {
   pips?: string;
   createdAt?: string;
   onPress?: () => void;
-  variant?: 'featured' | 'compact';
+  variant?: 'list' | 'featured' | 'compact';
 };
 
 function formatTime(value?: string) {
@@ -52,11 +54,11 @@ function formatPips(pips?: string) {
   return `+${pips}`;
 }
 
-const STATUS_META: Record<SignalStatus, { label: string; color: string }> = {
+const statusMeta = (colors: AppColors): Record<SignalStatus, { label: string; color: string }> => ({
   active: { label: 'Active', color: colors.cyan },
   closed: { label: 'Closed', color: colors.textMuted },
   pending: { label: 'Pending', color: colors.gold },
-};
+});
 
 export function SignalCard({
   pair,
@@ -70,8 +72,11 @@ export function SignalCard({
   onPress,
   variant = 'compact',
 }: SignalCardProps) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const isBuy = direction === 'BUY';
-  const statusMeta = STATUS_META[status];
+  const statusMetaMap = useMemo(() => statusMeta(colors), [colors]);
+  const statusInfo = statusMetaMap[status];
   const displayPair = formatPair(pair);
   const pipsDisplay = formatPips(pips);
   const pipsPositive = !pips?.startsWith('-');
@@ -108,7 +113,7 @@ export function SignalCard({
 
         <View style={styles.statusWrap}>
           {status === 'active' ? <View style={styles.statusDot} /> : null}
-          <Text style={[styles.statusText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
+          <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.label}</Text>
         </View>
       </View>
 
@@ -158,6 +163,8 @@ function MetricCell({
   tone?: 'neutral' | 'tp' | 'sl';
   last?: boolean;
 }) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const valueColor =
     tone === 'tp' ? colors.cyan : tone === 'sl' ? '#FF7A7A' : colors.text;
 
@@ -176,7 +183,8 @@ function MetricCell({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   cardInner: {
     padding: 18,
     gap: 16,
@@ -194,9 +202,9 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#141f38',
+    backgroundColor: colors.surfaceHover,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.06)',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -234,7 +242,7 @@ const styles = StyleSheet.create({
   time: {
     fontSize: 13,
     fontWeight: '500',
-    color: 'rgba(148, 163, 184, 0.85)',
+    color: colors.textMuted,
   },
   statusWrap: {
     flexDirection: 'row',
@@ -255,8 +263,9 @@ const styles = StyleSheet.create({
   },
   tray: {
     flexDirection: 'row',
-    ...glassInnerPanel,
+    backgroundColor: colors.surfaceInset,
     borderRadius: 18,
+    overflow: 'hidden',
   },
   metricCell: {
     flex: 1,
@@ -266,7 +275,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     gap: 6,
     borderRightWidth: StyleSheet.hairlineWidth,
-    borderRightColor: 'rgba(255,255,255,0.08)',
+    borderRightColor: colors.border,
   },
   metricCellLast: {
     borderRightWidth: 0,
@@ -274,7 +283,7 @@ const styles = StyleSheet.create({
   metricLabel: {
     fontSize: 11,
     fontWeight: '500',
-    color: 'rgba(148, 163, 184, 0.75)',
+    color: colors.textMuted,
     textAlign: 'center',
   },
   metricValue: {
@@ -284,3 +293,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+}

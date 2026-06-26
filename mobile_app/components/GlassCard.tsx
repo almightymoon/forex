@@ -3,8 +3,11 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { memo, useContext, useMemo } from 'react';
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import { AppBackgroundContext } from '../contexts/AppBackgroundContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { DEFAULT_APP_BACKGROUND } from '../utils/appBackground';
 import { getCardStyleSpec } from '../utils/appCardStyle';
+import { useCardNativeBlur } from '../utils/deviceCapabilities';
+import { FrostedBackdrop } from './glass/FrostedBackdrop';
 
 type Props = {
   children: React.ReactNode;
@@ -12,7 +15,6 @@ type Props = {
   contentStyle?: StyleProp<ViewStyle>;
   backdrop?: React.ReactNode;
   radius?: number;
-  /** Stronger blur + shine — hero cards */
   prominent?: boolean;
 };
 
@@ -25,11 +27,14 @@ function GlassCardInner({
   prominent = false,
 }: Props) {
   const ctx = useContext(AppBackgroundContext);
+  const { colors, isDark } = useTheme();
   const prefs = ctx?.prefs ?? DEFAULT_APP_BACKGROUND;
+  const cardBlur = useCardNativeBlur();
   const spec = useMemo(
-    () => getCardStyleSpec(prefs.cardStyle, prominent, prefs.solidCardColor),
-    [prefs.cardStyle, prominent, prefs.solidCardColor],
+    () => getCardStyleSpec(prefs.cardStyle, prominent, prefs.solidCardColor, cardBlur, colors, isDark),
+    [prefs.cardStyle, prominent, prefs.solidCardColor, cardBlur, colors, isDark],
   );
+  const frostLevel = prefs.cardStyle === 'soft' ? 'soft' : 'glass';
 
   return (
     <View
@@ -44,12 +49,6 @@ function GlassCardInner({
         style,
       ]}
     >
-      {/*
-        Single shell — keeps iOS blur compositing correct (BlurView samples
-        the scene behind the card the same way as the original glass look).
-        Decorations live in an absoluteFill child so Android BlurView
-        bringToFront() cannot paint over the content sibling.
-      */}
       <View
         style={[
           styles.shell,
@@ -62,13 +61,23 @@ function GlassCardInner({
         <View style={styles.decorations} pointerEvents="none">
           {backdrop ? <View style={StyleSheet.absoluteFill}>{backdrop}</View> : null}
 
-          <BlurView
-            intensity={spec.blurIntensity}
-            tint="dark"
-            experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
-            style={[StyleSheet.absoluteFill, !spec.useBlur && styles.hidden]}
-            pointerEvents="none"
-          />
+          {spec.useNativeBlur ? (
+            <BlurView
+              intensity={spec.blurIntensity}
+              tint={colors.blurTint}
+              style={StyleSheet.absoluteFill}
+              pointerEvents="none"
+              {...(Platform.OS === 'android'
+                ? { experimentalBlurMethod: 'dimezisBlurView' as const }
+                : {})}
+            />
+          ) : prefs.cardStyle !== 'solid' ? (
+            <FrostedBackdrop
+              level={frostLevel}
+              borderRadius={radius}
+              showShine={spec.showShine}
+            />
+          ) : null}
 
           {spec.tintColor !== 'transparent' ? (
             <View
@@ -117,25 +126,37 @@ function GlassCardInner({
 
 export const GlassCard = memo(GlassCardInner);
 
-/** Inner panel — metric trays, nested rows */
-export const glassInnerPanel = {
-  backgroundColor: 'rgba(255,255,255,0.06)',
+export function glassInnerPanel(colors: { surfaceInset: string }) {
+  return {
+    backgroundColor: colors.surfaceInset,
+    borderRadius: 16,
+    overflow: 'hidden' as const,
+  };
+}
+
+export function glassSectionLabel(colors: { textMuted: string }) {
+  return {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: colors.textMuted,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase' as const,
+    paddingHorizontal: 4,
+  };
+}
+
+/** @deprecated use glassInnerPanel(useTheme().colors) */
+export const glassInnerPanelLegacy = {
+  backgroundColor: '#F4F4F5',
   borderRadius: 16,
   overflow: 'hidden' as const,
-};
-
-export const glassSectionLabel = {
-  fontSize: 12,
-  fontWeight: '700' as const,
-  color: 'rgba(255,255,255,0.42)',
-  letterSpacing: 0.8,
-  textTransform: 'uppercase' as const,
-  paddingHorizontal: 4,
 };
 
 const styles = StyleSheet.create({
   outer: {
     width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'stretch',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 10 },
   },
@@ -144,9 +165,6 @@ const styles = StyleSheet.create({
   },
   decorations: {
     ...StyleSheet.absoluteFillObject,
-  },
-  hidden: {
-    opacity: 0,
   },
   shine: {
     position: 'absolute',

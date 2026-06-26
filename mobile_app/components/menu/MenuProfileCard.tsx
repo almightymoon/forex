@@ -1,4 +1,7 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { CachedImage } from '../CachedImage';
 import { AppIcon } from '../AppIcon';
 import { GlassCard } from '../GlassCard';
@@ -10,12 +13,18 @@ type Props = {
 };
 
 export function MenuProfileCard({ user, onPress }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const initials = user ? `${user.firstName[0]}${user.lastName[0]}` : '?';
   const role = (user?.role ?? 'student').replace(/_/g, ' ');
 
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [pressed && styles.pressed]}>
-      <GlassCard contentStyle={styles.inner} radius={20} prominent>
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [styles.pressable, pressed && styles.pressed]}
+    >
+      <GlassCard contentStyle={styles.inner} radius={18} prominent>
         <View style={styles.avatarWrap}>
           {user?.profileImage ? (
             <CachedImage source={{ uri: user.profileImage }} style={styles.avatar} contentFit="cover" />
@@ -25,55 +34,105 @@ export function MenuProfileCard({ user, onPress }: Props) {
             </View>
           )}
         </View>
+
         <View style={styles.copy}>
-          <Text style={styles.name}>{user ? `${user.firstName} ${user.lastName}` : 'Loading…'}</Text>
-          <Text style={styles.email} numberOfLines={1}>{user?.email ?? ''}</Text>
-          <View style={styles.metaRow}>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleText}>{role.toUpperCase()}</Text>
-            </View>
-            <Text style={styles.viewProfile}>View profile</Text>
+          <Text style={styles.name} numberOfLines={1} ellipsizeMode="tail">
+            {user ? `${user.firstName} ${user.lastName}` : 'Loading…'}
+          </Text>
+          <Text style={styles.email} numberOfLines={1} ellipsizeMode="middle">
+            {user?.email ?? ''}
+          </Text>
+          <View style={styles.roleBadge}>
+            <Text style={styles.roleText} numberOfLines={1} ellipsizeMode="tail">
+              {role.toUpperCase()}
+            </Text>
           </View>
         </View>
-        <AppIcon name="chevron-right" size={18} color="rgba(255,255,255,0.35)" strokeWidth={2} />
+
+        <View style={styles.chevronWrap}>
+          <AppIcon name="chevron-right" size={16} color={colors.textMuted} strokeWidth={2} />
+        </View>
       </GlassCard>
     </Pressable>
   );
 }
 
-const styles = StyleSheet.create({
+const AVATAR = 50;
+
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
+  pressable: {
+    width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'stretch',
+  },
   pressed: { opacity: 0.94 },
   inner: {
-    padding: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 14,
+    gap: 12,
+    overflow: 'hidden',
   },
-  avatarWrap: { flexShrink: 0 },
-  avatar: { width: 58, height: 58, borderRadius: 29 },
+  avatarWrap: {
+    width: AVATAR,
+    height: AVATAR,
+    flexShrink: 0,
+  },
+  avatar: {
+    width: AVATAR,
+    height: AVATAR,
+    borderRadius: AVATAR / 2,
+  },
   avatarPlaceholder: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    backgroundColor: 'rgba(0,96,230,0.22)',
+    width: AVATAR,
+    height: AVATAR,
+    borderRadius: AVATAR / 2,
+    backgroundColor: colors.surfaceHover,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: 'rgba(58,173,255,0.35)',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  avatarInitials: { fontSize: 20, fontWeight: '800', color: '#3AADFF' },
-  copy: { flex: 1, minWidth: 0, gap: 3 },
-  name: { fontSize: 17, fontWeight: '800', color: '#fff', letterSpacing: -0.2 },
-  email: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 6 },
+  avatarInitials: { fontSize: 18, fontWeight: '800', color: colors.text },
+  copy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  name: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.2,
+  },
+  email: {
+    fontSize: 12,
+    color: colors.textMuted,
+  },
   roleBadge: {
-    backgroundColor: 'rgba(0,96,230,0.22)',
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+    marginTop: 6,
+    backgroundColor: colors.surfaceHover,
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderWidth: 1,
-    borderColor: 'rgba(58,173,255,0.28)',
+    borderColor: colors.border,
   },
-  roleText: { fontSize: 9, fontWeight: '800', color: '#3AADFF', letterSpacing: 0.6 },
-  viewProfile: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.38)' },
+  roleText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.textSecondary,
+    letterSpacing: 0.5,
+  },
+  chevronWrap: {
+    flexShrink: 0,
+    width: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
 });
+}

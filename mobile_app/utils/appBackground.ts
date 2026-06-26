@@ -1,5 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ImageSourcePropType } from 'react-native';
+import { colors } from '../constants/theme';
 import {
   DEFAULT_CARD_STYLE,
   DEFAULT_SOLID_CARD_COLOR,
@@ -13,13 +14,10 @@ export type AppBackgroundMode = 'default' | 'image' | 'solid';
 
 export type AppBackgroundPrefs = {
   mode: AppBackgroundMode;
-  /** Preset key or `custom` when using library photo */
   imageKey: string;
   customImageUri?: string;
   solidColor: string;
-  /** Card surface style — glassy is the app default */
   cardStyle: CardStylePreset;
-  /** Fill color when card style is Solid */
   solidCardColor: string;
 };
 
@@ -28,7 +26,7 @@ export const APP_BG_STORAGE_KEY = 'app_background_prefs';
 export const DEFAULT_APP_BACKGROUND: AppBackgroundPrefs = {
   mode: 'default',
   imageKey: 'space',
-  solidColor: '#040818',
+  solidColor: colors.background,
   cardStyle: DEFAULT_CARD_STYLE,
   solidCardColor: DEFAULT_SOLID_CARD_COLOR,
 };
@@ -44,12 +42,12 @@ export const BACKGROUND_PRESET_IMAGES: Array<{
 ];
 
 export const BACKGROUND_PRESET_COLORS: Array<{ label: string; color: string }> = [
-  { label: 'Midnight', color: '#040818' },
-  { label: 'Deep Black', color: '#00050A' },
-  { label: 'Navy', color: '#0a1020' },
-  { label: 'Brand Blue', color: '#036FFC' },
-  { label: 'Charcoal', color: '#121820' },
-  { label: 'Pure Black', color: '#000000' },
+  { label: 'Light Gray', color: '#F4F4F5' },
+  { label: 'White', color: '#FFFFFF' },
+  { label: 'Off White', color: '#F9F9F9' },
+  { label: 'Lime', color: '#D4FF58' },
+  { label: 'Charcoal', color: '#1C1C1E' },
+  { label: 'Black', color: '#0F0F0F' },
 ];
 
 export function getPresetImageSource(key: string): ImageSourcePropType | null {

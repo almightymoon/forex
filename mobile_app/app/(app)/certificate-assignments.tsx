@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -18,6 +20,7 @@ import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch } from '../../utils/api';
 import { hapticSuccess } from '../../utils/haptics';
 import { resolveMediaUrl } from '../../utils/normalize';
+import { primaryButtonGradient } from '../../utils/primaryButton';
 
 interface CertAssignment {
   _id: string;
@@ -34,6 +37,9 @@ interface CertAssignment {
 }
 
 export default function CertificateAssignmentsScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const completeGradientColors = useMemo(() => primaryButtonGradient(isDark), [isDark]);
   const router = useRouter();
   const [assignments, setAssignments] = useState<CertAssignment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,7 +89,7 @@ export default function CertificateAssignmentsScreen() {
   };
 
   const statusCfg: Record<string, { color: string; label: string }> = {
-    assigned: { color: '#3AADFF', label: 'New' },
+    assigned: { color: colors.text, label: 'New' },
     viewed: { color: '#FFC107', label: 'Viewed' },
     completed: { color: '#4ADE80', label: 'Completed' },
     overdue: { color: '#FF5A5A', label: 'Overdue' },
@@ -94,7 +100,7 @@ export default function CertificateAssignmentsScreen() {
       <SafeAreaView edges={['top']} style={styles.headerSafe}>
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Certificate Tasks</Text>
           <View style={{ width: 40 }} />
@@ -104,13 +110,13 @@ export default function CertificateAssignmentsScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor="#3AADFF" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} tintColor={colors.black} />}
       >
         {loading ? (
-          <ActivityIndicator color="#3AADFF" style={{ marginTop: 60 }} />
+          <ActivityIndicator color={colors.black} style={{ marginTop: 60 }} />
         ) : assignments.length === 0 ? (
           <View style={styles.empty}>
-            <Ionicons name="ribbon-outline" size={48} color="rgba(255,255,255,0.15)" />
+            <Ionicons name="ribbon-outline" size={48} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>No certificate tasks</Text>
             <Text style={styles.emptyText}>Your teacher will assign certificates here when ready.</Text>
           </View>
@@ -139,7 +145,7 @@ export default function CertificateAssignmentsScreen() {
                       if (url) router.push({ pathname: '/(app)/certificates', params: {} } as any);
                     }}
                   >
-                    <Ionicons name="document-outline" size={16} color="#3AADFF" />
+                    <Ionicons name="document-outline" size={16} color={colors.text} />
                     <Text style={styles.viewCertText}>View in Certificates</Text>
                   </Pressable>
                 ) : null}
@@ -148,18 +154,18 @@ export default function CertificateAssignmentsScreen() {
                     <TextInput
                       style={styles.notesInput}
                       placeholder="Optional notes for your teacher..."
-                      placeholderTextColor="rgba(255,255,255,0.25)"
+                      placeholderTextColor={colors.textDim}
                       value={notes[a._id] ?? ''}
                       onChangeText={(v) => setNotes((p) => ({ ...p, [a._id]: v }))}
                       multiline
                     />
                     <Pressable style={styles.completeBtn} onPress={() => markComplete(a._id)} disabled={completing === a._id}>
-                      <LinearGradient colors={['#0253BD', '#036FFC']} style={styles.completeGrad}>
+                      <LinearGradient colors={completeGradientColors} style={styles.completeGrad}>
                         {completing === a._id ? (
-                          <ActivityIndicator color="#fff" size="small" />
+                          <ActivityIndicator color={colors.primaryForeground} size="small" />
                         ) : (
                           <>
-                            <Ionicons name="checkmark-circle-outline" size={16} color="#fff" />
+                            <Ionicons name="checkmark-circle-outline" size={16} color={colors.primaryForeground} />
                             <Text style={styles.completeText}>Mark Complete</Text>
                           </>
                         )}
@@ -178,30 +184,32 @@ export default function CertificateAssignmentsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: { backgroundColor: 'transparent' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 14 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.5)' },
-  emptyText: { fontSize: 13.5, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingHorizontal: 20 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textSecondary },
+  emptyText: { fontSize: 13.5, color: colors.textDim, textAlign: 'center', paddingHorizontal: 20 },
   card: { padding: 16, gap: 8 },
   badge: { alignSelf: 'flex-start', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   badgeText: { fontSize: 11, fontWeight: '700' },
-  title: { fontSize: 16, fontWeight: '800', color: '#fff' },
-  course: { fontSize: 12.5, color: '#3AADFF', fontWeight: '600' },
-  message: { fontSize: 13, color: 'rgba(255,255,255,0.6)', fontStyle: 'italic' },
-  desc: { fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 19 },
+  title: { fontSize: 16, fontWeight: '800', color: colors.text },
+  course: { fontSize: 12.5, color: colors.text, fontWeight: '600' },
+  message: { fontSize: 13, color: colors.textSecondary, fontStyle: 'italic' },
+  desc: { fontSize: 13, color: colors.textSecondary, lineHeight: 19 },
   due: { fontSize: 12, color: '#FFC107', fontWeight: '600' },
   viewCertBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start' },
-  viewCertText: { fontSize: 13, fontWeight: '700', color: '#3AADFF' },
-  notesInput: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', padding: 12, minHeight: 60, fontSize: 13.5, color: '#fff', marginTop: 4 },
+  viewCertText: { fontSize: 13, fontWeight: '700', color: colors.text },
+  notesInput: { backgroundColor: colors.surfaceHover, borderRadius: 10, borderWidth: 1, borderColor: colors.border, padding: 12, minHeight: 60, fontSize: 13.5, color: colors.text, marginTop: 4 },
   completeBtn: { borderRadius: 12, overflow: 'hidden', marginTop: 4 },
   completeGrad: { height: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  completeText: { fontSize: 14, fontWeight: '800', color: '#fff' },
-  completedNotes: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)', fontStyle: 'italic' },
+  completeText: { fontSize: 14, fontWeight: '800', color: colors.primaryForeground },
+  completedNotes: { fontSize: 12.5, color: colors.textMuted, fontStyle: 'italic' },
 });
+}

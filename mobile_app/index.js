@@ -17,13 +17,4 @@ if (typeof __DEV__ !== 'undefined' && __DEV__) {
   }
 }
 
-// Log unhandled promise rejections instead of crashing silently.
-if (typeof globalThis !== 'undefined') {
-  const prev = globalThis.onunhandledrejection;
-  globalThis.onunhandledrejection = (event) => {
-    console.warn('Unhandled promise rejection:', event?.reason ?? event);
-    prev?.(event);
-  };
-}
-
 require('expo-router/entry');

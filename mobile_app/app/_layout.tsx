@@ -3,11 +3,13 @@ import { router, Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { AppState, StyleSheet, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ErrorBoundary } from '../components/ErrorBoundary';
 import { OfflineScreenIndicator } from '../components/OfflineScreenIndicator';
+import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { preloadAuthStorage } from '../utils/auth';
+import { flushCrashLogsToServer, installCrashHandlers, recordCrashLog } from '../utils/crashReporter';
 import { onSessionExpired } from '../utils/api';
 
 SplashScreen.preventAutoHideAsync();
@@ -26,10 +28,28 @@ export default function RootLayout() {
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
+    installCrashHandlers();
     void preloadAuthStorage();
+    void flushCrashLogsToServer();
     onSessionExpired(() => {
       router.replace('/auth');
     });
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'background' || state === 'inactive') {
+        void flushCrashLogsToServer();
+      }
+    });
+    const prevRejection = globalThis.onunhandledrejection as
+      | ((event: PromiseRejectionEvent) => void)
+      | undefined;
+    globalThis.onunhandledrejection = (event: PromiseRejectionEvent) => {
+      void recordCrashLog('unhandled_rejection', event?.reason ?? event);
+      prevRejection?.(event);
+    };
+    return () => {
+      sub.remove();
+      globalThis.onunhandledrejection = prevRejection ?? null;
+    };
   }, []);
 
   useEffect(() => {
@@ -49,8 +69,18 @@ export default function RootLayout() {
   if (!ready) return null;
 
   return (
+    <ThemeProvider>
+      <ThemedRoot />
+    </ThemeProvider>
+  );
+}
+
+function ThemedRoot() {
+  const { colors } = useTheme();
+
+  return (
     <>
-      <StatusBar style="light" />
+      <StatusBar style={colors.statusBar} />
       <SafeAreaProvider>
         <ErrorBoundary>
           <View style={styles.root}>
@@ -71,7 +101,6 @@ export default function RootLayout() {
               <Stack.Screen name="payment-pending" />
               <Stack.Screen name="subscription-upgrade" />
               <Stack.Screen name="reset-password" />
-              {/* Main app — tab navigator lives inside (app) group */}
               <Stack.Screen name="(app)" options={{ animation: 'fade' }} />
             </Stack>
             <OfflineScreenIndicator />

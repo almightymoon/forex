@@ -1,63 +1,73 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { GlassCard } from './GlassCard';
 
 type Props = {
   firstName: string;
-  courses: number;
+  enrolledCount: number;
   activeSignals: number;
-  onStartNow?: () => void;
+  subtitle?: string;
+  actionLabel?: string;
+  onPrimaryAction?: () => void;
 };
 
 function padStat(n: number) {
   return String(n).padStart(2, '0');
 }
 
-/** Bright blue orb placed *behind* the glass blur — reads as a light source through frosted glass */
 function HeroLightSource() {
+  const { colors, isDark } = useTheme();
+  const lightStyles = useMemo(() => createLightStyles(colors, isDark), [colors, isDark]);
+
   return (
     <View style={lightStyles.wrap} pointerEvents="none">
-      <View style={lightStyles.outerHalo} />
-      <View style={lightStyles.midHalo} />
+      <View style={lightStyles.halo} />
       <View style={lightStyles.core} />
     </View>
   );
 }
 
-const lightStyles = StyleSheet.create({
-  wrap: {
-    position: 'absolute',
-    top: '50%',
-    right: -24,
-    width: 200,
-    height: 200,
-    marginTop: -100,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  outerHalo: {
-    position: 'absolute',
-    width: 200,
-    height: 200,
-    borderRadius: 100,
-    backgroundColor: 'rgba(3,111,252,0.28)',
-  },
-  midHalo: {
-    position: 'absolute',
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    backgroundColor: 'rgba(3,111,252,0.45)',
-  },
-  core: {
-    width: 110,
-    height: 110,
-    borderRadius: 55,
-    backgroundColor: 'rgba(58,173,255,0.72)',
-  },
-});
+function createLightStyles(colors: AppColors, isDark: boolean) {
+  return StyleSheet.create({
+    wrap: {
+      position: 'absolute',
+      top: '50%',
+      right: -8,
+      width: 132,
+      height: 132,
+      marginTop: -66,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    halo: {
+      position: 'absolute',
+      width: 132,
+      height: 132,
+      borderRadius: 66,
+      backgroundColor: `${colors.brandPurple}${isDark ? '28' : '1E'}`,
+    },
+    core: {
+      width: 88,
+      height: 88,
+      borderRadius: 44,
+      backgroundColor: `${colors.brandPurple}${isDark ? '40' : '30'}`,
+    },
+  });
+}
 
-export function WelcomeHeroCard({ firstName, courses, activeSignals, onStartNow }: Props) {
+export function WelcomeHeroCard({
+  firstName,
+  enrolledCount,
+  activeSignals,
+  subtitle = 'Start your learning journey today',
+  actionLabel = 'Browse Courses',
+  onPrimaryAction,
+}: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <GlassCard
       style={styles.wrap}
@@ -70,23 +80,24 @@ export function WelcomeHeroCard({ firstName, courses, activeSignals, onStartNow 
         <View style={styles.copy}>
           <Text style={styles.welcome}>Welcome Back,</Text>
           <Text style={styles.name}>{firstName}</Text>
-          <Text style={styles.sub}>Keep Pushing, Your Next Milestone Awaits</Text>
+          <Text style={styles.sub}>{subtitle}</Text>
           <Pressable
             style={({ pressed }) => [styles.btn, pressed && styles.btnPressed]}
-            onPress={onStartNow}
+            onPress={onPrimaryAction}
           >
-            <Text style={styles.btnText}>Start Now</Text>
+            <Text style={styles.btnText}>{actionLabel}</Text>
           </Pressable>
         </View>
 
-        <View style={styles.stats}>
+        <View style={styles.statsOrb}>
           <View style={styles.statBlock}>
-            <Text style={styles.statValue}>{courses}</Text>
-            <Text style={styles.statLabel}>Courses</Text>
+            <Text style={styles.statValue}>{enrolledCount}</Text>
+            <Text style={styles.statLabel}>Enrolled</Text>
           </View>
+          <View style={styles.statDivider} />
           <View style={styles.statBlock}>
-            <Text style={styles.statValue}>{padStat(activeSignals)}</Text>
-            <Text style={styles.statLabel}>Active Signals</Text>
+            <Text style={[styles.statValue, styles.statValueAccent]}>{padStat(activeSignals)}</Text>
+            <Text style={styles.statLabel}>Signals</Text>
           </View>
         </View>
       </View>
@@ -94,78 +105,90 @@ export function WelcomeHeroCard({ firstName, courses, activeSignals, onStartNow 
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    marginBottom: 20,
-  },
-  inner: {
-    overflow: 'hidden',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 20,
-    gap: 10,
-  },
-  copy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  welcome: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.82)',
-    marginBottom: 2,
-  },
-  name: {
-    fontSize: 26,
-    fontWeight: '800',
-    color: colors.primary,
-    letterSpacing: -0.4,
-    marginBottom: 6,
-  },
-  sub: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.72)',
-    lineHeight: 17,
-    marginBottom: 14,
-  },
-  btn: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 999,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  btnPressed: { opacity: 0.9 },
-  btnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.primary,
-  },
-  stats: {
-    width: 96,
-    gap: 16,
-    flexShrink: 0,
-    zIndex: 1,
-    alignItems: 'center',
-  },
-  statBlock: {
-    alignItems: 'center',
-  },
-  statValue: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#FFFFFF',
-    lineHeight: 36,
-    fontVariant: ['tabular-nums'],
-  },
-  statLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.82)',
-    textAlign: 'center',
-  },
-});
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
+    wrap: {
+      marginBottom: 24,
+    },
+    inner: {
+      overflow: 'hidden',
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      paddingHorizontal: 18,
+      paddingVertical: 20,
+      gap: 12,
+    },
+    copy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    welcome: {
+      fontSize: 14,
+      fontWeight: '500',
+      color: colors.textSilver,
+      marginBottom: 2,
+    },
+    name: {
+      fontSize: 26,
+      fontWeight: '800',
+      color: colors.brandPurple,
+      letterSpacing: -0.4,
+      marginBottom: 6,
+    },
+    sub: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.textSilver,
+      lineHeight: 18,
+      marginBottom: 14,
+    },
+    btn: {
+      alignSelf: 'flex-start',
+      backgroundColor: colors.brandPurple,
+      borderRadius: 999,
+      paddingHorizontal: 18,
+      paddingVertical: 10,
+    },
+    btnPressed: { opacity: 0.9 },
+    btnText: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: '#FFFFFF',
+    },
+    statsOrb: {
+      width: 96,
+      flexShrink: 0,
+      zIndex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: 6,
+      paddingVertical: 4,
+    },
+    statBlock: {
+      alignItems: 'center',
+    },
+    statDivider: {
+      width: 28,
+      height: 1,
+      backgroundColor: colors.surfaceHover,
+    },
+    statValue: {
+      fontSize: 22,
+      fontWeight: '800',
+      color: colors.text,
+      lineHeight: 26,
+      fontVariant: ['tabular-nums'],
+    },
+    statValueAccent: {
+      color: colors.brandPurple,
+    },
+    statLabel: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: colors.textSilver,
+      textAlign: 'center',
+    },
+  });
+}

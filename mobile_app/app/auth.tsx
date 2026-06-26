@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -14,7 +14,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { SpaceBackground } from '../components/SpaceBackground';
 import { AuthHeader } from '../components/auth/AuthHeader';
 import { AuthDateOfBirthField } from '../components/auth/AuthDateOfBirthField';
 import { AuthGlassPanel } from '../components/auth/AuthGlassPanel';
@@ -25,6 +24,8 @@ import { SegmentedAuthToggle, type AuthTab } from '../components/auth/SegmentedA
 import { AuthInput } from '../components/AuthInput';
 import { formatPhoneForSubmit, getDefaultCountry, type Country } from '../constants/countries';
 import { spacing } from '../constants/theme';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { apiFetch } from '../utils/api';
 import {
   dobToIso,
@@ -64,6 +65,8 @@ const SIGNUP_COPY = {
 };
 
 export default function AuthScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const { ref: refParam } = useLocalSearchParams<{ ref?: string }>();
   const { height: screenH } = useWindowDimensions();
@@ -313,7 +316,7 @@ export default function AuthScreen() {
           setError('');
         }}
         placeholder="000000"
-        placeholderTextColor="rgba(255,255,255,0.25)"
+        placeholderTextColor={colors.textDim}
         keyboardType="number-pad"
         maxLength={6}
         textAlign="center"
@@ -358,7 +361,7 @@ export default function AuthScreen() {
       <View style={styles.loginMetaRow}>
         <Pressable style={styles.rememberRow} onPress={() => setRememberMe((v) => !v)}>
           <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-            {rememberMe ? <Ionicons name="checkmark" size={12} color="#FFFFFF" /> : null}
+            {rememberMe ? <Ionicons name="checkmark" size={12} color={colors.primaryForeground} /> : null}
           </View>
           <Text style={styles.rememberText}>Remember me</Text>
         </Pressable>
@@ -510,7 +513,7 @@ export default function AuthScreen() {
       <View style={styles.termsRow}>
         <Pressable style={styles.checkboxHit} onPress={() => setTermsAgreed((v) => !v)}>
           <View style={[styles.checkbox, termsAgreed && styles.checkboxChecked]}>
-            {termsAgreed ? <Ionicons name="checkmark" size={12} color="#FFFFFF" /> : null}
+            {termsAgreed ? <Ionicons name="checkmark" size={12} color={colors.primaryForeground} /> : null}
           </View>
         </Pressable>
         <Text style={styles.termsText}>
@@ -530,8 +533,6 @@ export default function AuthScreen() {
 
   return (
     <View style={styles.screen}>
-      <SpaceBackground />
-
       <SafeAreaView style={styles.safeArea} edges={['top', 'bottom', 'left', 'right']}>
         <KeyboardAvoidingView
           style={styles.flex}
@@ -591,9 +592,9 @@ export default function AuthScreen() {
                 accessibilityLabel="Sign in with biometrics"
               >
                 {biometricLoading ? (
-                  <ActivityIndicator color="#036FFC" size="small" />
+                  <ActivityIndicator color={colors.text} size="small" />
                 ) : (
-                  <Ionicons name={getBiometricIcon(biometricKind)} size={38} color="#036FFC" />
+                  <Ionicons name={getBiometricIcon(biometricKind)} size={38} color={colors.text} />
                 )}
               </Pressable>
             </View>
@@ -604,10 +605,11 @@ export default function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: colors.background,
   },
   safeArea: {
     flex: 1,
@@ -654,14 +656,14 @@ const styles = StyleSheet.create({
     height: 18,
     borderRadius: 4,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.25)',
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surface,
   },
   checkboxChecked: {
-    backgroundColor: '#036FFC',
-    borderColor: '#036FFC',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   termsRow: {
     flexDirection: 'row',
@@ -676,42 +678,43 @@ const styles = StyleSheet.create({
   termsText: {
     flex: 1,
     fontSize: 13,
-    color: 'rgba(255,255,255,0.65)',
+    color: colors.textSecondary,
     lineHeight: 20,
   },
   termsLink: {
-    color: '#036FFC',
+    color: colors.text,
     fontWeight: '600',
   },
   rememberText: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.65)',
+    color: colors.textSecondary,
   },
   forgotText: {
     fontSize: 13,
-    color: '#036FFC',
+    color: colors.text,
+    fontWeight: '600',
   },
   twoFATitle: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     marginBottom: 8,
   },
   twoFASubtitle: {
     fontSize: 13,
     lineHeight: 19,
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.textMuted,
     marginBottom: 16,
   },
   twoFAInput: {
     height: 56,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(58,173,255,0.35)',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: colors.border,
+    backgroundColor: '#F9F9F9',
     fontSize: 28,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     letterSpacing: 8,
     marginBottom: 16,
   },
@@ -722,18 +725,18 @@ const styles = StyleSheet.create({
   twoFABackText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#036FFC',
+    color: colors.text,
   },
   errorText: {
     fontSize: 13,
-    color: '#fecaca',
+    color: colors.error,
     lineHeight: 18,
     marginBottom: 12,
-    backgroundColor: 'rgba(127,29,29,0.4)',
+    backgroundColor: '#FFF0F0',
     borderRadius: 10,
     padding: 12,
     borderWidth: 1,
-    borderColor: 'rgba(239,68,68,0.25)',
+    borderColor: 'rgba(255,59,48,0.2)',
   },
   biometricFooter: {
     alignItems: 'center',
@@ -759,7 +762,8 @@ const styles = StyleSheet.create({
   },
   exploreLink: {
     fontSize: 13,
-    color: '#036FFC',
+    color: colors.textMuted,
     fontWeight: '600',
   },
 });
+}

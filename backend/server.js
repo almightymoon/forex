@@ -266,6 +266,7 @@ app.use('/api', maintenanceMiddleware);
 
 // Public routes (no middleware)
 app.use('/api/auth', authRoutes);
+app.use('/api/mobile', require('./routes/mobile'));
 app.use('/api/faq', require('./routes/faq'));
 app.use('/api/settings/public', require('./routes/settings'));
 app.use('/api/monthly-progress/public', require('./routes/monthlyProgressPublic'));

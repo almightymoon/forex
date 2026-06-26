@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -24,6 +26,7 @@ import { GlassSurface } from '../../components/glass/GlassSurface';
 import { apiFetch, apiUpload } from '../../utils/api';
 import { AuthUser, getStoredUser, storeAuth, getStoredToken } from '../../utils/auth';
 import { resolveMediaUrl } from '../../utils/normalize';
+import { primaryButtonGradient } from '../../utils/primaryButton';
 
 type Field = { label: string; key: keyof EditForm; placeholder: string; keyboard?: 'default' | 'phone-pad' };
 
@@ -46,6 +49,11 @@ function toast(msg: string) {
 }
 
 export default function ProfileScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const saveGradientColors = useMemo(() => primaryButtonGradient(isDark), [isDark]);
+  const statStyles = useMemo(() => createStatStyles(colors), [colors]);
+  const rowStyles = useMemo(() => createRowStyles(colors), [colors]);
   const router = useRouter();
   const [user, setUser] = useState<AuthUser | null>(null);
   const [profile, setProfile] = useState<Record<string, unknown>>({});
@@ -226,13 +234,13 @@ export default function ProfileScreen() {
         <SafeAreaView edges={['top']} style={styles.headerSafe}>
           <View style={styles.header}>
             <Pressable style={styles.backBtn} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={20} color="#fff" />
+              <Ionicons name="arrow-back" size={20} color={colors.text} />
             </Pressable>
             <Text style={styles.headerTitle}>My Profile</Text>
             <View style={{ width: 40 }} />
           </View>
         </SafeAreaView>
-        <ActivityIndicator color="#3AADFF" style={{ marginTop: 60 }} />
+        <ActivityIndicator color={colors.black} style={{ marginTop: 60 }} />
       </View>
     );
   }
@@ -242,7 +250,7 @@ export default function ProfileScreen() {
       <SafeAreaView edges={['top']} style={styles.headerSafe}>
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>My Profile</Text>
           <Pressable
@@ -254,7 +262,7 @@ export default function ProfileScreen() {
               setSuccess('');
             }}
           >
-            <Ionicons name={editing ? 'close' : 'pencil'} size={16} color={editing ? '#FF5A5A' : '#3AADFF'} />
+            <Ionicons name={editing ? 'close' : 'pencil'} size={16} color={editing ? colors.error : colors.text} />
             <Text style={[styles.editBtnText, editing && { color: '#FF5A5A' }]}>
               {editing ? 'Cancel' : 'Edit'}
             </Text>
@@ -286,15 +294,15 @@ export default function ProfileScreen() {
               {editing && (
                 <View style={styles.cameraBadge}>
                   {uploadingAvatar
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Ionicons name="camera" size={14} color="#fff" />}
+                    ? <ActivityIndicator size="small" color={colors.primaryForeground} />
+                    : <Ionicons name="camera" size={14} color={colors.primaryForeground} />}
                 </View>
               )}
             </Pressable>
-            <Text style={styles.heroName}>{displayName}</Text>
-            <Text style={styles.heroEmail}>{email}</Text>
+            <Text style={styles.heroName} numberOfLines={2}>{displayName}</Text>
+            <Text style={styles.heroEmail} numberOfLines={1} ellipsizeMode="middle">{email}</Text>
             <View style={styles.roleBadge}>
-              <Ionicons name="shield-checkmark" size={12} color="#3AADFF" />
+              <Ionicons name="shield-checkmark" size={12} color={colors.text} />
               <Text style={styles.roleText}>{role.toUpperCase()}</Text>
             </View>
           </GlassSurface>
@@ -311,7 +319,7 @@ export default function ProfileScreen() {
                     value={form[f.key]}
                     onChangeText={(v) => setForm((p) => ({ ...p, [f.key]: v }))}
                     placeholder={f.placeholder}
-                    placeholderTextColor="rgba(255,255,255,0.25)"
+                    placeholderTextColor={colors.textDim}
                     keyboardType={f.keyboard ?? 'default'}
                   />
                 </View>
@@ -330,12 +338,12 @@ export default function ProfileScreen() {
                 </View>
               ) : null}
 
-              <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.saveGradient}>
+              <LinearGradient colors={saveGradientColors} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.saveGradient}>
                 <Pressable style={styles.savePress} onPress={handleSave} disabled={saving}>
                   {saving
-                    ? <ActivityIndicator color="#fff" size="small" />
+                    ? <ActivityIndicator color={colors.primaryForeground} size="small" />
                     : <>
-                        <Ionicons name="checkmark" size={18} color="#fff" />
+                        <Ionicons name="checkmark" size={18} color={colors.primaryForeground} />
                         <Text style={styles.saveText}>Save Changes</Text>
                       </>}
                 </Pressable>
@@ -364,7 +372,7 @@ export default function ProfileScreen() {
                       <Text style={styles.fieldLabel}>Your Referral Code</Text>
                       <Text style={styles.referralCode}>{profile.referralCode as string}</Text>
                     </View>
-                    <Ionicons name="open-outline" size={16} color="rgba(255,255,255,0.3)" />
+                    <Ionicons name="open-outline" size={16} color={colors.textMuted} />
                   </Pressable>
                 </GlassSurface>
               ) : null}
@@ -389,119 +397,139 @@ export default function ProfileScreen() {
 }
 
 function InfoRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string }) {
+  const { colors } = useTheme();
+  const rowStyles = useMemo(() => createRowStyles(colors), [colors]);
+
   return (
     <View style={rowStyles.row}>
       <View style={rowStyles.iconWrap}>
-        <Ionicons name={icon} size={17} color="rgba(255,255,255,0.45)" />
+        <Ionicons name={icon} size={17} color={colors.textMuted} />
       </View>
-      <View style={{ flex: 1 }}>
+      <View style={{ flex: 1, minWidth: 0 }}>
         <Text style={rowStyles.label}>{label}</Text>
-        <Text style={rowStyles.value}>{value}</Text>
+        <Text style={rowStyles.value} numberOfLines={2}>{value}</Text>
       </View>
     </View>
   );
 }
 
-function StatCard({ icon, label, value, color }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; color: string }) {
+function StatCard({ icon, label, value, color }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; color: string }) {  const { colors } = useTheme();
+  const statStyles = useMemo(() => createStatStyles(colors), [colors]);
+
   return (
     <GlassCard style={statStyles.flex} contentStyle={statStyles.inner} radius={14}>
       <View style={[statStyles.icon, { backgroundColor: `${color}18` }]}>
         <Ionicons name={icon} size={18} color={color} />
       </View>
-      <Text style={[statStyles.value, { color }]}>{value}</Text>
+      <Text style={[statStyles.value, { color }]} numberOfLines={1}>{value}</Text>
       <Text style={statStyles.label}>{label}</Text>
     </GlassCard>
   );
 }
 
-const rowStyles = StyleSheet.create({
+function createRowStyles(colors: AppColors) {
+  return StyleSheet.create({
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   iconWrap: {
     width: 34, height: 34, borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceHover,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.35)', marginBottom: 2, fontWeight: '500' },
-  value: { fontSize: 14.5, fontWeight: '600', color: '#fff' },
+  label: { fontSize: 11, color: colors.textDim, marginBottom: 2, fontWeight: '500' },
+  value: { fontSize: 14.5, fontWeight: '600', color: colors.text },
 });
+}
 
-const statStyles = StyleSheet.create({
-  flex: { flex: 1 },
-  inner: { padding: 14, alignItems: 'flex-start', gap: 6 },
-  icon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  value: { fontSize: 16, fontWeight: '800' },
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: '500' },
+function createStatStyles(colors: AppColors) {
+  return StyleSheet.create({
+  flex: { flex: 1, minWidth: 0 },
+  inner: { padding: 12, alignItems: 'flex-start', gap: 6 },
+  icon: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  value: { fontSize: 15, fontWeight: '800' },
+  label: { fontSize: 11, color: colors.textMuted, fontWeight: '500' },
 });
+}
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: { backgroundColor: 'transparent' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 18, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: colors.surface,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)',
+    borderWidth: 1, borderColor: colors.border,
   },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
   editBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
     borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6,
-    borderWidth: 1, borderColor: 'rgba(58,173,255,0.35)',
-    backgroundColor: 'rgba(0,96,230,0.1)',
+    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.surfaceHover,
   },
   editBtnActive: { borderColor: 'rgba(255,90,90,0.4)', backgroundColor: 'rgba(255,90,90,0.08)' },
-  editBtnText: { fontSize: 13, fontWeight: '700', color: '#3AADFF' },
+  editBtnText: { fontSize: 13, fontWeight: '700', color: colors.text },
   scroll: { flex: 1 },
-  content: { paddingBottom: 40, gap: 16 },
-  heroBanner: {
-    margin: 18,
-  },
+  content: { paddingHorizontal: 18, paddingBottom: 40, gap: 16 },
+  heroBanner: {},
   heroInner: {
-    padding: 28,
+    padding: 22,
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   avatarWrap: { position: 'relative', marginBottom: 4 },
   avatarImage: {
-    width: 80, height: 80, borderRadius: 40,
-    borderWidth: 3, borderColor: 'rgba(58,173,255,0.5)',
+    width: 72, height: 72, borderRadius: 36,
+    borderWidth: 3, borderColor: colors.border,
   },
   avatarPlaceholder: {
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: 'rgba(0,96,230,0.3)',
+    width: 72, height: 72, borderRadius: 36,
+    backgroundColor: colors.black,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 3, borderColor: 'rgba(58,173,255,0.5)',
+    borderWidth: 3, borderColor: colors.border,
   },
-  initials: { fontSize: 28, fontWeight: '900', color: '#fff' },
+  initials: { fontSize: 26, fontWeight: '900', color: colors.text },
   cameraBadge: {
     position: 'absolute', bottom: 0, right: 0,
     width: 26, height: 26, borderRadius: 13,
-    backgroundColor: '#036FFC',
+    backgroundColor: colors.primary,
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: '#00050A',
+    borderWidth: 2, borderColor: colors.background,
   },
-  heroName: { fontSize: 22, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
-  heroEmail: { fontSize: 13, color: 'rgba(255,255,255,0.5)' },
+  heroName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.3,
+    textAlign: 'center',
+    maxWidth: '100%',
+  },
+  heroEmail: {
+    fontSize: 13,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    maxWidth: '100%',
+  },
   roleBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4,
     borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5,
-    backgroundColor: 'rgba(0,96,230,0.2)', borderWidth: 1, borderColor: 'rgba(58,173,255,0.3)',
+    backgroundColor: colors.surfaceHover, borderWidth: 1, borderColor: colors.border,
   },
-  roleText: { fontSize: 11, fontWeight: '800', color: '#3AADFF', letterSpacing: 0.5 },
-  infoCard: { marginHorizontal: 18 },
+  roleText: { fontSize: 11, fontWeight: '800', color: colors.text, letterSpacing: 0.5 },
+  infoCard: {},
   infoInner: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 },
-  statsRow: { flexDirection: 'row', gap: 12, marginHorizontal: 18 },
+  statsRow: { flexDirection: 'row', gap: 10 },
   sectionLabel: {
     fontSize: 10, fontWeight: '800', letterSpacing: 1.2,
-    color: 'rgba(255,255,255,0.3)', marginBottom: 4, textTransform: 'uppercase',
+    color: colors.textDim, marginBottom: 4, textTransform: 'uppercase',
   },
   referralRow: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -513,14 +541,14 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   referralCode: { fontSize: 16, fontWeight: '800', color: '#FFC107', letterSpacing: 1 },
-  formCard: { marginHorizontal: 18 },
+  formCard: {},
   formInner: { padding: 18, gap: 14 },
   fieldWrap: { gap: 6 },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.45)' },
+  fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
   input: {
-    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 14, height: 46, fontSize: 14.5, color: '#fff',
+    backgroundColor: colors.surfaceHover, borderRadius: 12,
+    borderWidth: 1, borderColor: colors.border,
+    paddingHorizontal: 14, height: 46, fontSize: 14.5, color: colors.text,
   },
   alertBox: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
@@ -531,5 +559,6 @@ const styles = StyleSheet.create({
   alertText: { flex: 1, fontSize: 13, color: '#FF5A5A' },
   saveGradient: { borderRadius: 13, overflow: 'hidden' },
   savePress: { height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  saveText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  saveText: { fontSize: 15, fontWeight: '800', color: colors.primaryForeground },
 });
+}

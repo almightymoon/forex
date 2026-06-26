@@ -1,9 +1,15 @@
+import { useMemo } from 'react';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNetworkOnline } from '../utils/network';
 
 export function OfflineScreenIndicator() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const online = useNetworkOnline();
   const insets = useSafeAreaInsets();
 
@@ -15,14 +21,20 @@ export function OfflineScreenIndicator() {
       pointerEvents="none"
       accessibilityLabel="No connection"
     >
-      <View style={styles.badge}>
-        <Ionicons name="cloud-offline-outline" size={22} color="#FFC107" />
+      <View
+        style={[
+          styles.badge,
+          { backgroundColor: colors.surface, borderColor: colors.border },
+        ]}
+      >
+        <Ionicons name="cloud-offline-outline" size={22} color={colors.gold} />
       </View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   overlay: {
     position: 'absolute',
     left: 0,
@@ -36,8 +48,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(8, 12, 28, 0.72)',
     borderWidth: 1,
-    borderColor: 'rgba(255, 193, 7, 0.35)',
   },
 });
+}

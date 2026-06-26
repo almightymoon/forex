@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { AppIcon } from './AppIcon';
 import { Logo } from './Logo';
-import { colors } from '../constants/theme';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { resolveMediaUrl } from '../utils/normalize';
 
 type Props = {
@@ -14,6 +16,9 @@ type Props = {
 };
 
 export function AppHeader({ onNotifications, onProfile, profileImage, hasUnread }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const avatarUri = resolveMediaUrl(profileImage);
 
   return (
@@ -28,7 +33,7 @@ export function AppHeader({ onNotifications, onProfile, profileImage, hasUnread 
           {avatarUri ? (
             <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
           ) : (
-            <AppIcon name="user" size={17} color={colors.cyan} strokeWidth={2.1} />
+            <AppIcon name="user" size={17} color={colors.text} strokeWidth={2.1} />
           )}
         </Pressable>
       </View>
@@ -36,7 +41,8 @@ export function AppHeader({ onNotifications, onProfile, profileImage, hasUnread 
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -53,8 +59,8 @@ const styles = StyleSheet.create({
   iconBtn: {
     width: 38,
     height: 38,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 12,
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.border,
     alignItems: 'center',
@@ -68,23 +74,24 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: colors.cyan,
+    backgroundColor: colors.brandPurpleDeep,
     borderWidth: 1.5,
-    borderColor: colors.black,
+    borderColor: colors.surface,
   },
   avatarBtn: {
     width: 38,
     height: 38,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0,212,255,0.08)',
+    borderRadius: 12,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.borderCyan,
+    borderColor: colors.border,
   },
   avatarImage: {
     width: '100%',
     height: '100%',
   },
 });
+}
