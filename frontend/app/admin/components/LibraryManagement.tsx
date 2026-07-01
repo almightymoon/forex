@@ -38,6 +38,7 @@ type LibraryItemRecord = {
 type PackageOption = {
   name: string;
   price: number;
+  isActive?: boolean;
 };
 
 type LibraryManagementProps = {

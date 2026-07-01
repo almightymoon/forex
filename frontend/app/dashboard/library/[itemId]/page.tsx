@@ -6,8 +6,8 @@ import Link from 'next/link';
 import LibraryItemDetailView, {
   LibraryItemLoading,
   LibraryItemNotFound,
-} from '../../../components/library/LibraryItemDetailView';
-import { fetchPublicLibraryItem, type LibraryItem } from '../../../lib/publicLibrary';
+} from '../../../../components/library/LibraryItemDetailView';
+import { fetchPublicLibraryItem, type LibraryItem } from '../../../../lib/publicLibrary';
 
 export default function DashboardLibraryItemPage() {
   const params = useParams();
