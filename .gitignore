@@ -8,4 +8,5 @@ node_modules
 backups/
 backend/logs/
 backend/logs/*.log
+backend/*.log
 website-screenshots/

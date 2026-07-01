@@ -19,15 +19,7 @@ const authenticateToken = async (req, res, next) => {
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
-    const debugAuth = process.env.DEBUG_AUTH === 'true' && process.env.NODE_ENV === 'development';
-    if (debugAuth) {
-      console.log('Auth middleware - Method/Path:', req.method, req.path);
-      console.log('Auth middleware - Auth header present:', !!authHeader);
-      console.log('Auth middleware - Token present:', !!token);
-    }
-
     if (!token) {
-      if (debugAuth) console.log('Auth middleware - No token provided');
       return res.status(401).json({ 
         error: 'Access token required',
         message: 'Please provide a valid authentication token'
@@ -35,15 +27,10 @@ const authenticateToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
-    if (debugAuth) console.log('Auth middleware - Decoded token:', decoded);
     
     const user = await User.findById(decoded.userId).select('-password');
-    if (debugAuth) {
-      console.log('Auth middleware - Found user:', user ? { id: user._id, email: user.email, role: user.role } : 'No user found');
-    }
 
     if (!user) {
-      if (debugAuth) console.log('Auth middleware - User not found in database');
       return res.status(401).json({ 
         error: 'Invalid token',
         message: 'User not found'
@@ -51,7 +38,6 @@ const authenticateToken = async (req, res, next) => {
     }
 
     if (!user.isActive) {
-      if (debugAuth) console.log('Auth middleware - User account deactivated');
       return res.status(401).json({ 
         error: 'Account deactivated',
         message: 'Your account has been deactivated'
@@ -77,17 +63,9 @@ const authenticateToken = async (req, res, next) => {
     req.user.isImpersonating = realRole === 'developer' && effectiveRole !== realRole;
     req.user.role = effectiveRole;
 
-    if (debugAuth) {
-      console.log('Auth middleware - Authentication successful for user:', user.email);
-      console.log('Auth middleware - realRole/effectiveRole:', realRole, effectiveRole);
-    }
     next();
   } catch (error) {
-    const debugAuth = process.env.DEBUG_AUTH === 'true' && process.env.NODE_ENV === 'development';
-    if (debugAuth) console.error('Auth middleware - Error details:', error);
-    
     if (error.name === 'JsonWebTokenError') {
-      if (debugAuth) console.log('Auth middleware - Invalid token format');
       return res.status(401).json({ 
         error: 'Invalid token',
         message: 'Token is not valid',
@@ -98,7 +76,6 @@ const authenticateToken = async (req, res, next) => {
     }
     
     if (error.name === 'TokenExpiredError') {
-      if (debugAuth) console.log('Auth middleware - Token expired');
       return res.status(401).json({ 
         error: 'Token expired',
         message: 'Token has expired, please login again',
@@ -108,7 +85,7 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    console.error('Auth middleware error:', error);
+    console.error('Auth middleware error:', error.message);
     return res.status(500).json({ 
       error: 'Authentication error',
       message: 'Internal server error during authentication'

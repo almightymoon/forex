@@ -1,6 +1,17 @@
-# Production Security Measures
+# Production Security
 
-This document outlines the security measures implemented to protect the application in production.
+## Priority controls (server-side)
+
+These protect real users and data. They matter more than client-side UI restrictions.
+
+- **Secrets**: Never commit `.env`, log files, or JWT/session material. Do not log `Authorization` headers or decoded tokens.
+- **Auth**: Rate-limit login/register/password-reset routes; validate every input with express-validator.
+- **Payments & withdrawals**: Server-side validation, idempotency, and audit logging for state changes.
+- **Admin actions**: Record sensitive operations via `ActivityLog` / `activityLogService`.
+
+## Client-side hardening (limited value)
+
+The measures below only affect the browser UI. They do **not** stop direct API access (curl, Postman, scripts). Do not rely on them for security.
 
 ## 🚫 Console Log Protection
 

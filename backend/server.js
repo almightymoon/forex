@@ -267,12 +267,6 @@ mongoose.connection.once('open', async () => {
   }
 });
 
-// Debug environment variables
-console.log('Environment variables check:');
-console.log('- JWT_SECRET length:', process.env.JWT_SECRET ? process.env.JWT_SECRET.length : 'NOT SET');
-console.log('- NODE_ENV:', process.env.NODE_ENV);
-console.log('- PORT:', process.env.PORT);
-
 // Maintenance mode: run first for all /api so only admin (and optionally teacher) can access during maintenance
 app.use('/api', maintenanceMiddleware);
 
