@@ -7,6 +7,8 @@ import Link from 'next/link';
 import { QRCodeSVG } from 'qrcode.react';
 import { buildApiUrl } from '@/utils/api';
 import DarkModeToggle from '../../components/DarkModeToggle';
+import { cartTotal, loadCart, saveCart, type CartItem } from '../../lib/shopCart';
+import { getProductImageUrl } from '../../lib/publicProducts';
 
 const BINANCE_WALLET_ADDRESS = 'TApaMK8BcN67GDRqVs45qnzbb4oQGt2Pna';
 const NETWORK = 'TRC20';
@@ -32,9 +34,14 @@ export default function PaymentPage() {
   const [originalAmount, setOriginalAmount] = useState(0);
   
   const packageName = searchParams?.get('package') || '';
+  const productId = searchParams?.get('productId') || '';
+  const productName = searchParams?.get('productName') || '';
   const amountParam = searchParams?.get('amount') || '0';
   const paymentIdFromUrl = searchParams?.get('paymentId') || searchParams?.get('paymentid') || '';
   const isMonthlyFeeFlow = searchParams?.get('type') === 'monthly_fee';
+  const isProductFlow = searchParams?.get('type') === 'product';
+  const isCartFlow = searchParams?.get('type') === 'cart';
+  const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [activePaymentId, setActivePaymentId] = useState(paymentIdFromUrl);
 
   const [loadedPayment, setLoadedPayment] = useState<{
@@ -57,6 +64,9 @@ export default function PaymentPage() {
       const n = Number(loadedPayment.finalAmount ?? loadedPayment.amount ?? 0);
       return Number.isFinite(n) && n >= 0 ? n : 0;
     }
+    if (isCartFlow && cartItems.length > 0) {
+      return cartTotal(cartItems);
+    }
     const fromParam = parseAmountParam(amountParam);
     const orig = originalAmount || fromParam;
     const discounted = orig - promoDiscount;
@@ -76,10 +86,27 @@ export default function PaymentPage() {
   }, [isMonthlyFeeFlow, activePaymentId, router]);
 
   useEffect(() => {
+    if (isCartFlow) {
+      const items = loadCart();
+      setCartItems(items);
+      if (items.length === 0) {
+        router.replace('/shop/cart');
+      } else {
+        const total = cartTotal(items);
+        if (total > 0) setOriginalAmount(total);
+      }
+    }
+  }, [isCartFlow, router]);
+
+  useEffect(() => {
     // Check if user is authenticated
     const token = localStorage.getItem('token');
     if (!token) {
-      router.push('/login?redirect=/payment');
+      const redirect =
+        typeof window !== 'undefined' && window.location.search
+          ? `/payment${window.location.search}`
+          : '/payment';
+      router.push(`/login?redirect=${encodeURIComponent(redirect)}`);
       return;
     }
 
@@ -166,7 +193,7 @@ export default function PaymentPage() {
         if (payment?.status === 'completed' && payment?.transactionId) {
           setPaymentStatus('completed');
           setTimeout(() => {
-            router.push('/dashboard');
+            router.push(isProductFlow || isCartFlow ? '/shop/my-purchases' : '/dashboard');
           }, 2000);
         }
       }
@@ -188,7 +215,7 @@ export default function PaymentPage() {
   };
 
   const validatePromoCode = async () => {
-    if (isMonthlyFeeFlow) return;
+    if (isMonthlyFeeFlow || isProductFlow || isCartFlow) return;
     if (!promoCode.trim() || !packageName || originalAmount === 0) return;
 
     setIsValidatingPromo(true);
@@ -296,14 +323,29 @@ export default function PaymentPage() {
       formData.append('payerName', payerName.trim());
       formData.append('payerEmail', payerEmail.trim());
       formData.append('screenshot', screenshotFile);
-      if (!isMonthlyFeeFlow) {
+      if (!isMonthlyFeeFlow && !isProductFlow) {
         formData.append('packageName', packageName);
+        formData.append('amount', String(displayAmount));
+      }
+      if (isProductFlow) {
+        formData.append('productId', productId);
+        formData.append('amount', String(displayAmount));
+      }
+      if (isCartFlow) {
+        formData.append(
+          'items',
+          JSON.stringify(cartItems.map((item) => ({ productId: item.productId, quantity: item.quantity })))
+        );
         formData.append('amount', String(displayAmount));
       }
 
       const submitUrl = activePaymentId
         ? `api/payments/${activePaymentId}/submit-payment`
-        : 'api/payments/submit-package';
+        : isCartFlow
+          ? 'api/payments/submit-product-cart'
+          : isProductFlow
+            ? 'api/payments/submit-product'
+            : 'api/payments/submit-package';
 
       const response = await fetch(buildApiUrl(submitUrl), {
         method: 'POST',
@@ -339,9 +381,18 @@ export default function PaymentPage() {
       if (paymentObj?._id) {
         setActivePaymentId(paymentObj._id);
         if (!paymentIdFromUrl) {
-          const base = `/payment?package=${encodeURIComponent(packageName)}&amount=${displayAmount}&paymentId=${paymentObj._id}`;
+          const base = isCartFlow
+            ? `/payment?type=cart&amount=${displayAmount}&paymentId=${paymentObj._id}`
+            : isProductFlow
+              ? `/payment?type=product&productId=${encodeURIComponent(productId)}&productName=${encodeURIComponent(productName)}&amount=${displayAmount}&paymentId=${paymentObj._id}`
+              : `/payment?package=${encodeURIComponent(packageName)}&amount=${displayAmount}&paymentId=${paymentObj._id}`;
           router.replace(base);
         }
+      }
+
+      if (isCartFlow) {
+        saveCart([]);
+        setCartItems([]);
       }
 
       setPaymentStatus('pending');
@@ -352,7 +403,13 @@ export default function PaymentPage() {
       setScreenshotPreview(null);
 
       setTimeout(() => {
-        const q = isMonthlyFeeFlow ? `from=monthly-fee&amount=${displayAmount}` : `package=${encodeURIComponent(packageName)}&amount=${displayAmount}`;
+        const q = isMonthlyFeeFlow
+          ? `from=monthly-fee&amount=${displayAmount}`
+          : isCartFlow
+            ? `type=cart&amount=${displayAmount}`
+            : isProductFlow
+              ? `type=product&productId=${encodeURIComponent(productId)}&productName=${encodeURIComponent(productName)}&amount=${displayAmount}`
+              : `package=${encodeURIComponent(packageName)}&amount=${displayAmount}`;
         router.push(`/payment-pending?${q}`);
       }, 1500);
     } catch (err: unknown) {
@@ -445,7 +502,7 @@ export default function PaymentPage() {
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">
           <Link 
-            href={isMonthlyFeeFlow ? '/monthly-fee' : '/select-package'}
+            href={isMonthlyFeeFlow ? '/monthly-fee' : isCartFlow ? '/shop/cart' : isProductFlow ? `/shop/${productId}` : '/select-package'}
             className="inline-flex items-center text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition-colors text-sm"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -459,17 +516,70 @@ export default function PaymentPage() {
           {/* Header */}
           <div className="mb-8">
             <h1 className="text-2xl font-semibold text-gray-900 dark:text-white mb-2">
-              {isMonthlyFeeFlow ? 'Monthly fee payment' : 'Complete Payment'}
+              {isMonthlyFeeFlow ? 'Monthly fee payment' : isCartFlow ? 'Complete cart checkout' : isProductFlow ? 'Complete product purchase' : 'Complete Payment'}
             </h1>
             <p className="text-gray-600 dark:text-gray-400 text-sm">
               {isMonthlyFeeFlow
                 ? 'Send USDT using the same steps as your signup payment. After admin confirms, your access is restored.'
-                : 'Send USDT to the address below to activate your account'}
+                : isCartFlow || isProductFlow
+                  ? 'Send USDT to purchase your items. Access is unlocked after admin confirms your payment.'
+                  : 'Send USDT to the address below to activate your account'}
             </p>
           </div>
 
+          {/* Cart items */}
+          {isCartFlow && cartItems.length > 0 && (
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-4 mb-6 border border-indigo-200 dark:border-indigo-800">
+              <p className="text-xs text-indigo-700 dark:text-indigo-300 mb-3">Cart ({cartItems.reduce((n, i) => n + i.quantity, 0)} items)</p>
+              <ul className="space-y-3 mb-4">
+                {cartItems.map((item) => (
+                  <li key={item.productId} className="flex items-center gap-3">
+                    {item.primaryImage ? (
+                      <img
+                        src={getProductImageUrl(item.primaryImage)}
+                        alt=""
+                        className="h-12 w-12 rounded object-cover bg-white"
+                      />
+                    ) : null}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">{item.name}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {item.quantity} × ${item.price.toFixed(2)}
+                      </p>
+                    </div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                      ${(item.price * item.quantity).toFixed(2)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+              <div className="flex justify-between items-center pt-3 border-t border-indigo-200 dark:border-indigo-700">
+                <span className="text-sm font-semibold text-gray-900 dark:text-white">Total</span>
+                <span className="text-base font-bold text-gray-900 dark:text-white">${displayAmount.toFixed(2)} USDT</span>
+              </div>
+            </div>
+          )}
+
+          {/* Product Info */}
+          {isProductFlow && productName && (
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-lg p-4 mb-6 border border-indigo-200 dark:border-indigo-800">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-xs text-indigo-700 dark:text-indigo-300 mb-1">Product</p>
+                  <p className="text-base font-medium text-gray-900 dark:text-white">{productName}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-indigo-700 dark:text-indigo-300 mb-1">Amount</p>
+                  <p className="text-base font-semibold text-gray-900 dark:text-white">
+                    ${(originalAmount || parseFloat(amountParam)).toFixed(2)} USDT
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Package Info (signup flow only) */}
-          {!isMonthlyFeeFlow && packageName && (
+          {!isMonthlyFeeFlow && !isProductFlow && !isCartFlow && packageName && (
             <div className="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 mb-6 border border-gray-200 dark:border-gray-600">
               <div className="flex justify-between items-center mb-4">
                 <div>

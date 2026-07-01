@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import * as DocumentPicker from 'expo-document-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -19,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { GradientButton } from '../../components/GradientButton';
 import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch, apiUpload } from '../../utils/api';
+import { primaryButtonGradient } from '../../utils/primaryButton';
 import { hapticSuccess } from '../../utils/haptics';
 
 interface Assignment {
@@ -39,6 +42,10 @@ interface Assignment {
 }
 
 export default function AssignmentsScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const submitGradientColors = useMemo(() => primaryButtonGradient(isDark), [isDark]);
+  const modal = useMemo(() => createModalStyles(colors), [colors]);
   const router = useRouter();
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -123,7 +130,7 @@ export default function AssignmentsScreen() {
     if (a.grade != null) return '#4ADE80';
     if (a.submission?.submittedAt) return '#FFC107';
     if (a.dueDate && new Date(a.dueDate) < new Date()) return '#FF5A5A';
-    return '#3AADFF';
+    return colors.brandBlue;
   };
 
   const statusLabel = (a: Assignment) => {
@@ -138,7 +145,7 @@ export default function AssignmentsScreen() {
       <SafeAreaView edges={['top']} style={styles.headerSafe}>
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Assignments</Text>
           <View style={{ width: 40 }} />
@@ -148,13 +155,13 @@ export default function AssignmentsScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAssignments(); }} tintColor="#3AADFF" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAssignments(); }} tintColor={colors.black} />}
       >
         {loading ? (
-          <ActivityIndicator color="#3AADFF" style={{ marginTop: 60 }} />
+          <ActivityIndicator color={colors.black} style={{ marginTop: 60 }} />
         ) : assignments.length === 0 ? (
           <View style={styles.empty}>
-            <Ionicons name="clipboard-outline" size={48} color="rgba(255,255,255,0.15)" />
+            <Ionicons name="clipboard-outline" size={48} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>No assignments yet</Text>
             <Text style={styles.emptyText}>Assignments from your enrolled courses will appear here.</Text>
           </View>
@@ -174,19 +181,19 @@ export default function AssignmentsScreen() {
               {a.description ? <Text style={styles.desc} numberOfLines={3}>{a.description}</Text> : null}
               {a.feedback ? (
                 <View style={styles.feedbackBox}>
-                  <Ionicons name="chatbubble-outline" size={14} color="#3AADFF" />
+                  <Ionicons name="chatbubble-outline" size={14} color={colors.text} />
                   <Text style={styles.feedbackText}>{a.feedback}</Text>
                 </View>
               ) : null}
               <View style={styles.actionsRow}>
                 <Pressable style={styles.viewBtn} onPress={() => openView(a)}>
-                  <Ionicons name="eye-outline" size={15} color="rgba(255,255,255,0.6)" />
+                  <Ionicons name="eye-outline" size={15} color={colors.textMuted} />
                   <Text style={styles.viewText}>Details</Text>
                 </Pressable>
                 {!a.submission?.submittedAt || a.grade == null ? (
                   <Pressable style={styles.submitBtn} onPress={() => openSubmit(a)}>
-                    <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.submitGrad}>
-                      <Ionicons name="cloud-upload-outline" size={16} color="#fff" />
+                    <LinearGradient colors={submitGradientColors} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.submitGrad}>
+                      <Ionicons name="cloud-upload-outline" size={16} color={colors.primaryForeground} />
                       <Text style={styles.submitText}>{a.submission?.submittedAt ? 'Resubmit' : 'Submit'}</Text>
                     </LinearGradient>
                   </Pressable>
@@ -202,7 +209,7 @@ export default function AssignmentsScreen() {
           <View style={modal.header}>
             <Text style={modal.title} numberOfLines={1}>{selected?.title}</Text>
             <Pressable onPress={() => setSelected(null)} hitSlop={12}>
-              <Ionicons name="close" size={24} color="#fff" />
+              <Ionicons name="close" size={24} color={colors.text} />
             </Pressable>
           </View>
           <ScrollView contentContainerStyle={modal.content} keyboardShouldPersistTaps="handled">
@@ -227,14 +234,14 @@ export default function AssignmentsScreen() {
             ) : null}
             {selected?.dueDate ? (
               <View style={modal.metaRow}>
-                <Ionicons name="calendar-outline" size={14} color="rgba(255,255,255,0.4)" />
+                <Ionicons name="calendar-outline" size={14} color={colors.textMuted} />
                 <Text style={modal.metaText}>Due {new Date(selected.dueDate).toLocaleDateString()}</Text>
               </View>
             ) : null}
             {selected?.feedback ? (
               <GlassListCard contentStyle={modal.instructionsBox} radius={12}>
                 <Text style={modal.instructionsLabel}>Instructor Feedback</Text>
-                <Text style={[modal.instructionsText, { color: '#3AADFF' }]}>{selected.feedback}</Text>
+                <Text style={[modal.instructionsText, { color: colors.text }]}>{selected.feedback}</Text>
               </GlassListCard>
             ) : null}
 
@@ -247,17 +254,17 @@ export default function AssignmentsScreen() {
                   value={textContent}
                   onChangeText={setTextContent}
                   placeholder="Write your answer here..."
-                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  placeholderTextColor={colors.textDim}
                   multiline
                   textAlignVertical="top"
                 />
                 <Pressable style={modal.fileBtn} onPress={pickFiles}>
-                  <Ionicons name="attach-outline" size={18} color="#3AADFF" />
+                  <Ionicons name="attach-outline" size={18} color={colors.text} />
                   <Text style={modal.fileBtnText}>Attach files ({files.length})</Text>
                 </Pressable>
                 {files.map((f, i) => (
                   <View key={i} style={modal.fileRow}>
-                    <Ionicons name="document-outline" size={16} color="rgba(255,255,255,0.5)" />
+                    <Ionicons name="document-outline" size={16} color={colors.textMuted} />
                     <Text style={modal.fileName} numberOfLines={1}>{f.name}</Text>
                     <Pressable onPress={() => setFiles((p) => p.filter((_, j) => j !== i))}>
                       <Ionicons name="close-circle" size={18} color="#FF5A5A" />
@@ -271,7 +278,7 @@ export default function AssignmentsScreen() {
               /* View mode: show submit button if not yet graded */
               selected && (!selected.submission?.submittedAt || selected.grade == null) ? (
                 <Pressable style={modal.switchToSubmit} onPress={() => setModalMode('submit')}>
-                  <Ionicons name="cloud-upload-outline" size={16} color="#3AADFF" />
+                  <Ionicons name="cloud-upload-outline" size={16} color={colors.text} />
                   <Text style={modal.switchToSubmitText}>
                     {selected.submission?.submittedAt ? 'Resubmit Assignment' : 'Submit Assignment'}
                   </Text>
@@ -285,58 +292,62 @@ export default function AssignmentsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: { backgroundColor: 'transparent' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center' },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 14 },
   empty: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.5)' },
-  emptyText: { fontSize: 13.5, color: 'rgba(255,255,255,0.35)', textAlign: 'center', paddingHorizontal: 20 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textSecondary },
+  emptyText: { fontSize: 13.5, color: colors.textDim, textAlign: 'center', paddingHorizontal: 20 },
   card: { padding: 16, gap: 8 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   statusPill: { borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 },
   statusText: { fontSize: 11, fontWeight: '700' },
-  dueText: { fontSize: 11, color: 'rgba(255,255,255,0.35)' },
-  cardTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
-  courseName: { fontSize: 12.5, color: '#3AADFF', fontWeight: '600' },
-  desc: { fontSize: 13, color: 'rgba(255,255,255,0.5)', lineHeight: 19 },
-  feedbackBox: { flexDirection: 'row', gap: 8, backgroundColor: 'rgba(0,96,230,0.1)', borderRadius: 10, padding: 10 },
-  feedbackText: { flex: 1, fontSize: 12.5, color: 'rgba(255,255,255,0.7)', lineHeight: 18 },
+  dueText: { fontSize: 11, color: colors.textDim },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
+  courseName: { fontSize: 12.5, color: colors.text, fontWeight: '600' },
+  desc: { fontSize: 13, color: colors.textSecondary, lineHeight: 19 },
+  feedbackBox: { flexDirection: 'row', gap: 8, backgroundColor: colors.surfaceHover, borderRadius: 10, padding: 10 },
+  feedbackText: { flex: 1, fontSize: 12.5, color: colors.textSilver, lineHeight: 18 },
   actionsRow: { flexDirection: 'row', gap: 8, marginTop: 4 },
   viewBtn: {
     height: 42, paddingHorizontal: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.surfaceHover, borderWidth: 1, borderColor: colors.border,
   },
-  viewText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.6)' },
+  viewText: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
   submitBtn: { flex: 1, borderRadius: 12, overflow: 'hidden' },
   submitGrad: { height: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  submitText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  submitText: { fontSize: 14, fontWeight: '800', color: colors.primaryForeground },
 });
+}
 
-const modal = StyleSheet.create({
+function createModalStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' },
-  title: { flex: 1, fontSize: 17, fontWeight: '800', color: '#fff', marginRight: 12 },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 18, borderBottomWidth: 1, borderBottomColor: colors.border },
+  title: { flex: 1, fontSize: 17, fontWeight: '800', color: colors.text, marginRight: 12 },
   content: { padding: 18, gap: 14, paddingBottom: 40 },
   instructionsBox: { padding: 14, gap: 6 },
-  instructionsLabel: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.4)', letterSpacing: 0.8, textTransform: 'uppercase' },
-  instructionsText: { fontSize: 13.5, color: 'rgba(255,255,255,0.7)', lineHeight: 20 },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.45)' },
-  textarea: { backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', padding: 14, minHeight: 120, fontSize: 14.5, color: '#fff' },
-  fileBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(58,173,255,0.3)', backgroundColor: 'rgba(0,96,230,0.1)' },
-  fileBtnText: { fontSize: 14, fontWeight: '600', color: '#3AADFF' },
+  instructionsLabel: { fontSize: 11, fontWeight: '800', color: colors.textMuted, letterSpacing: 0.8, textTransform: 'uppercase' },
+  instructionsText: { fontSize: 13.5, color: colors.textSilver, lineHeight: 20 },
+  fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
+  textarea: { backgroundColor: colors.surfaceHover, borderRadius: 12, borderWidth: 1, borderColor: colors.border, padding: 14, minHeight: 120, fontSize: 14.5, color: colors.text },
+  fileBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 12, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceHover },
+  fileBtnText: { fontSize: 14, fontWeight: '600', color: colors.text },
   fileRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 6 },
-  fileName: { flex: 1, fontSize: 13, color: 'rgba(255,255,255,0.6)' },
+  fileName: { flex: 1, fontSize: 13, color: colors.textSecondary },
   error: { fontSize: 13, color: '#FF5A5A' },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  metaText: { fontSize: 12.5, color: 'rgba(255,255,255,0.45)' },
+  metaText: { fontSize: 12.5, color: colors.textMuted },
   switchToSubmit: {
     marginTop: 8, height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    borderRadius: 13, borderWidth: 1, borderColor: 'rgba(58,173,255,0.4)', backgroundColor: 'rgba(0,96,230,0.1)',
+    borderRadius: 13, borderWidth: 1, borderColor: colors.primary, backgroundColor: colors.surfaceHover,
   },
-  switchToSubmitText: { fontSize: 15, fontWeight: '700', color: '#3AADFF' },
+  switchToSubmitText: { fontSize: 15, fontWeight: '700', color: colors.text },
 });
+}

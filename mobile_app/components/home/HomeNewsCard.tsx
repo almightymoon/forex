@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CachedImage } from '../CachedImage';
 import { AppIcon } from '../AppIcon';
-import { colors } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import type { NormalizedNews } from '../../utils/normalize';
 import { GlassCard } from './GlassCard';
 
@@ -30,6 +32,9 @@ function formatTime(iso: string) {
 }
 
 export function HomeNewsCard({ item, onPress }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const hasThumb = Boolean(item.thumbnail);
 
   return (
@@ -37,13 +42,13 @@ export function HomeNewsCard({ item, onPress }: Props) {
       style={({ pressed }) => [styles.outer, pressed && styles.pressed]}
       onPress={onPress}
     >
-      <GlassCard contentStyle={styles.inner} radius={20}>
+      <GlassCard contentStyle={styles.inner} radius={16}>
         <View style={styles.thumb}>
           {hasThumb ? (
             <CachedImage source={{ uri: item.thumbnail }} style={styles.thumbImage} contentFit="cover" />
           ) : (
             <View style={styles.thumbPlaceholder}>
-              <AppIcon name="file-text" size={24} color={colors.cyan} strokeWidth={2} />
+              <AppIcon name="file-text" size={24} color={colors.blue} strokeWidth={2} />
             </View>
           )}
         </View>
@@ -64,7 +69,8 @@ export function HomeNewsCard({ item, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   outer: {
     marginBottom: 10,
   },
@@ -114,14 +120,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 11,
     fontWeight: '700',
-    color: colors.cyan,
+    color: colors.brandBlue,
     textTransform: 'uppercase',
     letterSpacing: 0.35,
   },
   time: {
     fontSize: 11,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.42)',
+    color: colors.textMuted,
     flexShrink: 0,
   },
   title: {
@@ -132,3 +138,4 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
 });
+}

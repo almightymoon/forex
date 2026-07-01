@@ -253,6 +253,18 @@ mongoose.connection.once('open', async () => {
   } catch (e) {
     console.error('Package seed error:', e);
   }
+  try {
+    const { ensureShopMerchDefaults } = require('./services/shopMerchSeed');
+    await ensureShopMerchDefaults();
+  } catch (e) {
+    console.error('Shop merch seed error:', e);
+  }
+  try {
+    const { ensureLibraryDefaults } = require('./services/librarySeed');
+    await ensureLibraryDefaults();
+  } catch (e) {
+    console.error('Library seed error:', e);
+  }
 });
 
 // Debug environment variables
@@ -266,11 +278,16 @@ app.use('/api', maintenanceMiddleware);
 
 // Public routes (no middleware)
 app.use('/api/auth', authRoutes);
+app.use('/api/mobile', require('./routes/mobile'));
 app.use('/api/faq', require('./routes/faq'));
 app.use('/api/settings/public', require('./routes/settings'));
 app.use('/api/monthly-progress/public', require('./routes/monthlyProgressPublic'));
 app.use('/api/new-joiners/public', require('./routes/newJoinersPublic'));
 app.use('/api/packages', packageRoutes);
+app.use('/api/products', require('./routes/products'));
+app.use('/api/campaigns', require('./routes/campaigns'));
+// Library — students & teachers only (auth enforced in router)
+app.use('/api/library', checkSessionTimeout, require('./routes/library'));
 // Support — no package subscription required (payment-pending users need help)
 app.use('/api/support', checkSessionTimeout, supportRoutes);
 

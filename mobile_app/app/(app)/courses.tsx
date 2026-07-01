@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -15,11 +17,11 @@ import {
   ToastAndroid,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { BrowseCourseCard } from '../../components/BrowseCourseCard';
 import { CourseCard } from '../../components/CourseCard';
+import { ExploreScreenHeader } from '../../components/explore/ExploreScreenHeader';
+import { createExploreChipStyles } from '../../components/explore/exploreStyles';
 import { GlassEmptyState } from '../../components/glass/GlassPressable';
-import { GlassSurface } from '../../components/glass/GlassSurface';
 import { apiFetch } from '../../utils/api';
 import { hapticSuccess } from '../../utils/haptics';
 import { addEnrolledCourseId, getEnrolledCourseIds } from '../../utils/enrollment';
@@ -29,6 +31,9 @@ import { NormalizedCourse, normalizeCourse, normalizeList } from '../../utils/no
 type Tab = 'enrolled' | 'browse';
 
 export default function CoursesScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const exploreChipStyles = useMemo(() => createExploreChipStyles(colors), [colors]);
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('browse');
   const [enrolled, setEnrolled] = useState<NormalizedCourse[]>([]);
@@ -180,51 +185,55 @@ export default function CoursesScreen() {
 
   return (
     <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
-        <GlassSurface style={styles.headerGlass} contentStyle={styles.headerGlassInner} radius={22}>
-          <View style={styles.header}>
-            <Text style={styles.pageTitle}>Courses</Text>
-            <Pressable
-              style={[styles.searchBtn, showSearch && styles.searchBtnActive]}
-              onPress={() => setShowSearch((v) => !v)}
-              hitSlop={8}
-            >
-              <Ionicons name={showSearch ? 'close' : 'search-outline'} size={22} color="#fff" />
-            </Pressable>
-          </View>
+      <ExploreScreenHeader
+        eyebrow="Learning"
+        title="Courses"
+        subtitle="Structured forex education from beginner to advanced"
+        trailing={
+          <Pressable
+            style={[styles.searchBtn, showSearch && styles.searchBtnActive]}
+            onPress={() => setShowSearch((v) => !v)}
+            hitSlop={8}
+          >
+            <Ionicons
+              name={showSearch ? 'close' : 'search-outline'}
+              size={20}
+              color={isDark ? '#FFFFFF' : colors.text}
+            />
+          </Pressable>
+        }
+      >
+        <View style={styles.tabs}>
+          <TabBtn label="My courses" active={tab === 'enrolled'} onPress={() => setTab('enrolled')} count={enrolled.length} />
+          <TabBtn label="Explore" active={tab === 'browse'} onPress={() => setTab('browse')} count={catalog.length} />
+        </View>
 
-          <View style={styles.tabs}>
-            <TabBtn label="My courses" active={tab === 'enrolled'} onPress={() => setTab('enrolled')} count={enrolled.length} />
-            <TabBtn label="Browse" active={tab === 'browse'} onPress={() => setTab('browse')} count={catalog.length} />
+        {showSearch ? (
+          <View style={styles.searchWrap}>
+            <Ionicons name="search" size={16} color={colors.textMuted} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by title or instructor"
+              placeholderTextColor={colors.textDim}
+              value={search}
+              onChangeText={setSearch}
+              autoFocus
+            />
+            {search.length > 0 ? (
+              <Pressable onPress={() => setSearch('')} hitSlop={8}>
+                <Ionicons name="close-circle" size={16} color={colors.textMuted} />
+              </Pressable>
+            ) : null}
           </View>
-
-          {showSearch ? (
-            <View style={styles.searchWrap}>
-              <Ionicons name="search" size={16} color="rgba(255,255,255,0.35)" />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search by title or instructor"
-                placeholderTextColor="rgba(255,255,255,0.28)"
-                value={search}
-                onChangeText={setSearch}
-                autoFocus
-              />
-              {search.length > 0 ? (
-                <Pressable onPress={() => setSearch('')} hitSlop={8}>
-                  <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.35)" />
-                </Pressable>
-              ) : null}
-            </View>
-          ) : null}
-        </GlassSurface>
-      </SafeAreaView>
+        ) : null}
+      </ExploreScreenHeader>
 
       <FlatList
         data={loading ? [] : displayed}
         keyExtractor={(item) => item._id}
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3AADFF" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         removeClippedSubviews={Platform.OS === 'android'}
@@ -243,10 +252,10 @@ export default function CoursesScreen() {
               {(['all', 'beginner', 'intermediate', 'advanced'] as const).map((lvl) => (
                 <Pressable
                   key={lvl}
-                  style={[styles.filterChip, levelFilter === lvl && styles.filterChipActive]}
+                  style={[exploreChipStyles.chip, levelFilter === lvl && exploreChipStyles.chipActive]}
                   onPress={() => setLevelFilter(lvl)}
                 >
-                  <Text style={[styles.filterChipText, levelFilter === lvl && styles.filterChipTextActive]}>
+                  <Text style={[exploreChipStyles.chipText, levelFilter === lvl && exploreChipStyles.chipTextActive]}>
                     {lvl === 'all' ? 'All levels' : lvl.charAt(0).toUpperCase() + lvl.slice(1)}
                   </Text>
                 </Pressable>
@@ -255,10 +264,10 @@ export default function CoursesScreen() {
               {([['default', 'Default'], ['title', 'A–Z'], ['rating', 'Top rated']] as const).map(([val, label]) => (
                 <Pressable
                   key={val}
-                  style={[styles.filterChip, sortBy === val && styles.filterChipActive]}
+                  style={[exploreChipStyles.chip, sortBy === val && exploreChipStyles.chipActive]}
                   onPress={() => setSortBy(val)}
                 >
-                  <Text style={[styles.filterChipText, sortBy === val && styles.filterChipTextActive]}>{label}</Text>
+                  <Text style={[exploreChipStyles.chipText, sortBy === val && exploreChipStyles.chipTextActive]}>{label}</Text>
                 </Pressable>
               ))}
             </ScrollView>
@@ -267,7 +276,7 @@ export default function CoursesScreen() {
         stickyHeaderIndices={tab === 'browse' ? [0] : undefined}
         ListEmptyComponent={
           loading ? (
-            <ActivityIndicator color="#3AADFF" style={{ marginTop: 40 }} />
+            <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
           ) : (
             <GlassEmptyState
               title={query ? 'No matches found' : tab === 'enrolled' ? 'No courses yet' : 'No courses available'}
@@ -278,7 +287,7 @@ export default function CoursesScreen() {
                     ? 'Browse our catalog and enroll in a course to get started.'
                     : 'Check back soon for new courses.'
               }
-              actionLabel={tab === 'enrolled' && !query ? 'Browse Courses' : undefined}
+              actionLabel={tab === 'enrolled' && !query ? 'Explore catalog' : undefined}
               onAction={tab === 'enrolled' && !query ? () => setTab('browse') : undefined}
             />
           )
@@ -292,6 +301,7 @@ export default function CoursesScreen() {
               thumbnail={course.thumbnail}
               level={course.level}
               rating={course.rating}
+              lessonCount={course.lessonCount}
               ctaLabel="Enroll"
               onCtaPress={() => enroll(course._id)}
               onPress={() => router.push(`/(app)/course/${course._id}`)}
@@ -313,6 +323,8 @@ export default function CoursesScreen() {
 }
 
 function TabBtn({ label, active, onPress, count }: { label: string; active: boolean; onPress: () => void; count: number }) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
   return (
     <Pressable style={[styles.tabBtn, active && styles.tabBtnActive]} onPress={onPress}>
       <Text style={[styles.tabText, active && styles.tabTextActive]}>{label}</Text>
@@ -325,57 +337,48 @@ function TabBtn({ label, active, onPress, count }: { label: string; active: bool
   );
 }
 
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: 'transparent' },
-  headerSafe: {
-    backgroundColor: 'transparent',
-    paddingHorizontal: 16,
-    paddingBottom: 10,
-  },
-  headerGlass: {
-    width: '100%',
-  },
-  headerGlassInner: {
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 14,
-    gap: 12,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  pageTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#fff',
-    letterSpacing: -0.5,
-  },
+function createStyles(colors: AppColors, isDark: boolean) {
+  return StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
   searchBtn: {
-    width: 38,
-    height: 38,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    ...(isDark
+      ? {
+          backgroundColor: 'rgba(255,255,255,0.12)',
+          borderColor: 'rgba(255,255,255,0.18)',
+        }
+      : {
+          backgroundColor: colors.surfaceHover,
+          borderColor: colors.border,
+        }),
   },
   searchBtnActive: {
-    opacity: 0.75,
+    backgroundColor: isDark ? 'rgba(255,255,255,0.22)' : colors.surface,
   },
   searchWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surface,
     borderRadius: 14,
     paddingHorizontal: 14,
     height: 44,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  searchInput: { flex: 1, fontSize: 15, color: '#fff' },
+  searchInput: { flex: 1, fontSize: 15, color: colors.text },
   tabs: {
     flexDirection: 'row',
     padding: 4,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     gap: 4,
   },
   tabBtn: {
@@ -383,24 +386,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    height: 36,
+    height: 38,
     borderRadius: 10,
     gap: 6,
   },
   tabBtnActive: {
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: colors.primary,
   },
   tabText: {
     fontSize: 14,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.textMuted,
   },
   tabTextActive: {
-    color: '#fff',
+    color: colors.primaryForeground,
     fontWeight: '700',
   },
   tabCount: {
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.surfaceHover,
     borderRadius: 8,
     paddingHorizontal: 6,
     paddingVertical: 1,
@@ -408,50 +411,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   tabCountActive: {
-    backgroundColor: 'rgba(3,111,252,0.35)',
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
   tabCountText: {
     fontSize: 11,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.textMuted,
   },
   tabCountTextActive: {
-    color: '#fff',
+    color: colors.primaryForeground,
   },
   filterScroll: {
     marginBottom: 4,
   },
   filterRow: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 4,
     paddingBottom: 14,
     gap: 8,
     alignItems: 'center',
   },
-  filterChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
-  },
-  filterChipActive: {
-    borderColor: '#3AADFF',
-    backgroundColor: 'rgba(58,173,255,0.14)',
-  },
-  filterChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.45)',
-  },
-  filterChipTextActive: { color: '#3AADFF' },
   filterDivider: {
     width: 1,
     height: 20,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: colors.border,
     marginHorizontal: 4,
   },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 20, paddingBottom: 28 },
-  separator: { height: 14 },
+  content: { paddingHorizontal: 16, paddingBottom: 28, paddingTop: 4 },
+  separator: { height: 16 },
 });
+}

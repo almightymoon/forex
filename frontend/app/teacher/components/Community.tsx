@@ -17,6 +17,7 @@ import {
   Check,
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
+import { isCommunityModerator } from '@/utils/communityPermissions';
 
 interface Channel { /* ... same as before ... */ _id: string; name: string; description: string; memberCount: number; isPrivate: boolean; isLocked: boolean; createdBy: { _id: string; firstName: string; lastName: string }; createdAt: string; lastMessage?: { content: string; timestamp: string; author: { _id: string; firstName: string; lastName: string } }; }
 interface Message { /* ... same as before ... */ _id: string; content: string; author: { _id: string; firstName: string; lastName: string; role: string }; timestamp?: string; createdAt?: string; updatedAt?: string; channelId: string; isEdited?: boolean; isPinned?: boolean; }
@@ -279,12 +280,12 @@ export default function Community({ students, courses }: CommunityProps) {
       }
       if (cmd === '/clear') {
         // permission check
-        if (currentUser?.role === 'admin' || currentUser?.role === 'teacher') {
+        if (isCommunityModerator(currentUser?.role)) {
           await handlePurgeChannel(activeChannel);
           setMessageInput('');
           return;
         }
-        showToast('Only teachers and admins can use this command', 'error');
+        showToast('Only moderators can use this command', 'error');
         setMessageInput('');
         return;
       }
@@ -847,7 +848,7 @@ export default function Community({ students, courses }: CommunityProps) {
                   
                   <div className="flex-shrink-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
                     { /* permissions check inline */}
-                    { (currentUser?.role === 'admin' || currentUser?.role === 'teacher' || m.author._id === currentUser?.id) && (
+                    { (isCommunityModerator(currentUser?.role) || m.author._id === currentUser?.id) && (
                     <div className="relative">
                         <button onClick={() => setShowMessageMenu(showMessageMenu === m._id ? null : m._id)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400">
                           <MoreVertical className="w-4 h-4" />
@@ -855,7 +856,7 @@ export default function Community({ students, courses }: CommunityProps) {
                       
                         {showMessageMenu === m._id && (
                           <div className="absolute right-0 top-8 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow z-10 min-w-[120px]">
-                            { (currentUser?.role === 'admin' || currentUser?.role === 'teacher' || m.author._id === currentUser?.id) && (
+                            { m.author._id === currentUser?.id && (
                               <button onClick={() => startEditMessage(m)} className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white">Edit</button>
                             )}
                             <button onClick={() => handleDeleteMessage(m._id)} className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-red-600 dark:text-red-400">Delete</button>

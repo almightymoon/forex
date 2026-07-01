@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon } from '../AppIcon';
-import { colors, radii } from '../../constants/theme';
+import { radii } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 type Props = {
   pair: string;
@@ -10,6 +13,9 @@ type Props = {
 };
 
 export function SignalTicker({ pair, direction, entry, onPress }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const isBuy = direction === 'BUY';
 
   return (
@@ -40,7 +46,8 @@ export function SignalTicker({ pair, direction, entry, onPress }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     borderRadius: radii.lg,
@@ -112,3 +119,4 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
 });
+}

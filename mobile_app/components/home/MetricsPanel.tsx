@@ -1,5 +1,8 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors, radii } from '../../constants/theme';
+import { radii } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 type Metric = {
   label: string;
@@ -13,6 +16,9 @@ type Props = {
 };
 
 export function MetricsPanel({ metrics }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.panel}>
       {metrics.map((m, i) => (
@@ -30,7 +36,8 @@ export function MetricsPanel({ metrics }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   panel: {
     flexDirection: 'row',
     marginHorizontal: 12,
@@ -76,3 +83,4 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 });
+}

@@ -21,7 +21,16 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.fxnavigators.app",
-      "backgroundColor": "#00050A"
+      "backgroundColor": "#00050A",
+      "associatedDomains": [
+        "applinks:thefxnavigators.com"
+      ],
+      "infoPlist": {
+        "UIBackgroundModes": [
+          "remote-notification"
+        ],
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {

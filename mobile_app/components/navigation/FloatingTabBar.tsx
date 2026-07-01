@@ -1,8 +1,10 @@
+import { useMemo } from 'react';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { BlurView } from 'expo-blur';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppIcon, type AppIconName } from '../AppIcon';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { recordQuickAccessRoute } from '../../utils/quickAccess';
 
 const TAB_ORDER = ['home', 'courses', 'community', 'signals', 'more'] as const;
@@ -36,24 +38,17 @@ function isTabRoute(name: string): name is TabRoute {
 }
 
 export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+
   const insets = useSafeAreaInsets();
   const bottom = Math.max(insets.bottom, Platform.OS === 'android' ? 10 : 8) + BAR_FLOAT_GAP;
-
   const visibleRoutes = state.routes.filter((route) => isTabRoute(route.name));
 
   return (
     <View style={[styles.outer, { bottom }]} pointerEvents="box-none">
       <View style={styles.barShadow}>
         <View style={styles.barShell}>
-          <BlurView
-            intensity={Platform.OS === 'ios' ? 72 : 52}
-            tint="dark"
-            experimentalBlurMethod={Platform.OS === 'android' ? 'dimezisBlurView' : undefined}
-            style={StyleSheet.absoluteFill}
-          />
-          <View style={styles.barTint} pointerEvents="none" />
-          <View style={styles.barBorder} pointerEvents="none" />
-
           <View style={styles.row}>
             {visibleRoutes.map((route) => {
               const routeIndex = state.routes.findIndex((r) => r.key === route.key);
@@ -91,13 +86,13 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
                   <View style={styles.iconWrap}>
                     {isFocused ? (
                       <View style={styles.activeCircle}>
-                        <AppIcon name={meta.icon} size={20} color="#121820" strokeWidth={2.3} />
+                        <AppIcon name={meta.icon} size={20} color={colors.primaryForeground} strokeWidth={2.3} />
                       </View>
                     ) : (
                       <AppIcon
                         name={meta.icon}
                         size={21}
-                        color="rgba(255,255,255,0.88)"
+                        color={colors.textMuted}
                         strokeWidth={2}
                       />
                     )}
@@ -120,7 +115,8 @@ export function FloatingTabBar({ state, navigation }: BottomTabBarProps) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors, isDark: boolean) {
+  return StyleSheet.create({
   outer: {
     position: 'absolute',
     left: BAR_MARGIN_H,
@@ -129,27 +125,19 @@ const styles = StyleSheet.create({
   barShadow: {
     borderRadius: BAR_RADIUS,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.28,
-    shadowRadius: 14,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: isDark ? 0.35 : 0.08,
+    shadowRadius: isDark ? 20 : 16,
+    elevation: 6,
   },
   barShell: {
     borderRadius: BAR_RADIUS,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     minHeight: FLOATING_TAB_BAR_HEIGHT,
     justifyContent: 'center',
-  },
-  barTint: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(12,22,48,0.18)',
-  },
-  barBorder: {
-    ...StyleSheet.absoluteFillObject,
-    borderRadius: BAR_RADIUS,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
   },
   row: {
     flexDirection: 'row',
@@ -176,7 +164,7 @@ const styles = StyleSheet.create({
     width: ICON_CIRCLE,
     height: ICON_CIRCLE,
     borderRadius: ICON_CIRCLE / 2,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -184,13 +172,14 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 10,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.72)',
+    color: colors.textMuted,
     textAlign: 'center',
     width: '100%',
     paddingHorizontal: 2,
   },
   labelActive: {
-    color: '#FFFFFF',
+    color: colors.text,
     fontWeight: '700',
   },
 });
+}

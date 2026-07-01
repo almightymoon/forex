@@ -1,21 +1,18 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ActiveSignalsHomeCard } from '../../components/home/ActiveSignalsHomeCard';
-import { HomeCourseCard } from '../../components/home/HomeCourseCard';
+import { AnimatedReveal } from '../../components/home/AnimatedReveal';
+import { BrandSectionTitle } from '../../components/home/BrandSectionTitle';
+import { HomeCourseRowCard } from '../../components/home/HomeCourseRowCard';
 import { HomeHeader } from '../../components/home/HomeHeader';
+import { HomeSkeleton } from '../../components/home/HomeSkeleton';
 import { MarketNewsSection } from '../../components/home/MarketNewsSection';
 import { RecentActivityHomeCard } from '../../components/home/RecentActivityHomeCard';
 import { WelcomeHeroCard } from '../../components/home/WelcomeHeroCard';
-import { colors } from '../../constants/theme';
+import { getFloatingTabBarInset } from '../../components/navigation/FloatingTabBar';
+import { useTheme } from '../../contexts/ThemeContext';
 import { apiFetch } from '../../utils/api';
 import { AuthUser, getStoredUser } from '../../utils/auth';
 import { loadDashboardSnapshot, saveDashboardSnapshot } from '../../utils/dashboardCache';
@@ -36,11 +33,15 @@ import {
 
 interface DashboardData {
   enrolledCourses: number;
+  catalogTotal: number;
+  allCourses: NormalizedCourse[];
   courses: NormalizedCourse[];
   recentSignals: NormalizedSignal[];
   recentActivity: ActivityItem[];
   news: NormalizedNews[];
 }
+
+const SECTION_GAP = 24;
 
 function activityRoute(item: ActivityItem): string {
   switch (item.type) {
@@ -58,8 +59,58 @@ function activityRoute(item: ActivityItem): string {
   }
 }
 
+function pickResumeCourse(courses: NormalizedCourse[]) {
+  const inProgress = courses.filter((c) => {
+    const p = c.progress ?? 0;
+    return p > 0 && p < 100;
+  });
+  if (inProgress.length > 0) {
+    return inProgress.sort((a, b) => (b.progress ?? 0) - (a.progress ?? 0))[0];
+  }
+  return courses[0];
+}
+
+function buildHeroAction(
+  courses: NormalizedCourse[],
+  activeSignals: number,
+  router: ReturnType<typeof useRouter>,
+) {
+  const resume = pickResumeCourse(courses);
+  const inProgress =
+    resume != null && (resume.progress ?? 0) > 0 && (resume.progress ?? 0) < 100;
+
+  if (inProgress && resume) {
+    return {
+      subtitle: 'Pick up where you left off',
+      actionLabel: 'Resume Lesson',
+      onAction: () => router.push(`/(app)/course/${resume._id}`),
+    };
+  }
+  if (activeSignals > 0) {
+    return {
+      subtitle: 'New signals are live on the desk',
+      actionLabel: 'View Signals',
+      onAction: () => router.push('/(app)/signals'),
+    };
+  }
+  return {
+    subtitle: 'Start your learning journey today',
+    actionLabel: 'Browse Courses',
+    onAction: () => router.push('/(app)/courses'),
+  };
+}
+
 export default function HomeScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { width: screenWidth } = useWindowDimensions();
+  const stackInsights = screenWidth < 380;
+  const styles = useMemo(
+    () => createStyles(colors, getFloatingTabBarInset(insets.bottom)),
+    [colors, insets.bottom],
+  );
+
   const [user, setUser] = useState<AuthUser | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -73,7 +124,7 @@ export default function HomeScreen() {
         apiFetch('api/courses/enrolled', { cache }),
         apiFetch('api/courses', { cache }),
         apiFetch('api/signals', { cache }),
-        apiFetch('api/users/activity/recent?limit=4', { cache }),
+        apiFetch('api/users/activity/recent?limit=6', { cache }),
         apiFetch('api/news?limit=5', { cache }),
       ]);
 
@@ -142,6 +193,8 @@ export default function HomeScreen() {
 
       const next: DashboardData = {
         enrolledCourses: courses.length,
+        catalogTotal: catalog.length,
+        allCourses: courses,
         courses: courses.slice(0, 2),
         recentSignals: signals,
         recentActivity,
@@ -166,6 +219,8 @@ export default function HomeScreen() {
       if (snapshot) {
         setData({
           enrolledCourses: snapshot.enrolledCourses,
+          catalogTotal: snapshot.catalogTotal ?? snapshot.enrolledCourses,
+          allCourses: snapshot.allCourses ?? snapshot.courses,
           courses: snapshot.courses,
           recentSignals: snapshot.recentSignals,
           recentActivity: snapshot.recentActivity,
@@ -205,79 +260,121 @@ export default function HomeScreen() {
   };
 
   const firstName = user?.firstName ?? 'User';
-  const topSignal = data?.recentSignals?.find((s) => s.status === 'active') ?? data?.recentSignals?.[0];
-  const activeSignals = data?.recentSignals?.filter((s) => s.status === 'active').length ?? 0;
-  const hasCourses = (data?.courses?.length ?? 0) > 0;
+  const courses = data?.courses ?? [];
+  const enrolledTotal = data?.enrolledCourses ?? 0;
+  const signals = data?.recentSignals ?? [];
+  const topSignal = signals.find((s) => s.status === 'active') ?? signals[0];
+  const activeSignals = signals.filter((s) => s.status === 'active').length;
+  const hasActiveSignal = topSignal?.status === 'active';
+
+  const hero = useMemo(
+    () => buildHeroAction(data?.allCourses ?? courses, activeSignals, router),
+    [data?.allCourses, courses, activeSignals, router],
+  );
+
+  const showSkeleton = loading && !data;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
-      <View style={styles.headerWrap}>
-        <HomeHeader
-          profileImage={user?.profileImage}
-          hasUnread={unreadCount > 0}
-          onNotifications={() => router.push('/(app)/notifications')}
-          onSettings={() => router.push('/(app)/settings')}
-          onProfile={() => router.push('/(app)/profile')}
-        />
-      </View>
-
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.cyan} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.text} />
         }
         showsVerticalScrollIndicator={false}
       >
-        {loading ? (
-          <ActivityIndicator color={colors.cyan} style={styles.loader} />
+        <AnimatedReveal index={0}>
+          <HomeHeader
+            firstName={firstName}
+            hasUnread={unreadCount > 0}
+            profileImage={user?.profileImage}
+            onSettings={() => router.push('/(app)/settings')}
+            onNotifications={() => router.push('/(app)/notifications')}
+            onProfile={() => router.push('/(app)/profile')}
+          />
+        </AnimatedReveal>
+
+        {showSkeleton ? (
+          <HomeSkeleton />
         ) : (
           <>
-            <WelcomeHeroCard
-              firstName={firstName}
-              courses={data?.enrolledCourses ?? 0}
-              activeSignals={activeSignals}
-              onStartNow={() => router.push('/(app)/courses')}
-            />
+            <AnimatedReveal index={1}>
+              <WelcomeHeroCard
+                firstName={firstName}
+                enrolledCount={enrolledTotal}
+                activeSignals={activeSignals}
+                subtitle={hero.subtitle}
+                actionLabel={hero.actionLabel}
+                onPrimaryAction={hero.onAction}
+              />
+            </AnimatedReveal>
 
-            <Text style={styles.sectionTitle}>Your Courses</Text>
-            {hasCourses ? (
-              data!.courses.map((c) => (
-                <HomeCourseCard
-                  key={c._id}
-                  title={c.title}
-                  level={c.level ?? 'Beginners'}
-                  thumbnail={c.thumbnail}
-                  lessonCount={c.lessonCount}
-                  onPress={() => router.push(`/(app)/course/${c._id}`)}
-                />
+            <AnimatedReveal index={2}>
+              <BrandSectionTitle
+                title="Your Courses"
+                actionLabel={enrolledTotal > 2 ? 'See all' : undefined}
+                onActionPress={enrolledTotal > 2 ? () => router.push('/(app)/courses') : undefined}
+              />
+            </AnimatedReveal>
+
+            {courses.length > 0 ? (
+              courses.map((course, index) => (
+                <AnimatedReveal key={`${course._id}-${index}`} index={3 + index}>
+                  <HomeCourseRowCard
+                    title={course.title}
+                    level={course.level ?? 'Beginner'}
+                    thumbnail={course.thumbnail}
+                    lessonCount={course.lessonCount}
+                    progress={course.progress}
+                    onPress={() => router.push(`/(app)/course/${course._id}`)}
+                    onMenuPress={() => router.push(`/(app)/course/${course._id}`)}
+                  />
+                </AnimatedReveal>
               ))
             ) : (
-              <View style={styles.emptyCourses}>
-                <Text style={styles.emptyTitle}>No courses yet</Text>
-                <Text style={styles.emptySub}>Browse the catalog to start learning</Text>
-              </View>
+              <AnimatedReveal index={3}>
+                <View style={styles.emptyCourses}>
+                  <Text style={styles.emptyCoursesTitle}>Start your first course</Text>
+                  <Text style={styles.emptyCoursesText}>
+                    Browse the catalog and begin learning at your own pace.
+                  </Text>
+                  <Pressable
+                    style={({ pressed }) => [styles.emptyCoursesBtn, pressed && styles.emptyCoursesBtnPressed]}
+                    onPress={() => router.push('/(app)/courses')}
+                  >
+                    <Text style={styles.emptyCoursesBtnText}>Browse Courses</Text>
+                  </Pressable>
+                </View>
+              </AnimatedReveal>
             )}
 
-            <View style={styles.bottomRow}>
-              <ActiveSignalsHomeCard
-                entry={topSignal?.entryPrice}
-                takeProfit={topSignal?.takeProfit}
-                stopLoss={topSignal?.stopLoss}
-                onPress={() => router.push('/(app)/signals')}
-              />
-              <RecentActivityHomeCard
-                items={data?.recentActivity ?? []}
-                onPress={() => router.push('/(app)/notifications')}
-                onItemPress={(item) => router.push(activityRoute(item) as never)}
-              />
-            </View>
+            <AnimatedReveal index={5} style={styles.insightsSection}>
+              <View style={[styles.insightsGrid, stackInsights && styles.insightsStack]}>
+                <ActiveSignalsHomeCard
+                  pair={topSignal?.pair}
+                  direction={topSignal?.direction}
+                  entry={topSignal?.entryPrice}
+                  takeProfit={topSignal?.takeProfit}
+                  stopLoss={topSignal?.stopLoss}
+                  hasSignal={hasActiveSignal}
+                  onPress={() => router.push('/(app)/signals')}
+                />
+                <RecentActivityHomeCard
+                  items={data?.recentActivity ?? []}
+                  onSeeAll={() => router.push('/(app)/notifications')}
+                  onItemPress={(item) => router.push(activityRoute(item) as never)}
+                />
+              </View>
+            </AnimatedReveal>
 
-            <MarketNewsSection
-              items={data?.news ?? []}
-              onPressArticle={(item) => openNewsArticle(router, item)}
-              onViewAll={() => router.push('/(app)/news')}
-            />
+            <AnimatedReveal index={6}>
+              <MarketNewsSection
+                items={data?.news ?? []}
+                onViewAll={() => router.push('/(app)/news')}
+                onPressArticle={(item) => openNewsArticle(router, item)}
+              />
+            </AnimatedReveal>
           </>
         )}
       </ScrollView>
@@ -285,56 +382,63 @@ export default function HomeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: 'transparent',
-  },
-  headerWrap: {
-    paddingHorizontal: 20,
-    zIndex: 2,
-  },
-  scroll: {
-    flex: 1,
-  },
-  content: {
-    paddingHorizontal: 20,
-    paddingBottom: 4,
-  },
-  loader: {
-    marginTop: 48,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.3,
-    marginTop: 4,
-    marginBottom: 14,
-  },
-  bottomRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 10,
-    marginTop: 14,
-  },
-  emptyCourses: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    padding: 24,
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 12,
-  },
-  emptyTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  emptySub: {
-    fontSize: 13,
-    color: colors.textMuted,
-  },
-});
+function createStyles(colors: import('../../constants/theme').AppColors, bottomInset: number) {
+  return StyleSheet.create({
+    screen: {
+      flex: 1,
+      backgroundColor: 'transparent',
+    },
+    scroll: {
+      flex: 1,
+    },
+    content: {
+      paddingHorizontal: 20,
+      paddingBottom: bottomInset,
+    },
+    emptyCourses: {
+      borderRadius: 20,
+      backgroundColor: colors.surfaceHover,
+      padding: 24,
+      alignItems: 'center',
+      marginBottom: SECTION_GAP,
+      gap: 8,
+    },
+    emptyCoursesTitle: {
+      fontSize: 16,
+      fontWeight: '800',
+      color: colors.text,
+      textAlign: 'center',
+    },
+    emptyCoursesText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.textMuted,
+      textAlign: 'center',
+      lineHeight: 18,
+      marginBottom: 4,
+    },
+    emptyCoursesBtn: {
+      marginTop: 4,
+      backgroundColor: colors.brandPurple,
+      borderRadius: 999,
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+    },
+    emptyCoursesBtnPressed: { opacity: 0.9 },
+    emptyCoursesBtnText: {
+      fontSize: 14,
+      fontWeight: '800',
+      color: '#FFFFFF',
+    },
+    insightsSection: {
+      marginTop: SECTION_GAP,
+    },
+    insightsGrid: {
+      flexDirection: 'row',
+      gap: 12,
+    },
+    insightsStack: {
+      flexDirection: 'column',
+    },
+  });
+}

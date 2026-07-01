@@ -136,6 +136,8 @@ router.use(authenticateToken);
 router.use(requireTeacher);
 router.use('/monthly-progress', require('./landingMonthlyProgressRoutes'));
 router.use('/new-joiners', require('./landingNewJoinersRoutes'));
+router.use('/library', require('./adminLibrary'));
+router.use('/library-categories', require('./adminLibraryCategories'));
 
 // Get teacher dashboard overview
 router.get('/dashboard', async (req, res) => {

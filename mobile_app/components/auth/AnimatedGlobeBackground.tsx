@@ -10,9 +10,12 @@ import {
 import { WebView } from 'react-native-webview';
 import { buildAuthGlobeHtml, getAuthGlobeLayout } from './authGlobeHtml';
 import { loadGlobeWebViewTextures, type GlobeTextureUris } from './globeTextures';
+import { shouldSkipWebGlBackground } from '../../utils/deviceCapabilities';
+import { WEBVIEW_CRASH_GUARD } from '../../utils/webviewCrashGuard';
 
 /** Rotating website globe — bottom horizon semicircle (Figma) */
 export function AnimatedGlobeBackground() {
+  const skipWebGl = shouldSkipWebGlBackground();
   const { width, height } = useWindowDimensions();
   const { arcVisible, webviewHeight, webviewOffset } = useMemo(
     () => getAuthGlobeLayout(height),
@@ -37,6 +40,7 @@ export function AnimatedGlobeBackground() {
   }, []);
 
   useEffect(() => {
+    if (skipWebGl) return;
     let mounted = true;
     loadGlobeWebViewTextures()
       .then((uris) => {
@@ -56,7 +60,19 @@ export function AnimatedGlobeBackground() {
     return () => {
       mounted = false;
     };
-  }, [width, webviewHeight, reduceMotion]);
+  }, [width, webviewHeight, reduceMotion, skipWebGl]);
+
+  if (skipWebGl) {
+    return (
+      <View style={styles.root} pointerEvents="none">
+        <LinearGradient
+          colors={['#000000', '#040818', '#0a1830', '#000000']}
+          locations={[0, 0.45, 0.72, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.root} pointerEvents="none">
@@ -75,7 +91,7 @@ export function AnimatedGlobeBackground() {
             mixedContentMode="always"
             javaScriptEnabled
             domStorageEnabled
-            androidLayerType="hardware"
+            androidLayerType="software"
             style={[
               styles.webview,
               {
@@ -85,6 +101,7 @@ export function AnimatedGlobeBackground() {
               },
             ]}
             setSupportMultipleWindows={false}
+            {...WEBVIEW_CRASH_GUARD}
           />
         ) : (
           <View style={styles.loading}>

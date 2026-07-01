@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useState } from 'react';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
+import { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -15,7 +16,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenError } from '../../components/ScreenError';
 import { SignalCard } from '../../components/SignalCard';
 import { GlassEmptyState } from '../../components/glass/GlassPressable';
-import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch } from '../../utils/api';
 import { normalizeList, normalizeSignal } from '../../utils/normalize';
 
@@ -46,6 +46,9 @@ const FILTER_OPTIONS: Array<{ key: FilterStatus; label: string }> = [
 ];
 
 export default function SignalsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const detail = useMemo(() => createDetailStyles(colors), [colors]);
   const [signals, setSignals] = useState<Signal[]>([]);
   const [filter, setFilter] = useState<FilterStatus>('all');
   const [loading, setLoading] = useState(true);
@@ -127,11 +130,11 @@ export default function SignalsScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3AADFF" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.black} />}
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
-          <ActivityIndicator color="#3AADFF" style={{ marginTop: 40 }} />
+          <ActivityIndicator color={colors.black} style={{ marginTop: 40 }} />
         ) : error ? (
           <ScreenError message={error} onRetry={fetchSignals} />
         ) : displayed.length === 0 ? (
@@ -148,6 +151,7 @@ export default function SignalsScreen() {
             {displayed.map((s) => (
               <SignalCard
                 key={s._id}
+                variant="list"
                 pair={s.pair}
                 direction={s.direction}
                 entry={s.entryPrice}
@@ -166,62 +170,80 @@ export default function SignalsScreen() {
       {/* Signal detail modal */}
       <Modal visible={!!selected} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSelected(null)}>
         <View style={detail.screen}>
-          <View style={detail.header}>
-            <Text style={detail.headerTitle}>Signal Details</Text>
-            <Pressable onPress={() => setSelected(null)} hitSlop={12}>
-              <Ionicons name="close" size={24} color="#fff" />
-            </Pressable>
-          </View>
+          <SafeAreaView edges={['top']} style={detail.headerSafe}>
+            <View style={detail.header}>
+              <View style={detail.headerText}>
+                <Text style={detail.headerEyebrow}>Signal</Text>
+                <Text style={detail.headerTitle}>Trade setup</Text>
+              </View>
+              <Pressable onPress={() => setSelected(null)} hitSlop={12} style={detail.closeBtn}>
+                <Ionicons name="close" size={22} color={colors.text} />
+              </Pressable>
+            </View>
+          </SafeAreaView>
+
           {selected ? (
             <ScrollView contentContainerStyle={detail.content} showsVerticalScrollIndicator={false}>
-              {/* Direction hero */}
-              <LinearGradient
-                colors={selected.direction === 'BUY' ? ['rgba(0,96,230,0.3)', 'rgba(0,96,230,0.05)'] : ['rgba(255,90,90,0.3)', 'rgba(255,90,90,0.05)']}
-                style={detail.hero}
-              >
-                <View style={[detail.dirBadge, { backgroundColor: selected.direction === 'BUY' ? 'rgba(58,173,255,0.2)' : 'rgba(255,90,90,0.2)' }]}>
-                  <Text style={[detail.dirText, { color: selected.direction === 'BUY' ? '#3AADFF' : '#FF5A5A' }]}>{selected.direction}</Text>
-                </View>
-                <Text style={detail.heroPair}>{selected.pair.replace(/\s/g, '').toUpperCase()}</Text>
-                {selected.status === 'active' && <View style={detail.liveDot} />}
-                <Text style={[detail.heroStatus, { color: selected.status === 'active' ? '#4ADE80' : selected.status === 'pending' ? '#FFC107' : 'rgba(255,255,255,0.4)' }]}>
-                  {selected.status.toUpperCase()}
-                </Text>
-                {selected.timeframe ? <Text style={detail.heroTf}>{selected.timeframe} timeframe</Text> : null}
-              </LinearGradient>
+              <SignalCard
+                variant="featured"
+                pair={selected.pair}
+                direction={selected.direction}
+                entry={selected.entryPrice}
+                stopLoss={selected.stopLoss}
+                takeProfit={selected.takeProfit}
+                status={selected.status}
+                pips={selected.pips}
+                createdAt={selected.createdAt}
+              />
 
-              {detailLoading ? <ActivityIndicator color="#3AADFF" style={{ marginVertical: 12 }} /> : null}
-
-              {/* Metrics */}
-              <GlassListCard contentStyle={detail.metricsGrid}>
-                <DetailMetric label="Entry Price" value={selected.entryPrice} />
-                <DetailMetric label="Take Profit" value={selected.takeProfit} color="#4ADE80" />
-                <DetailMetric label="Stop Loss" value={selected.stopLoss} color="#FF5A5A" />
-                {selected.pips ? <DetailMetric label="Pips" value={selected.pips.startsWith('+') || selected.pips.startsWith('-') ? selected.pips : `+${selected.pips}`} color={selected.pips?.startsWith('-') ? '#FF5A5A' : '#4ADE80'} /> : null}
-                {selected.riskRewardRatio ? <DetailMetric label="Risk / Reward" value={`1 : ${selected.riskRewardRatio.toFixed(2)}`} /> : null}
-                {selected.confidence ? <DetailMetric label="Confidence" value={`${selected.confidence}%`} /> : null}
-                {selected.invalidationLevel ? <DetailMetric label="Invalidation" value={selected.invalidationLevel} color="#FFC107" /> : null}
-              </GlassListCard>
-
-              {/* Analysis */}
-              {selected.description ? (
-                <GlassListCard contentStyle={detail.analysisBox}>
-                  <Text style={detail.analysisLabel}>Analysis</Text>
-                  <Text style={detail.analysisText}>{selected.description}</Text>
-                </GlassListCard>
+              {detailLoading ? (
+                <ActivityIndicator color={colors.black} style={detail.loader} />
               ) : null}
 
-              {/* Notes */}
+              {(selected.riskRewardRatio || selected.confidence || selected.timeframe || selected.invalidationLevel) ? (
+                <View style={detail.insightsCard}>
+                  <Text style={detail.sectionLabel}>Insights</Text>
+                  <View style={detail.insightsGrid}>
+                    {selected.timeframe ? (
+                      <InsightChip icon="time-outline" label="Timeframe" value={selected.timeframe} />
+                    ) : null}
+                    {selected.riskRewardRatio ? (
+                      <InsightChip icon="analytics-outline" label="R:R" value={`1 : ${selected.riskRewardRatio.toFixed(2)}`} />
+                    ) : null}
+                    {selected.confidence ? (
+                      <InsightChip icon="speedometer-outline" label="Confidence" value={`${selected.confidence}%`} />
+                    ) : null}
+                    {selected.invalidationLevel ? (
+                      <InsightChip icon="alert-circle-outline" label="Invalidation" value={selected.invalidationLevel} />
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+
+              {selected.description ? (
+                <View style={detail.analysisCard}>
+                  <Text style={detail.sectionLabel}>Analysis</Text>
+                  <Text style={detail.analysisText}>{selected.description}</Text>
+                </View>
+              ) : null}
+
               {selected.notes ? (
-                <GlassListCard contentStyle={detail.analysisBox}>
-                  <Text style={detail.analysisLabel}>Notes</Text>
+                <View style={detail.analysisCard}>
+                  <Text style={detail.sectionLabel}>Notes</Text>
                   <Text style={detail.analysisText}>{selected.notes}</Text>
-                </GlassListCard>
+                </View>
               ) : null}
 
               {selected.createdAt ? (
                 <Text style={detail.timestamp}>
-                  Published {new Date(selected.createdAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                  Published{' '}
+                  {new Date(selected.createdAt).toLocaleDateString('en-US', {
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  })}
                 </Text>
               ) : null}
             </ScrollView>
@@ -232,53 +254,138 @@ export default function SignalsScreen() {
   );
 }
 
-function DetailMetric({ label, value, color }: { label: string; value: string; color?: string }) {
+function InsightChip({
+  icon,
+  label,
+  value,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+}) {
+  const { colors } = useTheme();
+  const detail = useMemo(() => createDetailStyles(colors), [colors]);
+
   return (
-    <View style={detail.metricRow}>
-      <Text style={detail.metricLabel}>{label}</Text>
-      <Text style={[detail.metricValue, color ? { color } : null]}>{value}</Text>
+    <View style={detail.insightChip}>
+      <Ionicons name={icon} size={14} color={colors.textMuted} />
+      <Text style={detail.insightLabel}>{label}</Text>
+      <Text style={detail.insightValue} numberOfLines={1}>{value}</Text>
     </View>
   );
 }
 
-const detail = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#040818' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 18, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.07)' },
-  headerTitle: { fontSize: 17, fontWeight: '800', color: '#fff' },
-  content: { padding: 18, gap: 14, paddingBottom: 40 },
-  hero: { borderRadius: 20, padding: 24, alignItems: 'center', gap: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
-  dirBadge: { borderRadius: 30, paddingHorizontal: 18, paddingVertical: 6, marginBottom: 4 },
-  dirText: { fontSize: 13, fontWeight: '800', letterSpacing: 1 },
-  heroPair: { fontSize: 32, fontWeight: '900', color: '#fff', letterSpacing: 0.5 },
-  liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#4ADE80' },
-  heroStatus: { fontSize: 13, fontWeight: '800', letterSpacing: 1 },
-  heroTf: { fontSize: 12, color: 'rgba(255,255,255,0.4)', marginTop: 2 },
-  metricsGrid: { padding: 4 },
-  metricRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  metricLabel: { fontSize: 13, color: 'rgba(255,255,255,0.45)', fontWeight: '500' },
-  metricValue: { fontSize: 14, fontWeight: '800', color: '#fff' },
-  analysisBox: { padding: 16, gap: 8 },
-  analysisLabel: { fontSize: 11, fontWeight: '800', color: 'rgba(255,255,255,0.35)', letterSpacing: 0.8, textTransform: 'uppercase' },
-  analysisText: { fontSize: 14, color: 'rgba(255,255,255,0.8)', lineHeight: 22 },
-  timestamp: { fontSize: 11.5, color: 'rgba(255,255,255,0.25)', textAlign: 'center' },
+function createDetailStyles(colors: AppColors) {
+  return StyleSheet.create({
+  screen: { flex: 1, backgroundColor: colors.background },
+  headerSafe: {
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.background,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  headerText: { gap: 2 },
+  headerEyebrow: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.textMuted,
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  headerTitle: { fontSize: 22, fontWeight: '900', color: colors.text, letterSpacing: -0.4 },
+  closeBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  content: { padding: 20, gap: 16, paddingBottom: 48 },
+  loader: { marginVertical: 4 },
+  sectionLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.textMuted,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    marginBottom: 10,
+  },
+  insightsCard: {
+    borderRadius: 20,
+    padding: 16,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  insightsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  insightChip: {
+    flexGrow: 1,
+    flexBasis: '45%',
+    minWidth: 140,
+    padding: 12,
+    borderRadius: 14,
+    backgroundColor: colors.surfaceHover,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 4,
+  },
+  insightLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  insightValue: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.text,
+    fontVariant: ['tabular-nums'],
+  },
+  analysisCard: {
+    borderRadius: 20,
+    padding: 18,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    gap: 4,
+  },
+  analysisText: { fontSize: 15, color: colors.textSilver, lineHeight: 24 },
+  timestamp: { fontSize: 12, color: colors.textDim, textAlign: 'center', marginTop: 4 },
 });
+}
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
-  headerSafe: { backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  headerSafe: { backgroundColor: 'transparent', borderBottomWidth: 1, borderBottomColor: colors.border },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 14, paddingBottom: 10 },
-  pageTitle: { fontSize: 24, fontWeight: '800', color: '#fff', letterSpacing: -0.3 },
-  countBadge: { backgroundColor: 'rgba(74,222,128,0.15)', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  countText: { fontSize: 12, fontWeight: '700', color: '#4ADE80' },
+  pageTitle: { fontSize: 24, fontWeight: '800', color: colors.text, letterSpacing: -0.3 },
+  countBadge: { backgroundColor: colors.surfaceHover, borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: colors.border },
+  countText: { fontSize: 12, fontWeight: '700', color: colors.textSecondary },
   filters: { paddingHorizontal: 18, paddingBottom: 12, gap: 8 },
-  chip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(255,255,255,0.04)' },
-  chipActive: { backgroundColor: 'rgba(0,96,230,0.2)', borderColor: '#3AADFF' },
-  chipText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.45)' },
-  chipTextActive: { color: '#3AADFF' },
+  chip: { paddingHorizontal: 14, paddingVertical: 6, borderRadius: 20, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceHover },
+  chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
+  chipText: { fontSize: 13, fontWeight: '600', color: colors.textMuted },
+  chipTextActive: { color: colors.primaryForeground, fontWeight: '700' },
   scroll: { flex: 1 },
-  content: { padding: 18, paddingBottom: 32 },
+  content: { padding: 16, paddingBottom: 32 },
   list: { gap: 12 },
   empty: { alignItems: 'center', marginTop: 48, gap: 10, paddingHorizontal: 24 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.5)' },
-  emptyText: { fontSize: 13.5, color: 'rgba(255,255,255,0.3)', textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textSecondary },
+  emptyText: { fontSize: 13.5, color: colors.textDim, textAlign: 'center', lineHeight: 20 },
 });
+}

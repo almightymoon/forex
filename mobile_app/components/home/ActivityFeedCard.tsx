@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon, type AppIconName } from '../AppIcon';
-import { colors } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 type Props = {
   title: string;
@@ -33,9 +35,13 @@ export function ActivityFeedCard({
   role = 'Team',
   timestamp,
   icon = 'activity',
-  iconColor = colors.blue,
+  iconColor,
   onPress,
 }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const resolvedIconColor = iconColor ?? colors.blue;
+
   const initials = author.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase();
 
   return (
@@ -50,8 +56,8 @@ export function ActivityFeedCard({
             <Text style={styles.meta}>{role} · {formatAgo(timestamp)}</Text>
           </View>
         </View>
-        <View style={[styles.typeIcon, { backgroundColor: `${iconColor}18` }]}>
-          <AppIcon name={icon} size={16} color={iconColor} strokeWidth={2} />
+        <View style={[styles.typeIcon, { backgroundColor: `${resolvedIconColor}18` }]}>
+          <AppIcon name={icon} size={16} color={resolvedIconColor} strokeWidth={2} />
         </View>
       </View>
       <Text style={styles.feedTitle}>{title}</Text>
@@ -60,9 +66,10 @@ export function ActivityFeedCard({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   card: {
-    backgroundColor: '#0c1428',
+    backgroundColor: colors.surfaceHover,
     borderRadius: 18,
     borderWidth: 1,
     borderColor: colors.border,
@@ -121,3 +128,4 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
 });
+}

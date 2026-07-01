@@ -136,6 +136,7 @@ module.exports = {
   VALID_CATEGORIES,
   sanitizeContentBlocks,
   sanitizeCoursePayload,
+  sanitizeAllowedPackages,
   formatValidationError,
   normalizeCategory,
 };

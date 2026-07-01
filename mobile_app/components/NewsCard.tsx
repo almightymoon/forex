@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CachedImage } from './CachedImage';
 import { AppIcon } from './AppIcon';
-import { colors } from '../constants/theme';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import type { NormalizedNews } from '../utils/normalize';
 import { GlassCard } from './GlassCard';
 
@@ -28,18 +30,23 @@ function formatTime(iso: string) {
 }
 
 export function NewsCard({ item, compact, onPress }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const inner = (
     <View style={[styles.row, compact && styles.rowCompact]}>
       {item.thumbnail ? (
         <CachedImage source={{ uri: item.thumbnail }} style={[styles.thumb, compact && styles.thumbCompact]} contentFit="cover" />
       ) : (
         <View style={[styles.iconWrap, compact && styles.iconWrapCompact]}>
-          <AppIcon name="file-text" size={compact ? 16 : 18} color={colors.cyan} strokeWidth={2} />
+          <AppIcon name="file-text" size={compact ? 16 : 18} color={colors.textMuted} strokeWidth={2} />
         </View>
       )}
       <View style={styles.body}>
         <View style={styles.topRow}>
-          <Text style={styles.source}>{item.source}</Text>
+          <View style={styles.sourcePill}>
+            <Text style={styles.source}>{item.source}</Text>
+          </View>
           <Text style={styles.time}>{formatTime(item.publishedAt)}</Text>
         </View>
         <Text style={[styles.title, compact && styles.titleCompact]} numberOfLines={compact ? 2 : 3}>
@@ -59,7 +66,7 @@ export function NewsCard({ item, compact, onPress }: Props) {
         style={({ pressed }) => [pressed && styles.pressed]}
         onPress={onPress}
       >
-        <GlassCard contentStyle={compact ? styles.cardCompact : styles.cardInner} radius={compact ? 14 : 16}>
+        <GlassCard contentStyle={compact ? styles.cardCompact : styles.cardInner} radius={compact ? 14 : 18}>
           {inner}
         </GlassCard>
       </Pressable>
@@ -67,13 +74,14 @@ export function NewsCard({ item, compact, onPress }: Props) {
   }
 
   return (
-    <GlassCard contentStyle={compact ? styles.cardCompact : styles.cardInner} radius={compact ? 14 : 16}>
+    <GlassCard contentStyle={compact ? styles.cardCompact : styles.cardInner} radius={compact ? 14 : 18}>
       {inner}
     </GlassCard>
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   cardInner: { padding: 14 },
   cardCompact: { padding: 12 },
   row: {
@@ -84,11 +92,13 @@ const styles = StyleSheet.create({
   rowCompact: { gap: 10 },
   pressed: { opacity: 0.92 },
   thumb: {
-    width: 52,
-    height: 52,
+    width: 56,
+    height: 56,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceHover,
     flexShrink: 0,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   thumbCompact: {
     width: 44,
@@ -96,44 +106,55 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   iconWrap: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: 'rgba(0,212,255,0.1)',
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: colors.surfaceHover,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
-    marginTop: 1,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   iconWrapCompact: {
     width: 32,
     height: 32,
-    borderRadius: 16,
+    borderRadius: 10,
   },
-  body: { flex: 1, minWidth: 0, gap: 4 },
+  body: { flex: 1, minWidth: 0, gap: 5 },
   topRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 8,
   },
+  sourcePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    backgroundColor: colors.surfaceHover,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
   source: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.cyan,
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.textSecondary,
     textTransform: 'uppercase',
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
   },
   time: {
     fontSize: 11,
     color: colors.textDim,
     flexShrink: 0,
+    fontVariant: ['tabular-nums'],
   },
   title: {
     fontSize: 15,
     fontWeight: '700',
     color: colors.text,
-    lineHeight: 20,
+    lineHeight: 21,
+    letterSpacing: -0.2,
   },
   titleCompact: {
     fontSize: 14,
@@ -145,3 +166,4 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
   },
 });
+}

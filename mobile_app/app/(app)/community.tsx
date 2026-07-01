@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
@@ -26,29 +28,49 @@ import { apiFetch, apiUpload } from '../../utils/api';
 import { AuthUser, getStoredUser } from '../../utils/auth';
 import { getChatSocket, joinChannel, leaveChannel } from '../../utils/socket';
 import { resolveMediaUrl } from '../../utils/normalize';
+import { canDeleteCommunityMessage, isCommunityModerator } from '../../utils/communityPermissions';
 
-// ─── App colour theme ────────────────────────────────────────────────────────
-const C = {
-  bg: 'transparent',
-  sidebarBg: 'transparent',
-  cardBg: 'transparent',
-  inputBg: 'rgba(255,255,255,0.07)',
-  border: 'rgba(58,173,255,0.1)',
-  text: '#e8eaed',
-  muted: 'rgba(255,255,255,0.4)',
-  primary: '#3AADFF',
-  primaryDark: '#0253BD',
-  green: '#4ADE80',
-  headerBg: 'transparent',
+type ChatTheme = {
+  bg: string;
+  sidebarBg: string;
+  cardBg: string;
+  inputBg: string;
+  border: string;
+  text: string;
+  muted: string;
+  primary: string;
+  primaryForeground: string;
+  primaryDark: string;
+  green: string;
+  headerBg: string;
 };
 
-const ROLE_COLORS: Record<string, string> = {
-  admin: '#FF5A5A',
-  teacher: '#A78BFA',
-  instructor: '#A78BFA',
-  developer: '#4ADE80',
-  student: C.text,
-};
+function createChatTheme(colors: AppColors, isDark: boolean): ChatTheme {
+  return {
+    bg: colors.background,
+    sidebarBg: colors.background,
+    cardBg: colors.backgroundElevated,
+    inputBg: isDark ? colors.surfaceInset : '#F9F9F9',
+    border: colors.border,
+    text: colors.text,
+    muted: colors.textMuted,
+    primary: colors.primary,
+    primaryForeground: colors.primaryForeground,
+    primaryDark: colors.primaryDark,
+    green: colors.success,
+    headerBg: colors.background,
+  };
+}
+
+function getRoleColors(textColor: string): Record<string, string> {
+  return {
+    admin: '#FF5A5A',
+    teacher: '#A78BFA',
+    instructor: '#A78BFA',
+    developer: '#4ADE80',
+    student: textColor,
+  };
+}
 
 // Commonly used emojis — no library needed
 const EMOJI_GROUPS = [
@@ -127,9 +149,19 @@ function displayName(a: Message['author']) {
   return `${a?.firstName ?? ''} ${a?.lastName ?? ''}`.trim() || 'Unknown';
 }
 
-function Avatar({ author, size = 40 }: { author: Message['author']; size?: number }) {
+function Avatar({
+  author,
+  size = 40,
+  roleColors,
+  accent,
+}: {
+  author: Message['author'];
+  size?: number;
+  roleColors: Record<string, string>;
+  accent: string;
+}) {
   const role = author?.role ?? 'student';
-  const color = ROLE_COLORS[role] ?? C.primary;
+  const color = roleColors[role] ?? accent;
   const init = `${author?.firstName?.[0] ?? '?'}${author?.lastName?.[0] ?? ''}`.toUpperCase();
   return (
     <View style={[avStyles.wrap, { width: size, height: size, borderRadius: size / 2, backgroundColor: `${color}22`, borderColor: `${color}44` }]}>
@@ -206,6 +238,10 @@ function getParentMessage(msg: Message): Message | null {
 export default function CommunityScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { colors, isDark } = useTheme();
+  const chat = useMemo(() => createChatTheme(colors, isDark), [colors, isDark]);
+  const roleColors = useMemo(() => getRoleColors(colors.text), [colors.text]);
+  const s = useMemo(() => createCommunityStyles(colors, chat, isDark), [colors, chat, isDark]);
   const [channels, setChannels] = useState<Channel[]>([]);
   const [selected, setSelected] = useState<Channel | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -334,11 +370,8 @@ export default function CommunityScreen() {
   const canEditMessage = (msg: Message) =>
     !!user && String(msg.author?._id) === String(user._id) && !msg._id.startsWith('tmp-');
 
-  const canDeleteMessage = (msg: Message) => {
-    if (!user || msg._id.startsWith('tmp-')) return false;
-    if (String(msg.author?._id) === String(user._id)) return true;
-    return user.role === 'teacher' || user.role === 'admin';
-  };
+  const canDeleteMessage = (msg: Message) =>
+    canDeleteCommunityMessage(user?._id, user?.role, msg.author?._id, msg._id);
 
   const getChannelReplyMeta = (channelId: string) => {
     if (!replyMetaByChannelRef.current.has(channelId)) {
@@ -401,9 +434,13 @@ export default function CommunityScreen() {
 
   const confirmDelete = (msg: Message) => {
     setActionTarget(null);
+    const isOwn = !!user && String(msg.author?._id) === String(user._id);
+    const isModeratorDelete = !isOwn && isCommunityModerator(user?.role);
     Alert.alert(
-      'Delete message',
-      'This message will be permanently removed.',
+      isModeratorDelete ? 'Remove message' : 'Delete message',
+      isModeratorDelete
+        ? `Remove this message from ${displayName(msg.author)}?`
+        : 'This message will be permanently removed.',
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Delete', style: 'destructive', onPress: () => deleteMessage(msg._id) },
@@ -655,11 +692,11 @@ export default function CommunityScreen() {
     const groups = messageGroups;
 
     return (
-      <View style={{ flex: 1, backgroundColor: C.bg }}>
-        <SafeAreaView edges={['top']} style={{ backgroundColor: C.headerBg }}>
+      <View style={{ flex: 1, backgroundColor: chat.bg }}>
+        <SafeAreaView edges={['top']} style={{ backgroundColor: chat.headerBg }}>
           <View style={s.chatHeader}>
             <Pressable style={s.iconBtn} onPress={closeChannel}>
-              <Ionicons name="arrow-back" size={20} color={C.text} />
+              <Ionicons name="arrow-back" size={20} color={chat.text} />
             </Pressable>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, minWidth: 0 }}>
               <View style={s.channelHashBadge}>
@@ -674,14 +711,14 @@ export default function CommunityScreen() {
             </View>
             <View style={{ flexDirection: 'row', gap: 6 }}>
               <Pressable style={s.iconBtn} onPress={() => { setShowSearch((v) => !v); setSearchQuery(''); }}>
-                <Ionicons name={showSearch ? 'close' : 'search-outline'} size={17} color={C.muted} />
+                <Ionicons name={showSearch ? 'close' : 'search-outline'} size={17} color={chat.muted} />
               </Pressable>
               <Pressable style={s.iconBtn} onPress={() => loadMessages(selected._id)}>
-                <Ionicons name="refresh" size={17} color={C.muted} />
+                <Ionicons name="refresh" size={17} color={chat.muted} />
               </Pressable>
               {selected.memberCount != null && (
                 <View style={s.memberPill}>
-                  <View style={[s.dot, { backgroundColor: C.green }]} />
+                  <View style={[s.dot, { backgroundColor: chat.green }]} />
                   <Text style={s.memberPillText}>{selected.memberCount}</Text>
                 </View>
               )}
@@ -691,19 +728,19 @@ export default function CommunityScreen() {
 
         {showSearch && (
           <View style={s.searchBar}>
-            <Ionicons name="search" size={15} color="rgba(255,255,255,0.35)" />
+            <Ionicons name="search" size={15} color={colors.textMuted} />
             <TextInput
               style={s.searchInput}
               value={searchQuery}
               onChangeText={setSearchQuery}
               placeholder="Search messages…"
-              placeholderTextColor="rgba(255,255,255,0.25)"
+              placeholderTextColor={colors.textDim}
               autoFocus
               returnKeyType="search"
             />
             {searchQuery.length > 0 && (
               <Pressable onPress={() => setSearchQuery('')} hitSlop={8}>
-                <Ionicons name="close-circle" size={15} color="rgba(255,255,255,0.35)" />
+                <Ionicons name="close-circle" size={15} color={colors.textMuted} />
               </Pressable>
             )}
           </View>
@@ -717,8 +754,8 @@ export default function CommunityScreen() {
           {/* Messages */}
           {loadingMsgs ? (
             <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
-              <ActivityIndicator color={C.primary} />
-              <Text style={{ color: C.muted, fontSize: 13 }}>Loading messages…</Text>
+              <ActivityIndicator color={chat.primary} />
+              <Text style={{ color: chat.muted, fontSize: 13 }}>Loading messages…</Text>
             </View>
           ) : (
             <TouchableWithoutFeedback onPress={() => { Keyboard.dismiss(); setShowEmoji(false); }}>
@@ -730,29 +767,18 @@ export default function CommunityScreen() {
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
                 onScrollBeginDrag={() => setShowEmoji(false)}
-                ListHeaderComponent={
-                  <View style={s.welcomeBlock}>
-                    <LinearGradient colors={[C.primaryDark, C.primary]} style={s.welcomeIcon}>
-                      <Text style={s.welcomeIconText}>#</Text>
-                    </LinearGradient>
-                    <Text style={s.welcomeTitle}>#{selected.name}</Text>
-                    <Text style={s.welcomeSub}>
-                      {selected.description ?? `This is the beginning of the #${selected.name} channel.`}
-                    </Text>
-                  </View>
-                }
                 ListEmptyComponent={
                   <View style={{ paddingVertical: 24, alignItems: 'center' }}>
-                    <Text style={{ color: C.muted, fontSize: 14 }}>No messages yet — say hello! 👋</Text>
+                    <Text style={{ color: chat.muted, fontSize: 14 }}>No messages yet — say hello! 👋</Text>
                   </View>
                 }
                 renderItem={({ item: group }) => {
                   const isMe = user && String(group.author?._id) === String(user?._id);
-                  const color = ROLE_COLORS[group.author?.role ?? 'student'] ?? C.text;
+                  const color = roleColors[group.author?.role ?? 'student'] ?? chat.text;
                   const role = group.author?.role;
                   return (
                     <View style={s.msgGroup}>
-                      <Avatar author={group.author} size={40} />
+                      <Avatar author={group.author} size={40} roleColors={roleColors} accent={chat.primary} />
                       <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
                         <View style={s.msgAuthorRow}>
                           <Text style={[s.msgAuthorName, { color }]}>{displayName(group.author)}</Text>
@@ -871,14 +897,14 @@ export default function CommunityScreen() {
                 <Text style={s.replyBarPreview} numberOfLines={1}>{replyTo.content}</Text>
               </View>
               <Pressable style={s.replyBarClose} onPress={() => setReplyTo(null)}>
-                <Ionicons name="close" size={18} color={C.muted} />
+                <Ionicons name="close" size={18} color={chat.muted} />
               </Pressable>
             </View>
           ) : null}
 
           {/* Emoji tray */}
           {showEmoji && (
-            <View style={[s.emojiTray, { backgroundColor: C.cardBg }]}>
+            <View style={[s.emojiTray, { backgroundColor: chat.cardBg }]}>
               {/* Group tabs */}
               <View style={s.emojiTabs}>
                 {EMOJI_GROUPS.map((g, i) => (
@@ -887,7 +913,7 @@ export default function CommunityScreen() {
                     style={[s.emojiTab, selectedEmojiGroup === i && s.emojiTabActive]}
                     onPress={() => setSelectedEmojiGroup(i)}
                   >
-                    <Text style={[s.emojiTabText, selectedEmojiGroup === i && { color: C.primary }]}>
+                    <Text style={[s.emojiTabText, selectedEmojiGroup === i && { color: chat.primary }]}>
                       {g.label}
                     </Text>
                   </Pressable>
@@ -915,7 +941,7 @@ export default function CommunityScreen() {
                 <Text style={s.pendingImageHint}>Add a caption or tap send</Text>
               </View>
               <Pressable style={s.pendingImageRemove} onPress={() => setPendingImage(null)}>
-                <Ionicons name="close" size={18} color={C.text} />
+                <Ionicons name="close" size={18} color={chat.text} />
               </Pressable>
             </View>
           ) : null}
@@ -923,7 +949,7 @@ export default function CommunityScreen() {
           {/* Input bar */}
           <View style={[s.inputBar, { paddingBottom: showEmoji ? 8 : Math.max(insets.bottom, 8) }]}>
             <Pressable style={s.emojiBtn} onPress={pickImage} disabled={sending}>
-              <Ionicons name="image-outline" size={22} color={C.muted} />
+              <Ionicons name="image-outline" size={22} color={chat.muted} />
             </Pressable>
             <Pressable
               style={[s.emojiBtn, showEmoji && s.emojiBtnActive]}
@@ -933,7 +959,7 @@ export default function CommunityScreen() {
                 else inputRef.current?.focus();
               }}
             >
-              <Ionicons name="happy-outline" size={22} color={showEmoji ? C.primary : C.muted} />
+              <Ionicons name="happy-outline" size={22} color={showEmoji ? chat.primary : chat.muted} />
             </Pressable>
             <TextInput
               ref={inputRef}
@@ -941,7 +967,7 @@ export default function CommunityScreen() {
               value={input}
               onChangeText={setInput}
               placeholder={replyTo ? `Reply to ${displayName(replyTo.author)}…` : `Message #${selected.name}…`}
-              placeholderTextColor={C.muted}
+              placeholderTextColor={chat.muted}
               multiline
               maxLength={2000}
               onFocus={() => setShowEmoji(false)}
@@ -954,8 +980,8 @@ export default function CommunityScreen() {
               disabled={(!input.trim() && !pendingImage) || sending}
             >
               {sending
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Ionicons name="send" size={16} color={(input.trim() || pendingImage) ? '#fff' : C.muted} />}
+                ? <ActivityIndicator size="small" color={chat.primaryForeground} />
+                : <Ionicons name="send" size={16} color={(input.trim() || pendingImage) ? chat.primaryForeground : chat.muted} />}
             </Pressable>
           </View>
 
@@ -975,7 +1001,7 @@ export default function CommunityScreen() {
                       <Text style={s.actionPreviewText} numberOfLines={2}>{actionTarget.content}</Text>
                     </View>
                     <Pressable style={s.actionItem} onPress={() => startReply(actionTarget)}>
-                      <Ionicons name="arrow-undo-outline" size={20} color={C.text} />
+                      <Ionicons name="arrow-undo-outline" size={20} color={chat.text} />
                       <Text style={s.actionItemText}>Reply</Text>
                     </Pressable>
                     {['👍', '❤️', '🔥', '😂'].map((emoji) => (
@@ -990,7 +1016,7 @@ export default function CommunityScreen() {
                     ))}
                     {canEditMessage(actionTarget) ? (
                       <Pressable style={s.actionItem} onPress={() => startEdit(actionTarget)}>
-                        <Ionicons name="create-outline" size={20} color={C.text} />
+                        <Ionicons name="create-outline" size={20} color={chat.text} />
                         <Text style={s.actionItemText}>Edit</Text>
                       </Pressable>
                     ) : null}
@@ -1015,15 +1041,18 @@ export default function CommunityScreen() {
 
   // ── Channel list ──────────────────────────────────────────────────────────
   return (
-    <View style={{ flex: 1, backgroundColor: C.sidebarBg }}>
-      <SafeAreaView edges={['top']} style={{ backgroundColor: C.sidebarBg }}>
+    <View style={{ flex: 1, backgroundColor: chat.sidebarBg }}>
+      <SafeAreaView edges={['top']} style={{ backgroundColor: chat.sidebarBg }}>
         <View style={s.serverHeader}>
           <Pressable style={s.iconBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color={C.text} />
+            <Ionicons name="arrow-back" size={20} color={chat.text} />
           </Pressable>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 }}>
-            <LinearGradient colors={[C.primaryDark, C.primary]} style={s.serverLogo}>
-              <Text style={s.serverLogoText}>FN</Text>
+            <LinearGradient
+              colors={isDark ? [colors.brandPurple, colors.brandPurpleDeep] : [colors.black, colors.primaryEnd]}
+              style={s.serverLogo}
+            >
+              <Text style={[s.serverLogoText, { color: colors.primaryForeground }]}>FN</Text>
             </LinearGradient>
             <View>
               <Text style={s.serverName}>FX Navigators</Text>
@@ -1035,50 +1064,50 @@ export default function CommunityScreen() {
 
       <ScrollView
         contentContainerStyle={s.channelListContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchChannels(); }} tintColor={C.primary} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchChannels(); }} tintColor={chat.primary} />}
         showsVerticalScrollIndicator={false}
       >
         {loadingChannels ? (
-          <ActivityIndicator color={C.primary} style={{ marginTop: 40 }} />
+          <ActivityIndicator color={chat.primary} style={{ marginTop: 40 }} />
         ) : channels.length === 0 ? (
           <View style={{ alignItems: 'center', marginTop: 60 }}>
-            <Ionicons name="chatbubbles-outline" size={48} color={C.muted} style={{ marginBottom: 12 }} />
-            <Text style={{ color: C.muted, fontSize: 15, fontWeight: '600' }}>No channels yet</Text>
-            <Text style={{ color: C.muted, fontSize: 13, marginTop: 6, textAlign: 'center', paddingHorizontal: 32 }}>
+            <Ionicons name="chatbubbles-outline" size={48} color={chat.muted} style={{ marginBottom: 12 }} />
+            <Text style={{ color: chat.muted, fontSize: 15, fontWeight: '600' }}>No channels yet</Text>
+            <Text style={{ color: chat.muted, fontSize: 13, marginTop: 6, textAlign: 'center', paddingHorizontal: 32 }}>
               Channels will appear here once created.
             </Text>
           </View>
         ) : (
           <>
             <View style={s.categoryRow}>
-              <Ionicons name="chevron-down" size={11} color={C.muted} />
+              <Ionicons name="chevron-down" size={11} color={chat.muted} />
               <Text style={s.categoryLabel}>TEXT CHANNELS</Text>
             </View>
             {channels.map((ch) => (
               <Pressable
                 key={ch._id}
-                style={({ pressed }) => [s.channelItem, pressed && { backgroundColor: 'rgba(255,255,255,0.06)' }]}
+                style={({ pressed }) => [s.channelItem, pressed && { backgroundColor: colors.surfaceHover }]}
                 onPress={() => openChannel(ch)}
               >
                 <View style={s.channelItemLeft}>
-                  <Ionicons name="chatbubble-ellipses-outline" size={17} color={C.muted} />
+                  <Ionicons name="chatbubble-ellipses-outline" size={17} color={chat.muted} />
                   <Text style={s.channelItemName}>{ch.name}</Text>
-                  {ch.isPrivate ? <Ionicons name="lock-closed" size={12} color={C.muted} /> : null}
+                  {ch.isPrivate ? <Ionicons name="lock-closed" size={12} color={chat.muted} /> : null}
                 </View>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                   {ch.memberCount != null && (
                     <View style={s.memberCountBadge}>
-                      <Ionicons name="people-outline" size={11} color={C.muted} />
+                      <Ionicons name="people-outline" size={11} color={chat.muted} />
                       <Text style={s.memberCountText}>{ch.memberCount}</Text>
                     </View>
                   )}
-                  <Ionicons name="chevron-forward" size={15} color="rgba(255,255,255,0.15)" />
+                  <Ionicons name="chevron-forward" size={15} color={colors.textMuted} />
                 </View>
               </Pressable>
             ))}
             {channels.some((c) => !c.isPrivate) && (
               <View style={s.channelHint}>
-                <Ionicons name="information-circle-outline" size={14} color={C.muted} />
+                <Ionicons name="information-circle-outline" size={14} color={chat.muted} />
                 <Text style={s.channelHintText}>Tap a channel to join the conversation</Text>
               </View>
             )}
@@ -1090,92 +1119,88 @@ export default function CommunityScreen() {
   );
 }
 
-const s = StyleSheet.create({
+function createCommunityStyles(colors: AppColors, chat: ChatTheme, isDark: boolean) {
+  return StyleSheet.create({
   // Server header
   serverHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: C.border,
+    borderBottomWidth: 1, borderBottomColor: chat.border,
   },
   serverLogo: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  serverLogoText: { fontSize: 14, fontWeight: '900', color: '#fff' },
-  serverName: { fontSize: 15, fontWeight: '800', color: C.text },
-  serverSub: { fontSize: 11, color: C.muted },
+  serverLogoText: { fontSize: 14, fontWeight: '900', color: colors.text },
+  serverName: { fontSize: 15, fontWeight: '800', color: chat.text },
+  serverSub: { fontSize: 11, color: chat.muted },
   searchBar: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 14, paddingVertical: 8,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceHover,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   searchInput: {
-    flex: 1, fontSize: 14, color: '#fff', height: 36,
+    flex: 1, fontSize: 14, color: colors.text, height: 36,
   },
   iconBtn: {
     width: 36, height: 36, borderRadius: 11,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceHover,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
   // Channel list
   channelListContent: { paddingTop: 10 },
   categoryRow: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 16, paddingVertical: 8, marginTop: 8 },
-  categoryLabel: { fontSize: 11, fontWeight: '700', color: C.muted, letterSpacing: 0.8, textTransform: 'uppercase' },
+  categoryLabel: { fontSize: 11, fontWeight: '700', color: chat.muted, letterSpacing: 0.8, textTransform: 'uppercase' },
   channelItem: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 12, paddingVertical: 10, marginHorizontal: 8, borderRadius: 8,
   },
   channelItemLeft: { flexDirection: 'row', alignItems: 'center', gap: 9, flex: 1, minWidth: 0 },
-  channelItemName: { fontSize: 15, fontWeight: '500', color: 'rgba(255,255,255,0.7)', flex: 1 },
-  memberCountBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
-  memberCountText: { fontSize: 11, fontWeight: '600', color: C.muted },
+  channelItemName: { fontSize: 15, fontWeight: '500', color: colors.textSilver, flex: 1 },
+  memberCountBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.surface, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
+  memberCountText: { fontSize: 11, fontWeight: '600', color: chat.muted },
   channelHint: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 20, paddingTop: 16 },
-  channelHintText: { fontSize: 12, color: C.muted },
+  channelHintText: { fontSize: 12, color: chat.muted },
   // Chat header
   chatHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     paddingHorizontal: 14, paddingVertical: 11,
-    borderBottomWidth: 1, borderBottomColor: C.border,
+    borderBottomWidth: 1, borderBottomColor: chat.border,
   },
   channelHashBadge: {
     width: 34, height: 34, borderRadius: 10,
-    backgroundColor: `${C.primary}20`,
+    backgroundColor: `${chat.primary}20`,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  channelHashText: { fontSize: 18, fontWeight: '900', color: C.primary },
-  chatTitle: { fontSize: 15, fontWeight: '800', color: C.text },
-  chatDesc: { fontSize: 11, color: C.muted },
+  channelHashText: { fontSize: 18, fontWeight: '900', color: chat.primary },
+  chatTitle: { fontSize: 15, fontWeight: '800', color: chat.text },
+  chatDesc: { fontSize: 11, color: chat.muted },
   memberPill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 20,
+    backgroundColor: colors.surface, borderRadius: 20,
     paddingHorizontal: 9, paddingVertical: 4,
   },
   dot: { width: 7, height: 7, borderRadius: 4 },
-  memberPillText: { fontSize: 12, fontWeight: '700', color: C.muted },
+  memberPillText: { fontSize: 12, fontWeight: '700', color: chat.muted },
   // Messages
   msgListContent: { paddingTop: 8, paddingHorizontal: 16, paddingBottom: 8, gap: 2 },
-  welcomeBlock: { alignItems: 'flex-start', paddingVertical: 20, gap: 10 },
-  welcomeIcon: { width: 64, height: 64, borderRadius: 20, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  welcomeIconText: { fontSize: 28, fontWeight: '900', color: '#fff' },
-  welcomeTitle: { fontSize: 20, fontWeight: '900', color: C.text },
-  welcomeSub: { fontSize: 13.5, color: C.muted, lineHeight: 20 },
   msgGroup: { flexDirection: 'row', gap: 12, paddingVertical: 3, marginTop: 14 },
   msgAuthorRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 3 },
   msgAuthorName: { fontSize: 14.5, fontWeight: '700' },
   roleBadge: { borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2, borderWidth: 1 },
   roleText: { fontSize: 9.5, fontWeight: '800', letterSpacing: 0.4, textTransform: 'uppercase' },
-  meBadge: { backgroundColor: `${C.primary}22`, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
-  meText: { fontSize: 9, fontWeight: '800', color: C.primary, textTransform: 'uppercase' },
-  msgTime: { fontSize: 11, color: C.muted },
-  msgPressed: { backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 8, marginHorizontal: -6, paddingHorizontal: 6 },
-  msgText: { fontSize: 15, color: C.text, lineHeight: 22, flexShrink: 1, flexWrap: 'wrap' },
+  meBadge: { backgroundColor: `${chat.primary}22`, borderRadius: 4, paddingHorizontal: 5, paddingVertical: 2 },
+  meText: { fontSize: 9, fontWeight: '800', color: chat.primary, textTransform: 'uppercase' },
+  msgTime: { fontSize: 11, color: chat.muted },
+  msgPressed: { backgroundColor: colors.surfaceHover, borderRadius: 8, marginHorizontal: -6, paddingHorizontal: 6 },
+  msgText: { fontSize: 15, color: chat.text, lineHeight: 22, flexShrink: 1, flexWrap: 'wrap' },
   msgImage: {
     width: 220,
     maxWidth: '100%',
     height: 180,
     borderRadius: 12,
     marginBottom: 6,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceHover,
   },
-  editedTag: { color: C.muted, fontSize: 11 },
+  editedTag: { color: chat.muted, fontSize: 11 },
   replyQuote: {
     flexDirection: 'row',
     gap: 8,
@@ -1186,49 +1211,49 @@ const s = StyleSheet.create({
   replyQuoteBar: {
     width: 3,
     borderRadius: 2,
-    backgroundColor: C.primary,
+    backgroundColor: chat.primary,
     alignSelf: 'stretch',
   },
-  replyQuoteAuthor: { fontSize: 12, fontWeight: '700', color: C.primary, marginBottom: 1 },
-  replyQuoteText: { fontSize: 12, color: C.muted, lineHeight: 16 },
+  replyQuoteAuthor: { fontSize: 12, fontWeight: '700', color: chat.primary, marginBottom: 1 },
+  replyQuoteText: { fontSize: 12, color: chat.muted, lineHeight: 16 },
   reactionRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 4 },
   reactionPill: {
-    backgroundColor: 'rgba(58,173,255,0.12)',
+    backgroundColor: isDark ? 'rgba(167,139,250,0.12)' : 'rgba(58,173,255,0.12)',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(58,173,255,0.25)',
+    borderColor: isDark ? 'rgba(167,139,250,0.28)' : 'rgba(58,173,255,0.25)',
     paddingHorizontal: 8,
     paddingVertical: 3,
   },
-  reactionText: { fontSize: 13, color: C.text },
+  reactionText: { fontSize: 13, color: chat.text },
   editBox: { marginTop: 2, gap: 8 },
   editInput: {
     minHeight: 72,
-    backgroundColor: C.inputBg,
+    backgroundColor: chat.inputBg,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: chat.border,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 15,
-    color: C.text,
+    color: chat.text,
   },
   editActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
   editCancelBtn: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceHover,
   },
-  editCancelText: { color: C.muted, fontWeight: '700', fontSize: 13 },
+  editCancelText: { color: chat.muted, fontWeight: '700', fontSize: 13 },
   editSaveBtn: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 8,
-    backgroundColor: C.primary,
+    backgroundColor: chat.primary,
   },
   editSaveBtnOff: { opacity: 0.45 },
-  editSaveText: { color: '#fff', fontWeight: '800', fontSize: 13 },
+  editSaveText: { color: chat.primaryForeground, fontWeight: '800', fontSize: 13 },
   replyBar: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1237,21 +1262,21 @@ const s = StyleSheet.create({
     marginTop: 8,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: C.cardBg,
+    backgroundColor: chat.cardBg,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: chat.border,
   },
-  replyBarAccent: { width: 3, alignSelf: 'stretch', borderRadius: 2, backgroundColor: C.primary },
-  replyBarLabel: { fontSize: 12, color: C.muted, fontWeight: '600' },
-  replyBarName: { color: C.primary, fontWeight: '800' },
-  replyBarPreview: { fontSize: 13, color: C.text, marginTop: 2 },
+  replyBarAccent: { width: 3, alignSelf: 'stretch', borderRadius: 2, backgroundColor: chat.primary },
+  replyBarLabel: { fontSize: 12, color: chat.muted, fontWeight: '600' },
+  replyBarName: { color: chat.primary, fontWeight: '800' },
+  replyBarPreview: { fontSize: 13, color: chat.text, marginTop: 2 },
   replyBarClose: {
     width: 32,
     height: 32,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceHover,
   },
   actionOverlay: {
     flex: 1,
@@ -1259,45 +1284,45 @@ const s = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   actionSheet: {
-    backgroundColor: 'transparent',
+    backgroundColor: chat.cardBg,
     borderTopLeftRadius: 18,
     borderTopRightRadius: 18,
     paddingTop: 12,
     paddingBottom: 28,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: chat.border,
   },
   actionPreview: {
     padding: 12,
     marginBottom: 8,
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceHover,
     borderLeftWidth: 3,
-    borderLeftColor: C.primary,
+    borderLeftColor: chat.primary,
   },
-  actionPreviewAuthor: { fontSize: 12, fontWeight: '800', color: C.primary, marginBottom: 4 },
-  actionPreviewText: { fontSize: 14, color: C.text, lineHeight: 20 },
+  actionPreviewAuthor: { fontSize: 12, fontWeight: '800', color: chat.primary, marginBottom: 4 },
+  actionPreviewText: { fontSize: 14, color: chat.text, lineHeight: 20 },
   actionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.06)',
+    borderBottomColor: colors.border,
   },
-  actionItemText: { fontSize: 16, fontWeight: '600', color: C.text },
+  actionItemText: { fontSize: 16, fontWeight: '600', color: chat.text },
   actionEmoji: { fontSize: 20, width: 20, textAlign: 'center' },
   actionCancel: { justifyContent: 'center', borderBottomWidth: 0, marginTop: 4 },
-  actionCancelText: { fontSize: 16, fontWeight: '700', color: C.muted, textAlign: 'center', flex: 1 },
+  actionCancelText: { fontSize: 16, fontWeight: '700', color: chat.muted, textAlign: 'center', flex: 1 },
   // Emoji
   emojiTray: {
-    borderTopWidth: 1, borderTopColor: C.border, paddingVertical: 8,
+    borderTopWidth: 1, borderTopColor: chat.border, paddingVertical: 8,
   },
   emojiTabs: { flexDirection: 'row', paddingHorizontal: 12, marginBottom: 8, gap: 4 },
-  emojiTab: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)' },
-  emojiTabActive: { backgroundColor: `${C.primary}22` },
-  emojiTabText: { fontSize: 12, fontWeight: '700', color: C.muted },
+  emojiTab: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 20, backgroundColor: colors.surfaceHover },
+  emojiTabActive: { backgroundColor: `${chat.primary}22` },
+  emojiTabText: { fontSize: 12, fontWeight: '700', color: chat.muted },
   emojiGrid: { flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 8 },
   emojiCell: { width: '10%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center' },
   emojiChar: { fontSize: 24 },
@@ -1309,48 +1334,49 @@ const s = StyleSheet.create({
     marginTop: 8,
     padding: 10,
     borderRadius: 10,
-    backgroundColor: C.cardBg,
+    backgroundColor: chat.cardBg,
     borderWidth: 1,
-    borderColor: C.border,
+    borderColor: chat.border,
   },
   pendingImageThumb: {
     width: 52,
     height: 52,
     borderRadius: 8,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceHover,
   },
-  pendingImageLabel: { fontSize: 13, fontWeight: '700', color: C.text },
-  pendingImageHint: { fontSize: 11, color: C.muted, marginTop: 2 },
+  pendingImageLabel: { fontSize: 13, fontWeight: '700', color: chat.text },
+  pendingImageHint: { fontSize: 11, color: chat.muted, marginTop: 2 },
   pendingImageRemove: {
     width: 32,
     height: 32,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceHover,
   },
   // Input bar
   inputBar: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 8,
     paddingHorizontal: 12, paddingTop: 10,
-    borderTopWidth: 1, borderTopColor: C.border,
-    backgroundColor: C.bg,
+    borderTopWidth: 1, borderTopColor: chat.border,
+    backgroundColor: chat.bg,
   },
   emojiBtn: {
     width: 40, height: 40, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center', flexShrink: 0,
   },
-  emojiBtnActive: { backgroundColor: `${C.primary}15` },
+  emojiBtnActive: { backgroundColor: `${chat.primary}15` },
   inputField: {
     flex: 1, minHeight: 42, maxHeight: 130,
-    backgroundColor: C.inputBg, borderRadius: 12,
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: chat.inputBg, borderRadius: 12,
+    borderWidth: 1, borderColor: chat.border,
     paddingHorizontal: 14, paddingTop: 10, paddingBottom: 10,
-    fontSize: 15, color: C.text,
+    fontSize: 15, color: chat.text,
   },
   sendBtn: {
     width: 42, height: 42, borderRadius: 12, flexShrink: 0,
-    backgroundColor: C.primary, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: chat.primary, alignItems: 'center', justifyContent: 'center',
   },
-  sendBtnOff: { backgroundColor: 'rgba(58,173,255,0.25)' },
-});
+  sendBtnOff: { backgroundColor: colors.border },
+  });
+}

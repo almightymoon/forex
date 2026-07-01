@@ -1,4 +1,8 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import type { AppColors } from '../constants/theme';
+import { lightColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { GlassCard } from './GlassCard';
 
 type Props = {
@@ -11,7 +15,10 @@ type Props = {
   compact?: boolean;
 };
 
-export function StatCard({ label, value, icon, accent = '#3AADFF', highlighted, subtitle, compact }: Props) {
+export function StatCard({ label, value, icon, accent = lightColors.brandBlue, highlighted, subtitle, compact }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const highlightStyle = highlighted
     ? { borderColor: `${accent}55`, shadowColor: accent }
     : undefined;
@@ -46,7 +53,8 @@ export function StatCard({ label, value, icon, accent = '#3AADFF', highlighted, 
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   flex: { flex: 1, minWidth: 0 },
   cardInner: {
     padding: 14,
@@ -72,17 +80,17 @@ const styles = StyleSheet.create({
   value: {
     fontSize: 24,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     letterSpacing: -0.3,
   },
   label: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.textSecondary,
     fontWeight: '600',
   },
   subtitle: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.3)',
+    color: colors.textDim,
     marginTop: 2,
   },
   compactInner: {
@@ -101,13 +109,14 @@ const styles = StyleSheet.create({
   compactNumber: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     letterSpacing: -0.3,
   },
   compactLabel: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.textMuted,
     fontWeight: '600',
     textAlign: 'center',
   },
 });
+}

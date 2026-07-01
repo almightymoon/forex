@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { ScreenError } from '../../components/ScreenError';
 import {
   ActivityIndicator,
@@ -41,7 +43,9 @@ interface Overview {
   courses: CourseProgress[];
 }
 
-function StatPill({ label, value, color }: { label: string; value: number; color: string }) {
+function StatPill({ label, value, color }: { label: string; value: number; color: string }) {  const { colors } = useTheme();
+  const statStyles = useMemo(() => createStatStyles(colors), [colors]);
+
   return (
     <View style={[statStyles.pill, { borderColor: `${color}30` }]}>
       <Text style={[statStyles.val, { color }]}>{value}</Text>
@@ -49,13 +53,18 @@ function StatPill({ label, value, color }: { label: string; value: number; color
     </View>
   );
 }
-const statStyles = StyleSheet.create({
-  pill: { flex: 1, backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 14, borderWidth: 1, padding: 14, alignItems: 'center', gap: 4 },
+function createStatStyles(colors: AppColors) {
+  return StyleSheet.create({
+  pill: { flex: 1, backgroundColor: colors.surfaceHover, borderRadius: 14, borderWidth: 1, padding: 14, alignItems: 'center', gap: 4 },
   val: { fontSize: 24, fontWeight: '900' },
-  label: { fontSize: 11, color: 'rgba(255,255,255,0.4)', fontWeight: '600', textAlign: 'center' },
+  label: { fontSize: 11, color: colors.textMuted, fontWeight: '600', textAlign: 'center' },
 });
+}
 
 export default function ProgressScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const statStyles = useMemo(() => createStatStyles(colors), [colors]);
   const router = useRouter();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
@@ -114,7 +123,7 @@ export default function ProgressScreen() {
       <SafeAreaView edges={['top']} style={styles.headerSafe}>
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>My Progress</Text>
           <View style={{ width: 40 }} />
@@ -124,28 +133,28 @@ export default function ProgressScreen() {
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3AADFF" />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.black} />}
         showsVerticalScrollIndicator={false}
       >
         {loading ? (
-          <ActivityIndicator color="#3AADFF" style={{ marginTop: 60 }} />
+          <ActivityIndicator color={colors.black} style={{ marginTop: 60 }} />
         ) : error ? (
           <ScreenError message={error} onRetry={fetchOverview} />
         ) : !overview || overview.totalCourses === 0 ? (
           <View style={styles.emptyWrap}>
-            <Ionicons name="bar-chart-outline" size={52} color="rgba(255,255,255,0.1)" />
+            <Ionicons name="bar-chart-outline" size={52} color={colors.textMuted} />
             <Text style={styles.emptyTitle}>No courses enrolled yet</Text>
             <Text style={styles.emptySub}>Enroll in a course to start tracking your progress.</Text>
             <Pressable style={styles.browseBtn} onPress={() => router.push('/(app)/courses')}>
               <Text style={styles.browseBtnText}>Browse Courses</Text>
-              <Ionicons name="arrow-forward" size={14} color="#3AADFF" />
+              <Ionicons name="arrow-forward" size={14} color={colors.text} />
             </Pressable>
           </View>
         ) : (
           <>
             {/* Stats row */}
             <View style={styles.statsRow}>
-              <StatPill label="Total" value={overview.totalCourses} color="#3AADFF" />
+              <StatPill label="Total" value={overview.totalCourses} color={colors.text} />
               <StatPill label="Done" value={overview.completedCourses} color="#4ADE80" />
               <StatPill label="In Progress" value={overview.inProgressCourses} color="#FFC107" />
               <StatPill label="Certs" value={overview.issuedCertificates} color="#E879F9" />
@@ -183,7 +192,7 @@ export default function ProgressScreen() {
             {overview.courses.map((c) => {
               const thumb = resolveMediaUrl(c.courseThumbnail);
               const pct = c.progress.percentage;
-              const color = pct >= 100 ? '#4ADE80' : pct > 0 ? '#3AADFF' : 'rgba(255,255,255,0.2)';
+              const color = pct >= 100 ? colors.success : pct > 0 ? colors.blue : colors.textDim;
               return (
                 <GlassListCard
                   key={c.courseId}
@@ -194,7 +203,7 @@ export default function ProgressScreen() {
                     <Image source={{ uri: thumb }} style={styles.thumb} />
                   ) : (
                     <View style={[styles.thumb, styles.thumbPlaceholder]}>
-                      <Ionicons name="book" size={22} color="rgba(255,255,255,0.2)" />
+                      <Ionicons name="book" size={22} color={colors.textMuted} />
                     </View>
                   )}
                   <View style={styles.courseInfo}>
@@ -238,7 +247,7 @@ export default function ProgressScreen() {
                       </Pressable>
                     )}
                   </View>
-                  <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.2)" />
+                  <Ionicons name="chevron-forward" size={16} color={colors.textMuted} />
                 </GlassListCard>
               );
             })}
@@ -249,38 +258,39 @@ export default function ProgressScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: { backgroundColor: 'transparent' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.border },
+  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.border },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 14 },
   emptyWrap: { alignItems: 'center', paddingTop: 60, gap: 10 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: 'rgba(255,255,255,0.4)' },
-  emptySub: { fontSize: 13.5, color: 'rgba(255,255,255,0.3)', textAlign: 'center', lineHeight: 20 },
-  browseBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(58,173,255,0.3)', backgroundColor: 'rgba(0,96,230,0.1)' },
-  browseBtnText: { fontSize: 14, fontWeight: '700', color: '#3AADFF' },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.textMuted },
+  emptySub: { fontSize: 13.5, color: colors.textDim, textAlign: 'center', lineHeight: 20 },
+  browseBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceHover },
+  browseBtnText: { fontSize: 14, fontWeight: '700', color: colors.text },
   statsRow: { flexDirection: 'row', gap: 10 },
   overallCard: { padding: 16, gap: 10 },
   overallHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  overallLabel: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.5)' },
-  overallPct: { fontSize: 22, fontWeight: '900', color: '#3AADFF' },
-  bigBar: { height: 10, borderRadius: 5, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
-  bigBarFill: { height: '100%', borderRadius: 5, backgroundColor: '#3AADFF' },
-  overallSub: { fontSize: 12, color: 'rgba(255,255,255,0.35)' },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  overallLabel: { fontSize: 13, fontWeight: '600', color: colors.textSecondary },
+  overallPct: { fontSize: 22, fontWeight: '900', color: colors.text },
+  bigBar: { height: 10, borderRadius: 5, backgroundColor: colors.surface, overflow: 'hidden' },
+  bigBarFill: { height: '100%', borderRadius: 5, backgroundColor: colors.primary },
+  overallSub: { fontSize: 12, color: colors.textDim },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: colors.text },
   courseCard: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12 },
   thumb: { width: 60, height: 60, borderRadius: 12, flexShrink: 0 },
-  thumbPlaceholder: { backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+  thumbPlaceholder: { backgroundColor: colors.surfaceHover, alignItems: 'center', justifyContent: 'center' },
   courseInfo: { flex: 1, gap: 5 },
-  courseTitle: { fontSize: 13.5, fontWeight: '700', color: '#fff', lineHeight: 18 },
+  courseTitle: { fontSize: 13.5, fontWeight: '700', color: colors.text, lineHeight: 18 },
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   level: { fontSize: 11, fontWeight: '700', textTransform: 'capitalize' },
-  lessonCount: { fontSize: 11, color: 'rgba(255,255,255,0.35)' },
+  lessonCount: { fontSize: 11, color: colors.textDim },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  bar: { flex: 1, height: 5, borderRadius: 3, backgroundColor: 'rgba(255,255,255,0.08)', overflow: 'hidden' },
+  bar: { flex: 1, height: 5, borderRadius: 3, backgroundColor: colors.surface, overflow: 'hidden' },
   fill: { height: '100%', borderRadius: 3 },
   pct: { fontSize: 11, fontWeight: '800', width: 34, textAlign: 'right' },
   certBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: 'rgba(232,121,249,0.1)', borderRadius: 8, paddingHorizontal: 7, paddingVertical: 3 },
@@ -288,3 +298,4 @@ const styles = StyleSheet.create({
   certBtn: { borderWidth: 1, borderColor: 'rgba(255,193,7,0.3)' },
   certText: { fontSize: 10, fontWeight: '700', color: '#E879F9' },
 });
+}

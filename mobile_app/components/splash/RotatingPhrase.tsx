@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 type Props = {
   phrases: readonly string[];
@@ -8,7 +9,9 @@ type Props = {
 };
 
 /** Cross-fades through splash taglines beneath the loader */
-export function RotatingPhrase({ phrases, intervalMs = 2800 }: Props) {
+export function RotatingPhrase({ phrases, intervalMs = 2800 }: Props) {  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [index, setIndex] = useState(0);
   const fade = useRef(new Animated.Value(1)).current;
   const slide = useRef(new Animated.Value(0)).current;
@@ -71,7 +74,8 @@ export function RotatingPhrase({ phrases, intervalMs = 2800 }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   wrap: {
     minHeight: 22,
     marginTop: 10,
@@ -88,3 +92,4 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+}

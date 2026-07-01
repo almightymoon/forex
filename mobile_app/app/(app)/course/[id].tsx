@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../../constants/theme';
+import { useTheme } from '../../../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
@@ -21,6 +23,7 @@ import { apiFetch } from '../../../utils/api';
 import { getEnrolledCourseIds } from '../../../utils/enrollment';
 import { formatInstructor } from '../../../utils/formatInstructor';
 import { resolveMediaUrl } from '../../../utils/normalize';
+import { primaryButtonGradient } from '../../../utils/primaryButton';
 
 interface ContentItem {
   _id: string;
@@ -72,6 +75,8 @@ function formatDuration(seconds: number): string {
  * Handles the most common rich-text tags without a WebView.
  */
 function HtmlText({ html, compact }: { html: string; compact?: boolean }) {
+  const { colors } = useTheme();
+  const htmlStyles = useMemo(() => createHtmlStyles(colors), [colors]);
   // Normalise line breaks
   const clean = html
     .replace(/<br\s*\/?>/gi, '\n')
@@ -96,15 +101,17 @@ function HtmlText({ html, compact }: { html: string; compact?: boolean }) {
   );
 }
 
-const htmlStyles = StyleSheet.create({
+function createHtmlStyles(colors: AppColors) {
+  return StyleSheet.create({
   wrap: { padding: 16 },
   body: {
     fontSize: 14.5,
-    color: 'rgba(255,255,255,0.82)',
+    color: colors.textSilver,
     lineHeight: 23,
     fontFamily: undefined,
   },
 });
+}
 
 const CONTENT_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   video: 'play-circle-outline',
@@ -132,6 +139,8 @@ const LessonItem = memo(function LessonItem({
   isLast: boolean;
   onToggle: () => void;
 }) {
+  const { colors } = useTheme();
+  const lessonStyles = useMemo(() => createLessonStyles(colors), [colors]);
   const router = useRouter();
   const [quizAnswers, setQuizAnswers] = useState<Record<number, string>>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
@@ -151,7 +160,7 @@ const LessonItem = memo(function LessonItem({
           <Ionicons
             name={CONTENT_ICONS[item.type] ?? 'play-circle-outline'}
             size={16}
-            color={locked ? 'rgba(255,255,255,0.25)' : isOpen ? '#fff' : '#3AADFF'}
+            color={locked ? colors.textDim : isOpen ? colors.text : colors.blue}
           />
         </View>
         <View style={lessonStyles.info}>
@@ -162,7 +171,7 @@ const LessonItem = memo(function LessonItem({
             {item.title}
           </Text>
           <View style={lessonStyles.meta}>
-            <Text style={[lessonStyles.typeLabel, locked && { color: 'rgba(255,255,255,0.2)' }]}>
+            <Text style={[lessonStyles.typeLabel, locked && { color: colors.textDim }]}>
               {item.type.charAt(0).toUpperCase() + item.type.slice(1)}
             </Text>
             {item.duration ? (
@@ -171,12 +180,12 @@ const LessonItem = memo(function LessonItem({
           </View>
         </View>
         {locked ? (
-          <Ionicons name="lock-closed" size={14} color="rgba(255,255,255,0.2)" />
+          <Ionicons name="lock-closed" size={14} color={colors.textMuted} />
         ) : (
           <Ionicons
             name={isOpen ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color={isOpen ? 'rgba(255,255,255,0.7)' : 'rgba(255,255,255,0.35)'}
+            color={isOpen ? colors.textSecondary : colors.textDim}
           />
         )}
       </Pressable>
@@ -287,7 +296,7 @@ const LessonItem = memo(function LessonItem({
                 style={lessonStyles.openExternalBtn}
                 onPress={() => Linking.openURL(resolveMediaUrl(item.pptUrl!) ?? item.pptUrl!)}
               >
-                <Ionicons name="open-outline" size={14} color="#3AADFF" />
+                <Ionicons name="open-outline" size={14} color={colors.brandBlue} />
                 <Text style={lessonStyles.openExternalText}>Open in browser</Text>
               </Pressable>
             </View>
@@ -298,7 +307,7 @@ const LessonItem = memo(function LessonItem({
           {/* ASSIGNMENT */}
           {item.type === 'assignment' ? (
             <View style={lessonStyles.assignmentWrap}>
-              <Ionicons name="clipboard-outline" size={28} color="#3AADFF" />
+              <Ionicons name="clipboard-outline" size={28} color={colors.brandBlue} />
               <Text style={lessonStyles.assignmentText}>
                 Complete this assignment in the Assignments section.
               </Text>
@@ -307,7 +316,7 @@ const LessonItem = memo(function LessonItem({
                 onPress={() => router.push('/(app)/assignments')}
               >
                 <Text style={lessonStyles.assignmentBtnText}>Go to Assignments</Text>
-                <Ionicons name="arrow-forward" size={14} color="#fff" />
+                <Ionicons name="arrow-forward" size={14} color={colors.primaryForeground} />
               </Pressable>
             </View>
           ) : null}
@@ -324,10 +333,11 @@ const LessonItem = memo(function LessonItem({
   );
 });
 
-const lessonStyles = StyleSheet.create({
+function createLessonStyles(colors: AppColors) {
+  return StyleSheet.create({
   container: {
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
+    borderBottomColor: colors.border,
   },
   containerLast: {
     borderBottomWidth: 0,
@@ -345,23 +355,23 @@ const lessonStyles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
   iconOpen: {
-    backgroundColor: 'rgba(58,173,255,0.22)',
+    backgroundColor: colors.surfaceHover,
   },
   info: { flex: 1, gap: 3, minWidth: 0 },
-  title: { fontSize: 14, fontWeight: '700', color: '#fff', lineHeight: 20 },
-  titleLocked: { color: 'rgba(255,255,255,0.4)' },
+  title: { fontSize: 14, fontWeight: '700', color: colors.text, lineHeight: 20 },
+  titleLocked: { color: colors.textMuted },
   meta: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  typeLabel: { fontSize: 11, fontWeight: '700', color: '#3AADFF' },
-  duration: { fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: '500' },
+  typeLabel: { fontSize: 11, fontWeight: '700', color: colors.brandBlue },
+  duration: { fontSize: 11, color: colors.textDim, fontWeight: '500' },
   body: {
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.1)',
+    borderTopColor: colors.border,
     paddingTop: 8,
     paddingBottom: 12,
     overflow: 'hidden',
@@ -380,51 +390,51 @@ const lessonStyles = StyleSheet.create({
     width: 60, height: 60, borderRadius: 30,
     backgroundColor: 'rgba(0,0,0,0.75)',
     alignItems: 'center', justifyContent: 'center',
-    borderWidth: 2, borderColor: 'rgba(255,255,255,0.3)',
+    borderWidth: 2, borderColor: colors.border,
   },
-  tapText: { fontSize: 13, fontWeight: '700', color: '#fff' },
+  tapText: { fontSize: 13, fontWeight: '700', color: colors.text },
   fallbackWrap: {
     alignItems: 'center', justifyContent: 'center', gap: 12,
     paddingVertical: 28, paddingHorizontal: 16,
   },
-  fallbackText: { fontSize: 14, color: 'rgba(255,255,255,0.45)', fontWeight: '600' },
+  fallbackText: { fontSize: 14, color: colors.textMuted, fontWeight: '600' },
   openBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20,
     borderWidth: 1, borderColor: 'rgba(58,173,255,0.4)',
     backgroundColor: 'rgba(0,96,230,0.12)',
   },
-  openBtnText: { fontSize: 13, fontWeight: '700', color: '#3AADFF' },
-  noContent: { padding: 16, fontSize: 13, color: 'rgba(255,255,255,0.35)', fontStyle: 'italic' },
+  openBtnText: { fontSize: 13, fontWeight: '700', color: colors.brandBlue },
+  noContent: { padding: 16, fontSize: 13, color: colors.textDim, fontStyle: 'italic' },
   textBody: { paddingTop: 4 },
   quizWrap: { paddingTop: 4, gap: 10 },
   questionCard: {
-    backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12,
+    backgroundColor: colors.surfaceHover, borderRadius: 12,
     borderWidth: 1, borderColor: 'rgba(58,173,255,0.1)',
     padding: 14, gap: 8,
   },
-  question: { fontSize: 14, fontWeight: '700', color: '#fff', lineHeight: 20 },
+  question: { fontSize: 14, fontWeight: '700', color: colors.text, lineHeight: 20 },
   option: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 12, paddingVertical: 9,
-    borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 8, borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.surfaceHover,
   },
-  optionSelected: { borderColor: '#3AADFF', backgroundColor: 'rgba(0,96,230,0.18)' },
+  optionSelected: { borderColor: colors.brandBlue, backgroundColor: 'rgba(0,96,230,0.18)' },
   optionCorrect: { borderColor: '#4ADE80', backgroundColor: 'rgba(74,222,128,0.12)' },
   optionWrong: { borderColor: '#FF5A5A', backgroundColor: 'rgba(255,90,90,0.12)' },
-  optionText: { fontSize: 13, color: 'rgba(255,255,255,0.8)', flex: 1 },
+  optionText: { fontSize: 13, color: colors.textSilver, flex: 1 },
   explanation: { fontSize: 11.5, color: 'rgba(74,222,128,0.8)', fontStyle: 'italic', marginTop: 2 },
   submitBtn: {
-    backgroundColor: 'rgba(0,96,230,0.3)', borderRadius: 10,
-    borderWidth: 1, borderColor: '#3AADFF',
+    backgroundColor: colors.primary, borderRadius: 10,
+    borderWidth: 1, borderColor: colors.primary,
     paddingVertical: 12, alignItems: 'center',
   },
-  submitText: { fontSize: 14, fontWeight: '800', color: '#fff' },
+  submitText: { fontSize: 14, fontWeight: '800', color: colors.primaryForeground },
   result: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 10,
+    backgroundColor: colors.surfaceHover, borderRadius: 10,
     borderWidth: 1, borderColor: 'rgba(255,193,7,0.3)',
     paddingVertical: 12,
   },
@@ -432,14 +442,20 @@ const lessonStyles = StyleSheet.create({
   lessonImage: { width: '100%', height: 220, borderRadius: 10, backgroundColor: 'rgba(0,0,0,0.3)' },
   pptWrap: { height: 320, borderRadius: 10, overflow: 'hidden', backgroundColor: 'rgba(0,0,0,0.3)' },
   openExternalBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
-  openExternalText: { fontSize: 13, fontWeight: '600', color: '#3AADFF' },
-  assignmentWrap: { alignItems: 'center', gap: 12, padding: 20, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12 },
-  assignmentText: { fontSize: 13.5, color: 'rgba(255,255,255,0.55)', textAlign: 'center', lineHeight: 20 },
-  assignmentBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(0,96,230,0.3)', borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: 'rgba(58,173,255,0.4)' },
-  assignmentBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
+  openExternalText: { fontSize: 13, fontWeight: '600', color: colors.brandBlue },
+  assignmentWrap: { alignItems: 'center', gap: 12, padding: 20, backgroundColor: colors.surfaceHover, borderRadius: 12 },
+  assignmentText: { fontSize: 13.5, color: colors.textSecondary, textAlign: 'center', lineHeight: 20 },
+  assignmentBtn: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10, borderWidth: 1, borderColor: colors.primary },
+  assignmentBtnText: { fontSize: 14, fontWeight: '700', color: colors.primaryForeground },
 });
+}
 
 export default function CourseDetailScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors, isDark), [colors, isDark]);
+  const enrollGradientColors = useMemo(() => primaryButtonGradient(isDark), [isDark]);
+  const lessonStyles = useMemo(() => createLessonStyles(colors), [colors]);
+  const htmlStyles = useMemo(() => createHtmlStyles(colors), [colors]);
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
 
@@ -544,89 +560,131 @@ export default function CourseDetailScreen() {
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
     [course]);
 
+  const totalDuration = useMemo(() => {
+    if (course?.totalDuration) return formatDuration(course.totalDuration);
+    const secs = lessons.reduce((sum, l) => sum + (l.duration ?? 0), 0);
+    return secs > 0 ? formatDuration(secs) : '';
+  }, [course?.totalDuration, lessons]);
+
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
-        <View style={styles.header}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
-          </Pressable>
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {isEnrolled ? 'My Course' : 'Course Preview'}
-          </Text>
-          <View style={{ width: 40 }} />
-        </View>
-      </SafeAreaView>
 
       {loading ? (
-        <ActivityIndicator color="#3AADFF" style={{ marginTop: 40 }} />
+        <View style={styles.centered}>
+          <ActivityIndicator color={colors.primary} size="large" />
+        </View>
       ) : !course ? (
         <View style={styles.empty}>
-          <Ionicons name="alert-circle-outline" size={46} color="rgba(255,255,255,0.2)" />
+          <Ionicons name="alert-circle-outline" size={46} color={colors.textMuted} />
           <Text style={styles.emptyTitle}>Course unavailable</Text>
         </View>
       ) : (
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           removeClippedSubviews
         >
-          {/* Hero */}
+          {/* Immersive hero */}
           <View style={styles.hero}>
             {thumbnail ? (
-              <Image source={{ uri: thumbnail }} style={styles.heroImage} />
+              <Image source={{ uri: thumbnail }} style={styles.heroImage} resizeMode="cover" />
             ) : (
-              <LinearGradient colors={['rgba(0,96,230,0.25)', 'rgba(255,255,255,0.03)']} style={styles.heroPlaceholder}>
-                <Ionicons name="play-circle" size={48} color="rgba(255,255,255,0.8)" />
-              </LinearGradient>
+              <View style={styles.heroPlaceholder}>
+                <LinearGradient
+                  colors={isDark ? ['#1C1C1E', '#0B0B0D'] : ['#2C2C2E', '#0F0F0F']}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={styles.heroPlaceholderIcon}>
+                  <Ionicons name="school-outline" size={36} color={colors.brandPurple} />
+                </View>
+              </View>
             )}
-          </View>
 
-          <Text style={styles.title}>{course.title}</Text>
+            <LinearGradient
+              colors={['rgba(0,0,0,0.55)', 'rgba(0,0,0,0.15)', 'transparent']}
+              locations={[0, 0.45, 1]}
+              style={styles.heroTopScrim}
+              pointerEvents="none"
+            />
+            <LinearGradient
+              colors={['transparent', 'rgba(0,0,0,0.5)', 'rgba(0,0,0,0.92)']}
+              locations={[0.25, 0.65, 1]}
+              style={styles.heroBottomScrim}
+              pointerEvents="none"
+            />
 
-          {instructorName ? (
-            <View style={styles.instructorRow}>
-              <View style={styles.avatar}>
-                <Ionicons name="person" size={12} color="rgba(255,255,255,0.6)" />
+            <SafeAreaView edges={['top']} style={styles.heroNav}>
+              <Pressable style={styles.heroBackBtn} onPress={() => router.back()} hitSlop={8}>
+                <Ionicons name="chevron-back" size={22} color="#FFFFFF" />
+              </Pressable>
+              <View style={[styles.heroStatusPill, isEnrolled && styles.heroStatusPillEnrolled]}>
+                <Ionicons
+                  name={isEnrolled ? 'checkmark-circle' : 'eye-outline'}
+                  size={13}
+                  color={isEnrolled ? colors.primaryForeground : '#FFFFFF'}
+                />
+                <Text style={[styles.heroStatusText, isEnrolled && styles.heroStatusTextEnrolled]}>
+                  {isEnrolled ? 'Enrolled' : 'Preview'}
+                </Text>
               </View>
-              <Text style={styles.instructorText}>{instructorName}</Text>
+            </SafeAreaView>
+
+            <View style={styles.heroContent}>
+              {course.level ? (
+                <View style={styles.heroLevelPill}>
+                  <Text style={styles.heroLevelText}>{String(course.level).toUpperCase()}</Text>
+                </View>
+              ) : null}
+              <Text style={styles.heroTitle} numberOfLines={3}>{course.title}</Text>
+              {instructorName ? (
+                <View style={styles.heroInstructorRow}>
+                  <View style={styles.heroAvatar}>
+                    <Ionicons name="person" size={12} color="rgba(255,255,255,0.85)" />
+                  </View>
+                  <Text style={styles.heroInstructor}>{instructorName}</Text>
+                </View>
+              ) : null}
+              <View style={styles.heroStats}>
+                {typeof course.rating === 'number' && course.rating > 0 ? (
+                  <View style={styles.heroStat}>
+                    <Ionicons name="star" size={13} color={colors.gold} />
+                    <Text style={styles.heroStatText}>{course.rating.toFixed(1)}</Text>
+                  </View>
+                ) : null}
+                {lessons.length > 0 ? (
+                  <View style={styles.heroStat}>
+                    <Ionicons name="layers-outline" size={13} color="rgba(255,255,255,0.85)" />
+                    <Text style={styles.heroStatText}>{lessons.length} lessons</Text>
+                  </View>
+                ) : null}
+                {totalDuration ? (
+                  <View style={styles.heroStat}>
+                    <Ionicons name="time-outline" size={13} color="rgba(255,255,255,0.85)" />
+                    <Text style={styles.heroStatText}>{totalDuration}</Text>
+                  </View>
+                ) : null}
+              </View>
             </View>
-          ) : null}
-
-          <View style={styles.metaRow}>
-            {course.level ? (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{String(course.level).toUpperCase()}</Text>
-              </View>
-            ) : null}
-            {typeof course.rating === 'number' && course.rating > 0 ? (
-              <View style={styles.ratingRow}>
-                <Ionicons name="star" size={13} color="#FFC107" />
-                <Text style={styles.ratingText}>{course.rating.toFixed(1)}</Text>
-              </View>
-            ) : null}
-            {lessons.length > 0 ? (
-              <View style={styles.metaItem}>
-                <Ionicons name="layers-outline" size={13} color="rgba(255,255,255,0.35)" />
-                <Text style={styles.metaText}>{lessons.length} lessons</Text>
-              </View>
-            ) : null}
           </View>
 
-          {/* Progress card */}
-          {isEnrolled && (
-            <GlassListCard contentStyle={styles.progressCard}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressLabel}>Your Progress</Text>
-                <Text style={styles.progressPct}>{Math.round(progress)}%</Text>
-              </View>
-              <View style={styles.progressTrack}>
-                <View style={[styles.progressFillBar, { width: `${Math.min(progress, 100)}%` as `${number}%` }]} />
-              </View>
-            </GlassListCard>
-          )}
+          <View style={styles.body}>
+            {/* Progress card */}
+            {isEnrolled ? (
+              <GlassListCard contentStyle={styles.progressCard}>
+                <View style={styles.progressHeader}>
+                  <View style={styles.progressLabelRow}>
+                    <Ionicons name="trending-up" size={16} color={colors.primary} />
+                    <Text style={styles.progressLabel}>Your progress</Text>
+                  </View>
+                  <Text style={styles.progressPct}>{Math.round(progress)}%</Text>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View style={[styles.progressFillBar, { width: `${Math.min(progress, 100)}%` as `${number}%` }]} />
+                </View>
+              </GlassListCard>
+            ) : null}
 
           {/* Description */}
           {course.description ? (
@@ -666,81 +724,203 @@ export default function CourseDetailScreen() {
           {/* Enroll button — only when NOT enrolled */}
           {!isEnrolled ? (
             <LinearGradient
-              colors={['#0253BD', '#036FFC']}
+              colors={enrollGradientColors}
               start={{ x: 0, y: 0.5 }}
               end={{ x: 1, y: 0.5 }}
               style={styles.enrollGradient}
             >
               <Pressable style={styles.enrollPress} onPress={handleEnroll} disabled={enrolling}>
                 <Text style={styles.enrollText}>{enrolling ? 'Enrolling…' : 'Enroll Now'}</Text>
-                <Ionicons name="arrow-forward" size={16} color="#fff" />
+                <Ionicons name="arrow-forward" size={16} color={colors.primaryForeground} />
               </Pressable>
             </LinearGradient>
           ) : null}
+          </View>
         </ScrollView>
       )}
     </View>
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors, isDark: boolean) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
-  headerSafe: { backgroundColor: 'transparent' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  backBtn: {
-    width: 40, height: 40, borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-    alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)',
-  },
-  headerTitle: { fontSize: 15, fontWeight: '800', color: '#fff', letterSpacing: -0.2 },
+  centered: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingTop: 80 },
   scroll: { flex: 1 },
-  content: { padding: 20, paddingBottom: 40, gap: 16 },
+  scrollContent: { paddingBottom: 40 },
+  body: { paddingHorizontal: 20, paddingTop: 18, gap: 16 },
+
   hero: {
-    borderRadius: 18, overflow: 'hidden',
-    borderWidth: 1, borderColor: 'rgba(58,173,255,0.14)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
+    height: 340,
+    backgroundColor: colors.surfaceHover,
+    overflow: 'hidden',
   },
-  heroImage: { width: '100%', height: 200 },
-  heroPlaceholder: { width: '100%', height: 200, alignItems: 'center', justifyContent: 'center' },
-  title: { fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: -0.3, lineHeight: 28 },
-  instructorRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  avatar: {
-    width: 24, height: 24, borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    alignItems: 'center', justifyContent: 'center',
+  heroImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
   },
-  instructorText: { fontSize: 13, fontWeight: '600', color: 'rgba(255,255,255,0.55)' },
-  metaRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
-  badge: {
-    backgroundColor: 'rgba(0,96,230,0.2)', borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 4,
-    borderWidth: 1, borderColor: 'rgba(58,173,255,0.35)',
+  heroPlaceholder: {
+    ...StyleSheet.absoluteFillObject,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  badgeText: { fontSize: 11, fontWeight: '800', color: '#3AADFF', letterSpacing: 0.3 },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  ratingText: { fontSize: 13, fontWeight: '800', color: '#FFC107' },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 5 },
-  metaText: { fontSize: 12, color: 'rgba(255,255,255,0.4)' },
-  progressCard: { padding: 14, gap: 8 },
-  progressHeader: { flexDirection: 'row', justifyContent: 'space-between' },
-  progressLabel: { fontSize: 13, fontWeight: '700', color: '#fff' },
-  progressPct: { fontSize: 13, fontWeight: '800', color: '#3AADFF' },
+  heroPlaceholderIcon: {
+    width: 72,
+    height: 72,
+    borderRadius: 22,
+    backgroundColor: 'rgba(167,139,250,0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.28)',
+  },
+  heroTopScrim: {
+    ...StyleSheet.absoluteFillObject,
+    height: 120,
+  },
+  heroBottomScrim: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  heroNav: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+    zIndex: 2,
+  },
+  heroBackBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+  },
+  heroStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 11,
+    paddingVertical: 7,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  heroStatusPillEnrolled: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  heroStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#FFFFFF',
+  },
+  heroStatusTextEnrolled: {
+    color: colors.primaryForeground,
+  },
+  heroContent: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingHorizontal: 20,
+    paddingBottom: 22,
+    gap: 8,
+    zIndex: 1,
+  },
+  heroLevelPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: 'rgba(167,139,250,0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(167,139,250,0.45)',
+  },
+  heroLevelText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.brandPurple,
+    letterSpacing: 0.8,
+  },
+  heroTitle: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#FFFFFF',
+    letterSpacing: -0.5,
+    lineHeight: 32,
+  },
+  heroInstructorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  heroAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+  },
+  heroInstructor: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.88)',
+  },
+  heroStats: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 2,
+  },
+  heroStat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.12)',
+  },
+  heroStatText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255,255,255,0.92)',
+  },
+
+  progressCard: { padding: 16, gap: 10 },
+  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  progressLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  progressLabel: { fontSize: 14, fontWeight: '700', color: colors.text },
+  progressPct: { fontSize: 15, fontWeight: '900', color: colors.primary },
   progressTrack: {
-    height: 5, backgroundColor: 'rgba(255,255,255,0.08)',
-    borderRadius: 3, overflow: 'hidden',
+    height: 6,
+    backgroundColor: isDark ? colors.surfaceInset : colors.surfaceHover,
+    borderRadius: 3,
+    overflow: 'hidden',
   },
-  progressFillBar: { height: '100%', backgroundColor: '#3AADFF', borderRadius: 3 },
+  progressFillBar: { height: '100%', backgroundColor: colors.primary, borderRadius: 3 },
   section: { gap: 10 },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: colors.text },
   contentCard: { padding: 16 },
   enrollGradient: { borderRadius: 14, overflow: 'hidden', marginTop: 4 },
   enrollPress: { height: 52, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 8 },
-  enrollText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  enrollText: { fontSize: 15, fontWeight: '800', color: colors.primaryForeground },
   empty: { alignItems: 'center', marginTop: 56, gap: 10 },
-  emptyTitle: { fontSize: 17, fontWeight: '800', color: 'rgba(255,255,255,0.55)' },
+  emptyTitle: { fontSize: 17, fontWeight: '800', color: colors.textSecondary },
 });
+}

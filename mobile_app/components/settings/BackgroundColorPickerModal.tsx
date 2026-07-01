@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -44,7 +46,9 @@ function pickHue(locationX: number, width: number): number {
   return clamp((locationX / width) * 360, 0, 360);
 }
 
-export function BackgroundColorPickerModal({ visible, initialColor, onClose, onApply }: Props) {
+export function BackgroundColorPickerModal({ visible, initialColor, onClose, onApply }: Props) {  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const { width: screenW } = useWindowDimensions();
   const panelWidth = Math.min(screenW - 48, 320);
 
@@ -157,7 +161,7 @@ export function BackgroundColorPickerModal({ visible, initialColor, onClose, onA
           <View style={styles.header}>
             <Text style={styles.title}>Custom Color</Text>
             <Pressable onPress={onClose} hitSlop={8} style={styles.closeBtn}>
-              <Ionicons name="close" size={22} color="#fff" />
+              <Ionicons name="close" size={22} color={colors.text} />
             </Pressable>
           </View>
         </SafeAreaView>
@@ -241,7 +245,7 @@ export function BackgroundColorPickerModal({ visible, initialColor, onClose, onA
               value={hexInput}
               onChangeText={handleHexChange}
               placeholder="#036FFC"
-              placeholderTextColor="rgba(255,255,255,0.25)"
+              placeholderTextColor={colors.textDim}
               autoCapitalize="characters"
               autoCorrect={false}
               maxLength={7}
@@ -260,14 +264,15 @@ export function BackgroundColorPickerModal({ visible, initialColor, onClose, onA
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#040818',
+    backgroundColor: colors.background,
   },
   safe: {
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.08)',
+    borderBottomColor: colors.border,
   },
   header: {
     flexDirection: 'row',
@@ -279,13 +284,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
   },
   closeBtn: {
     width: 40,
     height: 40,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -299,10 +304,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 14,
     alignSelf: 'stretch',
-    backgroundColor: 'rgba(255,255,255,0.04)',
+    backgroundColor: colors.surfaceHover,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: colors.border,
     padding: 14,
   },
   previewSwatch: {
@@ -310,7 +315,7 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 14,
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: colors.border,
   },
   previewCopy: {
     flex: 1,
@@ -319,19 +324,19 @@ const styles = StyleSheet.create({
   previewLabel: {
     fontSize: 12,
     fontWeight: '600',
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.textMuted,
   },
   previewHex: {
     fontSize: 18,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     letterSpacing: 1,
   },
   panel: {
     borderRadius: 16,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: colors.border,
   },
   thumb: {
     position: 'absolute',
@@ -350,7 +355,7 @@ const styles = StyleSheet.create({
     borderRadius: HUE_HEIGHT / 2,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
+    borderColor: colors.border,
   },
   hueThumb: {
     position: 'absolute',
@@ -360,7 +365,7 @@ const styles = StyleSheet.create({
     borderRadius: (HUE_HEIGHT - 6) / 2,
     borderWidth: 3,
     borderColor: '#fff',
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: colors.surfaceHover,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
@@ -375,7 +380,7 @@ const styles = StyleSheet.create({
   hexLabel: {
     fontSize: 14,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.textSecondary,
     width: 36,
   },
   hexInput: {
@@ -383,12 +388,12 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.14)',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: colors.border,
+    backgroundColor: colors.surfaceHover,
     paddingHorizontal: 14,
     fontSize: 16,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.text,
     letterSpacing: 1.2,
   },
   hexInputError: {
@@ -403,7 +408,7 @@ const styles = StyleSheet.create({
   hint: {
     fontSize: 13,
     lineHeight: 19,
-    color: 'rgba(255,255,255,0.42)',
+    color: colors.textMuted,
     textAlign: 'center',
     paddingHorizontal: 8,
   },
@@ -412,3 +417,4 @@ const styles = StyleSheet.create({
     width: '100%',
   },
 });
+}

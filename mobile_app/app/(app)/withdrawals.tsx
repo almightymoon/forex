@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -15,9 +17,10 @@ import {
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { MenuStackHeader } from '../../components/navigation/MenuStackHeader';
 import { GlassListCard } from '../../components/glass/GlassListCard';
 import { apiFetch } from '../../utils/api';
+import { primaryButtonGradient } from '../../utils/primaryButton';
 
 interface Withdrawal {
   _id: string;
@@ -33,18 +36,22 @@ interface Withdrawal {
 
 interface Profile { balance?: number; }
 
-const STATUS = {
+const withdrawalStatus = (colors: AppColors) => ({
   pending:   { label: 'Pending',   color: '#FFC107', bg: 'rgba(255,193,7,0.12)',    icon: 'time-outline' as const },
   completed: { label: 'Completed', color: '#4ADE80', bg: 'rgba(74,222,128,0.12)',   icon: 'checkmark-circle-outline' as const },
   rejected:  { label: 'Rejected',  color: '#FF5A5A', bg: 'rgba(255,90,90,0.12)',    icon: 'close-circle-outline' as const },
-  cancelled: { label: 'Cancelled', color: 'rgba(255,255,255,0.35)', bg: 'rgba(255,255,255,0.05)', icon: 'ban-outline' as const },
-};
+  cancelled: { label: 'Cancelled', color: colors.textDim, bg: colors.surfaceHover, icon: 'ban-outline' as const },
+});
 
 function fmt(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
 export default function WithdrawalsScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const submitGradientColors = useMemo(() => primaryButtonGradient(isDark), [isDark]);
+  const STATUS = useMemo(() => withdrawalStatus(colors), [colors]);
   const router = useRouter();
   const [profile, setProfile] = useState<Profile>({});
   const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
@@ -143,35 +150,27 @@ export default function WithdrawalsScreen() {
 
   return (
     <View style={styles.screen}>
-      <SafeAreaView edges={['top']} style={styles.headerSafe}>
-        <View style={styles.header}>
-          <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
-          </Pressable>
-          <Text style={styles.headerTitle}>Withdrawals</Text>
-          <View style={{ width: 40 }} />
-        </View>
-      </SafeAreaView>
+      <MenuStackHeader title="Withdrawals" subtitle="USDT payouts" onBack={() => router.back()} />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.content}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAll(); }} tintColor="#3AADFF" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchAll(); }} tintColor={colors.black} />}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {loading ? <ActivityIndicator color="#3AADFF" style={{ marginTop: 40 }} /> : (
+          {loading ? <ActivityIndicator color={colors.black} style={{ marginTop: 40 }} /> : (
             <>
               {/* Balance card */}
-              <LinearGradient colors={['rgba(0,96,230,0.3)', 'rgba(255,255,255,0.03)']} style={styles.balanceCard}>
+              <View style={styles.balanceCard}>
                 <View style={styles.balanceIconWrap}>
-                  <Ionicons name="wallet" size={26} color="#3AADFF" />
+                  <Ionicons name="wallet" size={26} color={colors.text} />
                 </View>
                 <Text style={styles.balanceLabel}>Available Balance</Text>
                 <Text style={styles.balanceValue}>${balance.toFixed(2)}</Text>
                 <Text style={styles.balanceSub}>USDT (TRC20) · Min withdrawal ${minAmount}</Text>
-              </LinearGradient>
+              </View>
 
               {/* Withdraw form */}
               <GlassListCard contentStyle={styles.card}>
@@ -185,7 +184,7 @@ export default function WithdrawalsScreen() {
                       value={amount}
                       onChangeText={setAmount}
                       placeholder={`Min $${minAmount}`}
-                      placeholderTextColor="rgba(255,255,255,0.25)"
+                      placeholderTextColor={colors.textDim}
                       keyboardType="decimal-pad"
                     />
                     <Pressable style={styles.maxBtn} onPress={() => setAmount(balance.toFixed(2))}>
@@ -201,7 +200,7 @@ export default function WithdrawalsScreen() {
                     value={wallet}
                     onChangeText={setWallet}
                     placeholder="Enter your TRC20 USDT address"
-                    placeholderTextColor="rgba(255,255,255,0.25)"
+                    placeholderTextColor={colors.textDim}
                     autoCapitalize="none"
                     autoCorrect={false}
                   />
@@ -211,7 +210,7 @@ export default function WithdrawalsScreen() {
                 </View>
 
                 <View style={styles.networkBadge}>
-                  <Ionicons name="shield-checkmark-outline" size={16} color="#3AADFF" />
+                  <Ionicons name="shield-checkmark-outline" size={16} color={colors.text} />
                   <Text style={styles.networkBadgeText}>Network: TRC20 (Tron)</Text>
                 </View>
 
@@ -228,11 +227,11 @@ export default function WithdrawalsScreen() {
                   </View>
                 ) : null}
 
-                <LinearGradient colors={['#0253BD', '#036FFC']} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.submitGradient}>
+                <LinearGradient colors={submitGradientColors} start={{ x: 0, y: 0.5 }} end={{ x: 1, y: 0.5 }} style={styles.submitGradient}>
                   <Pressable style={styles.submitPress} onPress={handleWithdraw} disabled={submitting || balance <= 0}>
                     {submitting
-                      ? <ActivityIndicator color="#fff" size="small" />
-                      : <><Ionicons name="arrow-up-circle-outline" size={18} color="#fff" /><Text style={styles.submitText}>Submit Request</Text></>}
+                      ? <ActivityIndicator color={colors.primaryForeground} size="small" />
+                      : <><Ionicons name="arrow-up-circle-outline" size={18} color={colors.primaryForeground} /><Text style={styles.submitText}>Submit Request</Text></>}
                   </Pressable>
                 </LinearGradient>
               </GlassListCard>
@@ -276,7 +275,7 @@ export default function WithdrawalsScreen() {
                 </GlassListCard>
               ) : !loading ? (
                 <View style={styles.empty}>
-                  <Ionicons name="cash-outline" size={44} color="rgba(255,255,255,0.1)" />
+                  <Ionicons name="cash-outline" size={44} color={colors.textMuted} />
                   <Text style={styles.emptyText}>No withdrawals yet</Text>
                 </View>
               ) : null}
@@ -288,39 +287,38 @@ export default function WithdrawalsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
-  headerSafe: { backgroundColor: 'transparent' },
-  header: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 10,
-    borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)',
-  },
-  backBtn: { width: 40, height: 40, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.11)' },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40, gap: 16 },
   balanceCard: {
-    borderRadius: 20, padding: 24, alignItems: 'center', gap: 6,
-    borderWidth: 1, borderColor: 'rgba(58,173,255,0.18)',
+    borderRadius: 22, padding: 24, alignItems: 'center', gap: 6,
+    borderWidth: 1, borderColor: colors.border,
+    backgroundColor: colors.surface,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 16,
+    elevation: 2,
   },
-  balanceIconWrap: { width: 52, height: 52, borderRadius: 16, backgroundColor: 'rgba(0,96,230,0.2)', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  balanceLabel: { fontSize: 13, color: 'rgba(255,255,255,0.5)', fontWeight: '600' },
-  balanceValue: { fontSize: 36, fontWeight: '900', color: '#fff', letterSpacing: -0.5 },
-  balanceSub: { fontSize: 12, color: 'rgba(255,255,255,0.35)' },
+  balanceIconWrap: { width: 52, height: 52, borderRadius: 16, backgroundColor: colors.surfaceHover, alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
+  balanceLabel: { fontSize: 13, color: colors.textSecondary, fontWeight: '600' },
+  balanceValue: { fontSize: 36, fontWeight: '900', color: colors.text, letterSpacing: -0.5 },
+  balanceSub: { fontSize: 12, color: colors.textDim },
   card: { padding: 18, gap: 14 },
-  cardTitle: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  cardTitle: { fontSize: 15, fontWeight: '800', color: colors.text },
   fieldWrap: { gap: 6 },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: 'rgba(255,255,255,0.45)' },
+  fieldLabel: { fontSize: 12, fontWeight: '600', color: colors.textMuted },
   inputRow: { flexDirection: 'row', gap: 8 },
   input: {
-    flex: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12,
-    borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-    paddingHorizontal: 14, height: 46, fontSize: 15, color: '#fff',
+    flex: 1, backgroundColor: colors.surface, borderRadius: 12,
+    borderWidth: 1, borderColor: colors.border,
+    paddingHorizontal: 14, height: 46, fontSize: 15, color: colors.text,
   },
-  maxBtn: { height: 46, paddingHorizontal: 14, borderRadius: 12, backgroundColor: 'rgba(58,173,255,0.15)', borderWidth: 1, borderColor: 'rgba(58,173,255,0.3)', alignItems: 'center', justifyContent: 'center' },
-  maxBtnText: { fontSize: 12, fontWeight: '800', color: '#3AADFF' },
-  fieldHint: { fontSize: 11, color: 'rgba(255,255,255,0.35)', lineHeight: 16 },
+  maxBtn: { height: 46, paddingHorizontal: 14, borderRadius: 12, backgroundColor: colors.surfaceHover, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
+  maxBtnText: { fontSize: 12, fontWeight: '800', color: colors.text },
+  fieldHint: { fontSize: 11, color: colors.textDim, lineHeight: 16 },
   networkBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -329,23 +327,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
-    backgroundColor: 'rgba(58,173,255,0.12)',
+    backgroundColor: colors.surfaceHover,
     borderWidth: 1,
-    borderColor: 'rgba(58,173,255,0.25)',
+    borderColor: colors.border,
   },
-  networkBadgeText: { fontSize: 13, fontWeight: '700', color: '#3AADFF' },
+  networkBadgeText: { fontSize: 13, fontWeight: '700', color: colors.text },
   alertBox: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: 'rgba(255,90,90,0.1)', borderRadius: 10, padding: 12 },
   successBox: { backgroundColor: 'rgba(74,222,128,0.1)' },
   alertText: { flex: 1, fontSize: 13, color: '#FF5A5A' },
   submitGradient: { borderRadius: 13, overflow: 'hidden' },
   submitPress: { height: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
-  submitText: { fontSize: 15, fontWeight: '800', color: '#fff' },
+  submitText: { fontSize: 15, fontWeight: '800', color: colors.primaryForeground },
   historyRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 10 },
-  historyDivider: { borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  historyDivider: { borderBottomWidth: 1, borderBottomColor: colors.border },
   historyIcon: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center', flexShrink: 0 },
   historyInfo: { flex: 1, gap: 2, minWidth: 0 },
-  historyAddress: { fontSize: 13, fontWeight: '600', color: '#fff' },
-  historyMeta: { fontSize: 11, color: 'rgba(255,255,255,0.35)' },
+  historyAddress: { fontSize: 13, fontWeight: '600', color: colors.text },
+  historyMeta: { fontSize: 11, color: colors.textDim },
   historyReason: { fontSize: 11, color: '#FF5A5A', fontStyle: 'italic' },
   historyRight: { alignItems: 'flex-end', gap: 4 },
   historyAmount: { fontSize: 15, fontWeight: '800' },
@@ -358,5 +356,6 @@ const styles = StyleSheet.create({
   },
   cancelText: { fontSize: 11, fontWeight: '700', color: '#FF5A5A' },
   empty: { alignItems: 'center', gap: 10, paddingVertical: 20 },
-  emptyText: { fontSize: 14, color: 'rgba(255,255,255,0.35)', fontWeight: '500' },
+  emptyText: { fontSize: 14, color: colors.textDim, fontWeight: '500' },
 });
+}

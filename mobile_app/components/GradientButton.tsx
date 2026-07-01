@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import {
   ActivityIndicator,
@@ -8,7 +9,8 @@ import {
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
-import { colors, gradients } from '../constants/theme';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 
 type Props = Omit<PressableProps, 'style'> & {
   title: string;
@@ -27,6 +29,13 @@ export function GradientButton({
   noMargin = false,
   ...props
 }: Props) {
+  const { colors, gradients } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const gradientColors = useMemo(
+    () => [...gradients.button] as [string, string, ...string[]],
+    [gradients.button],
+  );
+
   const isDisabled = disabled || loading;
 
   if (variant === 'ghost') {
@@ -37,7 +46,7 @@ export function GradientButton({
         {...props}
       >
         {loading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={colors.text} />
         ) : (
           <Text style={styles.ghostText}>{title}</Text>
         )}
@@ -53,7 +62,7 @@ export function GradientButton({
         {...props}
       >
         {loading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={colors.text} />
         ) : (
           <Text style={styles.portalText}>{title}</Text>
         )}
@@ -68,13 +77,13 @@ export function GradientButton({
       {...props}
     >
       <LinearGradient
-        colors={[...gradients.button]}
+        colors={gradientColors}
         start={{ x: 0, y: 0.5 }}
         end={{ x: 1, y: 0.5 }}
         style={styles.gradient}
       >
         {loading ? (
-          <ActivityIndicator color="#fff" />
+          <ActivityIndicator color={colors.primaryForeground} />
         ) : (
           <Text style={styles.text}>{title}</Text>
         )}
@@ -83,60 +92,62 @@ export function GradientButton({
   );
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    borderRadius: 14,
-    overflow: 'hidden',
-    shadowColor: colors.cyan,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 20,
-    elevation: 10,
-  },
-  wrapperMargin: {
-    marginTop: 6,
-  },
-  gradient: {
-    height: 52,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  text: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    letterSpacing: 0.3,
-  },
-  ghostButton: {
-    height: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
-    backgroundColor: 'rgba(255,255,255,0.05)',
-  },
-  ghostText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: 'rgba(255,255,255,0.6)',
-  },
-  portalButton: {
-    height: 52,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
-    backgroundColor: '#2c2c31',
-  },
-  portalText: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  disabled: {
-    opacity: 0.45,
-  },
-});
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
+    wrapper: {
+      borderRadius: 999,
+      overflow: 'hidden',
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.12,
+      shadowRadius: 12,
+      elevation: 4,
+    },
+    wrapperMargin: {
+      marginTop: 6,
+    },
+    gradient: {
+      height: 52,
+      width: '100%',
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    text: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.primaryForeground,
+      letterSpacing: -0.2,
+    },
+    ghostButton: {
+      height: 54,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    ghostText: {
+      fontSize: 16,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    portalButton: {
+      height: 52,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderRadius: 999,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+    },
+    portalText: {
+      fontSize: 15,
+      fontWeight: '600',
+      color: colors.text,
+    },
+    disabled: {
+      opacity: 0.45,
+    },
+  });
+}

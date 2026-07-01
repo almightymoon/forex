@@ -1,5 +1,7 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 type Props = {
   title: string;
@@ -22,10 +24,14 @@ function formatRelative(iso?: string) {
   }
 }
 
-export function ActivityFeedItem({ title, message, timestamp, accentColor = colors.blue, onPress }: Props) {
+export function ActivityFeedItem({ title, message, timestamp, accentColor, onPress }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const resolvedAccent = accentColor ?? colors.blue;
+
   return (
     <Pressable style={({ pressed }) => [styles.row, pressed && styles.pressed]} onPress={onPress}>
-      <View style={[styles.accent, { backgroundColor: accentColor }]} />
+      <View style={[styles.accent, { backgroundColor: resolvedAccent }]} />
       <View style={styles.body}>
         <Text style={styles.title} numberOfLines={1}>{title}</Text>
         <Text style={styles.message} numberOfLines={1}>{message}</Text>
@@ -35,14 +41,15 @@ export function ActivityFeedItem({ title, message, timestamp, accentColor = colo
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 12,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.04)',
+    borderBottomColor: colors.border,
   },
   pressed: { opacity: 0.88 },
   accent: {
@@ -70,3 +77,4 @@ const styles = StyleSheet.create({
     paddingTop: 2,
   },
 });
+}

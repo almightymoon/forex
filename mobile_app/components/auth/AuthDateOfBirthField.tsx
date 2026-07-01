@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import DateTimePicker, {
   type DateTimePickerEvent,
 } from '@react-native-community/datetimepicker';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Modal,
   Platform,
@@ -35,7 +37,9 @@ export function AuthDateOfBirthField({
   error,
   onChangeValue,
   onBlur,
-}: Props) {
+}: Props) {  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const [focused, setFocused] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [pickerDate, setPickerDate] = useState(() => getDefaultDobPickerDate(value));
@@ -74,7 +78,7 @@ export function AuthDateOfBirthField({
         <View style={styles.inputRow}>
           <TextInput
             placeholder="MM/DD/YYYY"
-            placeholderTextColor="rgba(255,255,255,0.32)"
+            placeholderTextColor={colors.textDim}
             keyboardType="number-pad"
             value={value}
             style={styles.input}
@@ -86,7 +90,7 @@ export function AuthDateOfBirthField({
             }}
           />
           <Pressable onPress={openPicker} hitSlop={12} style={styles.rightIcon} accessibilityLabel="Open date picker">
-            <Ionicons name="calendar-outline" size={19} color="rgba(255,255,255,0.55)" />
+            <Ionicons name="calendar-outline" size={19} color={colors.textMuted} />
           </Pressable>
         </View>
       </View>
@@ -135,26 +139,27 @@ export function AuthDateOfBirthField({
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   wrapper: {
     marginBottom: 14,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.text,
     marginBottom: 8,
   },
   inputShell: {
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.2)',
+    borderColor: colors.border,
     backgroundColor: 'rgba(0,0,0,0.18)',
   },
   inputShellFocused: {
     borderColor: 'rgba(3,111,252,0.55)',
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.surface,
   },
   inputShellError: {
     borderColor: '#F87171',
@@ -169,7 +174,7 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     fontSize: 15,
-    color: '#FFFFFF',
+    color: colors.text,
     paddingVertical: 0,
   },
   rightIcon: {
@@ -190,12 +195,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.55)',
   },
   modalSheet: {
-    backgroundColor: '#0c1428',
+    backgroundColor: colors.surfaceHover,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 28,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: colors.border,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -208,18 +213,19 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
   },
   modalCancel: {
     fontSize: 16,
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.textSecondary,
   },
   modalDone: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#036FFC',
+    color: colors.brandBlueDeep,
   },
   iosPicker: {
     height: 220,
   },
 });
+}

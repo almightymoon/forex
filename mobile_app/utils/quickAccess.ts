@@ -29,6 +29,8 @@ export const QUICK_ACCESS_CATALOG: QuickAccessItem[] = [
   { id: 'certificates', icon: 'award', label: 'Certificates', color: colors.cyan, route: '/(app)/certificates' },
   { id: 'trading-view', icon: 'live-charts', label: 'Live Charts', color: colors.gold, route: '/(app)/trading-view' },
   { id: 'progress', icon: 'bar-chart', label: 'My Progress', color: colors.blue, route: '/(app)/progress' },
+  { id: 'library', icon: 'file-text', label: 'Library', color: colors.cyan, route: '/(app)/library' },
+  { id: 'shop', icon: 'layers', label: 'Shop', color: colors.gold, route: '/(app)/shop' },
   { id: 'referrals', icon: 'share', label: 'Referrals', color: colors.gold, route: '/(app)/referrals' },
   { id: 'rank-rewards', icon: 'trophy', label: 'Rank Rewards', color: colors.gold, route: '/(app)/rank-rewards' },
   { id: 'assignments', icon: 'clipboard', label: 'Assignments', color: colors.cyan, route: '/(app)/assignments' },

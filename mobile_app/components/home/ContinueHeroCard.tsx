@@ -1,7 +1,10 @@
+import { useMemo } from 'react';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon } from '../AppIcon';
-import { colors, gradients, radii } from '../../constants/theme';
+import { gradients, radii } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 type Props = {
   title: string;
@@ -13,6 +16,9 @@ type Props = {
 };
 
 export function ContinueHeroCard({ title, subtitle, progress = 0, onPress, onBrowse, empty }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   if (empty) {
     return (
       <View style={styles.emptyWrap}>
@@ -60,7 +66,8 @@ export function ContinueHeroCard({ title, subtitle, progress = 0, onPress, onBro
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   wrap: {
     borderRadius: radii.xl,
     overflow: 'hidden',
@@ -105,31 +112,31 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 0.8,
     textTransform: 'uppercase',
-    color: 'rgba(255,255,255,0.65)',
+    color: colors.textSecondary,
   },
   pct: {
     fontSize: 14,
     fontWeight: '700',
-    color: '#fff',
+    color: colors.text,
     fontVariant: ['tabular-nums'],
   },
   title: {
     fontSize: 21,
     fontWeight: '800',
     letterSpacing: -0.4,
-    color: '#fff',
+    color: colors.text,
     lineHeight: 26,
     marginBottom: 4,
   },
   subtitle: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.6)',
+    color: colors.textSecondary,
     marginBottom: 16,
   },
   track: {
     height: 4,
     borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.15)',
+    backgroundColor: colors.surfaceHover,
     marginBottom: 16,
     overflow: 'hidden',
   },
@@ -145,7 +152,7 @@ const styles = StyleSheet.create({
   },
   ctaHint: {
     fontSize: 11,
-    color: 'rgba(255,255,255,0.45)',
+    color: colors.textMuted,
   },
   ctaWhite: {
     flexDirection: 'row',
@@ -187,15 +194,16 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     textAlign: 'center',
     marginTop: 4,
   },
   emptySub: {
     fontSize: 13,
-    color: 'rgba(255,255,255,0.55)',
+    color: colors.textSecondary,
     textAlign: 'center',
     lineHeight: 19,
     marginBottom: 8,
   },
 });
+}

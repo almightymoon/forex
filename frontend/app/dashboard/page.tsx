@@ -27,6 +27,8 @@ import TradingViewTerminal from '../../components/TradingViewTerminal';
 import OpenPositions from '../../components/OpenPositions';
 import TradeHistory from './components/TradeHistory';
 import RankRewardsProgress from './components/RankRewardsProgress';
+import LibraryBrowse from '../../components/library/LibraryBrowse';
+import AppCampaignGate from '../../components/campaign/AppCampaignGate';
 import DeveloperRoleNav from '../../components/DeveloperRoleNav';
 import { 
   BookOpen, 
@@ -65,7 +67,8 @@ import {
   Copy,
   ChevronLeft,
   ChevronRight,
-  Wallet
+  Wallet,
+  Library
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -151,7 +154,8 @@ export default function Dashboard() {
       'assignments',
       'community',
       'certificates',
-      'rank-rewards'
+      'rank-rewards',
+      'library'
     ]);
     if (allowed.has(tab)) {
       setActiveTab(tab);
@@ -1133,6 +1137,7 @@ export default function Dashboard() {
                   { id: 'tradingview', label: 'TradingView', icon: BarChart3 },
                   { id: 'assignments', label: t('assignments'), icon: FileText },
                   { id: 'community', label: 'Community', icon: Users },
+                  { id: 'library', label: 'Library', icon: Library },
                   { id: 'certificates', label: 'Certificates', icon: Award },
                   { id: 'rank-rewards', label: 'Rank Rewards', icon: Trophy }
                 ].map((tab) => {
@@ -1171,6 +1176,7 @@ export default function Dashboard() {
                   { id: 'tradingview', label: 'TradingView' },
                   { id: 'assignments', label: t('assignments') },
                   { id: 'community', label: 'Community' },
+                  { id: 'library', label: 'Library' },
                   { id: 'certificates', label: 'Certificates' },
                   { id: 'rank-rewards', label: 'Rank Rewards' }
                 ].map((tab) => (
@@ -2635,6 +2641,10 @@ export default function Dashboard() {
           <Community />
         )}
 
+        {activeTab === 'library' && (
+          <LibraryBrowse itemBasePath="/dashboard/library" />
+        )}
+
         {activeTab === 'rank-rewards' && (
           <RankRewardsProgress />
         )}
@@ -3086,6 +3096,7 @@ export default function Dashboard() {
         </div>
       )}
     </div>
+    <AppCampaignGate />
     </ErrorBoundary>
   );
 }

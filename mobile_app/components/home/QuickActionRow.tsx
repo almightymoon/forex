@@ -1,6 +1,8 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon, type AppIconName } from '../AppIcon';
-import { colors } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export type QuickAction = {
   id: string;
@@ -15,6 +17,9 @@ type Props = {
 };
 
 export function QuickActionRow({ actions }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.wrap}>
       {actions.map((action) => (
@@ -33,7 +38,8 @@ export function QuickActionRow({ actions }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   wrap: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -61,3 +67,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+}

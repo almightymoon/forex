@@ -1,11 +1,13 @@
+import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import type { ActivityItem } from '../../utils/normalize';
 import { GlassCard } from './GlassCard';
 
 type Props = {
   items: ActivityItem[];
-  onPress?: () => void;
+  onSeeAll?: () => void;
   onItemPress?: (item: ActivityItem) => void;
 };
 
@@ -22,16 +24,16 @@ function formatRelative(iso?: string) {
   }
 }
 
-function accentForType(type?: string) {
+function accentForType(type: string | undefined, colors: AppColors) {
   switch (type) {
     case 'trading_signal':
-      return colors.success;
+      return colors.brandPurple;
     case 'live_session':
-      return colors.cyan;
+      return colors.brandBlue;
     case 'assignment':
-      return '#A78BFA';
+      return colors.brandPurple;
     default:
-      return colors.blue;
+      return colors.brandBlue;
   }
 }
 
@@ -42,10 +44,17 @@ function ActivityRow({
   item: ActivityItem;
   onPress?: () => void;
 }) {
-  const accent = accentForType(item.type);
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+  const accent = accentForType(item.type, colors);
+  const when = formatRelative(item.timestamp);
 
   return (
-    <Pressable style={({ pressed }) => [styles.row, pressed && styles.rowPressed]} onPress={onPress}>
+    <Pressable
+      style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
+      onPress={onPress}
+      accessibilityLabel={`${item.title}. ${item.message}${when ? `. ${when} ago` : ''}`}
+    >
       <View style={[styles.accent, { backgroundColor: accent }]} />
       <View style={styles.rowBody}>
         <Text style={styles.rowTitle} numberOfLines={1}>
@@ -55,18 +64,28 @@ function ActivityRow({
           {item.message}
         </Text>
       </View>
-      {item.timestamp ? <Text style={styles.rowTime}>{formatRelative(item.timestamp)}</Text> : null}
+      {when ? <Text style={styles.rowTime}>{when}</Text> : null}
     </Pressable>
   );
 }
 
-export function RecentActivityHomeCard({ items, onPress, onItemPress }: Props) {
+export function RecentActivityHomeCard({ items, onSeeAll, onItemPress }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const visible = items.slice(0, 2);
 
   return (
-    <Pressable style={({ pressed }) => [styles.flex, pressed && styles.pressed]} onPress={onPress}>
+    <View style={styles.flex}>
       <GlassCard style={styles.card} contentStyle={styles.inner} radius={20}>
-        <Text style={styles.title}>Recent Activity</Text>
+        <View style={styles.header}>
+          <Text style={styles.title}>Recent Activity</Text>
+          {onSeeAll ? (
+            <Pressable onPress={onSeeAll} hitSlop={8}>
+              <Text style={styles.seeAll}>See all</Text>
+            </Pressable>
+          ) : null}
+        </View>
 
         <View style={styles.list}>
           {visible.length > 0 ? (
@@ -81,76 +100,87 @@ export function RecentActivityHomeCard({ items, onPress, onItemPress }: Props) {
           )}
         </View>
       </GlassCard>
-    </Pressable>
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-  flex: { flex: 1, minWidth: 0 },
-  pressed: { opacity: 0.92 },
-  card: { flex: 1, minWidth: 0 },
-  inner: {
-    padding: 14,
-    minHeight: 208,
-    justifyContent: 'flex-start',
-  },
-  title: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.text,
-    lineHeight: 18,
-    marginBottom: 10,
-  },
-  list: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    paddingVertical: 6,
-  },
-  rowPressed: { opacity: 0.88 },
-  accent: {
-    width: 3,
-    borderRadius: 2,
-    alignSelf: 'stretch',
-    minHeight: 28,
-    marginTop: 2,
-  },
-  rowBody: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  rowTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  rowMessage: {
-    fontSize: 11,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.58)',
-    lineHeight: 15,
-  },
-  rowTime: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: 'rgba(255,255,255,0.42)',
-    fontVariant: ['tabular-nums'],
-    paddingTop: 2,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-    marginVertical: 4,
-  },
-  empty: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: 'rgba(255,255,255,0.45)',
-    lineHeight: 17,
-  },
-});
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
+    flex: { flex: 1, minWidth: 0 },
+    card: { flex: 1, minWidth: 0 },
+    inner: {
+      padding: 14,
+      minHeight: 208,
+      justifyContent: 'flex-start',
+    },
+    header: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'space-between',
+      marginBottom: 10,
+    },
+    title: {
+      fontSize: 15,
+      fontWeight: '700',
+      color: colors.text,
+      lineHeight: 20,
+    },
+    seeAll: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.brandPurple,
+    },
+    list: {
+      flex: 1,
+      justifyContent: 'center',
+    },
+    row: {
+      flexDirection: 'row',
+      alignItems: 'flex-start',
+      gap: 8,
+      paddingVertical: 6,
+    },
+    rowPressed: { opacity: 0.88 },
+    accent: {
+      width: 3,
+      borderRadius: 2,
+      alignSelf: 'stretch',
+      minHeight: 28,
+      marginTop: 2,
+    },
+    rowBody: {
+      flex: 1,
+      minWidth: 0,
+      gap: 2,
+    },
+    rowTitle: {
+      fontSize: 12,
+      fontWeight: '700',
+      color: colors.text,
+    },
+    rowMessage: {
+      fontSize: 11,
+      fontWeight: '500',
+      color: colors.textSecondary,
+      lineHeight: 15,
+    },
+    rowTime: {
+      fontSize: 10,
+      fontWeight: '600',
+      color: colors.textMuted,
+      fontVariant: ['tabular-nums'],
+      paddingTop: 2,
+    },
+    divider: {
+      height: 1,
+      backgroundColor: colors.surfaceHover,
+      marginVertical: 4,
+    },
+    empty: {
+      fontSize: 12,
+      fontWeight: '500',
+      color: colors.textMuted,
+      lineHeight: 17,
+    },
+  });
+}

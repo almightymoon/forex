@@ -1,10 +1,15 @@
+import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useRouter } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RankRewardsProgress } from '../../components/RankRewardsProgress';
 
 export default function RankRewardsScreen() {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
 
   return (
@@ -12,7 +17,7 @@ export default function RankRewardsScreen() {
       <SafeAreaView edges={['top']} style={styles.headerSafe}>
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
+            <Ionicons name="arrow-back" size={20} color={colors.text} />
           </Pressable>
           <Text style={styles.headerTitle}>Rank Rewards</Text>
           <View style={{ width: 40 }} />
@@ -30,7 +35,8 @@ export default function RankRewardsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'transparent' },
   headerSafe: { backgroundColor: 'transparent' },
   header: {
@@ -40,19 +46,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.05)',
+    borderBottomColor: colors.border,
   },
   backBtn: {
     width: 40,
     height: 40,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.08)',
+    borderColor: colors.border,
   },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#fff' },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
   scroll: { flex: 1 },
   content: { padding: 18, paddingBottom: 40 },
 });
+}

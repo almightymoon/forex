@@ -133,7 +133,8 @@ router.post('/', async (req, res) => {
       seoTitle,
       seoMetaDescription,
       stripeProductId,
-      price
+      price,
+      deliveryUrl
     } = req.body;
 
     if (!productId || !name) {
@@ -161,7 +162,8 @@ router.post('/', async (req, res) => {
       seoTitle: seoTitle?.trim() || '',
       seoMetaDescription: seoMetaDescription?.trim() || '',
       stripeProductId: stripeProductId?.trim() || '',
-      price: typeof price === 'number' ? price : parseFloat(price) || 0
+      price: typeof price === 'number' ? price : parseFloat(price) || 0,
+      deliveryUrl: deliveryUrl?.trim() || ''
     });
 
     res.status(201).json(product);
@@ -199,9 +201,9 @@ router.put('/:id', async (req, res) => {
       seoTitle,
       seoMetaDescription,
       stripeProductId,
-      price
+      price,
+      deliveryUrl
     } = req.body;
-
     if (name !== undefined) product.name = name.trim();
     if (status !== undefined && ['draft', 'published', 'archived'].includes(status)) product.status = status;
     if (shortDescription !== undefined) product.shortDescription = shortDescription?.trim() || '';
@@ -217,6 +219,7 @@ router.put('/:id', async (req, res) => {
     if (seoMetaDescription !== undefined) product.seoMetaDescription = seoMetaDescription?.trim() || '';
     if (stripeProductId !== undefined) product.stripeProductId = stripeProductId?.trim() || '';
     if (price !== undefined) product.price = typeof price === 'number' ? price : parseFloat(price) || 0;
+    if (deliveryUrl !== undefined) product.deliveryUrl = deliveryUrl?.trim() || '';
 
     await product.save();
     res.json(product);

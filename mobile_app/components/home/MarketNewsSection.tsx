@@ -1,6 +1,9 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../../constants/theme';
+import { useMemo } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import type { NormalizedNews } from '../../utils/normalize';
+import { BrandSectionTitle } from './BrandSectionTitle';
 import { HomeNewsCard } from './HomeNewsCard';
 
 type Props = {
@@ -10,18 +13,14 @@ type Props = {
 };
 
 export function MarketNewsSection({ items, onPressArticle, onViewAll }: Props) {
-  const visible = items.slice(0, 3);
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
+  const visible = items.slice(0, 2);
 
   return (
     <View style={styles.wrap}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Market News</Text>
-        {onViewAll ? (
-          <Pressable onPress={onViewAll} hitSlop={8}>
-            <Text style={styles.viewAll}>View All</Text>
-          </Pressable>
-        ) : null}
-      </View>
+      <BrandSectionTitle title="Market News" actionLabel="View All" onActionPress={onViewAll} />
 
       {visible.length > 0 ? (
         visible.map((item, index) => (
@@ -40,39 +39,22 @@ export function MarketNewsSection({ items, onPressArticle, onViewAll }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    marginTop: 22,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 14,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.3,
-  },
-  viewAll: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primary,
-  },
-  empty: {
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    padding: 20,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-});
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
+    wrap: {
+      marginTop: 24,
+    },
+    empty: {
+      borderRadius: 20,
+      backgroundColor: colors.surfaceHover,
+      padding: 20,
+      alignItems: 'center',
+    },
+    emptyText: {
+      fontSize: 13,
+      fontWeight: '500',
+      color: colors.textMuted,
+      textAlign: 'center',
+    },
+  });
+}

@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppIcon, type AppIconName } from '../AppIcon';
-import { colors, radii } from '../../constants/theme';
+import { radii } from '../../constants/theme';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export type ShortcutItem = {
   id: string;
@@ -15,6 +18,9 @@ type Props = {
 };
 
 export function ShortcutStrip({ items }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.wrap}>
       <Text style={styles.label}>Quick actions</Text>
@@ -45,7 +51,8 @@ export function ShortcutStrip({ items }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   wrap: { marginBottom: 24, gap: 12 },
   label: {
     fontSize: 12,
@@ -84,3 +91,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 });
+}

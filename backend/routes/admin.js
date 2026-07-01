@@ -22,6 +22,10 @@ const referralService = require('../services/referralService');
 const { body, validationResult } = require('express-validator');
 const multer = require('multer');
 const adminProductsRouter = require('./adminProducts');
+const adminProductCategoriesRouter = require('./adminProductCategories');
+const adminLibraryRouter = require('./adminLibrary');
+const adminLibraryCategoriesRouter = require('./adminLibraryCategories');
+const adminCampaignsRouter = require('./adminCampaigns');
 const ActivityLog = require('../models/ActivityLog');
 const zlib = require('zlib');
 const { EJSON } = require('bson');
@@ -82,8 +86,13 @@ function lastUtcDayOfMonthFromStart(monthStart) {
 // Mount admin products (CRUD + image upload)
 router.use('/products', adminProductsRouter);
 
-// Apply admin middleware to all routes
+// Apply admin middleware to all routes below
 router.use(authenticateToken, requireAdmin);
+
+router.use('/product-categories', adminProductCategoriesRouter);
+router.use('/library', adminLibraryRouter);
+router.use('/library-categories', adminLibraryCategoriesRouter);
+router.use('/campaigns', adminCampaignsRouter);
 
 // Auto-log admin mutations (best-effort)
 router.use(async (req, _res, next) => {

@@ -1,4 +1,7 @@
+import { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 import { Logo } from '../Logo';
 import { AuthWordmark } from './AuthWordmark';
 
@@ -9,9 +12,11 @@ type Props = {
 };
 
 export function AuthHeader({ title, tagline, subtitle }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   return (
     <View style={styles.wrap}>
-      {/* Zero-height anchor — logo floats top-right without affecting layout */}
       <View style={styles.logoAnchor}>
         <View style={styles.logoFloat} pointerEvents="none">
           <Logo size="authCorner" />
@@ -26,7 +31,8 @@ export function AuthHeader({ title, tagline, subtitle }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   wrap: {
     position: 'relative',
     marginBottom: 18,
@@ -47,7 +53,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 34,
     fontWeight: '800',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.6,
     marginTop: 8,
     marginBottom: 8,
@@ -56,7 +62,7 @@ const styles = StyleSheet.create({
   tagline: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#FFFFFF',
+    color: colors.text,
     letterSpacing: -0.3,
     marginBottom: 10,
     paddingRight: 112,
@@ -64,9 +70,10 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 15,
     fontWeight: '400',
-    color: 'rgba(255,255,255,0.88)',
+    color: colors.textSecondary,
     lineHeight: 22,
     maxWidth: 340,
     paddingRight: 8,
   },
 });
+}

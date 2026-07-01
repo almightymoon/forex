@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 import { useLanguage } from '../../../context/LanguageContext';
+import { canDeleteCommunityMessage, isCommunityModerator } from '@/utils/communityPermissions';
 
 interface Channel {
   _id: string;
@@ -241,9 +242,7 @@ export default function Community() {
   // Check if user can delete a message
   const canDeleteMessage = (message: Message) => {
     if (!currentUser || !message.author) return false;
-    
-    // Users can only delete their own messages
-    return message.author._id === currentUser.id;
+    return canDeleteCommunityMessage(currentUser.id, currentUser.role, message.author._id);
   };
 
   // Check if user can edit a message

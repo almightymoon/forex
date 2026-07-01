@@ -1,5 +1,7 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo } from 'react';
 import { Animated, LayoutChangeEvent, Pressable, StyleSheet, Text, View } from 'react-native';
+import type { AppColors } from '../../constants/theme';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export type AuthTab = 'login' | 'signup';
 
@@ -14,8 +16,10 @@ const TRACK_RADIUS = TRACK_HEIGHT / 2;
 const PILL_HEIGHT = TRACK_HEIGHT - TRACK_PADDING * 2;
 const PILL_RADIUS = PILL_HEIGHT / 2;
 
-/** Figma toggle with sliding active pill — radii derived from height so corners stay even */
 export function SegmentedAuthToggle({ activeTab, onTabChange }: Props) {
+  const { colors } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const slide = useRef(new Animated.Value(activeTab === 'login' ? 0 : 1)).current;
   const [innerWidth, setInnerWidth] = useState(0);
   const pillWidth = innerWidth > 0 ? Math.floor(innerWidth / 2) : 0;
@@ -74,16 +78,19 @@ export function SegmentedAuthToggle({ activeTab, onTabChange }: Props) {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   container: {
     flexDirection: 'row',
     height: TRACK_HEIGHT,
     borderRadius: TRACK_RADIUS,
-    backgroundColor: '#036FFC',
+    backgroundColor: colors.surfaceInset,
     padding: TRACK_PADDING,
     marginBottom: 18,
     position: 'relative',
     overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   pill: {
     position: 'absolute',
@@ -91,7 +98,7 @@ const styles = StyleSheet.create({
     left: TRACK_PADDING,
     height: PILL_HEIGHT,
     borderRadius: PILL_RADIUS,
-    backgroundColor: '#000000',
+    backgroundColor: colors.primary,
   },
   half: {
     flex: 1,
@@ -102,9 +109,10 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: 16,
     fontWeight: '700',
-    color: 'rgba(255,255,255,0.92)',
+    color: colors.textMuted,
   },
   tabTextActive: {
-    color: '#FFFFFF',
+    color: colors.primaryForeground,
   },
 });
+}

@@ -46,9 +46,26 @@ const paymentSchema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ['signup', 'course', 'session', 'subscription', 'signal', 'package', 'monthly_fee'],
+    enum: ['signup', 'course', 'session', 'subscription', 'signal', 'package', 'monthly_fee', 'product'],
     default: 'signup'
   },
+  product: {
+    productId: {
+      type: String,
+      trim: true
+    },
+    name: {
+      type: String,
+      trim: true
+    },
+    price: Number
+  },
+  productItems: [{
+    productId: { type: String, trim: true },
+    name: { type: String, trim: true },
+    price: Number,
+    quantity: { type: Number, default: 1, min: 1 }
+  }],
   package: {
     name: {
       type: String,

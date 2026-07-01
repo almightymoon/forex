@@ -1,9 +1,9 @@
 import { LinearGradient } from 'expo-linear-gradient';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useMemo } from 'react';
 import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
-import { colors } from '../constants/theme';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { Logo } from './Logo';
-import { SpaceBackground } from './SpaceBackground';
 import { RotatingPhrase } from './splash/RotatingPhrase';
 import { SPLASH_PHRASES } from './splash/splashPhrases';
 
@@ -12,6 +12,9 @@ type Props = {
 };
 
 export function SplashLoader({ message = 'Initializing FX Navigators…' }: Props) {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
+
   const fade = useRef(new Animated.Value(0)).current;
   const rise = useRef(new Animated.Value(24)).current;
   const logoScale = useRef(new Animated.Value(0.88)).current;
@@ -109,17 +112,13 @@ export function SplashLoader({ message = 'Initializing FX Navigators…' }: Prop
 
   return (
     <View style={styles.screen}>
-      <SpaceBackground />
-      <View style={styles.scrim} />
-
       <LinearGradient
-        colors={['rgba(3,111,252,0.14)', 'transparent']}
+        colors={
+          isDark
+            ? ['rgba(167,139,250,0.14)', 'rgba(58,173,255,0.06)', 'transparent']
+            : ['rgba(167,139,250,0.10)', 'rgba(58,173,255,0.04)', 'transparent']
+        }
         style={styles.topGlow}
-        pointerEvents="none"
-      />
-      <LinearGradient
-        colors={['transparent', 'rgba(0,212,255,0.1)']}
-        style={styles.bottomGlow}
         pointerEvents="none"
       />
 
@@ -144,7 +143,7 @@ export function SplashLoader({ message = 'Initializing FX Navigators…' }: Prop
             <Animated.View style={[styles.progressFillWrap, { width: progressWidth }]}>
               <View style={styles.progressFill}>
                 <LinearGradient
-                  colors={['#0253BD', '#036FFC', '#00D4FF']}
+                  colors={[colors.brandPurple, colors.brandPurpleDeep]}
                   start={{ x: 0, y: 0.5 }}
                   end={{ x: 1, y: 0.5 }}
                   style={StyleSheet.absoluteFill}
@@ -172,28 +171,22 @@ export function SplashLoader({ message = 'Initializing FX Navigators…' }: Prop
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#02040A',
+    backgroundColor: colors.background,
   },
   scrim: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0, 0, 0, 0.42)',
+    backgroundColor: 'transparent',
   },
   topGlow: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
-    height: 240,
-  },
-  bottomGlow: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 200,
+    height: '45%',
   },
   content: {
     flex: 1,
@@ -216,7 +209,7 @@ const styles = StyleSheet.create({
   tagline: {
     fontSize: 13,
     fontWeight: '700',
-    color: colors.cyan,
+    color: colors.textMuted,
     letterSpacing: 1.4,
     textTransform: 'uppercase',
     marginBottom: 36,
@@ -230,7 +223,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 5,
     borderRadius: 999,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+    backgroundColor: colors.surface,
     overflow: 'visible',
     marginBottom: 14,
   },
@@ -251,8 +244,8 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#00D4FF',
-    shadowColor: '#00D4FF',
+    backgroundColor: colors.black,
+    shadowColor: colors.brandPurple,
     shadowOpacity: 1,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 0 },
@@ -267,7 +260,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 15,
     fontWeight: '500',
-    color: 'rgba(255,255,255,0.72)',
+    color: colors.textSilver,
     letterSpacing: 0.15,
   },
   dots: {
@@ -280,6 +273,7 @@ const styles = StyleSheet.create({
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: colors.cyan,
+    backgroundColor: colors.text,
   },
 });
+}

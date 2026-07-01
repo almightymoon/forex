@@ -348,17 +348,20 @@ router.post('/create', [
     }
 
     const Notification = require('../models/Notification');
+    const notificationService = require('../services/notificationService');
     const { type, title, message, priority = 'medium' } = req.body;
 
-    const notification = new Notification({
-      userId: req.user._id,
+    const notification = await notificationService.createNotification({
+      user: req.user._id,
       type,
       title,
       message,
-      priority
     });
 
-    await notification.save();
+    if (priority !== 'medium') {
+      notification.priority = priority;
+      await notification.save();
+    }
 
     res.status(201).json({
       success: true,

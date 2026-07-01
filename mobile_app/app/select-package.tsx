@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { AppColors } from '../constants/theme';
+import { useTheme } from '../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -16,6 +18,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ScreenBackground } from '../components/ScreenBackground';
 import { apiFetch } from '../utils/api';
+import { primaryButtonGradient } from '../utils/primaryButton';
 
 interface Package {
   _id?: string;
@@ -77,14 +80,16 @@ const FALLBACK_PACKAGES: Package[] = [
 // Per-plan accent palette
 const ACCENTS: Record<number, { top: [string, string]; glow: string; dot: string }> = {
   0: { top: ['#00C97B', '#00875A'], glow: '#00C97B', dot: '#00C97B' },
-  1: { top: ['#036FFC', '#0253BD'], glow: '#036FFC', dot: '#036FFC' },
-  2: { top: ['#9B5CFF', '#6B2EFF'], glow: '#9B5CFF', dot: '#9B5CFF' },
+  1: { top: ['#0253BD', '#0253BD'], glow: '#0253BD', dot: '#0253BD' },
+  2: { top: ['#A78BFA', '#7C3AED'], glow: '#A78BFA', dot: '#A78BFA' },
 };
-const fallbackAccent = { top: ['#036FFC', '#0253BD'] as [string, string], glow: '#036FFC', dot: '#036FFC' };
+const fallbackAccent = { top: ['#0253BD', '#0253BD'] as [string, string], glow: '#0253BD', dot: '#0253BD' };
 
 const { width: SW, height: SH } = Dimensions.get('window');
 
 export default function SelectPackageScreen() {
+  const { colors, isDark } = useTheme();
+  const styles = useMemo(() => createStyles(colors), [colors]);
   const router = useRouter();
   const scrollRef = useRef<ScrollView>(null);
   const [selected, setSelected] = useState<Package | null>(null);
@@ -162,6 +167,10 @@ export default function SelectPackageScreen() {
   };
 
   const accent = ACCENTS[activeIndex] ?? fallbackAccent;
+  const ctaGradientColors = useMemo(
+    () => (isDark ? primaryButtonGradient(isDark) : accent.top) as [string, string],
+    [isDark, accent.top],
+  );
 
   return (
     <ScreenBackground variant="auth">
@@ -169,7 +178,7 @@ export default function SelectPackageScreen() {
         {/* ── Header ─────────────────────────────────────── */}
         <View style={styles.header}>
           <Pressable style={styles.backBtn} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={22} color="rgba(255,255,255,0.7)" />
+            <Ionicons name="chevron-back" size={22} color={colors.textMuted} />
           </Pressable>
           <View style={styles.headerCenter}>
             <Text style={styles.title}>Choose Your Plan</Text>
@@ -201,7 +210,7 @@ export default function SelectPackageScreen() {
         {/* ── Cards ──────────────────────────────────────── */}
         {fetchLoading ? (
           <View style={styles.loaderWrap}>
-            <ActivityIndicator color="#3AADFF" size="large" />
+            <ActivityIndicator color={colors.brandBlue} size="large" />
           </View>
         ) : (
           <ScrollView
@@ -273,7 +282,7 @@ export default function SelectPackageScreen() {
                       </View>
 
                       <View style={styles.trustRow}>
-                        <Ionicons name="shield-checkmark-outline" size={14} color="rgba(255,255,255,0.3)" />
+                        <Ionicons name="shield-checkmark-outline" size={14} color={colors.textMuted} />
                         <Text style={styles.trustText}>Admin-reviewed · Secure checkout</Text>
                       </View>
                     </View>
@@ -293,19 +302,19 @@ export default function SelectPackageScreen() {
             disabled={!selected || loading}
           >
             <LinearGradient
-              colors={accent.top}
+              colors={ctaGradientColors}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 0 }}
               style={styles.ctaGradient}
             >
               {loading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.primaryForeground} />
               ) : (
                 <>
                   <Text style={styles.ctaText}>
                     {selected ? `Get ${selected.name}` : 'Select a Plan'}
                   </Text>
-                  <Ionicons name="arrow-forward" size={18} color="#fff" />
+                  <Ionicons name="arrow-forward" size={18} color={colors.primaryForeground} />
                 </>
               )}
             </LinearGradient>
@@ -318,7 +327,8 @@ export default function SelectPackageScreen() {
 
 const CARD_H = SH * 0.68;
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   safe: { flex: 1 },
 
   /* header */
@@ -333,7 +343,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: colors.surface,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -344,12 +354,12 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     letterSpacing: -0.3,
   },
   subtitle: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.42)',
+    color: colors.textMuted,
     marginTop: 2,
   },
 
@@ -365,7 +375,7 @@ const styles = StyleSheet.create({
     width: 7,
     height: 7,
     borderRadius: 4,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: colors.surfaceHover,
   },
 
   /* scroll */
@@ -385,9 +395,9 @@ const styles = StyleSheet.create({
     height: CARD_H,
     borderRadius: 28,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    backgroundColor: colors.surfaceHover,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.1)',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.5,
@@ -406,7 +416,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: colors.surfaceHover,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -415,12 +425,12 @@ const styles = StyleSheet.create({
   popularText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     letterSpacing: 0.6,
   },
   badge: {
     alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.18)',
+    backgroundColor: colors.surfaceHover,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -429,18 +439,18 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     letterSpacing: 0.6,
   },
   planName: {
     fontSize: 32,
     fontWeight: '900',
-    color: '#fff',
+    color: colors.text,
     letterSpacing: -0.5,
   },
   planSubtitle: {
     fontSize: 14,
-    color: 'rgba(255,255,255,0.72)',
+    color: colors.textSilver,
     marginTop: 4,
     marginBottom: 18,
   },
@@ -452,20 +462,20 @@ const styles = StyleSheet.create({
   priceDollar: {
     fontSize: 26,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.text,
     marginTop: 8,
     marginRight: 2,
   },
   priceNum: {
     fontSize: 72,
     fontWeight: '900',
-    color: '#fff',
+    color: colors.text,
     letterSpacing: -3,
     lineHeight: 78,
   },
   priceSub: {
     fontSize: 12,
-    color: 'rgba(255,255,255,0.62)',
+    color: colors.textSecondary,
     marginTop: 4,
     fontWeight: '600',
   },
@@ -480,7 +490,7 @@ const styles = StyleSheet.create({
   featuresLabel: {
     fontSize: 10,
     fontWeight: '800',
-    color: 'rgba(255,255,255,0.3)',
+    color: colors.textDim,
     letterSpacing: 1.2,
     marginBottom: 14,
   },
@@ -504,7 +514,7 @@ const styles = StyleSheet.create({
   featureText: {
     flex: 1,
     fontSize: 14.5,
-    color: 'rgba(255,255,255,0.8)',
+    color: colors.textSilver,
     fontWeight: '500',
     lineHeight: 20,
   },
@@ -516,7 +526,7 @@ const styles = StyleSheet.create({
   },
   trustText: {
     fontSize: 11.5,
-    color: 'rgba(255,255,255,0.28)',
+    color: colors.textDim,
     fontWeight: '500',
   },
 
@@ -548,7 +558,8 @@ const styles = StyleSheet.create({
   ctaText: {
     fontSize: 17,
     fontWeight: '800',
-    color: '#fff',
+    color: colors.primaryForeground,
     letterSpacing: -0.2,
   },
 });
+}

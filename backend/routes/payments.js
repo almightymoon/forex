@@ -699,6 +699,309 @@ router.post('/submit-package', authenticateToken, (req, res, next) => {
   }
 });
 
+// @route   POST /api/payments/submit-product
+// @desc    Create + submit a product purchase payment in one step
+// @access  Private
+router.post('/submit-product', authenticateToken, (req, res, next) => {
+  paymentScreenshotUpload.single('screenshot')(req, res, (err) => {
+    if (err) return res.status(400).json({ errors: [{ msg: err.message || 'Invalid screenshot file' }] });
+    next();
+  });
+}, async (req, res) => {
+  let tempFilePath = null;
+  try {
+    const productId = (req.body && req.body.productId) ? String(req.body.productId).trim().toLowerCase() : '';
+    const transactionId = (req.body && req.body.transactionId) ? String(req.body.transactionId).trim() : '';
+    const payerName = (req.body && req.body.payerName) ? String(req.body.payerName).trim() : '';
+    const payerEmail = (req.body && req.body.payerEmail) ? String(req.body.payerEmail).trim() : '';
+    const errors = [];
+    if (!productId) errors.push({ msg: 'Product ID is required', path: 'productId' });
+    if (!transactionId || transactionId.length < 10) errors.push({ msg: 'Transaction ID / hash is required (min 10 characters)', path: 'transactionId' });
+    if (!payerName) errors.push({ msg: 'Payer name is required', path: 'payerName' });
+    if (!payerEmail) errors.push({ msg: 'Payer email is required', path: 'payerEmail' });
+    if (!req.file) errors.push({ msg: 'Payment screenshot image is required', path: 'screenshot' });
+    if (errors.length) return res.status(400).json({ errors });
+
+    const Product = require('../models/Product');
+    const product = await Product.findOne({ productId, status: 'published' }).lean();
+    if (!product) return res.status(400).json({ errors: [{ msg: 'Product is not available', path: 'productId' }] });
+    const productPrice = Number(product.price ?? 0);
+    if (!Number.isFinite(productPrice) || productPrice <= 0) {
+      return res.status(400).json({ errors: [{ msg: 'Product price is not configured correctly', path: 'productId' }] });
+    }
+
+    const existing = await Payment.findOne({
+      user: req.user._id,
+      type: 'product',
+      'product.productId': productId,
+      status: { $in: ['pending', 'processing'] }
+    }).sort({ createdAt: -1 });
+    if (existing && existing.transactionId && existing.paymentScreenshotUrl) {
+      return res.status(200).json({
+        success: true,
+        message: 'Payment already submitted. Waiting for admin confirmation.',
+        payment: {
+          _id: existing._id,
+          status: existing.status,
+          transactionId: existing.transactionId,
+          payerName: existing.payerName,
+          payerEmail: existing.payerEmail,
+          paymentScreenshotUrl: existing.paymentScreenshotUrl
+        }
+      });
+    }
+
+    tempFilePath = req.file.path;
+    const uploadResult = await uploadImage(tempFilePath, 'forex/payment-screenshots');
+    const paymentScreenshotUrl = uploadResult && uploadResult.url ? uploadResult.url : null;
+    if (!paymentScreenshotUrl) return res.status(500).json({ error: 'Failed to upload payment screenshot' });
+
+    const payment = new Payment({
+      user: req.user._id,
+      amount: productPrice,
+      finalAmount: productPrice,
+      currency: 'USD',
+      paymentMethod: 'binance_wallet',
+      status: 'pending',
+      type: 'product',
+      product: { productId: product.productId, name: product.name, price: productPrice },
+      description: `Product purchase: ${product.name}`,
+      transactionId,
+      payerName,
+      payerEmail,
+      paymentScreenshotUrl,
+      binanceWallet: { walletAddress: 'TApaMK8BcN67GDRqVs45qnzbb4oQGt2Pna', network: 'TRC20', transactionHash: transactionId }
+    });
+    await payment.save();
+
+    try {
+      const User = require('../models/User');
+      const notificationService = require('../services/notificationService');
+      const admins = await User.find({ role: 'admin' });
+      for (const admin of admins) {
+        await notificationService.sendNotificationToUser(admin._id, 'admin', {
+          type: 'transaction_submitted',
+          paymentId: payment._id,
+          transactionId,
+          userId: req.user._id,
+          userName: `${req.user.firstName} ${req.user.lastName}`,
+          amount: payment.finalAmount,
+          payerName,
+          payerEmail,
+          paymentScreenshotUrl,
+          productName: product.name
+        });
+      }
+    } catch (notificationError) {
+      console.error('Error sending admin notification:', notificationError);
+    }
+
+    try {
+      const notificationService = require('../services/notificationService');
+      await notificationService.sendNotificationToUser(req.user._id, 'payment_pending', {
+        amount: payment.finalAmount,
+        finalAmount: payment.finalAmount,
+        currency: payment.currency || 'USD',
+        packageName: product.name,
+        paymentId: payment._id,
+        transactionId: payment.transactionId
+      });
+    } catch (e) {
+      console.error('Error sending user payment_pending notification (post-submit):', e);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Payment submitted successfully. Waiting for admin confirmation.',
+      payment: {
+        _id: payment._id,
+        status: payment.status,
+        transactionId: payment.transactionId,
+        payerName: payment.payerName,
+        payerEmail: payment.payerEmail,
+        paymentScreenshotUrl: payment.paymentScreenshotUrl
+      }
+    });
+  } catch (error) {
+    console.error('Submit product payment error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to submit payment'
+    });
+  } finally {
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try { fs.unlinkSync(tempFilePath); } catch (e) { console.error('Cleanup temp file:', e); }
+    }
+  }
+});
+
+// @route   POST /api/payments/submit-product-cart
+// @desc    Create + submit a multi-item product cart payment in one step
+// @access  Private
+router.post('/submit-product-cart', authenticateToken, (req, res, next) => {
+  paymentScreenshotUpload.single('screenshot')(req, res, (err) => {
+    if (err) return res.status(400).json({ errors: [{ msg: err.message || 'Invalid screenshot file' }] });
+    next();
+  });
+}, async (req, res) => {
+  let tempFilePath = null;
+  try {
+    let items = [];
+    try {
+      const raw = req.body && req.body.items ? String(req.body.items) : '[]';
+      items = JSON.parse(raw);
+    } catch {
+      return res.status(400).json({ errors: [{ msg: 'Invalid cart items', path: 'items' }] });
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ errors: [{ msg: 'Cart is empty', path: 'items' }] });
+    }
+
+    const transactionId = (req.body && req.body.transactionId) ? String(req.body.transactionId).trim() : '';
+    const payerName = (req.body && req.body.payerName) ? String(req.body.payerName).trim() : '';
+    const payerEmail = (req.body && req.body.payerEmail) ? String(req.body.payerEmail).trim() : '';
+    const errors = [];
+    if (!transactionId || transactionId.length < 10) errors.push({ msg: 'Transaction ID / hash is required (min 10 characters)', path: 'transactionId' });
+    if (!payerName) errors.push({ msg: 'Payer name is required', path: 'payerName' });
+    if (!payerEmail) errors.push({ msg: 'Payer email is required', path: 'payerEmail' });
+    if (!req.file) errors.push({ msg: 'Payment screenshot image is required', path: 'screenshot' });
+    if (errors.length) return res.status(400).json({ errors });
+
+    const Product = require('../models/Product');
+    const productItems = [];
+    let total = 0;
+
+    for (const row of items) {
+      const productId = row && row.productId ? String(row.productId).trim().toLowerCase() : '';
+      const quantity = Math.max(1, Math.floor(Number(row?.quantity) || 1));
+      if (!productId) {
+        return res.status(400).json({ errors: [{ msg: 'Each cart item needs a product ID', path: 'items' }] });
+      }
+      const product = await Product.findOne({ productId, status: 'published' }).lean();
+      if (!product) {
+        return res.status(400).json({ errors: [{ msg: `Product is not available: ${productId}`, path: 'items' }] });
+      }
+      const productPrice = Number(product.price ?? 0);
+      if (!Number.isFinite(productPrice) || productPrice <= 0) {
+        return res.status(400).json({ errors: [{ msg: `Product price is not configured: ${productId}`, path: 'items' }] });
+      }
+      productItems.push({
+        productId: product.productId,
+        name: product.name,
+        price: productPrice,
+        quantity
+      });
+      total += productPrice * quantity;
+    }
+
+    const existing = await Payment.findOne({
+      user: req.user._id,
+      type: 'product',
+      status: { $in: ['pending', 'processing'] },
+      'productItems.0': { $exists: true }
+    }).sort({ createdAt: -1 });
+    if (existing && existing.transactionId && existing.paymentScreenshotUrl) {
+      return res.status(200).json({
+        success: true,
+        message: 'Payment already submitted. Waiting for admin confirmation.',
+        payment: {
+          _id: existing._id,
+          status: existing.status,
+          transactionId: existing.transactionId,
+          payerName: existing.payerName,
+          payerEmail: existing.payerEmail,
+          paymentScreenshotUrl: existing.paymentScreenshotUrl
+        }
+      });
+    }
+
+    tempFilePath = req.file.path;
+    const uploadResult = await uploadImage(tempFilePath, 'forex/payment-screenshots');
+    const paymentScreenshotUrl = uploadResult && uploadResult.url ? uploadResult.url : null;
+    if (!paymentScreenshotUrl) return res.status(500).json({ error: 'Failed to upload payment screenshot' });
+
+    const itemNames = productItems.map((i) => i.name).join(', ');
+    const first = productItems[0];
+    const payment = new Payment({
+      user: req.user._id,
+      amount: total,
+      finalAmount: total,
+      currency: 'USD',
+      paymentMethod: 'binance_wallet',
+      status: 'pending',
+      type: 'product',
+      product: { productId: first.productId, name: first.name, price: first.price },
+      productItems,
+      description: `Cart purchase: ${itemNames}`,
+      transactionId,
+      payerName,
+      payerEmail,
+      paymentScreenshotUrl,
+      binanceWallet: { walletAddress: 'TApaMK8BcN67GDRqVs45qnzbb4oQGt2Pna', network: 'TRC20', transactionHash: transactionId }
+    });
+    await payment.save();
+
+    try {
+      const User = require('../models/User');
+      const notificationService = require('../services/notificationService');
+      const admins = await User.find({ role: 'admin' });
+      for (const admin of admins) {
+        await notificationService.sendNotificationToUser(admin._id, 'admin', {
+          type: 'transaction_submitted',
+          paymentId: payment._id,
+          transactionId,
+          userId: req.user._id,
+          userName: `${req.user.firstName} ${req.user.lastName}`,
+          amount: payment.finalAmount,
+          payerName,
+          payerEmail,
+          paymentScreenshotUrl,
+          productName: itemNames
+        });
+      }
+    } catch (notificationError) {
+      console.error('Error sending admin notification:', notificationError);
+    }
+
+    try {
+      const notificationService = require('../services/notificationService');
+      await notificationService.sendNotificationToUser(req.user._id, 'payment_pending', {
+        amount: payment.finalAmount,
+        finalAmount: payment.finalAmount,
+        currency: payment.currency || 'USD',
+        packageName: itemNames,
+        paymentId: payment._id,
+        transactionId: payment.transactionId
+      });
+    } catch (e) {
+      console.error('Error sending user payment_pending notification (post-submit):', e);
+    }
+
+    return res.json({
+      success: true,
+      message: 'Payment submitted successfully. Waiting for admin confirmation.',
+      payment: {
+        _id: payment._id,
+        status: payment.status,
+        transactionId: payment.transactionId,
+        payerName: payment.payerName,
+        payerEmail: payment.payerEmail,
+        paymentScreenshotUrl: payment.paymentScreenshotUrl
+      }
+    });
+  } catch (error) {
+    console.error('Submit product cart payment error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to submit payment'
+    });
+  } finally {
+    if (tempFilePath && fs.existsSync(tempFilePath)) {
+      try { fs.unlinkSync(tempFilePath); } catch (e) { console.error('Cleanup temp file:', e); }
+    }
+  }
+});
+
 // @route   POST /api/payments/submit-package-upgrade
 // @desc    Student: submit upgrade payment (pay full price of selected/next package tier)
 // @access  Private
