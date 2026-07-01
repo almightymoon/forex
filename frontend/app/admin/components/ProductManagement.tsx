@@ -76,6 +76,9 @@ export default function ProductManagement() {
   const [saving, setSaving] = useState(false);
   const [uploadingPrimary, setUploadingPrimary] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
 
   const fetchCategories = async () => {
     try {
@@ -115,6 +118,82 @@ export default function ProductManagement() {
     fetchProducts();
     fetchCategories();
   }, [search, statusFilter]);
+
+  useEffect(() => {
+    setSelectedIds(new Set());
+  }, [search, statusFilter, products.length]);
+
+  const allSelected = products.length > 0 && products.every((p) => selectedIds.has(p._id));
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(products.map((p) => p._id)));
+    }
+  };
+
+  const bulkUpdateStatus = async (status: string) => {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      const token = localStorage.getItem('token');
+      let ok = 0;
+      for (const id of ids) {
+        const res = await fetch(buildApiUrl(`api/admin/products/${id}`), {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ status }),
+        });
+        if (res.ok) ok += 1;
+      }
+      showToast(`Updated ${ok} of ${ids.length} product(s)`, ok === ids.length ? 'success' : 'error');
+      setSelectedIds(new Set());
+      fetchProducts();
+    } catch {
+      showToast('Bulk update failed', 'error');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const confirmBulkDelete = async () => {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    setShowBulkDeleteConfirm(false);
+    try {
+      const token = localStorage.getItem('token');
+      let ok = 0;
+      for (const id of ids) {
+        const res = await fetch(buildApiUrl(`api/admin/products/${id}`), {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.ok) ok += 1;
+      }
+      showToast(`Deleted ${ok} of ${ids.length} product(s)`, ok === ids.length ? 'success' : 'error');
+      setSelectedIds(new Set());
+      fetchProducts();
+    } catch {
+      showToast('Bulk delete failed', 'error');
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   const openAddModal = () => {
     setForm({ ...emptyProduct });
@@ -331,6 +410,54 @@ export default function ProductManagement() {
           </div>
         </div>
 
+        {selectedIds.size > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-green-200 dark:border-green-800 bg-green-50 dark:bg-green-900/20 px-4 py-3 mb-6">
+            <span className="text-sm font-medium text-gray-800 dark:text-gray-200">
+              {selectedIds.size} selected
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              disabled={bulkBusy}
+              className="px-3 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => bulkUpdateStatus('published')}
+              disabled={bulkBusy}
+              className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50"
+            >
+              Publish
+            </button>
+            <button
+              type="button"
+              onClick={() => bulkUpdateStatus('draft')}
+              disabled={bulkBusy}
+              className="px-3 py-1.5 text-sm bg-amber-600 text-white rounded-lg hover:bg-amber-700 disabled:opacity-50"
+            >
+              Draft
+            </button>
+            <button
+              type="button"
+              onClick={() => bulkUpdateStatus('archived')}
+              disabled={bulkBusy}
+              className="px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50"
+            >
+              Archive
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              disabled={bulkBusy}
+              className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+            >
+              Delete
+            </button>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
@@ -340,6 +467,15 @@ export default function ProductManagement() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200 dark:border-gray-700">
+                  <th className="text-left py-3 px-4 w-10">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-gray-300 dark:border-gray-600"
+                      aria-label="Select all products"
+                    />
+                  </th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Product</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Status</th>
                   <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Category</th>
@@ -351,6 +487,15 @@ export default function ProductManagement() {
               <tbody>
                 {products.map((p) => (
                   <tr key={p._id} className="border-b border-gray-100 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <td className="py-4 px-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.has(p._id)}
+                        onChange={() => toggleSelect(p._id)}
+                        className="w-4 h-4 rounded border-gray-300 dark:border-gray-600"
+                        aria-label={`Select ${p.name}`}
+                      />
+                    </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-3">
                         {p.primaryImage ? (
@@ -748,6 +893,37 @@ export default function ProductManagement() {
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700"
                 >
                   Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Bulk delete confirmation */}
+      {showBulkDeleteConfirm && selectedIds.size > 0 && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 max-w-sm w-full">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-red-100 dark:bg-red-900/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                <AlertTriangle className="w-8 h-8 text-red-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Delete Products</h3>
+              <p className="text-gray-600 dark:text-gray-300 mb-6">
+                Delete {selectedIds.size} selected product{selectedIds.size === 1 ? '' : 's'}? This cannot be undone.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowBulkDeleteConfirm(false)}
+                  className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmBulkDelete}
+                  disabled={bulkBusy}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50"
+                >
+                  {bulkBusy ? 'Deleting…' : 'Delete'}
                 </button>
               </div>
             </div>

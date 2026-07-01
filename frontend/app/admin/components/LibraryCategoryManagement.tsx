@@ -164,25 +164,25 @@ export default function LibraryCategoryManagement({
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Items</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Order</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Active</th>
-                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Items</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Order</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Active</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 dark:divide-gray-700 bg-white dark:bg-gray-900">
               {categories.map((cat) => (
                 <tr key={cat._id}>
                   <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">{cat.name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{cat.itemCount ?? 0}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{cat.sortOrder ?? 0}</td>
-                  <td className="px-4 py-3 text-sm text-gray-500">{cat.isActive !== false ? 'Yes' : 'No'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{cat.itemCount ?? 0}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{cat.sortOrder ?? 0}</td>
+                  <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">{cat.isActive !== false ? 'Yes' : 'No'}</td>
                   <td className="px-4 py-3 text-right">
-                    <button type="button" onClick={() => openEdit(cat)} className="p-1.5 text-blue-600 hover:bg-blue-50 rounded">
+                    <button type="button" onClick={() => openEdit(cat)} className="p-1.5 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded">
                       <Edit className="h-4 w-4" />
                     </button>
-                    <button type="button" onClick={() => setDeleteTarget(cat)} className="p-1.5 text-red-600 hover:bg-red-50 rounded ml-1">
+                    <button type="button" onClick={() => setDeleteTarget(cat)} className="p-1.5 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded ml-1">
                       <Trash className="h-4 w-4" />
                     </button>
                   </td>
