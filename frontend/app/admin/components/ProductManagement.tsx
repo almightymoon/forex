@@ -12,10 +12,12 @@ import {
   Image as ImageIcon,
   Upload,
   Loader2,
-  Search
+  Search,
+  FolderTree
 } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
+import ShopCategoryManagement, { type ShopCategory } from './ShopCategoryManagement';
 
 interface Product {
   _id: string;
@@ -35,6 +37,7 @@ interface Product {
   seoMetaDescription?: string;
   stripeProductId?: string;
   price?: number;
+  deliveryUrl?: string;
   updatedAt?: string;
 }
 
@@ -54,10 +57,13 @@ const emptyProduct: Partial<Product> = {
   seoTitle: '',
   seoMetaDescription: '',
   stripeProductId: '',
-  price: 0
+  price: 0,
+  deliveryUrl: ''
 };
 
 export default function ProductManagement() {
+  const [sectionTab, setSectionTab] = useState<'products' | 'categories'>('products');
+  const [categories, setCategories] = useState<ShopCategory[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -70,6 +76,21 @@ export default function ProductManagement() {
   const [saving, setSaving] = useState(false);
   const [uploadingPrimary, setUploadingPrimary] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
+
+  const fetchCategories = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl('api/admin/product-categories'), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCategories(data.categories || []);
+      }
+    } catch {
+      /* non-blocking */
+    }
+  };
 
   const fetchProducts = async () => {
     try {
@@ -92,6 +113,7 @@ export default function ProductManagement() {
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
   }, [search, statusFilter]);
 
   const openAddModal = () => {
@@ -245,6 +267,36 @@ export default function ProductManagement() {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 pb-1">
+        <button
+          type="button"
+          onClick={() => setSectionTab('products')}
+          className={`px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors ${
+            sectionTab === 'products'
+              ? 'bg-white dark:bg-gray-800 text-green-700 dark:text-green-400 border border-b-0 border-gray-200 dark:border-gray-700'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+          }`}
+        >
+          Products
+        </button>
+        <button
+          type="button"
+          onClick={() => setSectionTab('categories')}
+          className={`inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-t-lg transition-colors ${
+            sectionTab === 'categories'
+              ? 'bg-white dark:bg-gray-800 text-green-700 dark:text-green-400 border border-b-0 border-gray-200 dark:border-gray-700'
+              : 'text-gray-500 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200'
+          }`}
+        >
+          <FolderTree className="w-4 h-4" />
+          Categories
+        </button>
+      </div>
+
+      {sectionTab === 'categories' ? (
+        <ShopCategoryManagement onCategoriesChange={fetchCategories} />
+      ) : (
+      <>
       <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Products</h3>
@@ -476,13 +528,34 @@ export default function ProductManagement() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Category</label>
-                  <input
-                    type="text"
+                  <select
                     value={form.category || ''}
                     onChange={(e) => setForm((prev) => ({ ...prev, category: e.target.value }))}
-                    placeholder="e.g. BEP / ISO 19650 Packs"
                     className="w-full px-3 py-2 border rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                  />
+                  >
+                    <option value="">No category</option>
+                    {categories
+                      .filter((c) => c.isActive !== false)
+                      .map((c) => (
+                        <option key={c._id} value={c.name}>
+                          {c.name}
+                        </option>
+                      ))}
+                    {form.category &&
+                    !categories.some((c) => c.name === form.category) ? (
+                      <option value={form.category}>{form.category} (legacy)</option>
+                    ) : null}
+                  </select>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowModal(false);
+                      setSectionTab('categories');
+                    }}
+                    className="mt-1.5 text-xs font-medium text-green-700 dark:text-green-400 hover:underline"
+                  >
+                    + Create category
+                  </button>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Tags (comma-separated)</label>
@@ -597,6 +670,17 @@ export default function ProductManagement() {
               </div>
 
               <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Delivery URL</label>
+                <input
+                  type="url"
+                  value={form.deliveryUrl || ''}
+                  onChange={(e) => setForm((prev) => ({ ...prev, deliveryUrl: e.target.value }))}
+                  placeholder="https://... (download link after purchase)"
+                  className="w-full px-3 py-2 border rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+              </div>
+
+              <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">SEO title</label>
                 <input
                   type="text"
@@ -669,6 +753,8 @@ export default function ProductManagement() {
             </div>
           </div>
         </div>
+      )}
+      </>
       )}
     </motion.div>
   );

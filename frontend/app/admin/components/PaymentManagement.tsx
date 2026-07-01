@@ -76,7 +76,7 @@ export default function PaymentManagement({
   const [paymentStatusFilter, setPaymentStatusFilter] = useState('all');
   const [withdrawalStatusFilter, setWithdrawalStatusFilter] = useState('all');
   const [paymentMethodFilter, setPaymentMethodFilter] = useState('all');
-  const [paymentTypeFilter, setPaymentTypeFilter] = useState<'all' | 'package' | 'monthly_fee'>('all');
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState<'all' | 'package' | 'monthly_fee' | 'product'>('all');
   const [newBalance, setNewBalance] = useState('');
   const [balanceReason, setBalanceReason] = useState('');
   const [isUpdatingBalance, setIsUpdatingBalance] = useState(false);
@@ -771,6 +771,7 @@ export default function PaymentManagement({
               >
                 <option value="all">All Types</option>
                 <option value="package">Package</option>
+                <option value="product">Shop Product</option>
                 <option value="monthly_fee">Monthly Fee</option>
               </select>
               

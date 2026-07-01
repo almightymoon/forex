@@ -103,9 +103,18 @@ export default function SettingsScreen() {
     apiFetch('api/notifications/preferences').then(async (res) => {
       if (res.ok) {
         const d = await res.json();
-        const prefs = d.preferences ?? d;
-        if (typeof prefs?.email?.enabled === 'boolean') setEmailNotif(prefs.email.enabled);
-        if (typeof prefs?.push?.enabled === 'boolean') setPushNotif(prefs.push.enabled);
+        const prefs = d.preferences ?? {};
+        const channels = d.channels ?? {};
+        if (typeof channels.email?.enabled === 'boolean') {
+          setEmailNotif(channels.email.enabled);
+        } else if (typeof prefs.emailNotifications === 'boolean') {
+          setEmailNotif(prefs.emailNotifications);
+        }
+        if (typeof channels.push?.enabled === 'boolean') {
+          setPushNotif(channels.push.enabled);
+        } else if (typeof prefs.pushNotifications === 'boolean') {
+          setPushNotif(prefs.pushNotifications);
+        }
       }
     }).catch(() => {}).finally(() => setPrefsLoading(false));
 

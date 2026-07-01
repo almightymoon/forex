@@ -44,7 +44,7 @@ function createStyles(colors: AppColors, isDark: boolean) {
       width: 160,
       height: 160,
       borderRadius: 80,
-      backgroundColor: 'rgba(212, 255, 88, 0.14)',
+      backgroundColor: 'rgba(167, 139, 250, 0.14)',
     },
     topRow: {
       flexDirection: 'row',

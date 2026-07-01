@@ -6,6 +6,9 @@ import { ErrorBoundary } from '../../components/ErrorBoundary';
 import { AppBackground } from '../../components/AppBackground';
 import { FloatingTabBar, getFloatingTabBarInset } from '../../components/navigation/FloatingTabBar';
 import { AppBackgroundProvider } from '../../contexts/AppBackgroundContext';
+import { ShopCartProvider } from '../../contexts/ShopCartContext';
+import { AppCampaignGate } from '../../components/campaign/AppCampaignGate';
+import { PushNotificationSetup } from '../../components/PushNotificationSetup';
 import { useTheme } from '../../contexts/ThemeContext';
 
 const TAB_BAR_STYLE = {
@@ -39,6 +42,8 @@ function AppLayoutInner() {
     <ErrorBoundary>
       <View style={[styles.root, { backgroundColor: colors.background }]}>
         <AppBackground />
+        <PushNotificationSetup />
+        <AppCampaignGate />
         <Tabs tabBar={renderTabBar} screenOptions={screenOptions}>
           <Tabs.Screen name="home" options={{ title: 'Home' }} />
           <Tabs.Screen name="courses" options={{ title: 'Courses' }} />
@@ -67,6 +72,8 @@ function AppLayoutInner() {
           <Tabs.Screen name="about" options={{ href: null }} />
           <Tabs.Screen name="terms" options={{ href: null }} />
           <Tabs.Screen name="course/[id]" options={{ href: null }} />
+          <Tabs.Screen name="library" options={{ href: null }} />
+          <Tabs.Screen name="shop" options={{ href: null }} />
         </Tabs>
       </View>
     </ErrorBoundary>
@@ -76,7 +83,9 @@ function AppLayoutInner() {
 export default function AppLayout() {
   return (
     <AppBackgroundProvider>
-      <AppLayoutInner />
+      <ShopCartProvider>
+        <AppLayoutInner />
+      </ShopCartProvider>
     </AppBackgroundProvider>
   );
 }

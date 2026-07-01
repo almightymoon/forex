@@ -12,7 +12,9 @@ import {
   ChevronLeft,
   ChevronRight,
   LineChart,
-  Users2
+  Users2,
+  Library,
+  FolderTree
 } from 'lucide-react';
 
 interface NavigationProps {
@@ -30,6 +32,8 @@ const tabs = [
   { id: 'analytics', name: 'Analytics', icon: TrendingUp },
   { id: 'communications', name: 'Communications', icon: MessageSquare },
   { id: 'community', name: 'Community', icon: Users },
+  { id: 'library', name: 'Library', icon: Library },
+  { id: 'library-manage', name: 'Manage Library', icon: FolderTree },
   { id: 'landing-progress', name: 'Landing progress', icon: LineChart },
   { id: 'landing-joiners', name: 'Landing joiners', icon: Users2 },
   { id: 'certificates', name: 'Certificates', icon: Award }

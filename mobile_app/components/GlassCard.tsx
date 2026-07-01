@@ -1,10 +1,8 @@
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
-import { memo, useContext, useMemo } from 'react';
+import { memo, useMemo } from 'react';
 import { Platform, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
-import { AppBackgroundContext } from '../contexts/AppBackgroundContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { DEFAULT_APP_BACKGROUND } from '../utils/appBackground';
 import { getCardStyleSpec } from '../utils/appCardStyle';
 import { useCardNativeBlur } from '../utils/deviceCapabilities';
 import { FrostedBackdrop } from './glass/FrostedBackdrop';
@@ -26,15 +24,12 @@ function GlassCardInner({
   radius = 20,
   prominent = false,
 }: Props) {
-  const ctx = useContext(AppBackgroundContext);
   const { colors, isDark } = useTheme();
-  const prefs = ctx?.prefs ?? DEFAULT_APP_BACKGROUND;
   const cardBlur = useCardNativeBlur();
   const spec = useMemo(
-    () => getCardStyleSpec(prefs.cardStyle, prominent, prefs.solidCardColor, cardBlur, colors, isDark),
-    [prefs.cardStyle, prominent, prefs.solidCardColor, cardBlur, colors, isDark],
+    () => getCardStyleSpec('glass', prominent, undefined, cardBlur, colors, isDark),
+    [prominent, cardBlur, colors, isDark],
   );
-  const frostLevel = prefs.cardStyle === 'soft' ? 'soft' : 'glass';
 
   return (
     <View
@@ -71,13 +66,13 @@ function GlassCardInner({
                 ? { experimentalBlurMethod: 'dimezisBlurView' as const }
                 : {})}
             />
-          ) : prefs.cardStyle !== 'solid' ? (
+          ) : (
             <FrostedBackdrop
-              level={frostLevel}
+              level="glass"
               borderRadius={radius}
               showShine={spec.showShine}
             />
-          ) : null}
+          )}
 
           {spec.tintColor !== 'transparent' ? (
             <View

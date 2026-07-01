@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { AppColors } from '../constants/theme';
 import { useTheme } from '../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState, useMemo } from 'react';
 import { Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -18,6 +18,8 @@ export default function PaymentPendingScreen() {
   const styles = useMemo(() => createStyles(colors), [colors]);
   const stepStyles = useMemo(() => createStepStyles(colors), [colors]);
   const router = useRouter();
+  const params = useLocalSearchParams<{ flow?: string }>();
+  const isShopFlow = params.flow === 'shop';
   const pulse = useRef(new Animated.Value(1)).current;
   const [checking, setChecking] = useState(false);
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
@@ -43,12 +45,27 @@ export default function PaymentPendingScreen() {
         const raw = await res.json();
         const payments: Array<{ type?: string; status: string }> =
           Array.isArray(raw) ? raw : Array.isArray(raw?.data) ? raw.data : [];
-        const hasCompleted = payments.some((p) => (!p.type || p.type === 'package') && p.status === 'completed');
-        setLastChecked(new Date());
-        setCheckCount((c) => c + 1);
-        if (hasCompleted && !cancelled) {
-          const route = await resolvePostLoginRoute();
-          router.replace(route as any);
+
+        if (isShopFlow) {
+          const hasCompletedProduct = payments.some(
+            (p) => p.type === 'product' && p.status === 'completed',
+          );
+          setLastChecked(new Date());
+          setCheckCount((c) => c + 1);
+          if (hasCompletedProduct && !cancelled) {
+            router.replace('/(app)/shop/my-purchases' as never);
+            return;
+          }
+        } else {
+          const hasCompleted = payments.some(
+            (p) => (!p.type || p.type === 'package') && p.status === 'completed',
+          );
+          setLastChecked(new Date());
+          setCheckCount((c) => c + 1);
+          if (hasCompleted && !cancelled) {
+            const route = await resolvePostLoginRoute();
+            router.replace(route as never);
+          }
         }
       } catch { /* ignore — will retry */ }
       finally { if (!cancelled) setChecking(false); }
@@ -79,7 +96,9 @@ export default function PaymentPendingScreen() {
 
           <Text style={styles.title}>Payment Under Review</Text>
           <Text style={styles.subtitle}>
-            Your payment proof has been submitted. Our team is reviewing it and will approve your account within 24 hours.
+            {isShopFlow
+              ? 'Your shop payment proof has been submitted. We will confirm your purchase and unlock downloads shortly.'
+              : 'Your payment proof has been submitted. Our team is reviewing it and will approve your account within 24 hours.'}
           </Text>
 
           {/* Status steps */}
@@ -88,11 +107,13 @@ export default function PaymentPendingScreen() {
             <View style={styles.stepDivider} />
             <Step icon="time-outline" color={colors.brandBlue} label="Admin review in progress" active />
             <View style={styles.stepDivider} />
-            <Step icon="lock-closed-outline" color={colors.textMuted} label="Account activation" />
+            <Step icon="lock-closed-outline" color={colors.textMuted} label={isShopFlow ? 'Purchase unlocked' : 'Account activation'} />
           </GlassListCard>
 
           <Text style={styles.note}>
-            You'll receive access to all features once your payment is confirmed. If you need help, contact us via Telegram.
+            {isShopFlow
+              ? 'You will be redirected to My purchases once your payment is confirmed.'
+              : "You'll receive access to all features once your payment is confirmed. If you need help, contact us via Telegram."}
           </Text>
 
           <View style={styles.checkingRow}>

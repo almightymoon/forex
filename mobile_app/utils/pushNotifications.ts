@@ -33,8 +33,38 @@ async function getNotifications(): Promise<NotificationsModule | null> {
       handlerConfigured = true;
     }
     return Notifications;
-  } catch {
+  } catch (error) {
+    console.warn('[Push] Failed to load expo-notifications:', error);
     return null;
+  }
+}
+
+async function ensureAndroidChannel(Notifications: NotificationsModule): Promise<void> {
+  if (Platform.OS !== 'android') return;
+  await Notifications.setNotificationChannelAsync('default', {
+    name: 'Default',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#036FFC',
+    sound: 'default',
+  });
+}
+
+async function saveTokenToBackend(token: string): Promise<void> {
+  const res = await apiFetch('api/mobile/push-token', {
+    method: 'PUT',
+    body: JSON.stringify({ expoPushToken: token }),
+  });
+
+  if (!res.ok) {
+    const fallback = await apiFetch('api/notifications/preferences', {
+      method: 'PUT',
+      body: JSON.stringify({ expoPushToken: token }),
+    });
+    if (!fallback.ok) {
+      const text = await fallback.text().catch(() => '');
+      throw new Error(`Failed to save push token (${fallback.status}): ${text}`);
+    }
   }
 }
 
@@ -43,13 +73,18 @@ export async function registerPushToken(): Promise<string | null> {
     const Notifications = await getNotifications();
     if (!Notifications) return null;
 
+    await ensureAndroidChannel(Notifications);
+
     const { status: existing } = await Notifications.getPermissionsAsync();
     let status = existing;
     if (existing !== 'granted') {
       const { status: asked } = await Notifications.requestPermissionsAsync();
       status = asked;
     }
-    if (status !== 'granted') return null;
+    if (status !== 'granted') {
+      console.log('[Push] Permission not granted');
+      return null;
+    }
 
     const projectId =
       Constants.expoConfig?.extra?.eas?.projectId ??
@@ -61,18 +96,39 @@ export async function registerPushToken(): Promise<string | null> {
 
     const token = tokenData.data;
     await AsyncStorage.setItem(TOKEN_KEY, token);
-
-    await apiFetch('api/notifications/preferences', {
-      method: 'PUT',
-      body: JSON.stringify({ expoPushToken: token }),
-    }).catch(() => {/* backend may not have field yet */});
-
+    await saveTokenToBackend(token);
+    console.log('[Push] Token registered');
     return token;
-  } catch {
+  } catch (error) {
+    console.warn('[Push] registerPushToken failed:', error);
     return null;
   }
 }
 
 export async function getStoredPushToken(): Promise<string | null> {
   return AsyncStorage.getItem(TOKEN_KEY);
+}
+
+export type NotificationTapHandler = (data: Record<string, unknown>) => void;
+
+/** Foreground display + tap-to-open listeners. Returns cleanup function. */
+export async function setupNotificationListeners(
+  onTap?: NotificationTapHandler,
+): Promise<(() => void) | null> {
+  const Notifications = await getNotifications();
+  if (!Notifications) return null;
+
+  const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
+    console.log('[Push] Received in foreground:', notification.request.content.title);
+  });
+
+  const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
+    const data = (response.notification.request.content.data || {}) as Record<string, unknown>;
+    onTap?.(data);
+  });
+
+  return () => {
+    receivedSub.remove();
+    responseSub.remove();
+  };
 }

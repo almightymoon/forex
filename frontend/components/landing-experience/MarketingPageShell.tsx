@@ -157,6 +157,13 @@ export default function MarketingPageShell({ children, activePath }: MarketingPa
                 FAQ
               </Link>
               <Link
+                href="/shop"
+                className={`menu-drawer-link${isActive('/shop') ? ' menu-drawer-link--active' : ''}`}
+                onClick={() => setMenuOpen(false)}
+              >
+                Shop
+              </Link>
+              <Link
                 href="/contact"
                 className={`menu-drawer-link${isActive('/contact') ? ' menu-drawer-link--active' : ''}`}
                 onClick={() => setMenuOpen(false)}

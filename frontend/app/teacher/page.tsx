@@ -20,11 +20,17 @@ import { Course, Student, LiveSession, Analytics as AnalyticsType } from './type
 import { getStatusColor, getSessionStatusColor, calculateAnalytics } from './utils/helpers';
 import { useToast } from '../../components/Toast';
 import { buildApiUrl } from '../../utils/api';
+import LibraryBrowse from '../../components/library/LibraryBrowse';
 
 // Dynamically import components that use localStorage to prevent hydration issues
 const CertificateManagement = dynamic(() => import('./components/CertificateManagement'), {
   ssr: false,
   loading: () => <LoadingSpinner message="Loading certificate management..." />
+});
+
+const LibraryManagement = dynamic(() => import('../admin/components/LibraryManagement'), {
+  ssr: false,
+  loading: () => <LoadingSpinner message="Loading library management..." />
 });
 
 export default function TeacherDashboard() {
@@ -319,6 +325,19 @@ export default function TeacherDashboard() {
           />
         )}
 
+        {activeTab === 'library' && (
+          <LibraryBrowse itemBasePath="/teacher/library" />
+        )}
+
+        {activeTab === 'library-manage' && (
+          <div className="max-w-7xl mx-auto">
+            <LibraryManagement
+              apiBase="api/teacher/library"
+              categoriesApiBase="api/teacher/library-categories"
+            />
+          </div>
+        )}
+
       {activeTab === 'certificates' && (
         <CertificateManagement />
       )}
@@ -341,6 +360,8 @@ export default function TeacherDashboard() {
          activeTab !== 'signals' && 
          activeTab !== 'communications' && 
          activeTab !== 'community' && 
+         activeTab !== 'library' &&
+         activeTab !== 'library-manage' &&
          activeTab !== 'landing-progress' &&
          activeTab !== 'landing-joiners' &&
          activeTab !== 'certificates' && (

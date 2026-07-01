@@ -260,9 +260,35 @@ class NotificationService {
    */
   async sendPushNotification({ userId, title, body, data = {} }) {
     try {
-      // TODO: Implement push notification service (FCM, OneSignal, etc.)
-      console.log(`Push notification (not implemented): ${userId} - ${title}: ${body}`);
-      return true;
+      const user = await User.findById(userId).select('preferences.expoPushToken preferences.pushNotifications');
+      if (!user) {
+        console.log(`[Push] User not found: ${userId}`);
+        return false;
+      }
+
+      if (user.preferences?.pushNotifications === false) {
+        console.log(`[Push] Disabled for user ${userId}`);
+        return false;
+      }
+
+      const token = user.preferences?.expoPushToken;
+      if (!token) {
+        console.log(`[Push] No Expo token for user ${userId}`);
+        return false;
+      }
+
+      const settings = await Settings.getSettings();
+      if (settings.notifications?.pushNotifications === false) {
+        console.log('[Push] Disabled globally in settings');
+        return false;
+      }
+
+      const { sendToToken } = require('./expoPushService');
+      const sent = await sendToToken(token, { title, body, data });
+      if (sent) {
+        console.log(`[Push] Sent to user ${userId}: ${title}`);
+      }
+      return sent;
     } catch (error) {
       console.error('Failed to send push notification:', error.message);
       return false;
@@ -1596,6 +1622,23 @@ class NotificationService {
         link: notificationData.link,
         read: false
       });
+
+      const userId = notificationData.user?.toString?.() || String(notificationData.user);
+      setImmediate(() => {
+        this.sendPushNotification({
+          userId,
+          title: notificationData.title,
+          body: notificationData.message,
+          data: {
+            type: notificationData.type || 'system',
+            notificationId: notification._id.toString(),
+            link: notificationData.link || null,
+          },
+        }).catch((err) => {
+          console.error('[Push] In-app notification push failed:', err.message);
+        });
+      });
+
       return notification;
     } catch (error) {
       console.error('Error creating notification:', error);

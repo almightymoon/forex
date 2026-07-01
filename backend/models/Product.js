@@ -82,6 +82,10 @@ const productSchema = new mongoose.Schema({
     type: Number,
     min: [0, 'Price cannot be negative'],
     default: 0
+  },
+  deliveryUrl: {
+    type: String,
+    trim: true
   }
 }, {
   timestamps: true,

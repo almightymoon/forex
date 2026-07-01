@@ -68,10 +68,22 @@ export default function MoreScreen() {
       title: 'Learning',
       items: [
         {
+          icon: 'layers',
+          label: 'Shop',
+          subtitle: 'Merch, tools and digital products',
+          onPress: () => push('/(app)/shop'),
+        },
+        {
           icon: 'book-open',
           label: 'All Courses',
           subtitle: 'Browse and continue learning',
           onPress: () => push('/(app)/courses'),
+        },
+        {
+          icon: 'file-text',
+          label: 'Library',
+          subtitle: 'Sheets, PDFs, books and desk resources',
+          onPress: () => push('/(app)/library'),
         },
         {
           icon: 'bar-chart',

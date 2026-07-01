@@ -27,13 +27,19 @@ const PUBLIC_PATH_PREFIXES = [
   '/about',
   '/contact',
   '/terms',
-  '/packages'
+  '/packages',
+  '/shop'
 ];
 
 function isPublicMarketingPath(pathname: string | null): boolean {
   if (!pathname) return false;
   if (pathname === '/') return true;
   return PUBLIC_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+}
+
+function isShopPath(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return pathname === '/shop' || pathname.startsWith('/shop/');
 }
 
 function isPaymentFlowPath(pathname: string | null): boolean {
@@ -118,9 +124,8 @@ export default function PackageGuard({ children }: PackageGuardProps) {
 
           if (data.code === 'PACKAGE_REQUIRED') {
             clearMonthlyFeeAccessLock();
-            // IMPORTANT: allow users to stay on /payment to submit proof fields
-            // even though they don't have an active package yet.
-            if (!isPaymentFlowPath(pathname)) {
+            // Allow shop browsing and payment submission without an active package.
+            if (!isPaymentFlowPath(pathname) && !isShopPath(pathname)) {
               router.replace('/select-package');
             }
             setHasAccess(true);

@@ -64,14 +64,23 @@ export async function loadAppBackgroundPrefs(): Promise<AppBackgroundPrefs> {
     const raw = await AsyncStorage.getItem(APP_BG_STORAGE_KEY);
     if (!raw) return DEFAULT_APP_BACKGROUND;
     const parsed = JSON.parse(raw) as Partial<AppBackgroundPrefs>;
-    return {
-      mode: parsed.mode ?? DEFAULT_APP_BACKGROUND.mode,
-      imageKey: parsed.imageKey ?? DEFAULT_APP_BACKGROUND.imageKey,
-      customImageUri: parsed.customImageUri,
-      solidColor: parsed.solidColor ?? DEFAULT_APP_BACKGROUND.solidColor,
-      cardStyle: normalizeCardStylePreset(parsed.cardStyle),
-      solidCardColor: parsed.solidCardColor ?? DEFAULT_APP_BACKGROUND.solidCardColor,
+    const next: AppBackgroundPrefs = {
+      mode: DEFAULT_APP_BACKGROUND.mode,
+      imageKey: DEFAULT_APP_BACKGROUND.imageKey,
+      solidColor: DEFAULT_APP_BACKGROUND.solidColor,
+      cardStyle: DEFAULT_CARD_STYLE,
+      solidCardColor: DEFAULT_SOLID_CARD_COLOR,
     };
+    const stale =
+      parsed.mode !== next.mode ||
+      parsed.imageKey !== next.imageKey ||
+      parsed.solidColor !== next.solidColor ||
+      normalizeCardStylePreset(parsed.cardStyle) !== next.cardStyle ||
+      (parsed.solidCardColor ?? DEFAULT_SOLID_CARD_COLOR) !== next.solidCardColor;
+    if (stale) {
+      await saveAppBackgroundPrefs(next);
+    }
+    return next;
   } catch {
     return DEFAULT_APP_BACKGROUND;
   }

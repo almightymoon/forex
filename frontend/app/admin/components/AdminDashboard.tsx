@@ -11,7 +11,10 @@ import {
   Save, RotateCcw, Palette, Monitor, Languages, MapPin,
   RefreshCw, AlertCircle, Share2, ChevronLeft, ChevronRight,
   LineChart,
-  Users2
+  Users2,
+  ShoppingBag,
+  Library,
+  Megaphone,
 } from 'lucide-react';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../components/Toast';
@@ -24,6 +27,9 @@ import Overview from './Overview';
 import UserManagement from './UserManagement';
 import PaymentManagement from './PaymentManagement';
 import CommissionManagement from './CommissionManagement';
+import ProductManagement from './ProductManagement';
+import LibraryManagement from './LibraryManagement';
+import AppCampaignManagement from './AppCampaignManagement';
 import PackageManagement from './PackageManagement';
 import MonthlyFeeManagement from './MonthlyFeeManagement';
 import PromoCodeManagement from './PromoCodeManagement';
@@ -1042,6 +1048,9 @@ export default function AdminDashboard() {
                   { id: 'commissions', label: 'Commissions', icon: Share2 },
                   { id: 'rank-rewards', label: 'Rank Rewards', icon: Award },
                   { id: 'packages', label: 'Packages', icon: CreditCard },
+                  { id: 'products', label: 'Shop Products', icon: ShoppingBag },
+                  { id: 'library', label: 'Library', icon: Library },
+                  { id: 'campaigns', label: 'App Campaigns', icon: Megaphone },
                   { id: 'analytics', label: 'Analytics', icon: TrendingUp },
                   { id: 'promocodes', label: 'Promo Codes', icon: Target },
                   { id: 'notifications', label: 'Notifications', icon: Mail },
@@ -1123,6 +1132,18 @@ export default function AdminDashboard() {
 
         {activeTab === 'packages' && (
           <PackageManagement packages={packages || []} onRefresh={refreshData} />
+        )}
+
+        {activeTab === 'products' && (
+          <ProductManagement />
+        )}
+
+        {activeTab === 'library' && (
+          <LibraryManagement />
+        )}
+
+        {activeTab === 'campaigns' && (
+          <AppCampaignManagement />
         )}
 
         {activeTab === 'promocodes' && (
