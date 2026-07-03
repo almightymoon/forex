@@ -660,8 +660,40 @@ const protectDeveloperAccount = (options = {}) => {
 };
 
 
+/** Attach user when a valid Bearer token is present; otherwise continue anonymously. */
+const optionalAuthenticateToken = async (req, res, next) => {
+  try {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return next();
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret');
+    const user = await User.findById(decoded.userId).select('-password');
+    if (!user || !user.isActive) return next();
+
+    const realRole = normalizeRole(user.role);
+    let effectiveRole = realRole;
+    const claimedEffective = normalizeRole(decoded && decoded.effectiveRole);
+    const allowedEffective = ['student', 'teacher', 'admin'];
+    if (realRole === 'developer' && claimedEffective && allowedEffective.includes(claimedEffective)) {
+      effectiveRole = claimedEffective;
+    }
+
+    req.user = user;
+    req.user.realRole = realRole;
+    req.user.effectiveRole = effectiveRole;
+    req.user.isImpersonating = realRole === 'developer' && effectiveRole !== realRole;
+    req.user.role = effectiveRole;
+    return next();
+  } catch {
+    return next();
+  }
+};
+
+
 module.exports = {
   authenticateToken,
+  optionalAuthenticateToken,
   requireRole,
   requireTeacher,
   requireAdmin,

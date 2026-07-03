@@ -83,6 +83,71 @@ interface LiveSession {
   isCompleted?: boolean;
   formattedPrice?: string;
   formattedDuration?: string;
+  allowedPackages?: number[] | null;
+}
+
+const SESSION_PACKAGE_OPTIONS = [
+  { price: 100, label: 'Starter ($100)' },
+  { price: 250, label: 'Pro ($250)' },
+  { price: 1000, label: 'Elite ($1000)' },
+];
+
+function PackageAccessPicker({
+  allowedPackages,
+  onChange,
+}: {
+  allowedPackages?: number[] | null;
+  onChange: (next: number[] | null) => void;
+}) {
+  const isForAll = allowedPackages === null || allowedPackages === undefined;
+
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+      <div>
+        <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Who can reserve & join?</p>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          Sessions are visible to everyone. Only students on the selected packages can reserve a spot and join.
+        </p>
+      </div>
+      <label className="flex items-center space-x-2 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={isForAll}
+          onChange={(e) => {
+            if (e.target.checked) onChange(null);
+            else onChange([]);
+          }}
+          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+        />
+        <span className="text-sm text-gray-700 dark:text-gray-300">All packages</span>
+      </label>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        {SESSION_PACKAGE_OPTIONS.map((pkg) => {
+          const checked = Array.isArray(allowedPackages) && allowedPackages.includes(pkg.price);
+          return (
+            <label key={pkg.price} className={`flex items-center space-x-2 cursor-pointer ${isForAll ? 'opacity-50' : ''}`}>
+              <input
+                type="checkbox"
+                disabled={isForAll}
+                checked={checked}
+                onChange={(e) => {
+                  const current = Array.isArray(allowedPackages) ? allowedPackages : [];
+                  if (e.target.checked) {
+                    onChange([...current, pkg.price]);
+                  } else {
+                    const next = current.filter((p) => p !== pkg.price);
+                    onChange(next.length > 0 ? next : null);
+                  }
+                }}
+                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <span className="text-sm text-gray-700 dark:text-gray-300">{pkg.label}</span>
+            </label>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 interface CreateSessionData {
@@ -104,6 +169,7 @@ interface CreateSessionData {
   recordingEnabled: boolean;
   isReplayAvailable: boolean;
   notes?: string;
+  allowedPackages?: number[] | null;
 }
 
 export default function LiveSessions() {
@@ -134,6 +200,7 @@ export default function LiveSessions() {
     recordingEnabled: true,
     isReplayAvailable: false,
     notes: '',
+    allowedPackages: null,
   });
   const [newTopic, setNewTopic] = useState('');
   const [newTag, setNewTag] = useState('');
@@ -1070,6 +1137,11 @@ export default function LiveSessions() {
                 />
               </div>
 
+              <PackageAccessPicker
+                allowedPackages={newSession.allowedPackages}
+                onChange={(allowedPackages) => setNewSession({ ...newSession, allowedPackages })}
+              />
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Topics
@@ -1276,6 +1348,11 @@ export default function LiveSessions() {
                   </button>
                 </div>
               </div>
+
+              <PackageAccessPicker
+                allowedPackages={editingSession.allowedPackages}
+                onChange={(allowedPackages) => setEditingSession({ ...editingSession, allowedPackages })}
+              />
             </div>
 
             <div className="flex space-x-3 mt-6">

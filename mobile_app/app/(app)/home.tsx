@@ -8,6 +8,8 @@ import { BrandSectionTitle } from '../../components/home/BrandSectionTitle';
 import { HomeCourseRowCard } from '../../components/home/HomeCourseRowCard';
 import { HomeHeader } from '../../components/home/HomeHeader';
 import { HomeSkeleton } from '../../components/home/HomeSkeleton';
+import { LiveSessionsHomeSection } from '../../components/home/LiveSessionsHomeSection';
+import { MarketClockCard } from '../../components/home/MarketClockCard';
 import { MarketNewsSection } from '../../components/home/MarketNewsSection';
 import { RecentActivityHomeCard } from '../../components/home/RecentActivityHomeCard';
 import { WelcomeHeroCard } from '../../components/home/WelcomeHeroCard';
@@ -311,6 +313,10 @@ export default function HomeScreen() {
             </AnimatedReveal>
 
             <AnimatedReveal index={2}>
+              <MarketClockCard />
+            </AnimatedReveal>
+
+            <AnimatedReveal index={3}>
               <BrandSectionTitle
                 title="Your Courses"
                 actionLabel={enrolledTotal > 2 ? 'See all' : undefined}
@@ -320,7 +326,7 @@ export default function HomeScreen() {
 
             {courses.length > 0 ? (
               courses.map((course, index) => (
-                <AnimatedReveal key={`${course._id}-${index}`} index={3 + index}>
+                <AnimatedReveal key={`${course._id}-${index}`} index={4 + index}>
                   <HomeCourseRowCard
                     title={course.title}
                     level={course.level ?? 'Beginner'}
@@ -333,7 +339,7 @@ export default function HomeScreen() {
                 </AnimatedReveal>
               ))
             ) : (
-              <AnimatedReveal index={3}>
+              <AnimatedReveal index={4}>
                 <View style={styles.emptyCourses}>
                   <Text style={styles.emptyCoursesTitle}>Start your first course</Text>
                   <Text style={styles.emptyCoursesText}>
@@ -349,7 +355,7 @@ export default function HomeScreen() {
               </AnimatedReveal>
             )}
 
-            <AnimatedReveal index={5} style={styles.insightsSection}>
+            <AnimatedReveal index={6} style={styles.insightsSection}>
               <View style={[styles.insightsGrid, stackInsights && styles.insightsStack]}>
                 <ActiveSignalsHomeCard
                   pair={topSignal?.pair}
@@ -368,12 +374,16 @@ export default function HomeScreen() {
               </View>
             </AnimatedReveal>
 
-            <AnimatedReveal index={6}>
+            <AnimatedReveal index={8}>
               <MarketNewsSection
                 items={data?.news ?? []}
                 onViewAll={() => router.push('/(app)/news')}
                 onPressArticle={(item) => openNewsArticle(router, item)}
               />
+            </AnimatedReveal>
+
+            <AnimatedReveal index={9}>
+              <LiveSessionsHomeSection />
             </AnimatedReveal>
           </>
         )}

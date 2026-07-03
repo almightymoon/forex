@@ -35,6 +35,8 @@ export default function MoreScreen() {
 
   const quickAccess: QuickAccessItem[] = [
     { icon: 'courses', label: 'Courses', onPress: () => push('/(app)/courses') },
+    { icon: 'video', label: 'Live Sessions', onPress: () => push('/(app)/live-sessions') },
+    { icon: 'book-open', label: 'Library', onPress: () => push('/(app)/library') },
     { icon: 'file-text', label: 'Market News', onPress: () => push('/(app)/news') },
     { icon: 'candlestick', label: 'Signals', onPress: () => push('/(app)/signals') },
     { icon: 'users', label: 'Community', onPress: () => push('/(app)/community') },
@@ -78,6 +80,12 @@ export default function MoreScreen() {
           label: 'All Courses',
           subtitle: 'Browse and continue learning',
           onPress: () => push('/(app)/courses'),
+        },
+        {
+          icon: 'video',
+          label: 'Live Sessions',
+          subtitle: 'Reserve analyst calls and trading rooms',
+          onPress: () => push('/(app)/live-sessions'),
         },
         {
           icon: 'file-text',

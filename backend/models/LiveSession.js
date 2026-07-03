@@ -135,7 +135,26 @@ const liveSessionSchema = new mongoose.Schema({
     type: String,
     trim: true,
     maxlength: [500, 'Notes cannot exceed 500 characters']
-  }
+  },
+  /** null = all packages; otherwise package prices e.g. [100, 250, 1000] */
+  allowedPackages: {
+    type: [Number],
+    default: null,
+    validate: {
+      validator(value) {
+        if (value === null || value === undefined) return true;
+        if (!Array.isArray(value)) return false;
+        const validPrices = [100, 250, 1000];
+        return value.every((price) => validPrices.includes(price));
+      },
+      message: 'Allowed packages must be null or an array of 100, 250, or 1000',
+    },
+  },
+  coverImage: {
+    type: String,
+    trim: true,
+    default: '',
+  },
 }, {
   timestamps: true,
   toJSON: { virtuals: true },

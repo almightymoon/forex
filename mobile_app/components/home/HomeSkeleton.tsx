@@ -41,6 +41,7 @@ export function HomeSkeleton() {
   return (
     <View style={styles.wrap}>
       <Bone width="100%" height={148} radius={26} />
+      <Bone width="100%" height={248} radius={24} />
       <Bone width={140} height={22} radius={8} style={styles.sectionLabel} />
       <Bone width="100%" height={96} radius={20} />
       <Bone width="100%" height={96} radius={20} style={styles.gap} />
@@ -54,6 +55,7 @@ export function HomeSkeleton() {
       </View>
       <Bone width={130} height={22} radius={8} style={styles.sectionLabel} />
       <Bone width="100%" height={96} radius={16} />
+      <Bone width="100%" height={300} radius={24} style={styles.sectionLabel} />
     </View>
   );
 }

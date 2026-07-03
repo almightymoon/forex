@@ -8,6 +8,7 @@ const {
 } = require('../utils/coursePayload');
 const User = require('../models/User');
 const LiveSession = require('../models/LiveSession');
+const { sanitizeAllowedPackages } = require('../utils/coursePayload');
 const Assignment = require('../models/Assignment');
 const TeacherMessage = require('../models/TeacherMessage');
 
@@ -784,7 +785,9 @@ router.post('/live-sessions', async (req, res) => {
       chatEnabled,
       recordingEnabled,
       isReplayAvailable,
-      notes
+      notes,
+      allowedPackages,
+      coverImage,
     } = req.body;
     
     const session = new LiveSession({
@@ -807,6 +810,8 @@ router.post('/live-sessions', async (req, res) => {
       recordingEnabled: recordingEnabled !== false,
       isReplayAvailable: isReplayAvailable || false,
       notes,
+      allowedPackages: sanitizeAllowedPackages(allowedPackages),
+      coverImage: coverImage || '',
       status: 'scheduled',
       currentParticipants: []
     });
@@ -841,9 +846,14 @@ router.put('/live-sessions/:sessionId', async (req, res) => {
                                newMeetingLink !== 'https://meet.google.com/new' &&
                                newMeetingLink.includes('meet.google.com');
     
+    const patch = { ...req.body, updatedAt: new Date() };
+    if (patch.allowedPackages !== undefined) {
+      patch.allowedPackages = sanitizeAllowedPackages(patch.allowedPackages);
+    }
+
     const updatedSession = await LiveSession.findByIdAndUpdate(
       sessionId,
-      { ...req.body, updatedAt: new Date() },
+      patch,
       { new: true, runValidators: true }
     );
     
