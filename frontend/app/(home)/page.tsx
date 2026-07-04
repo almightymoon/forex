@@ -2,6 +2,7 @@
 
 import { lazy, Suspense, useRef, useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
+import AppCampaignGate from '../../components/campaign/AppCampaignGate';
 import LandingExperienceRoot from '../../components/landing-experience/LandingExperienceRoot';
 import LoadingScreen from '../../components/landing-experience/LoadingScreen';
 import ScrollScene from '../../components/landing-experience/ScrollScene';
@@ -35,6 +36,7 @@ export default function HomePage() {
 
   return (
     <LandingExperienceRoot platformName={settings.platformName}>
+      <AppCampaignGate />
       <ScrollScene />
       <main ref={mainRef} id="main" tabIndex={-1}>
         <Suspense fallback={null}>

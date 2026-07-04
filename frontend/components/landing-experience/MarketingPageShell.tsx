@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useSettings } from '../../context/SettingsContext';
+import AppCampaignGate from '../campaign/AppCampaignGate';
 import CoolLoader from '../CoolLoader';
 import Footer from './Footer';
 import LandingExperienceRoot from './LandingExperienceRoot';
@@ -78,6 +79,7 @@ export default function MarketingPageShell({ children, activePath }: MarketingPa
 
   return (
     <LandingExperienceRoot platformName={settings.platformName}>
+      <AppCampaignGate />
       <div className="marketing-page marketing-page--light-nav" id="top">
         <header className="scroll-scene__nav marketing-page__nav">
           <Link className="nav-logo nav-logo--text" href="/" title={settings.platformName}>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 import {
   fetchActiveCampaign,
@@ -12,16 +12,15 @@ import {
   type AppCampaign,
 } from '../../lib/appCampaign';
 
-let sessionChecked = false;
-
 export default function AppCampaignGate() {
   const router = useRouter();
   const [campaign, setCampaign] = useState<AppCampaign | null>(null);
   const [visible, setVisible] = useState(false);
+  const checkedRef = useRef(false);
 
   useEffect(() => {
-    if (sessionChecked) return;
-    sessionChecked = true;
+    if (checkedRef.current) return;
+    checkedRef.current = true;
 
     let alive = true;
     (async () => {

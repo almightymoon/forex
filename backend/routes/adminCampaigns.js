@@ -5,6 +5,7 @@ const multer = require('multer');
 const AppCampaign = require('../models/AppCampaign');
 const { uploadImage } = require('../config/cloudinary');
 const { sanitizeAllowedPackages } = require('../utils/coursePayload');
+const { notifyCampaignPublished } = require('../utils/appCampaign');
 
 const router = express.Router();
 
@@ -98,6 +99,10 @@ function applyCampaignBody(campaign, body, { bumpVersion = false } = {}) {
   if (bumpVersion) {
     campaign.version = (campaign.version || 1) + 1;
   }
+
+  if (campaign.audience === 'all') {
+    campaign.platforms = Array.from(new Set([...(campaign.platforms || []), 'mobile', 'web']));
+  }
 }
 
 router.get('/', async (req, res) => {
@@ -190,6 +195,19 @@ router.put('/:id', async (req, res) => {
     const contentChanged = contentFields.some((f) => req.body[f] !== undefined);
     applyCampaignBody(campaign, req.body, { bumpVersion: contentChanged && campaign.status === 'published' });
     await campaign.save();
+
+    if (
+      campaign.status === 'published' &&
+      contentChanged &&
+      (campaign.lastNotifiedVersion || 0) < (campaign.version || 1)
+    ) {
+      setImmediate(() => {
+        notifyCampaignPublished(campaign.toObject()).catch((err) => {
+          console.error('[Campaign] Update notification batch failed:', err.message);
+        });
+      });
+    }
+
     res.json(campaign);
   } catch (error) {
     console.error('Update campaign error:', error);
@@ -201,9 +219,28 @@ router.post('/:id/publish', async (req, res) => {
   try {
     const campaign = await AppCampaign.findById(req.params.id);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
+
+    // "All" audience campaigns should reach both web and mobile surfaces.
+    if (campaign.audience === 'all') {
+      const platforms = new Set(campaign.platforms || []);
+      platforms.add('mobile');
+      platforms.add('web');
+      campaign.platforms = Array.from(platforms);
+    }
+
     campaign.status = 'published';
     campaign.publishedAt = campaign.publishedAt || new Date();
     await campaign.save();
+
+    const shouldNotify = (campaign.lastNotifiedVersion || 0) < (campaign.version || 1);
+    if (shouldNotify) {
+      setImmediate(() => {
+        notifyCampaignPublished(campaign.toObject()).catch((err) => {
+          console.error('[Campaign] Publish notification batch failed:', err.message);
+        });
+      });
+    }
+
     res.json(campaign);
   } catch (error) {
     console.error('Publish campaign error:', error);

@@ -66,6 +66,8 @@ const appCampaignSchema = new mongoose.Schema(
     priority: { type: Number, default: 0 },
     version: { type: Number, default: 1, min: 1 },
     publishedAt: { type: Date },
+    /** Version number for which in-app/push notifications were already sent */
+    lastNotifiedVersion: { type: Number, default: 0, min: 0 },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true },

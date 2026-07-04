@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { getAuthToken } from '../../utils/api';
 import {
   fetchActiveCampaign,
   markCampaignShown,
@@ -7,18 +8,21 @@ import {
 } from '../../utils/appCampaign';
 import { AppCampaignModal } from './AppCampaignModal';
 
-let sessionChecked = false;
-
 export function AppCampaignGate() {
   const [campaign, setCampaign] = useState<AppCampaign | null>(null);
   const [visible, setVisible] = useState(false);
+  const checkedRef = useRef(false);
 
   useEffect(() => {
-    if (sessionChecked) return;
-    sessionChecked = true;
+    if (checkedRef.current) return;
+    checkedRef.current = true;
 
     let alive = true;
-    (async () => {
+
+    const load = async () => {
+      // Ensure auth token is loaded so authenticated-audience campaigns resolve correctly.
+      await getAuthToken();
+
       const active = await fetchActiveCampaign('mobile', 'reload');
       if (!alive || !active) return;
       const show = await shouldShowCampaign(active);
@@ -26,7 +30,9 @@ export function AppCampaignGate() {
       await markCampaignShown(active);
       setCampaign(active);
       setVisible(true);
-    })();
+    };
+
+    void load();
 
     return () => {
       alive = false;

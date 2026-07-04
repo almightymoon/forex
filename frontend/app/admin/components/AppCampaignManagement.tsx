@@ -133,6 +133,8 @@ export default function AppCampaignManagement() {
       showToast('Campaign ID, name, title, and schedule are required', 'error');
       return;
     }
+    const platforms =
+      form.platforms && form.platforms.length > 0 ? form.platforms : ['mobile', 'web'];
     setSaving(true);
     try {
       const token = localStorage.getItem('token');
@@ -145,7 +147,7 @@ export default function AppCampaignManagement() {
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, platforms }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -169,7 +171,12 @@ export default function AppCampaignManagement() {
       headers: { Authorization: `Bearer ${token}` },
     });
     if (res.ok) {
-      showToast(action === 'publish' ? 'Published' : 'Archived', 'success');
+      showToast(
+        action === 'publish'
+          ? 'Published — popup is live and account holders are being notified'
+          : 'Archived',
+        'success',
+      );
       fetchItems();
     }
   };
@@ -391,28 +398,51 @@ export default function AppCampaignManagement() {
                   className="mt-1 w-full rounded-lg border px-3 py-2 dark:bg-gray-700"
                 />
               </label>
-              <label className="block">
+              <div className="block">
                 <span className="text-xs font-semibold uppercase text-gray-500">Platforms</span>
-                <select
-                  multiple
-                  value={form.platforms || ['mobile', 'web']}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      platforms: Array.from(e.target.selectedOptions).map((o) => o.value),
-                    }))
-                  }
-                  className="mt-1 w-full rounded-lg border px-3 py-2 dark:bg-gray-700 h-20"
-                >
-                  <option value="mobile">Mobile</option>
-                  <option value="web">Web</option>
-                </select>
-              </label>
+                <div className="mt-2 flex flex-wrap gap-4">
+                  {(['mobile', 'web'] as const).map((platform) => {
+                    const selected = (form.platforms || ['mobile', 'web']).includes(platform);
+                    return (
+                      <label key={platform} className="inline-flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={(e) => {
+                            const current = form.platforms || ['mobile', 'web'];
+                            const next = e.target.checked
+                              ? Array.from(new Set([...current, platform]))
+                              : current.filter((p) => p !== platform);
+                            setForm((f) => ({
+                              ...f,
+                              platforms: next.length ? next : [platform],
+                            }));
+                          }}
+                        />
+                        {platform === 'mobile' ? 'Mobile app' : 'Website'}
+                      </label>
+                    );
+                  })}
+                </div>
+                <p className="mt-1 text-xs text-gray-500">
+                  Include both for &quot;All&quot; audience so guests see the landing popup and app users see it in the app.
+                </p>
+              </div>
               <label className="block">
                 <span className="text-xs font-semibold uppercase text-gray-500">Audience</span>
                 <select
                   value={form.audience || 'authenticated'}
-                  onChange={(e) => setForm((f) => ({ ...f, audience: e.target.value }))}
+                  onChange={(e) => {
+                    const audience = e.target.value;
+                    setForm((f) => ({
+                      ...f,
+                      audience,
+                      platforms:
+                        audience === 'all'
+                          ? Array.from(new Set([...(f.platforms || []), 'mobile', 'web']))
+                          : f.platforms,
+                    }));
+                  }}
                   className="mt-1 w-full rounded-lg border px-3 py-2 dark:bg-gray-700"
                 >
                   <option value="all">All</option>
