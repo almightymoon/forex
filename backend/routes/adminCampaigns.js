@@ -66,6 +66,20 @@ function applyCampaignBody(campaign, body, { bumpVersion = false } = {}) {
   if (body.badge !== undefined) campaign.badge = String(body.badge).trim();
   if (body.imageUrl !== undefined) campaign.imageUrl = String(body.imageUrl).trim();
   if (body.showDismissButton !== undefined) campaign.showDismissButton = Boolean(body.showDismissButton);
+  if (body.layout !== undefined && ['standard', 'image_only', 'image_with_text', 'custom'].includes(body.layout)) {
+    campaign.layout = body.layout;
+  }
+  if (body.showTitle !== undefined) campaign.showTitle = Boolean(body.showTitle);
+  if (body.showBody !== undefined) campaign.showBody = Boolean(body.showBody);
+  if (body.showBadge !== undefined) campaign.showBadge = Boolean(body.showBadge);
+  if (body.showCtaButton !== undefined) campaign.showCtaButton = Boolean(body.showCtaButton);
+  if (body.imageClickable !== undefined) campaign.imageClickable = Boolean(body.imageClickable);
+  if (body.imageFit !== undefined && ['cover', 'contain'].includes(body.imageFit)) {
+    campaign.imageFit = body.imageFit;
+  }
+  if (body.imageHeight !== undefined && ['compact', 'medium', 'large', 'auto'].includes(body.imageHeight)) {
+    campaign.imageHeight = body.imageHeight;
+  }
   if (body.dismissMode !== undefined && ['session', 'day', 'campaign'].includes(body.dismissMode)) {
     campaign.dismissMode = body.dismissMode;
   }
@@ -191,7 +205,22 @@ router.put('/:id', async (req, res) => {
     const campaign = await AppCampaign.findById(req.params.id);
     if (!campaign) return res.status(404).json({ error: 'Campaign not found' });
 
-    const contentFields = ['title', 'body', 'badge', 'imageUrl', 'cta'];
+    const contentFields = [
+      'title',
+      'body',
+      'badge',
+      'imageUrl',
+      'cta',
+      'layout',
+      'showTitle',
+      'showBody',
+      'showBadge',
+      'showCtaButton',
+      'showDismissButton',
+      'imageClickable',
+      'imageFit',
+      'imageHeight',
+    ];
     const contentChanged = contentFields.some((f) => req.body[f] !== undefined);
     applyCampaignBody(campaign, req.body, { bumpVersion: contentChanged && campaign.status === 'published' });
     await campaign.save();

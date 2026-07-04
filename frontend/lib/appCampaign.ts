@@ -7,6 +7,10 @@ export type AppCampaignCta = {
   route?: string;
 };
 
+export type CampaignLayout = 'standard' | 'image_only' | 'image_with_text' | 'custom';
+export type CampaignImageFit = 'cover' | 'contain';
+export type CampaignImageHeight = 'compact' | 'medium' | 'large' | 'auto';
+
 export type AppCampaign = {
   campaignId: string;
   version: number;
@@ -16,6 +20,14 @@ export type AppCampaign = {
   imageUrl?: string;
   cta: AppCampaignCta;
   showDismissButton?: boolean;
+  layout?: CampaignLayout;
+  showTitle?: boolean;
+  showBody?: boolean;
+  showBadge?: boolean;
+  showCtaButton?: boolean;
+  imageClickable?: boolean;
+  imageFit?: CampaignImageFit;
+  imageHeight?: CampaignImageHeight;
   dismissMode: 'session' | 'day' | 'campaign';
   frequency: 'once_per_session' | 'once_per_day' | 'every_open';
 };

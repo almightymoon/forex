@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Plus, Edit, Trash, Megaphone, X, Upload, Loader2, Archive, Send } from 'lucide-react';
+import { Plus, Edit, Trash, Megaphone, X, Upload, Loader2, Archive, Send, Eye, Smartphone, Monitor } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
+import CampaignPopup from '../../../components/campaign/CampaignPopup';
+import type { CampaignLayout, CampaignImageFit, CampaignImageHeight } from '../../../lib/appCampaign';
 
 type CampaignRecord = {
   _id: string;
@@ -17,6 +19,14 @@ type CampaignRecord = {
   imageUrl?: string;
   cta?: { label?: string; action?: string; url?: string; route?: string };
   showDismissButton?: boolean;
+  layout?: CampaignLayout;
+  showTitle?: boolean;
+  showBody?: boolean;
+  showBadge?: boolean;
+  showCtaButton?: boolean;
+  imageClickable?: boolean;
+  imageFit?: CampaignImageFit;
+  imageHeight?: CampaignImageHeight;
   dismissMode?: string;
   startAt: string;
   endAt: string;
@@ -38,6 +48,14 @@ const emptyForm: Partial<CampaignRecord> = {
   imageUrl: '',
   cta: { label: 'Shop now', action: 'route', route: '/shop', url: '' },
   showDismissButton: true,
+  layout: 'standard',
+  showTitle: true,
+  showBody: true,
+  showBadge: true,
+  showCtaButton: true,
+  imageClickable: false,
+  imageFit: 'cover',
+  imageHeight: 'medium',
   dismissMode: 'campaign',
   platforms: ['mobile', 'web'],
   audience: 'authenticated',
@@ -61,6 +79,77 @@ export default function AppCampaignManagement() {
   const [form, setForm] = useState<Partial<CampaignRecord>>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [previewDevice, setPreviewDevice] = useState<'web' | 'mobile'>('web');
+
+  const previewCampaign = useMemo(
+    () => ({
+      campaignId: form.campaignId || 'preview',
+      version: form.version || 1,
+      title: form.title || 'Campaign title',
+      body: form.body || '',
+      badge: form.badge || '',
+      imageUrl: form.imageUrl || '',
+      cta: form.cta || emptyForm.cta!,
+      showDismissButton: form.showDismissButton,
+      layout: form.layout || 'standard',
+      showTitle: form.showTitle,
+      showBody: form.showBody,
+      showBadge: form.showBadge,
+      showCtaButton: form.showCtaButton,
+      imageClickable: form.imageClickable,
+      imageFit: form.imageFit || 'cover',
+      imageHeight: form.imageHeight || 'medium',
+    }),
+    [form],
+  );
+
+  const applyLayoutPreset = (layout: CampaignLayout) => {
+    if (layout === 'image_only') {
+      setForm((f) => ({
+        ...f,
+        layout,
+        showTitle: false,
+        showBody: false,
+        showBadge: false,
+        showCtaButton: false,
+        showDismissButton: false,
+        imageClickable: true,
+        imageHeight: 'large',
+      }));
+      return;
+    }
+    if (layout === 'image_with_text') {
+      setForm((f) => ({
+        ...f,
+        layout,
+        showTitle: true,
+        showBody: true,
+        showBadge: true,
+        showCtaButton: false,
+        showDismissButton: true,
+        imageClickable: false,
+        imageHeight: 'medium',
+      }));
+      return;
+    }
+    if (layout === 'standard') {
+      setForm((f) => ({
+        ...f,
+        layout,
+        showTitle: true,
+        showBody: true,
+        showBadge: true,
+        showCtaButton: true,
+        showDismissButton: true,
+        imageClickable: false,
+        imageHeight: 'medium',
+      }));
+      return;
+    }
+    setForm((f) => ({ ...f, layout: 'custom' }));
+  };
+
+  const togglesLocked = form.layout === 'image_only' || form.layout === 'image_with_text';
 
   const fetchItems = async () => {
     setLoading(true);
@@ -99,7 +188,19 @@ export default function AppCampaignManagement() {
 
   const openEdit = (item: CampaignRecord) => {
     setEditing(item);
-    setForm({ ...item, cta: { ...emptyForm.cta, ...item.cta } });
+    setForm({
+      ...emptyForm,
+      ...item,
+      cta: { ...emptyForm.cta, ...item.cta },
+      layout: item.layout || 'standard',
+      showTitle: item.showTitle !== false,
+      showBody: item.showBody !== false,
+      showBadge: item.showBadge !== false,
+      showCtaButton: item.showCtaButton !== false,
+      imageClickable: item.imageClickable === true,
+      imageFit: item.imageFit || 'cover',
+      imageHeight: item.imageHeight || 'medium',
+    });
     setModalOpen(true);
   };
 
@@ -293,18 +394,25 @@ export default function AppCampaignManagement() {
           <motion.div
             initial={{ opacity: 0, scale: 0.96 }}
             animate={{ opacity: 1, scale: 1 }}
-            className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white dark:bg-gray-800 p-6 shadow-xl"
+            className="max-h-[92vh] w-full max-w-6xl overflow-hidden rounded-2xl bg-white dark:bg-gray-800 shadow-xl flex flex-col"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white">
-                {editing ? 'Edit campaign' : 'New campaign'}
-              </h3>
+            <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  {editing ? 'Edit campaign' : 'New campaign'}
+                </h3>
+                <p className="text-xs text-gray-500 mt-0.5">Changes update the live preview instantly</p>
+              </div>
               <button type="button" onClick={() => setModalOpen(false)}>
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex flex-1 min-h-0 overflow-hidden flex-col lg:flex-row">
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <section>
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">Basics</h4>
+                  <div className="grid gap-4 sm:grid-cols-2">
               <label className="block sm:col-span-1">
                 <span className="text-xs font-semibold uppercase text-gray-500">Campaign ID</span>
                 <input
@@ -380,6 +488,142 @@ export default function AppCampaignManagement() {
                   </label>
                 </div>
               </label>
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">Appearance</h4>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block sm:col-span-2">
+                      <span className="text-xs font-semibold uppercase text-gray-500">Layout preset</span>
+                      <select
+                        value={form.layout || 'standard'}
+                        onChange={(e) => applyLayoutPreset(e.target.value as CampaignLayout)}
+                        className="mt-1 w-full rounded-lg border px-3 py-2 dark:bg-gray-700"
+                      >
+                        <option value="standard">Standard — image, text, and buttons</option>
+                        <option value="image_only">Image only — banner with close button</option>
+                        <option value="image_with_text">Image + text — no action buttons</option>
+                        <option value="custom">Custom — pick each element below</option>
+                      </select>
+                    </label>
+
+                    <div className="sm:col-span-2 rounded-lg border border-gray-200 dark:border-gray-600 p-4">
+                      <span className="text-xs font-semibold uppercase text-gray-500">Visible elements</span>
+                      <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                        {(
+                          [
+                            ['showTitle', 'Title'],
+                            ['showBody', 'Message'],
+                            ['showBadge', 'Badge'],
+                            ['showCtaButton', 'Primary button'],
+                            ['showDismissButton', '"Maybe later" link'],
+                            ['imageClickable', 'Tap image opens link'],
+                          ] as const
+                        ).map(([key, label]) => (
+                          <label key={key} className="inline-flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              disabled={togglesLocked && key !== 'imageClickable'}
+                              checked={form[key] !== false}
+                              onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.checked }))}
+                            />
+                            {label}
+                          </label>
+                        ))}
+                      </div>
+                      {togglesLocked ? (
+                        <p className="mt-2 text-xs text-gray-500">
+                          Switch to Custom to override individual toggles for this preset.
+                        </p>
+                      ) : null}
+                    </div>
+
+                    <label className="block">
+                      <span className="text-xs font-semibold uppercase text-gray-500">Image height</span>
+                      <select
+                        value={form.imageHeight || 'medium'}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, imageHeight: e.target.value as CampaignImageHeight }))
+                        }
+                        className="mt-1 w-full rounded-lg border px-3 py-2 dark:bg-gray-700"
+                      >
+                        <option value="compact">Compact</option>
+                        <option value="medium">Medium</option>
+                        <option value="large">Large</option>
+                        <option value="auto">Fit image (auto)</option>
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold uppercase text-gray-500">Image fit</span>
+                      <select
+                        value={form.imageFit || 'cover'}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, imageFit: e.target.value as CampaignImageFit }))
+                        }
+                        className="mt-1 w-full rounded-lg border px-3 py-2 dark:bg-gray-700"
+                      >
+                        <option value="cover">Cover (crop to fill)</option>
+                        <option value="contain">Contain (show full image)</option>
+                      </select>
+                    </label>
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">Action button</h4>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <label className="block sm:col-span-2">
+                      <span className="text-xs font-semibold uppercase text-gray-500">Button label</span>
+                      <input
+                        value={form.cta?.label || ''}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, cta: { ...f.cta!, label: e.target.value } }))
+                        }
+                        className="mt-1 w-full rounded-lg border px-3 py-2 dark:bg-gray-700"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold uppercase text-gray-500">Button action</span>
+                      <select
+                        value={form.cta?.action || 'dismiss_only'}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, cta: { ...f.cta!, action: e.target.value } }))
+                        }
+                        className="mt-1 w-full rounded-lg border px-3 py-2 dark:bg-gray-700"
+                      >
+                        <option value="dismiss_only">Close only</option>
+                        <option value="route">In-app route</option>
+                        <option value="link">External link</option>
+                      </select>
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-semibold uppercase text-gray-500">
+                        {form.cta?.action === 'link' ? 'URL' : 'Route'}
+                      </span>
+                      <input
+                        value={
+                          form.cta?.action === 'link' ? form.cta?.url || '' : form.cta?.route || ''
+                        }
+                        onChange={(e) =>
+                          setForm((f) => ({
+                            ...f,
+                            cta:
+                              f.cta?.action === 'link'
+                                ? { ...f.cta!, url: e.target.value }
+                                : { ...f.cta!, route: e.target.value },
+                          }))
+                        }
+                        placeholder={form.cta?.action === 'link' ? 'https://…' : '/shop or /(app)/shop'}
+                        className="mt-1 w-full rounded-lg border px-3 py-2 dark:bg-gray-700"
+                      />
+                    </label>
+                  </div>
+                </section>
+
+                <section>
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white mb-3">Schedule &amp; targeting</h4>
+                  <div className="grid gap-4 sm:grid-cols-2">
               <label className="block">
                 <span className="text-xs font-semibold uppercase text-gray-500">Start</span>
                 <input
@@ -477,54 +721,44 @@ export default function AppCampaignManagement() {
                   <option value="campaign">Don&apos;t show again (this version)</option>
                 </select>
               </label>
-              <label className="block sm:col-span-2">
-                <span className="text-xs font-semibold uppercase text-gray-500">Button label</span>
-                <input
-                  value={form.cta?.label || ''}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, cta: { ...f.cta!, label: e.target.value } }))
-                  }
-                  className="mt-1 w-full rounded-lg border px-3 py-2 dark:bg-gray-700"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold uppercase text-gray-500">Button action</span>
-                <select
-                  value={form.cta?.action || 'dismiss_only'}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, cta: { ...f.cta!, action: e.target.value } }))
-                  }
-                  className="mt-1 w-full rounded-lg border px-3 py-2 dark:bg-gray-700"
-                >
-                  <option value="dismiss_only">Close only</option>
-                  <option value="route">In-app route</option>
-                  <option value="link">External link</option>
-                </select>
-              </label>
-              <label className="block">
-                <span className="text-xs font-semibold uppercase text-gray-500">
-                  {form.cta?.action === 'link' ? 'URL' : 'Route'}
-                </span>
-                <input
-                  value={
-                    form.cta?.action === 'link' ? form.cta?.url || '' : form.cta?.route || ''
-                  }
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      cta:
-                        f.cta?.action === 'link'
-                          ? { ...f.cta!, url: e.target.value }
-                          : { ...f.cta!, route: e.target.value },
-                    }))
-                  }
-                  placeholder={form.cta?.action === 'link' ? 'https://…' : '/shop or /(app)/shop'}
-                  className="mt-1 w-full rounded-lg border px-3 py-2 dark:bg-gray-700"
-                />
-              </label>
+                  </div>
+                </section>
+              </div>
+
+              <div className="lg:w-[340px] shrink-0 border-t lg:border-t-0 lg:border-l border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 flex flex-col">
+                <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                  <span className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Eye className="h-4 w-4" />
+                    Live preview
+                  </span>
+                  <div className="flex rounded-lg border border-gray-200 dark:border-gray-600 overflow-hidden text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewDevice('web')}
+                      className={`px-2 py-1 flex items-center gap-1 ${previewDevice === 'web' ? 'bg-blue-600 text-white' : ''}`}
+                    >
+                      <Monitor className="h-3 w-3" />
+                      Web
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewDevice('mobile')}
+                      className={`px-2 py-1 flex items-center gap-1 ${previewDevice === 'mobile' ? 'bg-blue-600 text-white' : ''}`}
+                    >
+                      <Smartphone className="h-3 w-3" />
+                      Mobile
+                    </button>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-y-auto p-4 flex items-start justify-center">
+                  <div className={previewDevice === 'mobile' ? 'w-[280px]' : 'w-full max-w-sm'}>
+                    <CampaignPopup campaign={previewCampaign} preview />
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4 flex justify-end gap-2">
               <button type="button" onClick={() => setModalOpen(false)} className="rounded-lg border px-4 py-2">
                 Cancel
               </button>

@@ -37,6 +37,26 @@ const appCampaignSchema = new mongoose.Schema(
     imageUrl: { type: String, default: '', trim: true, maxlength: 500 },
     cta: { type: ctaSchema, default: () => ({}) },
     showDismissButton: { type: Boolean, default: true },
+    layout: {
+      type: String,
+      enum: ['standard', 'image_only', 'image_with_text', 'custom'],
+      default: 'standard',
+    },
+    showTitle: { type: Boolean, default: true },
+    showBody: { type: Boolean, default: true },
+    showBadge: { type: Boolean, default: true },
+    showCtaButton: { type: Boolean, default: true },
+    imageClickable: { type: Boolean, default: false },
+    imageFit: {
+      type: String,
+      enum: ['cover', 'contain'],
+      default: 'cover',
+    },
+    imageHeight: {
+      type: String,
+      enum: ['compact', 'medium', 'large', 'auto'],
+      default: 'medium',
+    },
     dismissMode: {
       type: String,
       enum: ['session', 'day', 'campaign'],
