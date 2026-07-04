@@ -2,23 +2,42 @@
 
 import { useEffect, useRef, useState, type AnimationEvent } from 'react';
 
-function easeOutQuart(x: number): number {
-  return 1 - (1 - x) ** 4;
-}
-
 type Props = {
   onDone: () => void;
+  /** When false, the exit animation waits (e.g. until settings/API data is ready). */
+  ready?: boolean;
 };
 
-export default function LoadingScreen({ onDone }: Props) {
+export default function LoadingScreen({ onDone, ready = true }: Props) {
   const [exiting, setExiting] = useState(false);
   const doneRef = useRef(false);
   const rafRef = useRef(0);
+  const readyRef = useRef(ready);
+  readyRef.current = ready;
 
   useEffect(() => {
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    const complete = () => {
+      if (doneRef.current) return;
+      doneRef.current = true;
+      window.setTimeout(() => setExiting(true), 120);
+    };
+
+    const tryComplete = () => {
+      if (readyRef.current) {
+        complete();
+        return true;
+      }
+      return false;
+    };
+
     if (reduced) {
-      const t = window.setTimeout(() => setExiting(true), 100);
+      const tickReduced = () => {
+        if (tryComplete()) return;
+        window.setTimeout(tickReduced, 50);
+      };
+      const t = window.setTimeout(tickReduced, 100);
       return () => window.clearTimeout(t);
     }
 
@@ -32,18 +51,11 @@ export default function LoadingScreen({ onDone }: Props) {
     const maxMs = 4000;
     const start = performance.now();
 
-    const complete = () => {
-      if (doneRef.current) return;
-      doneRef.current = true;
-      window.setTimeout(() => setExiting(true), 120);
-    };
-
     const tick = () => {
       const elapsed = performance.now() - start;
-      const p = easeOutQuart(Math.min(1, elapsed / minMs)) * 100;
-      const canComplete = pageLoaded && elapsed >= minMs;
+      const canComplete = pageLoaded && elapsed >= minMs && readyRef.current;
 
-      if (canComplete || p >= 100) {
+      if (canComplete) {
         complete();
         return;
       }

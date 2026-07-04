@@ -2,7 +2,6 @@
 
 import { lazy, Suspense, useRef, useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
-import CoolLoader from '../../components/CoolLoader';
 import LandingExperienceRoot from '../../components/landing-experience/LandingExperienceRoot';
 import LoadingScreen from '../../components/landing-experience/LoadingScreen';
 import ScrollScene from '../../components/landing-experience/ScrollScene';
@@ -19,19 +18,19 @@ const Footer = lazy(() => import('../../components/landing-experience/Footer'));
 export default function HomePage() {
   const mainRef = useRef<HTMLElement>(null);
   const { settings, loading } = useSettings();
-  const [showLandingLoader, setShowLandingLoader] = useState(true);
+  const [introDone, setIntroDone] = useState(false);
 
-  const handleLoaderComplete = () => {
-    setShowLandingLoader(false);
+  const handleIntroComplete = () => {
+    setIntroDone(true);
     requestAnimationFrame(() => {
       mainRef.current?.focus({ preventScroll: true });
     });
   };
 
-  if (loading) {
-    return (
-      <CoolLoader message={`Loading ${settings.platformName}...`} size="md" variant="default" />
-    );
+  const showIntro = loading || !introDone;
+
+  if (showIntro) {
+    return <LoadingScreen onDone={handleIntroComplete} ready={!loading} />;
   }
 
   return (
@@ -49,7 +48,6 @@ export default function HomePage() {
           <Footer />
         </Suspense>
       </main>
-      {showLandingLoader && <LoadingScreen onDone={handleLoaderComplete} />}
     </LandingExperienceRoot>
   );
 }
