@@ -6,7 +6,8 @@ import { Plus, Edit, Trash, Megaphone, X, Upload, Loader2, Archive, Send, Eye, S
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
 import CampaignPopup from '../../../components/campaign/CampaignPopup';
-import type { CampaignLayout, CampaignImageFit, CampaignImageHeight } from '../../../lib/appCampaign';
+import type { CampaignPreviewSource } from '../../../components/campaign/campaignDisplay';
+import type { CampaignLayout, CampaignImageFit, CampaignImageHeight, AppCampaignCta } from '../../../lib/appCampaign';
 
 type CampaignRecord = {
   _id: string;
@@ -71,6 +72,17 @@ function toLocalInput(iso?: string) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function normalizePreviewCta(cta?: CampaignRecord['cta']): AppCampaignCta {
+  const action = cta?.action;
+  return {
+    label: cta?.label?.trim() || 'Learn more',
+    action:
+      action === 'link' || action === 'route' || action === 'dismiss_only' ? action : 'dismiss_only',
+    url: cta?.url || '',
+    route: cta?.route || '',
+  };
+}
+
 export default function AppCampaignManagement() {
   const [items, setItems] = useState<CampaignRecord[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,14 +94,14 @@ export default function AppCampaignManagement() {
   const [previewDevice, setPreviewDevice] = useState<'web' | 'mobile'>('web');
 
   const previewCampaign = useMemo(
-    () => ({
+    (): CampaignPreviewSource & Pick<CampaignRecord, 'campaignId' | 'version'> => ({
       campaignId: form.campaignId || 'preview',
       version: form.version || 1,
       title: form.title || 'Campaign title',
       body: form.body || '',
       badge: form.badge || '',
       imageUrl: form.imageUrl || '',
-      cta: form.cta || emptyForm.cta!,
+      cta: normalizePreviewCta(form.cta ?? emptyForm.cta),
       showDismissButton: form.showDismissButton,
       layout: form.layout || 'standard',
       showTitle: form.showTitle,
