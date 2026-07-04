@@ -75,6 +75,10 @@ function toPublicCampaign(campaign) {
     imageClickable: campaign.imageClickable === true,
     imageFit: campaign.imageFit || 'cover',
     imageHeight: campaign.imageHeight || 'medium',
+    borderRadius:
+      typeof campaign.borderRadius === 'number' && Number.isFinite(campaign.borderRadius)
+        ? Math.max(0, Math.min(48, Math.round(campaign.borderRadius)))
+        : 16,
     dismissMode: campaign.dismissMode || 'campaign',
     frequency: campaign.frequency || 'once_per_session',
   };

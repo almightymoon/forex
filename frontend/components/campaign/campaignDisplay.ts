@@ -15,6 +15,7 @@ export type CampaignDisplayOptions = {
   imageClickable: boolean;
   imageFit: CampaignImageFit;
   imageHeight: CampaignImageHeight;
+  borderRadius: number;
 };
 
 export type CampaignPreviewSource = Pick<
@@ -34,11 +35,21 @@ export type CampaignPreviewSource = Pick<
   | 'imageClickable'
   | 'imageFit'
   | 'imageHeight'
+  | 'borderRadius'
 >;
+
+export function resolveBorderRadius(campaign: CampaignPreviewSource): number {
+  const n = campaign.borderRadius;
+  if (typeof n === 'number' && Number.isFinite(n)) {
+    return Math.max(0, Math.min(48, Math.round(n)));
+  }
+  return 16;
+}
 
 export function resolveCampaignDisplay(campaign: CampaignPreviewSource): CampaignDisplayOptions {
   const layout = (campaign.layout as CampaignLayout) || 'standard';
   const showBorder = campaign.showBorder !== false;
+  const borderRadius = resolveBorderRadius(campaign);
 
   if (layout === 'image_only') {
     return {
@@ -51,7 +62,8 @@ export function resolveCampaignDisplay(campaign: CampaignPreviewSource): Campaig
       showBorder,
       imageClickable: campaign.imageClickable !== false,
       imageFit: campaign.imageFit || 'cover',
-      imageHeight: campaign.imageHeight || 'large',
+      imageHeight: showBorder ? campaign.imageHeight || 'large' : 'auto',
+      borderRadius,
     };
   }
 
@@ -67,6 +79,7 @@ export function resolveCampaignDisplay(campaign: CampaignPreviewSource): Campaig
       imageClickable: campaign.imageClickable === true,
       imageFit: campaign.imageFit || 'cover',
       imageHeight: campaign.imageHeight || 'medium',
+      borderRadius,
     };
   }
 
@@ -81,6 +94,7 @@ export function resolveCampaignDisplay(campaign: CampaignPreviewSource): Campaig
     imageClickable: campaign.imageClickable === true,
     imageFit: campaign.imageFit || 'cover',
     imageHeight: campaign.imageHeight || 'medium',
+    borderRadius,
   };
 }
 
@@ -95,14 +109,15 @@ export function hasTextContent(
   );
 }
 
-export function imageHeightClass(height: CampaignImageHeight): string {
+export function imageHeightClass(height: CampaignImageHeight, borderless = false): string {
+  if (borderless || height === 'auto') {
+    return 'h-auto w-full max-h-[min(85vh,640px)]';
+  }
   switch (height) {
     case 'compact':
       return 'h-32';
     case 'large':
       return 'h-72';
-    case 'auto':
-      return 'h-auto max-h-[min(70vh,520px)]';
     case 'medium':
     default:
       return 'h-44';
@@ -110,8 +125,8 @@ export function imageHeightClass(height: CampaignImageHeight): string {
 }
 
 export function imageObjectClass(fit: CampaignImageFit, borderless = false): string {
-  if (fit === 'contain') {
-    return borderless ? 'object-contain bg-transparent' : 'object-contain bg-gray-100 dark:bg-gray-800';
+  if (borderless || fit === 'contain') {
+    return 'object-contain bg-transparent';
   }
   return 'object-cover';
 }

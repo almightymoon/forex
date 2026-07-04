@@ -15,11 +15,21 @@ export type CampaignDisplayOptions = {
   imageClickable: boolean;
   imageFit: CampaignImageFit;
   imageHeight: CampaignImageHeight;
+  borderRadius: number;
 };
+
+export function resolveBorderRadius(campaign: AppCampaign): number {
+  const n = campaign.borderRadius;
+  if (typeof n === 'number' && Number.isFinite(n)) {
+    return Math.max(0, Math.min(48, Math.round(n)));
+  }
+  return 16;
+}
 
 export function resolveCampaignDisplay(campaign: AppCampaign): CampaignDisplayOptions {
   const layout = campaign.layout || 'standard';
   const showBorder = campaign.showBorder !== false;
+  const borderRadius = resolveBorderRadius(campaign);
 
   if (layout === 'image_only') {
     return {
@@ -32,7 +42,8 @@ export function resolveCampaignDisplay(campaign: AppCampaign): CampaignDisplayOp
       showBorder,
       imageClickable: campaign.imageClickable !== false,
       imageFit: campaign.imageFit || 'cover',
-      imageHeight: campaign.imageHeight || 'large',
+      imageHeight: showBorder ? campaign.imageHeight || 'large' : 'auto',
+      borderRadius,
     };
   }
 
@@ -48,6 +59,7 @@ export function resolveCampaignDisplay(campaign: AppCampaign): CampaignDisplayOp
       imageClickable: campaign.imageClickable === true,
       imageFit: campaign.imageFit || 'cover',
       imageHeight: campaign.imageHeight || 'medium',
+      borderRadius,
     };
   }
 
@@ -62,17 +74,17 @@ export function resolveCampaignDisplay(campaign: AppCampaign): CampaignDisplayOp
     imageClickable: campaign.imageClickable === true,
     imageFit: campaign.imageFit || 'cover',
     imageHeight: campaign.imageHeight || 'medium',
+    borderRadius,
   };
 }
 
-export function imageHeightPx(height: CampaignImageHeight): number | undefined {
+export function imageHeightPx(height: CampaignImageHeight, borderless = false): number | undefined {
+  if (borderless || height === 'auto') return undefined;
   switch (height) {
     case 'compact':
       return 128;
     case 'large':
       return 288;
-    case 'auto':
-      return undefined;
     case 'medium':
     default:
       return 180;

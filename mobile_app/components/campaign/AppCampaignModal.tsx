@@ -39,6 +39,8 @@ export function AppCampaignModal({ campaign, visible, onClose }: Props) {
   const image = getCampaignImageUrl(campaign.imageUrl);
   const showText = hasTextContent(campaign, display);
   const showFooter = display.showCtaButton || display.showDismissButton;
+  const imageOnlyBorderless =
+    !display.showBorder && display.layout === 'image_only' && !showText && !showFooter;
 
   const close = async () => {
     await markCampaignDismissed(campaign);
@@ -63,14 +65,14 @@ export function AppCampaignModal({ campaign, visible, onClose }: Props) {
 
   const heroStyle: StyleProp<ImageStyle> = [
     styles.hero,
-    display.imageHeight === 'auto' ? styles.heroAuto : null,
+    display.imageHeight === 'auto' || imageOnlyBorderless ? styles.heroAuto : null,
   ];
 
   const imageNode = image ? (
     <Image
       source={{ uri: image }}
       style={heroStyle}
-      contentFit={display.imageFit === 'contain' ? 'contain' : 'cover'}
+      contentFit={display.imageFit === 'contain' || imageOnlyBorderless ? 'contain' : 'cover'}
     />
   ) : (
     <View style={[styles.hero, styles.heroPlaceholder]}>
@@ -78,16 +80,31 @@ export function AppCampaignModal({ campaign, visible, onClose }: Props) {
     </View>
   );
 
+  if (imageOnlyBorderless) {
+    return (
+      <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
+        <View style={styles.scrim}>
+          <View style={styles.imageOnlyWrap}>
+            <Pressable style={styles.closeBtnBorderless} onPress={close} hitSlop={12}>
+              <Ionicons name="close" size={22} color="#fff" />
+            </Pressable>
+            {display.imageClickable ? (
+              <Pressable onPress={onCta}>{imageNode}</Pressable>
+            ) : (
+              imageNode
+            )}
+          </View>
+        </View>
+      </Modal>
+    );
+  }
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={close}>
       <View style={styles.scrim}>
         <View style={styles.card}>
           <Pressable style={styles.closeBtn} onPress={close} hitSlop={12}>
-            <Ionicons
-              name="close"
-              size={22}
-              color={!display.showBorder && display.layout === 'image_only' ? '#fff' : colors.textMuted}
-            />
+            <Ionicons name="close" size={22} color={colors.textMuted} />
           </Pressable>
 
           {display.imageClickable ? (
@@ -133,9 +150,9 @@ export function AppCampaignModal({ campaign, visible, onClose }: Props) {
 }
 
 function createStyles(colors: AppColors, display: ReturnType<typeof resolveCampaignDisplay>) {
-  const heroHeight = imageHeightPx(display.imageHeight);
+  const heroHeight = imageHeightPx(display.imageHeight, !display.showBorder);
+  const radius = display.borderRadius;
   const borderless = !display.showBorder;
-  const imageOnlyBorderless = borderless && display.layout === 'image_only';
 
   return StyleSheet.create({
     scrim: {
@@ -144,12 +161,30 @@ function createStyles(colors: AppColors, display: ReturnType<typeof resolveCampa
       justifyContent: 'center',
       padding: 20,
     },
+    imageOnlyWrap: {
+      width: '100%',
+      maxWidth: 420,
+      alignSelf: 'center',
+      position: 'relative',
+    },
     card: {
-      borderRadius: 22,
+      borderRadius: radius,
       overflow: 'hidden',
-      backgroundColor: imageOnlyBorderless ? 'transparent' : colors.surface,
-      borderWidth: borderless ? 0 : 1,
+      backgroundColor: borderless ? 'transparent' : colors.surface,
+      borderWidth: display.showBorder ? 1 : 0,
       borderColor: colors.border,
+    },
+    closeBtnBorderless: {
+      position: 'absolute',
+      top: 12,
+      right: 12,
+      zIndex: 2,
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: 'rgba(0,0,0,0.5)',
+      alignItems: 'center',
+      justifyContent: 'center',
     },
     closeBtn: {
       position: 'absolute',
@@ -159,7 +194,7 @@ function createStyles(colors: AppColors, display: ReturnType<typeof resolveCampa
       width: 36,
       height: 36,
       borderRadius: 18,
-      backgroundColor: imageOnlyBorderless ? 'rgba(0,0,0,0.5)' : colors.surface,
+      backgroundColor: colors.surface,
       alignItems: 'center',
       justifyContent: 'center',
     },
@@ -167,13 +202,13 @@ function createStyles(colors: AppColors, display: ReturnType<typeof resolveCampa
       width: '100%',
       height: heroHeight,
       backgroundColor: borderless ? 'transparent' : colors.surfaceHover,
-      borderRadius: imageOnlyBorderless ? 22 : 0,
+      borderRadius: borderless ? radius : 0,
     },
     heroAuto: {
       height: undefined,
-      minHeight: 180,
-      maxHeight: 420,
-      aspectRatio: 4 / 5,
+      minHeight: 120,
+      maxHeight: 520,
+      aspectRatio: undefined,
     },
     heroPlaceholder: {
       alignItems: 'center',

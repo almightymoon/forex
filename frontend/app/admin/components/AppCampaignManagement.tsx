@@ -29,6 +29,7 @@ type CampaignRecord = {
   imageClickable?: boolean;
   imageFit?: CampaignImageFit;
   imageHeight?: CampaignImageHeight;
+  borderRadius?: number;
   dismissMode?: string;
   startAt: string;
   endAt: string;
@@ -59,6 +60,7 @@ const emptyForm: Partial<CampaignRecord> = {
   imageClickable: false,
   imageFit: 'cover',
   imageHeight: 'medium',
+  borderRadius: 16,
   dismissMode: 'campaign',
   platforms: ['mobile', 'web'],
   audience: 'authenticated',
@@ -110,10 +112,11 @@ export default function AppCampaignManagement() {
       showBody: form.showBody,
       showBadge: form.showBadge,
       showCtaButton: form.showCtaButton,
-      showBorder: form.showBorder,
+      showBorder: form.showBorder === false ? false : true,
       imageClickable: form.imageClickable,
       imageFit: form.imageFit || 'cover',
       imageHeight: form.imageHeight || 'medium',
+      borderRadius: form.borderRadius ?? 16,
     }),
     [form],
   );
@@ -130,7 +133,8 @@ export default function AppCampaignManagement() {
         showDismissButton: false,
         showBorder: false,
         imageClickable: true,
-        imageHeight: 'large',
+        imageHeight: 'auto',
+        borderRadius: 12,
       }));
       return;
     }
@@ -213,10 +217,11 @@ export default function AppCampaignManagement() {
       showBody: item.showBody !== false,
       showBadge: item.showBadge !== false,
       showCtaButton: item.showCtaButton !== false,
-      showBorder: item.showBorder !== false,
+      showBorder: item.showBorder === false ? false : true,
       imageClickable: item.imageClickable === true,
       imageFit: item.imageFit || 'cover',
       imageHeight: item.imageHeight || 'medium',
+      borderRadius: item.borderRadius ?? 16,
     });
     setModalOpen(true);
   };
@@ -584,6 +589,26 @@ export default function AppCampaignManagement() {
                         <option value="cover">Cover (crop to fill)</option>
                         <option value="contain">Contain (show full image)</option>
                       </select>
+                    </label>
+                    <label className="block sm:col-span-2">
+                      <span className="text-xs font-semibold uppercase text-gray-500">
+                        Corner radius — {form.borderRadius ?? 16}px
+                      </span>
+                      <input
+                        type="range"
+                        min={0}
+                        max={32}
+                        step={1}
+                        value={form.borderRadius ?? 16}
+                        onChange={(e) =>
+                          setForm((f) => ({ ...f, borderRadius: Number(e.target.value) }))
+                        }
+                        className="mt-2 w-full"
+                      />
+                      <div className="mt-1 flex justify-between text-[11px] text-gray-500">
+                        <span>Sharp (0px)</span>
+                        <span>Rounded (32px)</span>
+                      </div>
                     </label>
                   </div>
                 </section>

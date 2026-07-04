@@ -58,6 +58,7 @@ const appCampaignSchema = new mongoose.Schema(
       enum: ['compact', 'medium', 'large', 'auto'],
       default: 'medium',
     },
+    borderRadius: { type: Number, default: 16, min: 0, max: 48 },
     dismissMode: {
       type: String,
       enum: ['session', 'day', 'campaign'],

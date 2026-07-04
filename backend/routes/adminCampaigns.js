@@ -81,6 +81,10 @@ function applyCampaignBody(campaign, body, { bumpVersion = false } = {}) {
   if (body.imageHeight !== undefined && ['compact', 'medium', 'large', 'auto'].includes(body.imageHeight)) {
     campaign.imageHeight = body.imageHeight;
   }
+  if (body.borderRadius !== undefined) {
+    const radius = Number(body.borderRadius);
+    campaign.borderRadius = Number.isFinite(radius) ? Math.max(0, Math.min(48, Math.round(radius))) : 16;
+  }
   if (body.dismissMode !== undefined && ['session', 'day', 'campaign'].includes(body.dismissMode)) {
     campaign.dismissMode = body.dismissMode;
   }
@@ -222,6 +226,7 @@ router.put('/:id', async (req, res) => {
       'imageClickable',
       'imageFit',
       'imageHeight',
+      'borderRadius',
     ];
     const contentChanged = contentFields.some((f) => req.body[f] !== undefined);
     applyCampaignBody(campaign, req.body, { bumpVersion: contentChanged && campaign.status === 'published' });

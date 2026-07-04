@@ -29,6 +29,7 @@ export type AppCampaign = {
   imageClickable?: boolean;
   imageFit?: CampaignImageFit;
   imageHeight?: CampaignImageHeight;
+  borderRadius?: number;
   dismissMode: 'session' | 'day' | 'campaign';
   frequency: 'once_per_session' | 'once_per_day' | 'every_open';
 };
