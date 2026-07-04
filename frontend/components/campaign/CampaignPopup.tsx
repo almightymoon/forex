@@ -22,7 +22,32 @@ export default function CampaignPopup({ campaign, preview = false, onClose, onCt
   const image = getCampaignImageUrl(campaign.imageUrl);
   const showText = hasTextContent(campaign, display);
   const showFooter = display.showCtaButton || display.showDismissButton;
-  const imageClasses = `${imageHeightClass(display.imageHeight)} w-full ${imageObjectClass(display.imageFit)}`;
+  const borderless = !display.showBorder;
+  const imageOnlyBorderless = borderless && display.layout === 'image_only';
+  const imageClasses = [
+    imageHeightClass(display.imageHeight),
+    'w-full',
+    imageObjectClass(display.imageFit, borderless),
+    imageOnlyBorderless ? 'rounded-2xl' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const cardClasses = [
+    'relative w-full max-w-md overflow-hidden rounded-2xl',
+    imageOnlyBorderless
+      ? 'border-0 bg-transparent shadow-none'
+      : borderless
+        ? 'border-0 bg-white shadow-xl dark:bg-gray-900'
+        : 'border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900',
+    preview ? 'pointer-events-none' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const closeBtnClasses = imageOnlyBorderless
+    ? 'absolute right-3 top-3 z-10 rounded-full bg-black/50 p-2 text-white shadow-lg backdrop-blur-sm'
+    : 'absolute right-3 top-3 z-10 rounded-full bg-white/90 p-2 text-gray-500 shadow dark:bg-gray-800';
 
   const handleImageClick = () => {
     if (!display.imageClickable) return;
@@ -30,24 +55,13 @@ export default function CampaignPopup({ campaign, preview = false, onClose, onCt
   };
 
   const card = (
-    <div
-      className={`relative w-full max-w-md overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-2xl dark:border-gray-700 dark:bg-gray-900 ${
-        preview ? 'pointer-events-none' : ''
-      }`}
-      role="dialog"
-      aria-modal={preview ? undefined : true}
-    >
+    <div className={cardClasses} role="dialog" aria-modal={preview ? undefined : true}>
       {!preview && onClose ? (
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-3 top-3 z-10 rounded-full bg-white/90 p-2 text-gray-500 shadow dark:bg-gray-800"
-          aria-label="Close"
-        >
+        <button type="button" onClick={onClose} className={closeBtnClasses} aria-label="Close">
           <X className="h-4 w-4" />
         </button>
       ) : (
-        <div className="absolute right-3 top-3 z-10 rounded-full bg-white/90 p-2 text-gray-500 shadow dark:bg-gray-800">
+        <div className={closeBtnClasses}>
           <X className="h-4 w-4" />
         </div>
       )}

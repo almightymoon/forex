@@ -11,6 +11,7 @@ export type CampaignDisplayOptions = {
   showBadge: boolean;
   showCtaButton: boolean;
   showDismissButton: boolean;
+  showBorder: boolean;
   imageClickable: boolean;
   imageFit: CampaignImageFit;
   imageHeight: CampaignImageHeight;
@@ -29,6 +30,7 @@ export type CampaignPreviewSource = Pick<
   | 'showBody'
   | 'showBadge'
   | 'showCtaButton'
+  | 'showBorder'
   | 'imageClickable'
   | 'imageFit'
   | 'imageHeight'
@@ -36,6 +38,7 @@ export type CampaignPreviewSource = Pick<
 
 export function resolveCampaignDisplay(campaign: CampaignPreviewSource): CampaignDisplayOptions {
   const layout = (campaign.layout as CampaignLayout) || 'standard';
+  const showBorder = campaign.showBorder !== false;
 
   if (layout === 'image_only') {
     return {
@@ -45,6 +48,7 @@ export function resolveCampaignDisplay(campaign: CampaignPreviewSource): Campaig
       showBadge: false,
       showCtaButton: false,
       showDismissButton: false,
+      showBorder,
       imageClickable: campaign.imageClickable !== false,
       imageFit: campaign.imageFit || 'cover',
       imageHeight: campaign.imageHeight || 'large',
@@ -59,6 +63,7 @@ export function resolveCampaignDisplay(campaign: CampaignPreviewSource): Campaig
       showBadge: campaign.showBadge !== false,
       showCtaButton: false,
       showDismissButton: campaign.showDismissButton !== false,
+      showBorder,
       imageClickable: campaign.imageClickable === true,
       imageFit: campaign.imageFit || 'cover',
       imageHeight: campaign.imageHeight || 'medium',
@@ -72,6 +77,7 @@ export function resolveCampaignDisplay(campaign: CampaignPreviewSource): Campaig
     showBadge: campaign.showBadge !== false,
     showCtaButton: campaign.showCtaButton !== false,
     showDismissButton: campaign.showDismissButton !== false,
+    showBorder,
     imageClickable: campaign.imageClickable === true,
     imageFit: campaign.imageFit || 'cover',
     imageHeight: campaign.imageHeight || 'medium',
@@ -103,6 +109,9 @@ export function imageHeightClass(height: CampaignImageHeight): string {
   }
 }
 
-export function imageObjectClass(fit: CampaignImageFit): string {
-  return fit === 'contain' ? 'object-contain bg-gray-100 dark:bg-gray-800' : 'object-cover';
+export function imageObjectClass(fit: CampaignImageFit, borderless = false): string {
+  if (fit === 'contain') {
+    return borderless ? 'object-contain bg-transparent' : 'object-contain bg-gray-100 dark:bg-gray-800';
+  }
+  return 'object-cover';
 }

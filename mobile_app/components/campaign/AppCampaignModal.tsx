@@ -83,7 +83,11 @@ export function AppCampaignModal({ campaign, visible, onClose }: Props) {
       <View style={styles.scrim}>
         <View style={styles.card}>
           <Pressable style={styles.closeBtn} onPress={close} hitSlop={12}>
-            <Ionicons name="close" size={22} color={colors.textMuted} />
+            <Ionicons
+              name="close"
+              size={22}
+              color={!display.showBorder && display.layout === 'image_only' ? '#fff' : colors.textMuted}
+            />
           </Pressable>
 
           {display.imageClickable ? (
@@ -130,6 +134,8 @@ export function AppCampaignModal({ campaign, visible, onClose }: Props) {
 
 function createStyles(colors: AppColors, display: ReturnType<typeof resolveCampaignDisplay>) {
   const heroHeight = imageHeightPx(display.imageHeight);
+  const borderless = !display.showBorder;
+  const imageOnlyBorderless = borderless && display.layout === 'image_only';
 
   return StyleSheet.create({
     scrim: {
@@ -141,8 +147,8 @@ function createStyles(colors: AppColors, display: ReturnType<typeof resolveCampa
     card: {
       borderRadius: 22,
       overflow: 'hidden',
-      backgroundColor: colors.surface,
-      borderWidth: 1,
+      backgroundColor: imageOnlyBorderless ? 'transparent' : colors.surface,
+      borderWidth: borderless ? 0 : 1,
       borderColor: colors.border,
     },
     closeBtn: {
@@ -153,14 +159,15 @@ function createStyles(colors: AppColors, display: ReturnType<typeof resolveCampa
       width: 36,
       height: 36,
       borderRadius: 18,
-      backgroundColor: colors.surface,
+      backgroundColor: imageOnlyBorderless ? 'rgba(0,0,0,0.5)' : colors.surface,
       alignItems: 'center',
       justifyContent: 'center',
     },
     hero: {
       width: '100%',
       height: heroHeight,
-      backgroundColor: colors.surfaceHover,
+      backgroundColor: borderless ? 'transparent' : colors.surfaceHover,
+      borderRadius: imageOnlyBorderless ? 22 : 0,
     },
     heroAuto: {
       height: undefined,

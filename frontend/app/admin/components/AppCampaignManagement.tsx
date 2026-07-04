@@ -25,6 +25,7 @@ type CampaignRecord = {
   showBody?: boolean;
   showBadge?: boolean;
   showCtaButton?: boolean;
+  showBorder?: boolean;
   imageClickable?: boolean;
   imageFit?: CampaignImageFit;
   imageHeight?: CampaignImageHeight;
@@ -54,6 +55,7 @@ const emptyForm: Partial<CampaignRecord> = {
   showBody: true,
   showBadge: true,
   showCtaButton: true,
+  showBorder: true,
   imageClickable: false,
   imageFit: 'cover',
   imageHeight: 'medium',
@@ -108,6 +110,7 @@ export default function AppCampaignManagement() {
       showBody: form.showBody,
       showBadge: form.showBadge,
       showCtaButton: form.showCtaButton,
+      showBorder: form.showBorder,
       imageClickable: form.imageClickable,
       imageFit: form.imageFit || 'cover',
       imageHeight: form.imageHeight || 'medium',
@@ -125,6 +128,7 @@ export default function AppCampaignManagement() {
         showBadge: false,
         showCtaButton: false,
         showDismissButton: false,
+        showBorder: false,
         imageClickable: true,
         imageHeight: 'large',
       }));
@@ -209,6 +213,7 @@ export default function AppCampaignManagement() {
       showBody: item.showBody !== false,
       showBadge: item.showBadge !== false,
       showCtaButton: item.showCtaButton !== false,
+      showBorder: item.showBorder !== false,
       imageClickable: item.imageClickable === true,
       imageFit: item.imageFit || 'cover',
       imageHeight: item.imageHeight || 'medium',
@@ -530,13 +535,14 @@ export default function AppCampaignManagement() {
                             ['showBadge', 'Badge'],
                             ['showCtaButton', 'Primary button'],
                             ['showDismissButton', '"Maybe later" link'],
+                            ['showBorder', 'Card border & background'],
                             ['imageClickable', 'Tap image opens link'],
                           ] as const
                         ).map(([key, label]) => (
                           <label key={key} className="inline-flex items-center gap-2">
                             <input
                               type="checkbox"
-                              disabled={togglesLocked && key !== 'imageClickable'}
+                              disabled={togglesLocked && key !== 'imageClickable' && key !== 'showBorder'}
                               checked={form[key] !== false}
                               onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.checked }))}
                             />

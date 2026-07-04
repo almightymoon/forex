@@ -46,6 +46,7 @@ const appCampaignSchema = new mongoose.Schema(
     showBody: { type: Boolean, default: true },
     showBadge: { type: Boolean, default: true },
     showCtaButton: { type: Boolean, default: true },
+    showBorder: { type: Boolean, default: true },
     imageClickable: { type: Boolean, default: false },
     imageFit: {
       type: String,

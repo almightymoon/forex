@@ -25,6 +25,7 @@ export type AppCampaign = {
   showBody?: boolean;
   showBadge?: boolean;
   showCtaButton?: boolean;
+  showBorder?: boolean;
   imageClickable?: boolean;
   imageFit?: CampaignImageFit;
   imageHeight?: CampaignImageHeight;

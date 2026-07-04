@@ -71,6 +71,7 @@ function toPublicCampaign(campaign) {
     showBody: campaign.showBody !== false,
     showBadge: campaign.showBadge !== false,
     showCtaButton: campaign.showCtaButton !== false,
+    showBorder: campaign.showBorder !== false,
     imageClickable: campaign.imageClickable === true,
     imageFit: campaign.imageFit || 'cover',
     imageHeight: campaign.imageHeight || 'medium',

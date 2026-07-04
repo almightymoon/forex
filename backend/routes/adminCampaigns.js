@@ -73,6 +73,7 @@ function applyCampaignBody(campaign, body, { bumpVersion = false } = {}) {
   if (body.showBody !== undefined) campaign.showBody = Boolean(body.showBody);
   if (body.showBadge !== undefined) campaign.showBadge = Boolean(body.showBadge);
   if (body.showCtaButton !== undefined) campaign.showCtaButton = Boolean(body.showCtaButton);
+  if (body.showBorder !== undefined) campaign.showBorder = Boolean(body.showBorder);
   if (body.imageClickable !== undefined) campaign.imageClickable = Boolean(body.imageClickable);
   if (body.imageFit !== undefined && ['cover', 'contain'].includes(body.imageFit)) {
     campaign.imageFit = body.imageFit;
@@ -216,6 +217,7 @@ router.put('/:id', async (req, res) => {
       'showBody',
       'showBadge',
       'showCtaButton',
+      'showBorder',
       'showDismissButton',
       'imageClickable',
       'imageFit',

@@ -11,6 +11,7 @@ export type CampaignDisplayOptions = {
   showBadge: boolean;
   showCtaButton: boolean;
   showDismissButton: boolean;
+  showBorder: boolean;
   imageClickable: boolean;
   imageFit: CampaignImageFit;
   imageHeight: CampaignImageHeight;
@@ -18,6 +19,7 @@ export type CampaignDisplayOptions = {
 
 export function resolveCampaignDisplay(campaign: AppCampaign): CampaignDisplayOptions {
   const layout = campaign.layout || 'standard';
+  const showBorder = campaign.showBorder !== false;
 
   if (layout === 'image_only') {
     return {
@@ -27,6 +29,7 @@ export function resolveCampaignDisplay(campaign: AppCampaign): CampaignDisplayOp
       showBadge: false,
       showCtaButton: false,
       showDismissButton: false,
+      showBorder,
       imageClickable: campaign.imageClickable !== false,
       imageFit: campaign.imageFit || 'cover',
       imageHeight: campaign.imageHeight || 'large',
@@ -41,6 +44,7 @@ export function resolveCampaignDisplay(campaign: AppCampaign): CampaignDisplayOp
       showBadge: campaign.showBadge !== false,
       showCtaButton: false,
       showDismissButton: campaign.showDismissButton !== false,
+      showBorder,
       imageClickable: campaign.imageClickable === true,
       imageFit: campaign.imageFit || 'cover',
       imageHeight: campaign.imageHeight || 'medium',
@@ -54,6 +58,7 @@ export function resolveCampaignDisplay(campaign: AppCampaign): CampaignDisplayOp
     showBadge: campaign.showBadge !== false,
     showCtaButton: campaign.showCtaButton !== false,
     showDismissButton: campaign.showDismissButton !== false,
+    showBorder,
     imageClickable: campaign.imageClickable === true,
     imageFit: campaign.imageFit || 'cover',
     imageHeight: campaign.imageHeight || 'medium',
