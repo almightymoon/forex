@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || '';
+import { buildBackendApiUrl } from '@/lib/apiBackendProxy';
 
 export async function PUT(
   request: NextRequest,
@@ -15,7 +14,7 @@ export async function PUT(
     }
 
     const { certificateId } = await params;
-    const response = await fetch(`${BACKEND_URL}/api/certificates/${certificateId}`, {
+    const response = await fetch(buildBackendApiUrl(request, `certificates/${certificateId}`), {
       method: 'PUT',
       headers: {
         'Authorization': token,
@@ -52,7 +51,7 @@ export async function DELETE(
     }
 
     const { certificateId } = await params;
-    const response = await fetch(`${BACKEND_URL}/api/certificates/${certificateId}`, {
+    const response = await fetch(buildBackendApiUrl(request, `certificates/${certificateId}`), {
       method: 'DELETE',
       headers: {
         'Authorization': token,

@@ -205,15 +205,31 @@ export default function Dashboard() {
 
   const scrollLeft = () => {
     if (navRef.current) {
-      navRef.current.scrollBy({ left: -200, behavior: 'smooth' });
+      navRef.current.scrollBy({ left: -320, behavior: 'smooth' });
+      window.setTimeout(checkScrollability, 200);
     }
   };
 
   const scrollRight = () => {
     if (navRef.current) {
-      navRef.current.scrollBy({ left: 200, behavior: 'smooth' });
+      navRef.current.scrollBy({ left: 320, behavior: 'smooth' });
+      window.setTimeout(checkScrollability, 200);
     }
   };
+
+  const dashboardTabs = [
+    { id: 'overview', label: t('overview'), icon: BarChart3 },
+    { id: 'courses', label: t('myCourses'), icon: BookOpen },
+    { id: 'browse', label: t('browseCourses'), icon: TrendingUp },
+    { id: 'live-sessions', label: t('liveSessions'), icon: Play },
+    { id: 'signals', label: t('tradingSignals'), icon: Target },
+    { id: 'tradingview', label: 'TradingView', icon: BarChart3 },
+    { id: 'assignments', label: t('assignments'), icon: FileText },
+    { id: 'community', label: 'Community', icon: Users },
+    { id: 'library', label: 'Library', icon: Library },
+    { id: 'certificates', label: 'Certificates', icon: Award },
+    { id: 'rank-rewards', label: 'Rank Rewards', icon: Trophy },
+  ];
 
   // Fetch certificates when certificates tab is active
   useEffect(() => {
@@ -963,14 +979,14 @@ export default function Dashboard() {
 
   return (
     <ErrorBoundary>
-              <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+              <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         {/* Header */}
         <header className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-lg sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          {/* Single row on all breakpoints — items-center keeps logo and actions on one visual line */}
-          <div className="flex min-h-[3.5rem] w-full flex-row flex-nowrap items-center justify-between gap-2 py-2 sm:min-h-[3.75rem] sm:gap-3 md:min-h-[5rem] md:gap-6 md:py-3">
+          <div className="flex flex-col gap-2 py-2 sm:gap-3 md:py-3">
+            <div className="flex min-h-[3.25rem] w-full min-w-0 items-center justify-between gap-2 sm:min-h-[3.5rem] md:min-h-[4rem]">
             <div
-              className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4 group cursor-pointer md:max-w-[min(100%,28rem)]"
+              className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-4 group cursor-pointer md:flex-1 md:max-w-[min(100%,28rem)]"
               onClick={() => setActiveTab('overview')}
               role="button"
               tabIndex={0}
@@ -1000,11 +1016,11 @@ export default function Dashboard() {
               </div>
             </div>
             
-            <div className="flex-1 flex justify-center px-2">
+            <div className="hidden min-w-0 flex-1 justify-center px-2 md:flex">
               <DeveloperRoleNav />
             </div>
 
-            <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1 sm:gap-2 md:gap-3 md:pl-2">
+            <div className="flex shrink-0 flex-nowrap items-center justify-end gap-0.5 sm:gap-2 md:gap-3 md:pl-2">
               {/* Join Telegram & WhatsApp — hidden on small screens to prevent header overlap */}
               {user?.role === 'student' && (
                 <div className="hidden lg:flex items-center gap-2 shrink-0">
@@ -1061,131 +1077,98 @@ export default function Dashboard() {
               
               {/* Admin Panel Link - Only for Admin Users */}
               {user?.role === 'admin' && !loading && user?.isVerified && (
-                <div className="border-l border-gray-200 dark:border-gray-700 pl-4">
+                <div className="hidden border-l border-gray-200 dark:border-gray-700 pl-2 sm:block sm:pl-4">
                   <button 
                     onClick={() => window.location.href = '/admin'}
-                    className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                    className="flex items-center space-x-2 px-2 py-2 sm:px-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                     title="Admin Panel"
                   >
                     <Shield className="w-4 h-4" />
-                    <span className="text-sm font-medium">Admin</span>
+                    <span className="hidden sm:inline text-sm font-medium">Admin</span>
                   </button>
                 </div>
               )}
               
               {/* User Profile Dropdown */}
-              <div className="border-l border-gray-200 dark:border-gray-700 pl-2 sm:pl-4 ml-0.5 sm:ml-0">
+              <div className="border-l border-gray-200 dark:border-gray-700 pl-1.5 sm:pl-4 ml-0.5 sm:ml-0">
                 <UserProfileDropdown user={user} />
               </div>
+            </div>
+            </div>
+
+            <div className="w-full min-w-0 md:hidden">
+              <DeveloperRoleNav />
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto min-w-0 px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
         {/* Welcome Section */}
         <motion.div 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           className="mb-8"
         >
-          <h2 className="text-4xl font-bold text-gray-900 dark:text-white mb-3">
+          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-3 break-words">
             {t('welcomeBack')}, <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{user.firstName || 'Trader'}</span>! 🚀
           </h2>
-          <p className="text-xl text-gray-600 dark:text-gray-300 mb-4">
+          <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-300 mb-4">
             Ready to master the art of forex trading? Let's continue your journey.
           </p>
         </motion.div>
 
         {/* Navigation Tabs */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 mb-8">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            {/* Desktop Navigation with scroll controls */}
-            <div className="relative">
-              {/* Scroll Left Button */}
-              {canScrollLeft && (
-                <button
-                  onClick={scrollLeft}
-                  className="absolute left-0 top-1/2 -translate-y-1/2 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full p-2 shadow-lg hover:shadow-xl transition-all hover:bg-gray-50 dark:hover:bg-gray-700"
-                  aria-label="Scroll left"
-                >
-                  <ChevronLeft className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                </button>
-              )}
-              
-              {/* Scroll Right Button */}
-              {canScrollRight && (
-                <button
-                  onClick={scrollRight}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 z-20 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full p-2 shadow-lg hover:shadow-xl transition-all hover:bg-gray-50 dark:hover:bg-gray-700"
-                  aria-label="Scroll right"
-                >
-                  <ChevronRight className="w-5 h-5 text-gray-600 dark:text-gray-400" />
-                </button>
-              )}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-2 border border-gray-200 dark:border-gray-700 shadow-lg mb-6 sm:mb-8">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={scrollLeft}
+              disabled={!canScrollLeft}
+              className="shrink-0 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Scroll tabs left"
+              aria-label="Scroll tabs left"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
 
-              <nav 
-                ref={navRef}
-                className={`flex space-x-8 overflow-x-auto scrollbar-hide py-2 ${canScrollLeft ? 'pl-10' : ''} ${canScrollRight ? 'pr-10' : ''}`}
-              >
-                {[
-                  { id: 'overview', label: t('overview'), icon: BarChart3 },
-                  { id: 'courses', label: t('myCourses'), icon: BookOpen },
-                  { id: 'browse', label: t('browseCourses'), icon: TrendingUp },
-                  { id: 'live-sessions', label: t('liveSessions'), icon: Play },
-                  { id: 'signals', label: t('tradingSignals'), icon: Target },
-                  { id: 'tradingview', label: 'TradingView', icon: BarChart3 },
-                  { id: 'assignments', label: t('assignments'), icon: FileText },
-                  { id: 'community', label: 'Community', icon: Users },
-                  { id: 'library', label: 'Library', icon: Library },
-                  { id: 'certificates', label: 'Certificates', icon: Award },
-                  { id: 'rank-rewards', label: 'Rank Rewards', icon: Trophy }
-                ].map((tab) => {
+            <div
+              ref={navRef}
+              onScroll={checkScrollability}
+              className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            >
+              <nav className="flex space-x-1">
+                {dashboardTabs.map((tab) => {
                   const Icon = tab.icon;
                   return (
                     <button
                       key={tab.id}
+                      type="button"
                       onClick={() => setActiveTab(tab.id)}
-                      className={`py-4 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 transition-colors whitespace-nowrap flex-shrink-0 ${
+                      className={`flex items-center space-x-1.5 px-2.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap sm:space-x-2 sm:px-4 sm:py-3 sm:text-sm ${
                         activeTab === tab.id
-                          ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                          : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                          : 'text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
                       }`}
                     >
-                      <Icon className="w-4 h-4" />
+                      <Icon className="w-4 h-4 shrink-0" />
                       <span>{tab.label}</span>
                     </button>
                   );
                 })}
               </nav>
             </div>
-            
-            {/* Mobile Navigation - Dropdown for smaller screens */}
-            <div className="md:hidden mt-2">
-              <select
-                value={activeTab}
-                onChange={(e) => setActiveTab(e.target.value)}
-                className="w-full p-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-              >
-                {[
-                  { id: 'overview', label: t('overview') },
-                  { id: 'courses', label: t('myCourses') },
-                  { id: 'browse', label: t('browseCourses') },
-                  { id: 'live-sessions', label: t('liveSessions') },
-                  { id: 'signals', label: t('tradingSignals') },
-                  { id: 'tradingview', label: 'TradingView' },
-                  { id: 'assignments', label: t('assignments') },
-                  { id: 'community', label: 'Community' },
-                  { id: 'library', label: 'Library' },
-                  { id: 'certificates', label: 'Certificates' },
-                  { id: 'rank-rewards', label: 'Rank Rewards' }
-                ].map((tab) => (
-                  <option key={tab.id} value={tab.id}>
-                    {tab.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+
+            <button
+              type="button"
+              onClick={scrollRight}
+              disabled={!canScrollRight}
+              className="shrink-0 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              title="Scroll tabs right"
+              aria-label="Scroll tabs right"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
           </div>
         </div>
 
@@ -1288,7 +1271,7 @@ export default function Dashboard() {
                     return (
                       <div
                         key={activity.id}
-                        className={`flex items-center space-x-4 p-4 ${colorClasses.bg} rounded-xl border ${colorClasses.border}`}
+                        className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4 ${colorClasses.bg} rounded-xl border ${colorClasses.border}`}
                       >
                         <div className={`w-10 h-10 ${colorClasses.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
                           <IconComponent className={`w-5 h-5 ${colorClasses.iconText}`} />
@@ -1297,8 +1280,8 @@ export default function Dashboard() {
                           <p className="text-gray-900 dark:text-white font-medium">{activity.title}</p>
                           <p className="text-gray-600 dark:text-gray-300 text-sm truncate">{activity.message}</p>
                     </div>
-                        <div className="flex items-center space-x-2 flex-shrink-0">
-                          <span className="text-gray-500 dark:text-gray-400 text-sm whitespace-nowrap">{timeAgo}</span>
+                        <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 sm:gap-2">
+                          <span className="text-gray-500 dark:text-gray-400 text-sm">{timeAgo}</span>
                           {activity.type === 'live_session' && activity.sessionId && (
                                                                     <button
                               onClick={() => {
@@ -1353,7 +1336,7 @@ export default function Dashboard() {
                         ></div>
                       </div>
                       
-                      <div className="grid grid-cols-3 gap-4 text-sm">
+                      <div className="grid grid-cols-3 gap-2 text-xs sm:gap-4 sm:text-sm">
                         <div className="text-center">
                           <p className="text-gray-500 dark:text-gray-400">Lessons</p>
                           <p className="font-semibold text-gray-900 dark:text-white">{course.completedLessons || 0}/{course.totalLessons || 0}</p>
@@ -1599,9 +1582,9 @@ export default function Dashboard() {
         {activeTab === 'signals' && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-              <div className="flex items-center justify-between mb-6">
+              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{safeT('tradingSignals')}</h3>
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <button
                     onClick={() => setSignalsViewMode('card')}
                     className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
@@ -2017,12 +2000,12 @@ export default function Dashboard() {
                     )
                     .map((session) => (
                     <div key={session._id} className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700">
-                      <div className="flex items-center justify-between">
-                        <div>
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0">
                           <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{session.title}</h4>
                           <p className="text-gray-600 dark:text-gray-300 text-sm">{new Date(session.scheduledAt).toLocaleDateString()} at {new Date(session.scheduledAt).toLocaleTimeString()}</p>
                         </div>
-                        <div className="flex items-center space-x-2 flex-wrap">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="px-2 py-1 bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200 rounded-full text-xs font-medium">{safeT('enrolled')}</span>
                           {session.meetingLink && (
                             <button
@@ -2657,12 +2640,12 @@ export default function Dashboard() {
           >
             {/* My Earned Certificates */}
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-3">
-                  <Award className="h-6 w-6 text-blue-600" />
+              <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-3">
+                  <Award className="h-6 w-6 shrink-0 text-blue-600" />
                   <h3 className="text-xl font-semibold text-gray-900 dark:text-white">My Certificates</h3>
                 </div>
-                <div className="flex items-center space-x-4">
+                <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
                   <div className="text-sm text-gray-500 dark:text-gray-400">
                     {certificatesLoading ? 'Loading...' : `${myCertificates.length} earned`}
                   </div>
@@ -2718,8 +2701,8 @@ export default function Dashboard() {
                 <div className={certificatesViewMode === 'card' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
                   {/* Earned Certificates */}
                   {myCertificates.map((certificate: any) => (
-                    <div key={certificate.id} className={`bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-6 hover:shadow-lg transition-all duration-200 ${
-                      certificatesViewMode === 'list' ? 'flex items-center justify-between' : ''
+                    <div key={certificate.id} className={`bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4 sm:p-6 hover:shadow-lg transition-all duration-200 ${
+                      certificatesViewMode === 'list' ? 'flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between' : ''
                     }`}>
                       {certificatesViewMode === 'card' ? (
                         // Card View
@@ -2773,15 +2756,17 @@ export default function Dashboard() {
                       ) : (
                         // List View
                         <>
-                          <div className="flex items-center space-x-4 flex-1">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                          <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center sm:gap-4">
+                            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+                            <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                               <Award className="w-6 h-6 text-white" />
                             </div>
-                            <div className="flex-1">
-                              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{certificate.courseTitle}</h4>
+                            <div className="min-w-0 flex-1">
+                              <h4 className="text-lg font-semibold text-gray-900 dark:text-white break-words">{certificate.courseTitle}</h4>
                               <p className="text-sm text-gray-600 dark:text-gray-300">Certificate #{certificate.certificateId}</p>
                             </div>
-                            <div className="grid grid-cols-4 gap-6 text-center">
+                            </div>
+                            <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4 sm:gap-6">
                               <div>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">Completion</p>
                                 <p className="text-lg font-bold text-green-600 dark:text-green-400">{certificate.completionPercentage}%</p>
@@ -2801,7 +2786,7 @@ export default function Dashboard() {
                           </div>
                         </div>
                         
-                          <div className="flex space-x-2">
+                          <div className="flex flex-wrap gap-2">
                           <button 
                               onClick={() => handleViewCertificate(certificate)}
                             className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"

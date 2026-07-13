@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || '';
+import { buildBackendApiUrl } from '@/lib/apiBackendProxy';
 
 export async function POST(
   request: NextRequest,
@@ -14,7 +13,7 @@ export async function POST(
     }
 
     const { certificateId } = await params;
-    const response = await fetch(`${BACKEND_URL}/api/certificates/regenerate/${certificateId}`, {
+    const response = await fetch(buildBackendApiUrl(request, `certificates/regenerate/${certificateId}`), {
       method: 'POST',
       headers: {
         'Authorization': token,

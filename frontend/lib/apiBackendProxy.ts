@@ -47,6 +47,16 @@ export function getBackendOrigin(request: NextRequest): string {
   return 'https://thefxnavigators.com';
 }
 
+/** Build a full backend API URL for standalone route handlers. */
+export function buildBackendApiUrl(request: NextRequest, relativeApiPath: string): string {
+  let path = relativeApiPath.replace(/^\//, '');
+  if (path.startsWith('api/')) {
+    path = path.slice(4);
+  }
+  const base = getBackendOrigin(request);
+  return base.includes('/api') ? `${base}/${path}` : `${base}/api/${path}`;
+}
+
 /**
  * @param relativeApiPath e.g. `admin/users/<id>/impose-monthly-fee` (no `api/` prefix)
  */

@@ -1,42 +1,8 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
+import { proxyToBackendApi } from '@/lib/apiBackendProxy';
 
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || '';
-
-// Force dynamic rendering since we use headers
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  try {
-    const token = request.headers.get('authorization');
-    
-    if (!token) {
-      return NextResponse.json({ error: 'Authorization token required' }, { status: 401 });
-    }
-
-    const response = await fetch(`${BACKEND_URL}/api/certificates/my-certificates`, {
-      method: 'GET',
-      headers: {
-        'Authorization': token,
-        'Content-Type': 'application/json',
-      },
-    });
-
-    const data = await response.json();
-    
-    if (!response.ok) {
-      return NextResponse.json(data, { status: response.status });
-    }
-
-    return NextResponse.json(data);
-  } catch (error) {
-    console.error('Certificate API error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch certificates' },
-      { status: 500 }
-    );
-  }
+  return proxyToBackendApi(request, 'certificates/my-certificates', 'GET');
 }
-
-
-
-

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { buildBackendApiUrl } from '@/lib/apiBackendProxy';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,8 +17,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Proxy to backend
-    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
-    const backendResponse = await fetch(`${BACKEND_URL}/api/assignments`, {
+    const backendResponse = await fetch(buildBackendApiUrl(request, 'assignments'), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -65,8 +65,7 @@ export async function GET(request: NextRequest) {
     const courseId = searchParams.get('courseId');
     
     // Build backend URL with query parameters
-    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
-    let backendUrl = `${BACKEND_URL}/api/assignments`;
+    let backendUrl = buildBackendApiUrl(request, 'assignments');
     if (courseId) {
       backendUrl += `?courseId=${courseId}`;
     }

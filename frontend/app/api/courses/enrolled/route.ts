@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { buildBackendApiUrl } from '@/lib/apiBackendProxy';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -16,8 +17,7 @@ export async function GET(request: NextRequest) {
     console.log('Token received, length:', token.length);
     
     // Proxy to backend
-    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
-    const backendResponse = await fetch(`${BACKEND_URL}/api/courses/enrolled`, {
+    const backendResponse = await fetch(buildBackendApiUrl(request, 'courses/enrolled'), {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { buildBackendApiUrl } from '@/lib/apiBackendProxy';
 
 export async function POST(
   request: NextRequest,
@@ -28,11 +29,7 @@ export async function POST(
       console.log('No request body or invalid JSON, continuing without body');
     }
     
-    // Build backend URL
-    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
-    const backendUrl = BACKEND_URL.includes('/api') 
-      ? `${BACKEND_URL}/courses/${id}/enroll`
-      : `${BACKEND_URL}/api/courses/${id}/enroll`;
+    const backendUrl = buildBackendApiUrl(request, `courses/${id}/enroll`);
     
     console.log('Fetching from backend:', backendUrl);
     

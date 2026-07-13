@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
+import { buildBackendApiUrl } from '@/lib/apiBackendProxy';
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,9 +25,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden - Only teachers and admins can access this route' }, { status: 403 });
     }
 
-    // Proxy to your actual backend
-    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
-    const backendResponse = await fetch(`${BACKEND_URL}/api/teacher/courses`, {
+    const backendResponse = await fetch(buildBackendApiUrl(request, 'teacher/courses'), {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -86,9 +85,7 @@ export async function POST(request: NextRequest) {
     // Check if backend is accessible
     console.log('Attempting to connect to backend at /api/teacher/courses');
     
-    // Proxy to your actual backend
-    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
-    const backendResponse = await fetch(`${BACKEND_URL}/api/teacher/courses`, {
+    const backendResponse = await fetch(buildBackendApiUrl(request, 'teacher/courses'), {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -159,9 +156,7 @@ export async function PUT(request: NextRequest) {
     // Check if backend is accessible
     console.log('Attempting to connect to backend at /api/teacher/courses');
     
-    // Proxy to your actual backend
-    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
-    const backendResponse = await fetch(`${BACKEND_URL}/api/teacher/courses`, {
+    const backendResponse = await fetch(buildBackendApiUrl(request, 'teacher/courses'), {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,

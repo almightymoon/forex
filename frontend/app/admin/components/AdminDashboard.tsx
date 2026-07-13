@@ -956,64 +956,74 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
       {/* Header */}
       <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-3 items-center h-20">
-            <div className="flex items-center space-x-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center">
-                <Shield className="w-8 h-8 text-white" />
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
+          <div className="flex flex-col gap-2 py-2 sm:gap-3 md:py-3">
+            <div className="flex min-h-[3.25rem] w-full min-w-0 items-center justify-between gap-2 sm:min-h-[3.5rem] md:min-h-[4rem]">
+              <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4 md:max-w-[min(100%,28rem)]">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-red-600 sm:h-12 sm:w-12 sm:rounded-2xl md:h-14 md:w-14">
+                  <Shield className="h-5 w-5 text-white sm:h-6 sm:w-6 md:h-8 md:w-8" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <h1 className="truncate text-base font-bold leading-tight sm:text-xl md:text-2xl bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">
+                    Admin Panel
+                  </h1>
+                  <p className="mt-0.5 hidden truncate text-xs text-gray-500 dark:text-gray-400 sm:block sm:text-sm">
+                    {(globalSettings?.platformName || settings?.general?.platformName || 'LMS Platform')} Management
+                  </p>
+                </div>
               </div>
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">
-                  Admin Panel
-                </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  {(globalSettings?.platformName || settings?.general?.platformName || 'LMS Platform')} Management
-                </p>
+
+              <div className="hidden min-w-0 flex-1 justify-center px-2 md:flex">
+                <DeveloperRoleNav />
+              </div>
+
+              <div className="flex shrink-0 flex-nowrap items-center justify-end gap-0.5 sm:gap-2 md:gap-3 md:pl-2">
+                <DarkModeToggle size="sm" />
+                <button
+                  onClick={handleRefreshData}
+                  disabled={refreshing}
+                  className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed sm:p-3"
+                  title="Refresh data"
+                >
+                  <RefreshCw className={`h-[1.125rem] w-[1.125rem] sm:h-5 sm:w-5 ${refreshing ? 'animate-spin' : ''}`} />
+                </button>
+                <div className="relative shrink-0">
+                  <button
+                    onClick={() => setShowNotifications(!showNotifications)}
+                    className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 sm:p-3"
+                  >
+                    <Bell className="h-[1.125rem] w-[1.125rem] sm:h-5 sm:w-5" />
+                    {Number(data.notificationCount || 0) > 0 && (
+                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white sm:h-5 sm:w-5 sm:text-xs">
+                        {Number(data.notificationCount || 0) > 99 ? '99+' : Number(data.notificationCount || 0)}
+                      </span>
+                    )}
+                  </button>
+
+                  <NotificationDropdown
+                    isOpen={showNotifications}
+                    onClose={() => setShowNotifications(false)}
+                    onRefresh={refreshData}
+                  />
+                </div>
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className="hidden p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 sm:inline-flex"
+                  title="Settings"
+                >
+                  <SettingsIcon className="w-5 h-5" />
+                </button>
+                <div className="border-l border-gray-200 dark:border-gray-700 pl-1.5 sm:pl-4">
+                  <UserProfileDropdown user={user} />
+                </div>
               </div>
             </div>
 
-            <div className="flex justify-center">
+            <div className="w-full min-w-0 md:hidden">
               <DeveloperRoleNav />
-            </div>
-            
-            <div className="flex items-center space-x-4 justify-end">
-              <DarkModeToggle size="sm" />
-              <button 
-                onClick={handleRefreshData}
-                disabled={refreshing}
-                className="p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Refresh data"
-              >
-                <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
-              </button>
-              <div className="relative">
-                <button 
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 relative"
-                >
-                  <Bell className="w-5 h-5" />
-                  {/* Notification badge */}
-                  {Number(data.notificationCount || 0) > 0 && (
-                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
-                      {Number(data.notificationCount || 0) > 99 ? '99+' : Number(data.notificationCount || 0)}
-                    </span>
-                  )}
-                </button>
-                
-                {/* Notification Dropdown - positioned relative to bell button */}
-                <NotificationDropdown
-                  isOpen={showNotifications}
-                  onClose={() => setShowNotifications(false)}
-                  onRefresh={refreshData}
-                />
-              </div>
-              <button className="p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200">
-                <SettingsIcon className="w-5 h-5" />
-              </button>
-              <UserProfileDropdown user={user} />
             </div>
           </div>
         </div>
@@ -1021,7 +1031,7 @@ export default function AdminDashboard() {
 
       <div className="admin-container">
         {/* Navigation Tabs */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-2 border border-gray-200 dark:border-gray-700 shadow-lg mb-8 mt-10">
+        <div className="bg-white dark:bg-gray-800 rounded-2xl p-2 border border-gray-200 dark:border-gray-700 shadow-lg mb-6 mt-4 sm:mb-8 sm:mt-6 md:mt-10">
           <div className="flex items-center gap-2">
             <button
               type="button"
@@ -1064,7 +1074,7 @@ export default function AdminDashboard() {
                     <button
                       key={tab.id}
                       onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center space-x-2 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 whitespace-nowrap ${
+                      className={`flex items-center space-x-1.5 px-2.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap sm:space-x-2 sm:px-4 sm:py-3 sm:text-sm ${
                         activeTab === tab.id
                           ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg'
                           : 'text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'

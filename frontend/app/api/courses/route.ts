@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { buildBackendApiUrl } from '@/lib/apiBackendProxy';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -73,16 +74,7 @@ export async function GET(request: NextRequest) {
     }
     
     // Build backend URL with query parameters
-    const host = request.nextUrl.hostname;
-    const defaultBackend =
-      host === 'localhost' || host === '127.0.0.1'
-        ? 'http://localhost:4000'
-        : 'https://thefxnavigators.com';
-    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || defaultBackend;
-    // Fix: Don't add /api/ if BACKEND_URL already includes it
-    let backendUrl = BACKEND_URL.includes('/api') 
-      ? `${BACKEND_URL}/courses`
-      : `${BACKEND_URL}/api/courses`;
+    let backendUrl = buildBackendApiUrl(request, 'courses');
     const params = new URLSearchParams();
     
     if (category) params.append('category', category);

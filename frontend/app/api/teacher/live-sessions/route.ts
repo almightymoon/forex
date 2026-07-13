@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import jwt from 'jsonwebtoken';
+import { buildBackendApiUrl } from '@/lib/apiBackendProxy';
 
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
@@ -24,9 +25,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden - Only teachers and admins can access this route' }, { status: 403 });
     }
 
-    // Proxy to your actual backend
-    const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || 'https://thefxnavigators.com';
-    const backendResponse = await fetch(`${BACKEND_URL}/api/teacher/live-sessions`, {
+    const backendResponse = await fetch(buildBackendApiUrl(request, 'teacher/live-sessions'), {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'

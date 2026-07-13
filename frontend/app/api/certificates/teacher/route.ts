@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-const BACKEND_URL = process.env.BACKEND_URL || process.env.NEXT_PUBLIC_API_BASE_URL || '';
+import { buildBackendApiUrl } from '@/lib/apiBackendProxy';
 
 // Force dynamic rendering since we use headers
 export const dynamic = 'force-dynamic';
@@ -9,14 +8,12 @@ export async function GET(request: NextRequest) {
   try {
     const token = request.headers.get('authorization');
     
-    console.log('Frontend API route - Token:', token ? `${token.substring(0, 20)}...` : 'No token');
-    console.log('Frontend API route - Backend URL:', `${BACKEND_URL}/api/certificates/teacher/courses`);
-    
     if (!token) {
       return NextResponse.json({ error: 'No authorization token' }, { status: 401 });
     }
 
-    const response = await fetch(`${BACKEND_URL}/api/certificates/teacher/courses`, {
+    const backendUrl = buildBackendApiUrl(request, 'certificates/teacher/courses');
+    const response = await fetch(backendUrl, {
       method: 'GET',
       headers: {
         'Authorization': token,
