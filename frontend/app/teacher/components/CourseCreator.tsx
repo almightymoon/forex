@@ -729,6 +729,7 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
               removeCategory={removeCategory}
               thumbnailInputRef={thumbnailInputRef}
               handleThumbnailUpload={handleThumbnailUpload}
+              availablePackages={availablePackages}
             />
           </div>
         )}
@@ -801,7 +802,12 @@ function BasicInfoTab({
   addCategory,
   removeCategory,
   thumbnailInputRef,
-  handleThumbnailUpload
+  handleThumbnailUpload,
+  availablePackages = [
+    { name: 'FX Launch', price: 100 },
+    { name: 'FX Scale', price: 250 },
+    { name: 'FX Legacy', price: 1000 },
+  ],
 }: any) {
   const [requirements, setRequirements] = useState('');
   const [outcomes, setOutcomes] = useState('');
