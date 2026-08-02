@@ -388,9 +388,24 @@ async function listPendingMonthlyFeeStudents(opts = {}) {
 
   const userIds = packagePayments.map((p) => p._id).filter(Boolean);
   const students = await User.find({ _id: { $in: userIds }, role: 'student' })
-    .select('firstName lastName email isActive isVerified monthlyFeeBillingStartsMonthStart')
+    .select('firstName lastName email isActive isVerified createdAt monthlyFeeBillingStartsMonthStart')
     .lean();
   const userMap = new Map(students.map((u) => [u._id.toString(), u]));
+
+  const lastPaidAgg = await Payment.aggregate([
+    {
+      $match: {
+        user: { $in: userIds },
+        status: 'completed',
+        type: 'monthly_fee'
+      }
+    },
+    { $sort: { createdAt: -1 } },
+    { $group: { _id: '$user', payment: { $first: '$$ROOT' } } }
+  ]);
+  const lastPaidMap = new Map(
+    lastPaidAgg.map((row) => [row._id.toString(), row.payment])
+  );
 
   const rows = [];
 
@@ -424,7 +439,9 @@ async function listPendingMonthlyFeeStudents(opts = {}) {
         graceDays: 0,
         dueForMonth: pastMonthStart.toISOString(),
         nextBillingLabel: 'No recurring monthly fee',
-        lastPaidAt: null,
+        lastPaidAt: lastPaidMap.get(uid)?.createdAt
+          ? new Date(lastPaidMap.get(uid).createdAt).toISOString()
+          : null,
         daysOverdue: 0,
         feeStatus: 'no_fee_required',
         pendingPaymentId: null,
@@ -499,6 +516,8 @@ async function listPendingMonthlyFeeStudents(opts = {}) {
     /** Dollar amount for this cycle: pending txn amount if awaiting review, else standard package fee */
     const amountPending = pendingPay ? pendingTxnAmount : packageFee;
 
+    const lastPaid = lastPaidMap.get(uid) || null;
+
     rows.push({
       user: u,
       joinedAt: u.createdAt ? new Date(u.createdAt).toISOString() : null,
@@ -517,7 +536,7 @@ async function listPendingMonthlyFeeStudents(opts = {}) {
         billingAnchorWaived: false,
         paidForCycle: false
       }),
-      lastPaidAt: null,
+      lastPaidAt: lastPaid?.createdAt ? new Date(lastPaid.createdAt).toISOString() : null,
       daysOverdue,
       feeStatus,
       pendingPaymentId: pendingPay?._id ? String(pendingPay._id) : null,

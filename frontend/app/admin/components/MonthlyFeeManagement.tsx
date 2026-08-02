@@ -7,7 +7,9 @@ import {
   Eye,
   History,
   Loader2,
+  Mail,
   Search,
+  Sparkles,
   UserCircle,
   Unlock,
   CalendarRange
@@ -27,6 +29,20 @@ function nextUtcMonthYYYYMM(iso: string): string | null {
     return `${Y}-${Mo}`;
   } catch {
     return null;
+  }
+}
+
+function formatUtcDateLabel(iso?: string | null): string {
+  if (!iso) return 'Never';
+  try {
+    return new Date(iso).toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      timeZone: 'UTC',
+    });
+  } catch {
+    return '—';
   }
 }
 import { buildApiUrl } from '../../../utils/api';
@@ -61,13 +77,17 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
   >('all');
   const [pendingPackageFilter, setPendingPackageFilter] = useState('');
   const [pendingSearch, setPendingSearch] = useState('');
+  const [pendingLastPaidFilter, setPendingLastPaidFilter] = useState<
+    'all' | 'never' | '90d' | 'older'
+  >('all');
+  const [hideNoFeeRows, setHideNoFeeRows] = useState(true);
   const [packageOptions, setPackageOptions] = useState<{ name: string }[]>([]);
   const [historyTarget, setHistoryTarget] = useState<{ id: string; label: string } | null>(null);
   const [profileUser, setProfileUser] = useState<User | null>(null);
   const [openingProfileId, setOpeningProfileId] = useState<string | null>(null);
   const [selectedPendingIds, setSelectedPendingIds] = useState<Set<string>>(() => new Set());
   const [bulkAnchorMonth, setBulkAnchorMonth] = useState('');
-  const [bulkBusy, setBulkBusy] = useState<'anchor' | 'clear' | 'unblock' | null>(null);
+  const [bulkBusy, setBulkBusy] = useState<'anchor' | 'clear' | 'unblock' | 'invoice' | null>(null);
   const [rowBusyKey, setRowBusyKey] = useState<string | null>(null);
 
   const loadOverdueUsers = useCallback(async () => {
@@ -123,15 +143,67 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
     loadPkgs();
   }, [view]);
 
+  const billingAssistant = useMemo(() => {
+    const byStatus = {
+      overdue: 0,
+      in_grace: 0,
+      pending_confirmation: 0,
+      no_fee_required: 0,
+    };
+    const byPackage = new Map<string, number>();
+    let amountDue = 0;
+    let neverPaid = 0;
+    for (const row of overdueUsers) {
+      const st = String(row.feeStatus || '');
+      if (st in byStatus) byStatus[st as keyof typeof byStatus] += 1;
+      const pkg = String(row.packageName || 'Unknown');
+      byPackage.set(pkg, (byPackage.get(pkg) || 0) + 1);
+      if (st !== 'no_fee_required') {
+        amountDue += Number(row.amountPending ?? row.monthlyFeeAmount ?? 0) || 0;
+        if (!row.lastPaidAt) neverPaid += 1;
+      }
+    }
+    const packageBreakdown = [...byPackage.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .map(([name, count]) => ({ name, count }));
+    return {
+      total: overdueUsers.length,
+      ...byStatus,
+      amountDue,
+      neverPaid,
+      packageBreakdown,
+      needsAttention: byStatus.overdue + byStatus.pending_confirmation,
+    };
+  }, [overdueUsers]);
+
   const filteredPendingRows = useMemo(() => {
     const q = pendingSearch.toLowerCase().trim();
-    if (!q) return overdueUsers;
+    const now = Date.now();
+    const ninetyDaysMs = 90 * 24 * 60 * 60 * 1000;
     return overdueUsers.filter((row: any) => {
-      const u = row.user;
-      const blob = `${u?.firstName || ''} ${u?.lastName || ''} ${u?.email || ''}`.toLowerCase();
-      return blob.includes(q);
+      if (hideNoFeeRows && row.feeStatus === 'no_fee_required') return false;
+
+      if (q) {
+        const u = row.user;
+        const blob = `${u?.firstName || ''} ${u?.lastName || ''} ${u?.email || ''}`.toLowerCase();
+        if (!blob.includes(q)) return false;
+      }
+
+      if (pendingLastPaidFilter === 'never' && row.lastPaidAt) return false;
+      if (pendingLastPaidFilter === '90d') {
+        if (!row.lastPaidAt) return false;
+        const t = new Date(row.lastPaidAt).getTime();
+        if (Number.isNaN(t) || now - t > ninetyDaysMs) return false;
+      }
+      if (pendingLastPaidFilter === 'older') {
+        if (!row.lastPaidAt) return true;
+        const t = new Date(row.lastPaidAt).getTime();
+        if (Number.isNaN(t) || now - t <= ninetyDaysMs) return false;
+      }
+
+      return true;
     });
-  }, [overdueUsers, pendingSearch]);
+  }, [overdueUsers, pendingSearch, pendingLastPaidFilter, hideNoFeeRows]);
 
   const monthlyFeePayments = useMemo(() => {
     const only = (payments || []).filter((p: any) => p?.type === 'monthly_fee');
@@ -374,6 +446,69 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
     }
   };
 
+  const sendInvoiceOne = async (userId: string) => {
+    setRowBusyKey(`${userId}:invoice`);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl('api/admin/monthly-fee/send-invoice'), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data?.error || 'Could not send invoice', 'error');
+        return;
+      }
+      showToast(data?.message || 'Invoice sent', 'success');
+    } catch {
+      showToast('Failed to send invoice', 'error');
+    } finally {
+      setRowBusyKey(null);
+    }
+  };
+
+  const runBulkSendInvoices = async () => {
+    const ids = [...selectedPendingIds];
+    if (!ids.length) {
+      showToast('Select at least one user', 'error');
+      return;
+    }
+    const token = localStorage.getItem('token');
+    setBulkBusy('invoice');
+    try {
+      const res = await fetch(buildApiUrl('api/admin/monthly-fee/send-invoice-bulk'), {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userIds: ids }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(data?.error || 'Failed to send invoices', 'error');
+        return;
+      }
+      const succeeded = Number(data?.summary?.succeeded ?? 0);
+      const failed = Number(data?.summary?.failed ?? 0);
+      showToast(
+        failed
+          ? `Invoices sent to ${succeeded} student(s), ${failed} failed.`
+          : `Invoices sent to ${succeeded} student(s).`,
+        failed && !succeeded ? 'error' : 'success'
+      );
+      setSelectedPendingIds(new Set());
+    } catch {
+      showToast('Failed to send invoices', 'error');
+    } finally {
+      setBulkBusy(null);
+    }
+  };
+
   const putBillingAnchorForUser = async (userId: string, effectiveFromMonth: string) => {
     const token = localStorage.getItem('token');
     const res = await fetch(buildApiUrl(`api/admin/users/${userId}/monthly-fee-billing-anchor`), {
@@ -508,18 +643,102 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
         ) : view === 'overdue' ? (
           <div>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-              <strong className="text-gray-800 dark:text-gray-200">Unpaid fee</strong> (Launch, Scale, …): everyone who has not
-              completed a monthly fee for the <strong className="text-gray-800 dark:text-gray-200">previous UTC month</strong>
+              <strong className="text-gray-800 dark:text-gray-200">Unpaid fee</strong> for the previous UTC month
               {overdueMeta.pastMonthLabel ? (
                 <>
                   {' '}
                   (<span className="font-medium text-amber-700 dark:text-amber-300">{overdueMeta.pastMonthLabel}</span>)
                 </>
               ) : null}
-              . <strong className="text-gray-800 dark:text-gray-200">Lifetime</strong> tiers appear with status &quot;No monthly
-              fee&quot; (not overdue). <strong className="text-gray-800 dark:text-gray-200">Amount due</strong> uses the package
-              monthly fee for that cycle, or the submitted pending payment amount when status is &quot;Pending review&quot;.
+              . Use the billing assistant below to focus by status, package, last paid, or amount due.
             </p>
+
+            {!overdueLoading && !overdueError && overdueUsers.length > 0 && (
+              <div className="mb-4 rounded-2xl border border-indigo-200 dark:border-indigo-800 bg-gradient-to-br from-indigo-50 via-white to-violet-50 dark:from-indigo-950/40 dark:via-gray-900 dark:to-violet-950/30 p-4">
+                <div className="flex items-start gap-2 mb-3">
+                  <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-300 mt-0.5 shrink-0" />
+                  <div>
+                    <p className="text-sm font-semibold text-indigo-950 dark:text-indigo-100">Billing assistant</p>
+                    <p className="text-xs text-indigo-800/80 dark:text-indigo-200/80">
+                      {billingAssistant.needsAttention} need attention · ${billingAssistant.amountDue.toFixed(0)} due ·{' '}
+                      {billingAssistant.neverPaid} never paid a monthly fee
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {[
+                    { key: 'overdue', label: `Overdue (${billingAssistant.overdue})`, status: 'overdue' as const },
+                    { key: 'in_grace', label: `In grace (${billingAssistant.in_grace})`, status: 'in_grace' as const },
+                    {
+                      key: 'pending_confirmation',
+                      label: `Pending review (${billingAssistant.pending_confirmation})`,
+                      status: 'pending_confirmation' as const,
+                    },
+                    {
+                      key: 'never',
+                      label: `Never paid (${billingAssistant.neverPaid})`,
+                      status: null,
+                      lastPaid: 'never' as const,
+                    },
+                  ].map((chip) => {
+                    const active =
+                      chip.status != null
+                        ? pendingStatusFilter === chip.status
+                        : pendingLastPaidFilter === chip.lastPaid;
+                    return (
+                      <button
+                        key={chip.key}
+                        type="button"
+                        onClick={() => {
+                          if (chip.status) {
+                            setPendingStatusFilter((prev) => (prev === chip.status ? 'all' : chip.status!));
+                            setPendingLastPaidFilter('all');
+                          } else if (chip.lastPaid) {
+                            setPendingLastPaidFilter((prev) => (prev === chip.lastPaid ? 'all' : chip.lastPaid!));
+                            setPendingStatusFilter('all');
+                            setHideNoFeeRows(true);
+                          }
+                        }}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                          active
+                            ? 'bg-indigo-600 text-white border-indigo-600'
+                            : 'bg-white/80 dark:bg-gray-800/80 text-indigo-900 dark:text-indigo-100 border-indigo-200 dark:border-indigo-700 hover:bg-indigo-100/70 dark:hover:bg-indigo-900/40'
+                        }`}
+                      >
+                        {chip.label}
+                      </button>
+                    );
+                  })}
+                  {billingAssistant.packageBreakdown.map((pkg) => {
+                    const active = pendingPackageFilter === pkg.name;
+                    return (
+                      <button
+                        key={pkg.name}
+                        type="button"
+                        onClick={() => setPendingPackageFilter((prev) => (prev === pkg.name ? '' : pkg.name))}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                          active
+                            ? 'bg-violet-600 text-white border-violet-600'
+                            : 'bg-white/80 dark:bg-gray-800/80 text-violet-900 dark:text-violet-100 border-violet-200 dark:border-violet-700 hover:bg-violet-100/70 dark:hover:bg-violet-900/40'
+                        }`}
+                      >
+                        {pkg.name} ({pkg.count})
+                      </button>
+                    );
+                  })}
+                </div>
+                <label className="inline-flex items-center gap-2 text-xs text-indigo-900 dark:text-indigo-200 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={hideNoFeeRows}
+                    onChange={(e) => setHideNoFeeRows(e.target.checked)}
+                    className="rounded border-indigo-400 text-indigo-600 focus:ring-indigo-500"
+                  />
+                  Hide lifetime / no monthly fee rows
+                </label>
+              </div>
+            )}
+
             <div className="flex flex-col lg:flex-row flex-wrap gap-3 mb-4">
               <div className="relative flex-1 min-w-[180px]">
                 <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
@@ -563,6 +782,18 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                   </option>
                 ))}
               </select>
+              <select
+                value={pendingLastPaidFilter}
+                onChange={(e) =>
+                  setPendingLastPaidFilter(e.target.value as 'all' | 'never' | '90d' | 'older')
+                }
+                className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm min-w-[160px]"
+              >
+                <option value="all">Last paid: any</option>
+                <option value="never">Never paid</option>
+                <option value="90d">Paid in last 90 days</option>
+                <option value="older">Last paid 90+ days ago</option>
+              </select>
             </div>
 
             {view === 'overdue' && !overdueLoading && !overdueError && overdueUsers.length > 0 && (
@@ -586,6 +817,15 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                     className="rounded-lg border border-violet-300 dark:border-violet-600 bg-white dark:bg-gray-900 px-2 py-1.5 text-sm text-gray-900 dark:text-white"
                   />
                 </label>
+                <button
+                  type="button"
+                  disabled={bulkBusy !== null || selectedPendingIds.size === 0}
+                  onClick={() => void runBulkSendInvoices()}
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {bulkBusy === 'invoice' ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Mail className="w-3.5 h-3.5" />}
+                  Send invoices
+                </button>
                 <button
                   type="button"
                   disabled={bulkBusy !== null || selectedPendingIds.size === 0}
@@ -659,6 +899,7 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Joined</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Package</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Next billing</th>
+                      <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Last paid</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Due month</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Amount due</th>
                       <th className="text-left py-3 px-4 font-semibold text-gray-900 dark:text-white">Status</th>
@@ -727,6 +968,9 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                           <td className="py-4 px-4 text-sm text-gray-700 dark:text-gray-300 max-w-[180px]">
                             {row.nextBillingLabel || '—'}
                           </td>
+                          <td className="py-4 px-4 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                            {formatUtcDateLabel(row.lastPaidAt)}
+                          </td>
                           <td className="py-4 px-4 text-sm text-gray-700 dark:text-gray-300">
                             {row.dueForMonth
                               ? new Date(row.dueForMonth).toLocaleDateString(undefined, { timeZone: 'UTC' })
@@ -780,6 +1024,16 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                                   onClick: () => confirmPayment(String(row.pendingPaymentId)),
                                 },
                                 {
+                                  id: 'invoice',
+                                  label: 'Send invoice',
+                                  icon: Mail,
+                                  tone: 'info',
+                                  hidden: !uid || status === 'no_fee_required',
+                                  loading: rowBusyKey === `${uid}:invoice`,
+                                  disabled: rowBusy,
+                                  onClick: () => void sendInvoiceOne(uid),
+                                },
+                                {
                                   id: 'defer',
                                   label: 'Defer billing',
                                   icon: CalendarRange,
@@ -828,9 +1082,9 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                     })}
                     {filteredPendingRows.length === 0 && (
                       <tr>
-                        <td colSpan={10} className="py-12 text-center text-gray-500 dark:text-gray-400">
-                          {overdueUsers.length > 0 && pendingSearch.trim()
-                            ? 'No rows match your search.'
+                        <td colSpan={11} className="py-12 text-center text-gray-500 dark:text-gray-400">
+                          {overdueUsers.length > 0 && (pendingSearch.trim() || pendingLastPaidFilter !== 'all' || hideNoFeeRows)
+                            ? 'No rows match your filters.'
                             : overdueUsers.length === 0
                             ? `No unpaid fees for ${overdueMeta.pastMonthLabel || 'the previous UTC month'} — everyone has paid, or no eligible students.`
                             : 'No rows match these filters.'}
