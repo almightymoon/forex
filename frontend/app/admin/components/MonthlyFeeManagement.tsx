@@ -12,6 +12,7 @@ import {
   Unlock,
   CalendarRange
 } from 'lucide-react';
+import AdminRowActionsMenu from './AdminRowActionsMenu';
 
 /** Due month ISO (UTC) → YYYY-MM of the following UTC month (billing anchor that waives the due month). */
 function nextUtcMonthYYYYMM(iso: string): string | null {
@@ -765,81 +766,62 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                             <span className="text-sm text-gray-800 dark:text-gray-200">{row.daysOverdue ?? 0}</span>
                           </td>
                           <td className="py-4 px-4 text-right">
-                            <div className="flex items-center justify-end gap-1 flex-wrap">
-                              {uid ? (
-                                <>
-                                  {canQuickExtend && (
-                                    <button
-                                      type="button"
-                                      onClick={() => void handleRowExtendFromDue(uid, row.dueForMonth)}
-                                      disabled={rowBusy}
-                                      className="p-2 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 rounded-lg transition-colors disabled:opacity-50"
-                                      title="Defer cycle: set billing start to the UTC month after the due month"
-                                    >
-                                      {rowBusyKey === `${uid}:extend` ? (
-                                        <Loader2 className="w-4 h-4 animate-spin" />
-                                      ) : (
-                                        <CalendarRange className="w-4 h-4" />
-                                      )}
-                                    </button>
-                                  )}
-                                  <button
-                                    type="button"
-                                    onClick={() => void handleRowUnblock(uid)}
-                                    disabled={rowBusy}
-                                    className="p-2 text-orange-600 dark:text-orange-400 hover:bg-orange-50 dark:hover:bg-orange-900/20 rounded-lg transition-colors disabled:opacity-50"
-                                    title="Remove admin access block (if this user has a blocked admin-imposed fee)"
-                                  >
-                                    {rowBusyKey === `${uid}:unblock` ? (
-                                      <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                      <Unlock className="w-4 h-4" />
-                                    )}
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setHistoryTarget({
-                                        id: uid,
-                                        label: `${row.user?.firstName || ''} ${row.user?.lastName || ''} (${row.user?.email || ''})`.trim()
-                                      })
-                                    }
-                                    className="p-2 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 rounded-lg transition-colors"
-                                    title="Monthly fee payment history"
-                                  >
-                                    <History className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => openUserProfile(uid)}
-                                    disabled={openingProfileId === uid}
-                                    className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
-                                    title="Open user profile"
-                                  >
-                                    {openingProfileId === uid ? (
-                                      <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : (
-                                      <UserCircle className="w-4 h-4" />
-                                    )}
-                                  </button>
-                                </>
-                              ) : null}
-                              {row.pendingPaymentId && row.feeStatus === 'pending_confirmation' && (
-                                <button
-                                  type="button"
-                                  onClick={() => confirmPayment(String(row.pendingPaymentId))}
-                                  disabled={confirmingPaymentId === String(row.pendingPaymentId)}
-                                  className="p-2 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg transition-colors disabled:opacity-50"
-                                  title="Confirm pending monthly fee payment"
-                                >
-                                  {confirmingPaymentId === String(row.pendingPaymentId) ? (
-                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                  ) : (
-                                    <CheckCircle className="w-4 h-4" />
-                                  )}
-                                </button>
-                              )}
-                            </div>
+                            <AdminRowActionsMenu
+                              disabled={rowBusy || openingProfileId === uid}
+                              items={[
+                                {
+                                  id: 'confirm',
+                                  label: 'Confirm payment',
+                                  icon: CheckCircle,
+                                  tone: 'success',
+                                  hidden: !(row.pendingPaymentId && row.feeStatus === 'pending_confirmation'),
+                                  loading: confirmingPaymentId === String(row.pendingPaymentId),
+                                  disabled: confirmingPaymentId === String(row.pendingPaymentId),
+                                  onClick: () => confirmPayment(String(row.pendingPaymentId)),
+                                },
+                                {
+                                  id: 'defer',
+                                  label: 'Defer billing',
+                                  icon: CalendarRange,
+                                  tone: 'success',
+                                  hidden: !canQuickExtend || !uid,
+                                  loading: rowBusyKey === `${uid}:extend`,
+                                  disabled: rowBusy,
+                                  onClick: () => void handleRowExtendFromDue(uid, row.dueForMonth),
+                                },
+                                {
+                                  id: 'unblock',
+                                  label: 'Unblock access',
+                                  icon: Unlock,
+                                  tone: 'warning',
+                                  hidden: !uid,
+                                  loading: rowBusyKey === `${uid}:unblock`,
+                                  disabled: rowBusy,
+                                  onClick: () => void handleRowUnblock(uid),
+                                },
+                                {
+                                  id: 'history',
+                                  label: 'Fee history',
+                                  icon: History,
+                                  tone: 'info',
+                                  hidden: !uid,
+                                  onClick: () =>
+                                    setHistoryTarget({
+                                      id: uid,
+                                      label: `${row.user?.firstName || ''} ${row.user?.lastName || ''} (${row.user?.email || ''})`.trim(),
+                                    }),
+                                },
+                                {
+                                  id: 'profile',
+                                  label: 'View user',
+                                  icon: UserCircle,
+                                  hidden: !uid,
+                                  loading: openingProfileId === uid,
+                                  disabled: openingProfileId === uid,
+                                  onClick: () => openUserProfile(uid),
+                                },
+                              ]}
+                            />
                           </td>
                         </tr>
                       );
@@ -934,65 +916,50 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
                         {new Date(p.createdAt).toLocaleDateString()}
                       </td>
                       <td className="py-4 px-4">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => setSelectedPayment(p)}
-                            className="p-2 text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
-                            title="View Details"
-                            type="button"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          {(p.user as { _id?: string })?._id && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setHistoryTarget({
-                                    id: String((p.user as { _id: string })._id),
-                                    label: `${p.user?.firstName || ''} ${p.user?.lastName || ''} (${p.user?.email || ''})`.trim()
-                                  })
-                                }
-                                className="p-2 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 rounded-lg transition-colors"
-                                title="Monthly fee history"
-                              >
-                                <History className="w-4 h-4" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openUserProfile(String((p.user as { _id: string })._id))}
-                                disabled={openingProfileId === String((p.user as { _id: string })._id)}
-                                className="p-2 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg transition-colors disabled:opacity-50"
-                                title="User profile"
-                              >
-                                {openingProfileId === String((p.user as { _id: string })._id) ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : (
-                                  <UserCircle className="w-4 h-4" />
-                                )}
-                              </button>
-                            </>
-                          )}
-                          {p.status === 'pending' && p.paymentMethod === 'binance_wallet' && (
-                            <button
-                              onClick={() => confirmPayment(p._id)}
-                              disabled={confirmingPaymentId === p._id}
-                              className={`p-2 rounded-lg transition-colors ${
-                                confirmingPaymentId === p._id
-                                  ? 'text-green-400 dark:text-green-500 bg-green-50 dark:bg-green-900/20 cursor-not-allowed opacity-70'
-                                  : 'text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20'
-                              }`}
-                              title={confirmingPaymentId === p._id ? 'Confirming...' : 'Confirm Monthly Fee'}
-                              type="button"
-                            >
-                              {confirmingPaymentId === p._id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <CheckCircle className="w-4 h-4" />
-                              )}
-                            </button>
-                          )}
-                        </div>
+                        <AdminRowActionsMenu
+                          items={[
+                            {
+                              id: 'details',
+                              label: 'View details',
+                              icon: Eye,
+                              onClick: () => setSelectedPayment(p),
+                            },
+                            {
+                              id: 'confirm',
+                              label: confirmingPaymentId === p._id ? 'Confirming…' : 'Confirm payment',
+                              icon: CheckCircle,
+                              tone: 'success',
+                              hidden: !(p.status === 'pending' && p.paymentMethod === 'binance_wallet'),
+                              loading: confirmingPaymentId === p._id,
+                              disabled: confirmingPaymentId === p._id,
+                              onClick: () => confirmPayment(p._id),
+                            },
+                            {
+                              id: 'history',
+                              label: 'Fee history',
+                              icon: History,
+                              tone: 'info',
+                              hidden: !(p.user as { _id?: string })?._id,
+                              onClick: () =>
+                                setHistoryTarget({
+                                  id: String((p.user as { _id: string })._id),
+                                  label: `${p.user?.firstName || ''} ${p.user?.lastName || ''} (${p.user?.email || ''})`.trim(),
+                                }),
+                            },
+                            {
+                              id: 'profile',
+                              label: 'View user',
+                              icon: UserCircle,
+                              hidden: !(p.user as { _id?: string })?._id,
+                              loading:
+                                openingProfileId === String((p.user as { _id?: string })?._id || ''),
+                              disabled:
+                                openingProfileId === String((p.user as { _id?: string })?._id || ''),
+                              onClick: () =>
+                                openUserProfile(String((p.user as { _id: string })._id)),
+                            },
+                          ]}
+                        />
                       </td>
                     </tr>
                   ))}

@@ -15,6 +15,7 @@ import { showToast } from '../../../utils/toast';
 import type { User } from './types';
 import BulkImposeMonthlyFeeModal from './BulkImposeMonthlyFeeModal';
 import MonthlyFeeHistoryModal from './MonthlyFeeHistoryModal';
+import AdminRowActionsMenu from './AdminRowActionsMenu';
 
 export type BillingDirectoryRow = {
   user: {
@@ -449,63 +450,53 @@ export default function MonthlyFeeBillingDirectoryPanel({
                       )}
                     </td>
                     <td className="py-3 px-3 text-right">
-                      <div className="flex justify-end gap-1">
-                        {canInvoice && uid && (
-                          <button
-                            type="button"
-                            title="Send invoice email"
-                            onClick={() => void sendInvoiceOne(uid)}
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 rounded-lg"
-                          >
-                            <Mail className="w-4 h-4" />
-                          </button>
-                        )}
-                        {row.pendingPaymentId && st === 'pending_confirmation' && onConfirmPayment && (
-                          <button
-                            type="button"
-                            title="Confirm payment"
-                            disabled={confirmingPaymentId === String(row.pendingPaymentId)}
-                            onClick={() => onConfirmPayment(String(row.pendingPaymentId))}
-                            className="p-2 text-green-600 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-lg disabled:opacity-50"
-                          >
-                            {confirmingPaymentId === String(row.pendingPaymentId) ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : (
-                              <CheckCircle className="w-4 h-4" />
-                            )}
-                          </button>
-                        )}
-                        {uid && (
-                          <>
-                            <button
-                              type="button"
-                              title="Fee history"
-                              onClick={() =>
-                                setHistoryTarget({
-                                  id: uid,
-                                  label: `${row.user?.firstName || ''} ${row.user?.lastName || ''}`.trim()
-                                })
-                              }
-                              className="p-2 text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20 rounded-lg"
-                            >
-                              <History className="w-4 h-4" />
-                            </button>
-                            <button
-                              type="button"
-                              title="Profile"
-                              disabled={openingProfileId === uid}
-                              onClick={() => onOpenProfile(uid)}
-                              className="p-2 text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-lg disabled:opacity-50"
-                            >
-                              {openingProfileId === uid ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <UserCircle className="w-4 h-4" />
-                              )}
-                            </button>
-                          </>
-                        )}
-                      </div>
+                      <AdminRowActionsMenu
+                        items={[
+                          {
+                            id: 'confirm',
+                            label: 'Confirm payment',
+                            icon: CheckCircle,
+                            tone: 'success',
+                            hidden: !(
+                              row.pendingPaymentId &&
+                              st === 'pending_confirmation' &&
+                              Boolean(onConfirmPayment)
+                            ),
+                            loading: confirmingPaymentId === String(row.pendingPaymentId),
+                            disabled: confirmingPaymentId === String(row.pendingPaymentId),
+                            onClick: () => onConfirmPayment?.(String(row.pendingPaymentId)),
+                          },
+                          {
+                            id: 'invoice',
+                            label: 'Send invoice',
+                            icon: Mail,
+                            tone: 'info',
+                            hidden: !(canInvoice && uid),
+                            onClick: () => void sendInvoiceOne(uid),
+                          },
+                          {
+                            id: 'history',
+                            label: 'Fee history',
+                            icon: History,
+                            tone: 'info',
+                            hidden: !uid,
+                            onClick: () =>
+                              setHistoryTarget({
+                                id: uid,
+                                label: `${row.user?.firstName || ''} ${row.user?.lastName || ''}`.trim(),
+                              }),
+                          },
+                          {
+                            id: 'profile',
+                            label: 'View user',
+                            icon: UserCircle,
+                            hidden: !uid,
+                            loading: openingProfileId === uid,
+                            disabled: openingProfileId === uid,
+                            onClick: () => onOpenProfile(uid),
+                          },
+                        ]}
+                      />
                     </td>
                   </tr>
                 );
