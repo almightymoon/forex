@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useToast } from '../../../components/Toast';
+import { buildApiUrl } from '../../../utils/api';
 
 // Rich text editor (react-quill-new: React 18+ compatible, no findDOMNode)
 const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
@@ -285,6 +286,36 @@ const CourseCreatorClient = ({ onSave, onCancel, initialData, editingCourse }: C
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [newCategory, setNewCategory] = useState('');
   const [isUploading, setIsUploading] = useState(false);
+  const [availablePackages, setAvailablePackages] = useState<Array<{ name: string; price: number }>>([
+    { name: 'FX Launch', price: 100 },
+    { name: 'FX Scale', price: 250 },
+    { name: 'FX Legacy', price: 1000 },
+  ]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(buildApiUrl('api/packages'), { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.packages || [];
+        const packages = list
+          .filter((p: { isActive?: boolean; price?: number; name?: string }) => p.isActive !== false && p.price != null)
+          .map((p: { name: string; price: number }) => ({ name: p.name, price: Number(p.price) }))
+          .sort((a: { price: number }, b: { price: number }) => a.price - b.price);
+        if (!cancelled && packages.length > 0) {
+          setAvailablePackages(packages);
+        }
+      } catch {
+        // keep fallback defaults
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const thumbnailInputRef = useRef<HTMLInputElement>(null);
 
@@ -905,17 +936,12 @@ function BasicInfoTab({
                 <span className="text-gray-700 dark:text-gray-300 font-medium">For All Packages (Visible to everyone)</span>
               </label>
               <div className="ml-6 space-y-2">
-                {[100, 250, 1000].map((pkgPrice) => {
-                  const packageNames: { [key: number]: string } = {
-                    100: 'FX Launch ($100)',
-                    250: 'FX Scale ($250)',
-                    1000: 'FX Legacy ($1000)'
-                  };
+                {availablePackages.map((pkg) => {
                   // Only disable if explicitly null/undefined (for all), not if it's an empty array (selecting specific)
                   const isForAll = courseData.allowedPackages === null || courseData.allowedPackages === undefined;
-                  const isChecked = Array.isArray(courseData.allowedPackages) && courseData.allowedPackages.includes(pkgPrice);
+                  const isChecked = Array.isArray(courseData.allowedPackages) && courseData.allowedPackages.includes(pkg.price);
                   return (
-                    <label key={pkgPrice} className="flex items-center space-x-2 cursor-pointer">
+                    <label key={pkg.price} className="flex items-center space-x-2 cursor-pointer">
                       <input
                         type="checkbox"
                         checked={isChecked}
@@ -923,19 +949,20 @@ function BasicInfoTab({
                           const currentPackages = Array.isArray(courseData.allowedPackages) ? courseData.allowedPackages : [];
                           if (e.target.checked) {
                             // Add package
-                            const newPackages = [...currentPackages, pkgPrice];
+                            const newPackages = [...currentPackages, pkg.price];
                             setCourseData({ ...courseData, allowedPackages: newPackages });
                           } else {
-                            // Remove package
-                            const newPackages = currentPackages.filter(p => p !== pkgPrice);
-                            // If no packages selected, set to null (for all)
-                            setCourseData({ ...courseData, allowedPackages: newPackages.length > 0 ? newPackages : null });
+                            // Remove package — keep [] so it does not snap back to "all packages"
+                            const newPackages = currentPackages.filter(p => p !== pkg.price);
+                            setCourseData({ ...courseData, allowedPackages: newPackages });
                           }
                         }}
                         disabled={isForAll}
                         className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
                       />
-                      <span className={`text-gray-700 dark:text-gray-300 ${isForAll ? 'opacity-50' : ''}`}>{packageNames[pkgPrice]}</span>
+                      <span className={`text-gray-700 dark:text-gray-300 ${isForAll ? 'opacity-50' : ''}`}>
+                        {pkg.name} (${pkg.price})
+                      </span>
                     </label>
                   );
                 })}

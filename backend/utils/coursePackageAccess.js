@@ -56,11 +56,16 @@ async function getUserPackagePrice(user) {
     type: 'package',
   }).sort({ createdAt: -1 });
 
-  const price =
-    completedPayment?.package?.price != null ? completedPayment.package.price : null;
+  let price =
+    completedPayment?.package?.price != null ? Number(completedPayment.package.price) : null;
+
+  // Fallback for edge cases where payment.package.price is missing
+  if (price == null && user.selectedPackage?.price != null) {
+    price = Number(user.selectedPackage.price);
+  }
 
   return {
-    userPackagePrice: price,
+    userPackagePrice: Number.isFinite(price) ? price : null,
     isPrivileged: false,
     isAuthenticatedStudent: true,
   };

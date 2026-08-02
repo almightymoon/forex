@@ -1762,14 +1762,19 @@ router.post(
         await user.save();
       }
 
-      // Auto-enroll user in all published courses (same behavior as payment confirmation).
+      // Auto-enroll user in published courses allowed for the granted package.
       try {
+        const { canAccessCourseByPackage } = require('../utils/coursePackageAccess');
+        const packagePrice = price != null ? Number(price) : null;
         const publishedCourses = await Course.find({
           $or: [{ isPublished: true }, { status: 'published' }]
         }).lean();
 
         for (const course of publishedCourses) {
           try {
+            if (!canAccessCourseByPackage(course, packagePrice, { isPrivileged: false })) {
+              continue;
+            }
             const courseDoc = await Course.findById(course._id);
             if (!courseDoc) continue;
             const isEnrolled = (courseDoc.enrolledStudents || []).some(

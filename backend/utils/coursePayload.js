@@ -2,8 +2,6 @@ const VALID_CATEGORIES = ['forex', 'crypto', 'stocks', 'commodities', 'options',
 const VALID_LEVELS = ['beginner', 'intermediate', 'advanced'];
 const VALID_STATUSES = ['draft', 'review', 'published', 'archived'];
 const VALID_CURRENCIES = ['USD', 'PKR', 'EUR'];
-const VALID_PACKAGE_PRICES = [100, 250, 1000];
-
 function normalizeCategory(category) {
   if (!category || typeof category !== 'string') return 'general';
   const normalized = category.trim().toLowerCase();
@@ -71,9 +69,13 @@ function sanitizeContentBlocks(content) {
 function sanitizeAllowedPackages(value) {
   if (value === null || value === undefined) return null;
   if (!Array.isArray(value)) return null;
-  const filtered = value
-    .map((price) => Number(price))
-    .filter((price) => VALID_PACKAGE_PRICES.includes(price));
+  const filtered = [
+    ...new Set(
+      value
+        .map((price) => Number(price))
+        .filter((price) => Number.isFinite(price) && price >= 0)
+    ),
+  ];
   return filtered.length > 0 ? filtered : null;
 }
 

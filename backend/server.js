@@ -450,6 +450,19 @@ app.get('/api/courses/enrolled', checkSessionTimeout, authenticateToken, require
         enrolledCourses.push(course);
       }
     });
+
+    // Hide courses the student's package is not allowed to access (e.g. legacy auto-enrolls)
+    const packageContext = await getUserPackagePrice(user);
+    const packageAllowedCourses = enrolledCourses.filter((course) =>
+      canAccessCourseByPackage(course, packageContext.userPackagePrice, {
+        isPrivileged: packageContext.isPrivileged,
+      })
+    );
+    if (packageAllowedCourses.length !== enrolledCourses.length) {
+      console.log(
+        `[Enrolled Courses] Filtered by package $${packageContext.userPackagePrice}: ${packageAllowedCourses.length}/${enrolledCourses.length}`
+      );
+    }
     
     // Get progress records
     let progressRecords = [];
@@ -460,7 +473,7 @@ app.get('/api/courses/enrolled', checkSessionTimeout, authenticateToken, require
     }
     
     // Format courses
-    const formattedCourses = enrolledCourses.map(course => {
+    const formattedCourses = packageAllowedCourses.map(course => {
       try {
         const courseId = course._id.toString();
         const enrollment = course.enrolledStudents?.find(

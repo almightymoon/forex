@@ -227,6 +227,26 @@ const requireEnrollment = async (req, res, next) => {
       });
     }
 
+    // Package-gated courses: enrolled students still need a matching subscription tier
+    if (req.user.role !== 'admin' && req.user.role !== 'teacher' && !isDeveloper(req.user)) {
+      const {
+        canAccessCourseByPackage,
+        getUserPackagePrice,
+      } = require('../utils/coursePackageAccess');
+      const packageContext = await getUserPackagePrice(req.user);
+      if (
+        !canAccessCourseByPackage(course, packageContext.userPackagePrice, {
+          isPrivileged: packageContext.isPrivileged,
+        })
+      ) {
+        return res.status(403).json({
+          error: 'Package required',
+          message: 'This course is not included in your subscription package',
+          code: 'PACKAGE_REQUIRED',
+        });
+      }
+    }
+
     req.course = course;
     next();
 

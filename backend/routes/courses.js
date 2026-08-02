@@ -163,6 +163,21 @@ router.get('/enrolled', authenticateToken, requireVerifiedPayment, async (req, r
     });
 
     console.log(`[Enrolled Courses] Total unique enrolled courses: ${enrolledCourses.length}`);
+
+    // Hide courses the student's package is not allowed to access (e.g. legacy auto-enrolls)
+    const packageContext = await getUserPackagePrice(user);
+    const packageAllowedCourses = enrolledCourses.filter((course) =>
+      canAccessCourseByPackage(course, packageContext.userPackagePrice, {
+        isPrivileged: packageContext.isPrivileged,
+      })
+    );
+    if (packageAllowedCourses.length !== enrolledCourses.length) {
+      console.log(
+        `[Enrolled Courses] Filtered by package $${packageContext.userPackagePrice}: ${packageAllowedCourses.length}/${enrolledCourses.length}`
+      );
+    }
+    enrolledCourses.length = 0;
+    enrolledCourses.push(...packageAllowedCourses);
     
     // Get all progress records for the student
     console.log('[Enrolled Courses] Fetching progress records...');

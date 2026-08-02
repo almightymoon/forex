@@ -1705,11 +1705,14 @@ router.post('/admin/confirm', [
       }
     });
 
-    // Automatically enroll user in all published courses when payment is confirmed
+    // Automatically enroll user in published courses allowed for their package
     if (payment.type === 'package' && user) {
       try {
         const Course = require('../models/Course');
-        
+        const { canAccessCourseByPackage } = require('../utils/coursePackageAccess');
+        const packagePrice =
+          payment.package?.price != null ? Number(payment.package.price) : null;
+
         // Find all published courses
         const publishedCourses = await Course.find({
           $or: [
@@ -1718,10 +1721,16 @@ router.post('/admin/confirm', [
           ]
         });
 
-        console.log(`[Payment Confirm] Auto-enrolling user ${user.email} in ${publishedCourses.length} published courses`);
+        const eligibleCourses = publishedCourses.filter((course) =>
+          canAccessCourseByPackage(course, packagePrice, { isPrivileged: false })
+        );
 
-        // Enroll user in each published course
-        for (const course of publishedCourses) {
+        console.log(
+          `[Payment Confirm] Auto-enrolling user ${user.email} (pkg $${packagePrice}) in ${eligibleCourses.length}/${publishedCourses.length} published courses`
+        );
+
+        // Enroll user only in package-eligible courses
+        for (const course of eligibleCourses) {
           try {
             // Check if user is already enrolled
             const isEnrolled = course.enrolledStudents.some(

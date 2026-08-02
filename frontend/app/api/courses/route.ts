@@ -4,7 +4,7 @@ import { buildBackendApiUrl } from '@/lib/apiBackendProxy';
 // Force dynamic rendering for this route
 export const dynamic = 'force-dynamic';
 
-// Simple in-memory cache
+// Simple in-memory cache (public / unauthenticated lists only)
 const cache = new Map();
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
@@ -57,21 +57,7 @@ export async function GET(request: NextRequest) {
     const level = searchParams.get('level');
     const search = searchParams.get('search');
     const bust = searchParams.get('bust');
-    
-    // Create cache key
-    const cacheKey = `courses:${category || 'all'}:${level || 'all'}:${search || 'all'}`;
-    
-    // Optional cache busting (used after admin restore/reset)
-    if (bust) {
-      cache.clear();
-    } else {
-      // Check cache
-      const cached = cache.get(cacheKey);
-      if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-        console.log('Returning cached courses data');
-        return NextResponse.json(cached.data);
-      }
-    }
+    const authHeader = request.headers.get('authorization');
     
     // Build backend URL with query parameters
     let backendUrl = buildBackendApiUrl(request, 'courses');
@@ -84,15 +70,34 @@ export async function GET(request: NextRequest) {
     if (params.toString()) {
       backendUrl += `?${params.toString()}`;
     }
+
+    // Authenticated lists are package-scoped — never serve a shared public cache entry
+    if (!authHeader) {
+      const cacheKey = `courses:${category || 'all'}:${level || 'all'}:${search || 'all'}`;
+      if (bust) {
+        cache.clear();
+      } else {
+        const cached = cache.get(cacheKey);
+        if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+          console.log('Returning cached courses data');
+          return NextResponse.json(cached.data);
+        }
+      }
+    }
     
     console.log('Fetching from backend:', backendUrl);
     
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    if (authHeader) {
+      headers.Authorization = authHeader;
+    }
+
     // Proxy to backend
     const backendResponse = await fetch(backendUrl, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers,
     });
 
     console.log('Backend response status:', backendResponse.status);
@@ -108,13 +113,16 @@ export async function GET(request: NextRequest) {
     }
 
     const courses = await backendResponse.json();
-    console.log('Courses fetched successfully:', courses.length);
+    console.log('Courses fetched successfully:', Array.isArray(courses) ? courses.length : 0);
     
-    // Cache the response
-    cache.set(cacheKey, {
-      data: courses,
-      timestamp: Date.now()
-    });
+    // Cache only unauthenticated public responses
+    if (!authHeader) {
+      const cacheKey = `courses:${category || 'all'}:${level || 'all'}:${search || 'all'}`;
+      cache.set(cacheKey, {
+        data: courses,
+        timestamp: Date.now()
+      });
+    }
     
     return NextResponse.json(courses);
   } catch (error) {

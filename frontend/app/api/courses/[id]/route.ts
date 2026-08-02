@@ -24,11 +24,17 @@ export async function GET(
     console.log('Fetching from backend:', backendUrl);
     
     // Proxy to backend
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+    const authHeader = request.headers.get('authorization');
+    if (authHeader) {
+      headers.Authorization = authHeader;
+    }
+
     const backendResponse = await fetch(backendUrl, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers,
     });
 
     console.log('Backend response status:', backendResponse.status);

@@ -435,7 +435,10 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         return;
       }
 
-      const result = await fetchWithMaintenanceCheck('/api/courses');
+      const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+      const result = await fetchWithMaintenanceCheck('/api/courses', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       
       if (result.isMaintenanceMode) {
         setFromResponse(true, result.error?.message);
@@ -502,7 +505,9 @@ export const DashboardProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           apiRequest('api/assignments'),
           apiRequest('api/certificates/my-certificates'),
           apiRequest(`api/notifications/user?unreadOnly=true&limit=1&t=${Date.now()}`),
-          fetchWithMaintenanceCheck('/api/courses')
+          fetchWithMaintenanceCheck('/api/courses', {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          })
         ]).then(async ([signalsResult, assignmentsResult, certificatesResult, notificationResult, availableCoursesResult]) => {
           // Parse background data
           let signalsData = [];

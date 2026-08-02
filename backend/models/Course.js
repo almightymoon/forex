@@ -221,7 +221,7 @@ const courseSchema = new mongoose.Schema({
     enum: ['draft', 'review', 'published', 'archived'],
     default: 'draft'
   },
-  // Package restrictions: null means "for all", otherwise array of package prices [100, 250, 1000]
+  // Package restrictions: null means "for all", otherwise array of package prices
   allowedPackages: {
     type: [Number],
     default: null, // null means accessible to all packages
@@ -229,11 +229,9 @@ const courseSchema = new mongoose.Schema({
       validator: function(value) {
         if (value === null || value === undefined) return true; // null means all packages
         if (!Array.isArray(value)) return false;
-        // Valid package prices: 100, 250, 1000
-        const validPrices = [100, 250, 1000];
-        return value.every(price => validPrices.includes(price));
+        return value.every((price) => Number.isFinite(Number(price)) && Number(price) >= 0);
       },
-      message: 'Allowed packages must be an array containing only valid package prices: 100, 250, or 1000'
+      message: 'Allowed packages must be an array of non-negative package prices'
     }
   }
 }, {
