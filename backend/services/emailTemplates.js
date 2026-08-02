@@ -1399,32 +1399,36 @@ payment_complete_required: {
 
     let html = template.html;
     let text = template.text || '';
+    let subject = template.subject || template.name || '';
 
     // Replace variables in both HTML and text versions
     // Handle both {{variable}} and {{ variable }} formats
     Object.keys(variables).forEach(key => {
-      const value = variables[key] || '';
+      const value = variables[key] ?? '';
       // Replace {{key}} format
       const regex1 = new RegExp(`\\{\\{${key}\\}\\}`, 'g');
       html = html.replace(regex1, value);
       text = text.replace(regex1, value);
+      subject = subject.replace(regex1, value);
       // Replace {{ key }} format (with spaces)
       const regex2 = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g');
       html = html.replace(regex2, value);
       text = text.replace(regex2, value);
+      subject = subject.replace(regex2, value);
     });
 
     // Strip any remaining {{...}} patterns (anything between double braces) so variables never show in email
     const stripPlaceholders = (s) => s.replace(/\{\{[^}]*\}\}/g, '');
     html = stripPlaceholders(html);
     text = stripPlaceholders(text);
+    subject = stripPlaceholders(subject);
 
     // Return with replaced html/text last so they are not overwritten by ...template
     return {
       ...template,
       html,
       text,
-      subject: template.subject || template.name
+      subject
     };
   }
 

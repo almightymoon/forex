@@ -1367,7 +1367,8 @@ async function sendMonthlyFeeInvoiceToUser(userId, noteRaw = '') {
       mode: 'existing_pending',
       paymentId: String(pending._id),
       amount: amt,
-      userName: `${targetUser.firstName} ${targetUser.lastName}`.trim()
+      userName: `${targetUser.firstName} ${targetUser.lastName}`.trim(),
+      channels: 'in-app + email (when SMTP configured)'
     };
   }
 
@@ -1407,7 +1408,8 @@ async function sendMonthlyFeeInvoiceToUser(userId, noteRaw = '') {
     ok: true,
     mode: 'reminder_no_pending',
     amount: amt,
-    userName: `${targetUser.firstName} ${targetUser.lastName}`.trim()
+    userName: `${targetUser.firstName} ${targetUser.lastName}`.trim(),
+    channels: 'in-app + email (when SMTP configured)'
   };
 }
 
@@ -1427,7 +1429,7 @@ router.post(
       }
       res.json({
         success: true,
-        message: `Invoice sent to ${result.userName || 'student'}`,
+        message: `Invoice sent to ${result.userName || 'student'} (in-app notification; email when SMTP is configured)`,
         ...result
       });
     } catch (error) {

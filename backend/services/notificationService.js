@@ -121,18 +121,26 @@ class NotificationService {
         return false;
       }
       
-      // Create tracking record
+      // Create tracking record (never block send if tracking schema rejects a type)
       if (userId) {
-        trackingRecord = new NotificationTracking({
-          userId,
-          type: type || 'system',
-          channel: 'email',
-          status: 'pending',
-          title: subject,
-          message: text || this.stripHtml(html),
-          bulkNotificationId
-        });
-        await trackingRecord.save();
+        try {
+          trackingRecord = new NotificationTracking({
+            userId,
+            type: type || 'system',
+            channel: 'email',
+            status: 'pending',
+            title: subject,
+            message: text || this.stripHtml(html),
+            bulkNotificationId
+          });
+          await trackingRecord.save();
+        } catch (trackingError) {
+          console.warn(
+            `[Email] NotificationTracking skipped for type=${type}:`,
+            trackingError?.message || trackingError
+          );
+          trackingRecord = null;
+        }
       }
 
       // Always get fresh settings from database (with .env fallback)
@@ -1707,6 +1715,7 @@ class NotificationService {
     const title = 'Monthly fee invoice';
     const message = `Your monthly fee of $${amount.toFixed(2)} ${currency} for ${feeForMonthLabel} is due. Open the Monthly fee page to pay.`;
 
+    let inAppOk = false;
     try {
       await this.createNotification({
         user: userId,
@@ -1715,21 +1724,34 @@ class NotificationService {
         message,
         link: monthlyFeeUrl
       });
+      inAppOk = true;
     } catch (e) {
       console.error('notifyMonthlyFeeInvoice: in-app notification failed', e);
     }
 
-    return this.sendNotificationToUser(userId, 'monthly_fee_invoice', {
-      amount,
-      currency,
-      paymentId: data.paymentId,
-      feeForMonthLabel,
-      packageName: data.packageName,
-      payByLabel: data.payByLabel,
-      invoiceNote: data.invoiceNote,
-      monthlyFeeUrl,
-      message
-    });
+    let emailResult = { email: false, sms: false, push: false };
+    try {
+      emailResult = await this.sendNotificationToUser(userId, 'monthly_fee_invoice', {
+        amount,
+        currency,
+        paymentId: data.paymentId,
+        feeForMonthLabel,
+        packageName: data.packageName,
+        payByLabel: data.payByLabel,
+        invoiceNote: data.invoiceNote,
+        monthlyFeeUrl,
+        message
+      });
+    } catch (e) {
+      console.error('notifyMonthlyFeeInvoice: email/push failed', e?.message || e);
+    }
+
+    return {
+      ...emailResult,
+      inApp: inAppOk,
+      // Invoice is considered delivered if in-app and/or email succeeded
+      delivered: inAppOk || !!emailResult?.email
+    };
   }
 }
 

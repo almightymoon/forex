@@ -460,7 +460,7 @@ export default function MonthlyFeeManagement({ payments, onRefresh }: Props) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showToast(data?.error || 'Could not send invoice', 'error');
+        showToast(data?.error || data?.errors?.[0]?.msg || 'Could not send invoice', 'error');
         return;
       }
       showToast(data?.message || 'Invoice sent', 'success');
