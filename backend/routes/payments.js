@@ -1787,6 +1787,21 @@ router.post('/admin/confirm', [
       }
     }
 
+    // Auto-distribute monthly fee referral pool when admin confirms the fee
+    if (payment.type === 'monthly_fee') {
+      try {
+        const ReferralCommissionService = require('../services/referralCommissionService');
+        const commissionService = new ReferralCommissionService();
+        commissionsDistributed = await commissionService.distributeMonthlyFeeCommissions(payment);
+        console.log(
+          `[Payment Confirm] Monthly fee distribution: ${commissionsDistributed.length} commission(s)`
+        );
+      } catch (commissionError) {
+        console.error('[Payment Confirm] Error distributing monthly fee commissions:', commissionError);
+        // Don't fail confirmation — admin can retry from Monthly fee distribution
+      }
+    }
+
     // Rank rewards: based on direct referral package business volume (best-effort).
     // When a user completes a package purchase, attribute its amount to their DIRECT referrer only.
     if (payment.type === 'package' && user) {

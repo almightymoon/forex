@@ -4318,7 +4318,11 @@ router.get('/monthly-fee-distributions', async (req, res) => {
     const skip = (page - 1) * limit;
     const { startDate, endDate } = req.query;
 
-    const query = { type: 'monthly_fee', status: 'completed' };
+    const query = {
+      type: 'monthly_fee',
+      status: 'completed',
+      'metadata.monthlyFeeDistributionStatus': { $ne: 'skipped' }
+    };
     if (startDate || endDate) {
       query.createdAt = {};
       if (startDate) query.createdAt.$gte = new Date(startDate);
@@ -4331,7 +4335,7 @@ router.get('/monthly-fee-distributions', async (req, res) => {
     const [total, payments] = await Promise.all([
       Payment.countDocuments(query),
       Payment.find(query)
-        .populate('user', 'firstName lastName email')
+        .populate('user', 'firstName lastName email role')
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -4339,19 +4343,74 @@ router.get('/monthly-fee-distributions', async (req, res) => {
     ]);
 
     const ids = payments.map((p) => p._id);
-    const commissionCounts =
+
+    const positiveTxns =
       ids.length === 0
         ? []
-        : await BalanceTransaction.aggregate([
-            { $match: { type: 'referral_commission', relatedPayment: { $in: ids } } },
-            { $group: { _id: '$relatedPayment', count: { $sum: 1 } } }
-          ]);
-    const countByPaymentId = new Map(commissionCounts.map((c) => [String(c._id), c.count]));
+        : await BalanceTransaction.find({
+            type: 'referral_commission',
+            relatedPayment: { $in: ids },
+            amount: { $gt: 0 }
+          })
+            .populate('user', 'firstName lastName email')
+            .sort({ createdAt: 1 })
+            .lean();
+
+    const rollbackOfIds = new Set();
+    if (ids.length > 0) {
+      const rollbacks = await BalanceTransaction.find({
+        type: 'referral_commission',
+        relatedPayment: { $in: ids },
+        amount: { $lt: 0 }
+      })
+        .select('metadata')
+        .lean();
+      for (const rb of rollbacks) {
+        const md = rb.metadata;
+        const ofId =
+          md instanceof Map
+            ? md.get('rollbackOfTransactionId')
+            : typeof md?.get === 'function'
+              ? md.get('rollbackOfTransactionId')
+              : md?.rollbackOfTransactionId;
+        if (ofId) rollbackOfIds.add(String(ofId));
+      }
+    }
+
+    const recipientsByPayment = new Map();
+    for (const tx of positiveTxns) {
+      if (rollbackOfIds.has(String(tx._id))) continue;
+      const pid = String(tx.relatedPayment);
+      const md = tx.metadata;
+      const level =
+        md instanceof Map
+          ? md.get('level')
+          : typeof md?.get === 'function'
+            ? md.get('level')
+            : md?.level;
+      const list = recipientsByPayment.get(pid) || [];
+      list.push({
+        transactionId: String(tx._id),
+        amount: Number(tx.amount) || 0,
+        level: level != null ? String(level) : '1',
+        createdAt: tx.createdAt,
+        user: tx.user
+          ? {
+              _id: tx.user._id,
+              firstName: tx.user.firstName,
+              lastName: tx.user.lastName,
+              email: tx.user.email
+            }
+          : null
+      });
+      recipientsByPayment.set(pid, list);
+    }
 
     const rows = await Promise.all(
       payments.map(async (p) => {
         const uid = p.user?._id || p.user;
-        const commissionCount = countByPaymentId.get(String(p._id)) || 0;
+        const recipients = recipientsByPayment.get(String(p._id)) || [];
+        const commissionCount = recipients.length;
         const metaDone = ReferralCommissionService.monthlyFeeMetaIsDone(p.metadata);
 
         const completedPackagePayment = await Payment.findOne({
@@ -4393,12 +4452,21 @@ router.get('/monthly-fee-distributions', async (req, res) => {
           createdAt: p.createdAt,
           confirmedAt: p.confirmedAt,
           feeAmount,
-          user: p.user || null,
+          user: p.user
+            ? {
+                _id: p.user._id,
+                firstName: p.user.firstName,
+                lastName: p.user.lastName,
+                email: p.user.email,
+                role: p.user.role
+              }
+            : null,
           packageTierName,
           referralPoolPercentage: poolPct * 100,
           referralPool,
           platformShare,
           commissionTxnCount: commissionCount,
+          recipients,
           isDistributed,
           metaDistributed: metaDone,
           resolveError
@@ -4438,6 +4506,10 @@ router.post('/monthly-fee-distributions/:paymentId/distribute', async (req, res)
     }
 
     const ReferralCommissionService = require('../services/referralCommissionService');
+    if (ReferralCommissionService.monthlyFeeMetaIsSkipped(payment.metadata)) {
+      return res.status(400).json({ success: false, error: 'This record was removed from the distribution list' });
+    }
+
     const commissionService = new ReferralCommissionService();
     const commissions = await commissionService.distributeMonthlyFeeCommissions(payment);
 
@@ -4458,6 +4530,92 @@ router.post('/monthly-fee-distributions/:paymentId/distribute', async (req, res)
     res.status(clientError ? 400 : 500).json({
       success: false,
       error: msg
+    });
+  }
+});
+
+// @route   POST /api/admin/monthly-fee-distributions/:paymentId/rollback
+// @desc    Reverse open referral commissions for a monthly fee and allow redistribute
+// @access  Private (Admin)
+router.post('/monthly-fee-distributions/:paymentId/rollback', async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.paymentId);
+    if (!payment) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+    if (payment.type !== 'monthly_fee') {
+      return res.status(400).json({ success: false, error: 'Not a monthly fee payment' });
+    }
+
+    const ReferralCommissionService = require('../services/referralCommissionService');
+    const commissionService = new ReferralCommissionService();
+    const open = await commissionService.getOpenPositiveReferralCommissionTransactions(payment._id);
+    const metaDone = ReferralCommissionService.monthlyFeeMetaIsDone(payment.metadata);
+
+    if (open.length === 0 && !metaDone) {
+      return res.status(400).json({
+        success: false,
+        error: 'Nothing to roll back — this fee has not been distributed yet'
+      });
+    }
+
+    const rollback = await commissionService.rollbackMonthlyFeeDistribution(payment._id, {
+      performedBy: req.user?._id
+    });
+
+    res.json({
+      success: true,
+      message:
+        rollback.reversedCount > 0
+          ? `Rolled back ${rollback.reversedCount} commission(s) ($${rollback.reversedAmount.toFixed(2)}). You can redistribute if needed.`
+          : 'Cleared distribution status. No open commission amounts to reverse.',
+      rollback
+    });
+  } catch (error) {
+    console.error('[Monthly fee distributions] rollback error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to roll back monthly fee distribution'
+    });
+  }
+});
+
+// @route   DELETE /api/admin/monthly-fee-distributions/:paymentId
+// @desc    Hide a monthly fee row from the distribution list (pending only; rollback first if distributed)
+// @access  Private (Admin)
+router.delete('/monthly-fee-distributions/:paymentId', async (req, res) => {
+  try {
+    const payment = await Payment.findById(req.params.paymentId);
+    if (!payment) {
+      return res.status(404).json({ success: false, error: 'Payment not found' });
+    }
+    if (payment.type !== 'monthly_fee') {
+      return res.status(400).json({ success: false, error: 'Not a monthly fee payment' });
+    }
+
+    const ReferralCommissionService = require('../services/referralCommissionService');
+    const commissionService = new ReferralCommissionService();
+    const open = await commissionService.getOpenPositiveReferralCommissionTransactions(payment._id);
+    if (open.length > 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Roll back the distribution first, then remove this record'
+      });
+    }
+
+    await commissionService._markMonthlyFeeDistributionSkipped(payment._id, {
+      performedBy: req.user?._id
+    });
+
+    res.json({
+      success: true,
+      message: 'Removed from the monthly fee distribution list'
+    });
+  } catch (error) {
+    console.error('[Monthly fee distributions] delete error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to remove record'
     });
   }
 });

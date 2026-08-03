@@ -163,12 +163,25 @@ interface MonthlyFeeDistributionRow {
     firstName: string;
     lastName: string;
     email: string;
+    role?: string;
   } | null;
   packageTierName: string;
   referralPoolPercentage: number;
   referralPool: number;
   platformShare: number;
   commissionTxnCount: number;
+  recipients?: Array<{
+    transactionId: string;
+    amount: number;
+    level: string;
+    createdAt?: string;
+    user: {
+      _id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+    } | null;
+  }>;
   isDistributed: boolean;
   metaDistributed: boolean;
   resolveError: string | null;
@@ -266,6 +279,8 @@ export default function CommissionManagement() {
   const [platformLedgerProcessing, setPlatformLedgerProcessing] = useState(false);
   const [monthlyFeeRows, setMonthlyFeeRows] = useState<MonthlyFeeDistributionRow[]>([]);
   const [monthlyFeeDistributingId, setMonthlyFeeDistributingId] = useState<string | null>(null);
+  const [monthlyFeeActionId, setMonthlyFeeActionId] = useState<string | null>(null);
+  const [monthlyFeeExpandedId, setMonthlyFeeExpandedId] = useState<string | null>(null);
   const [tiers, setTiers] = useState<AdminPackageTier[]>([]);
   const [tiersLoading, setTiersLoading] = useState(false);
   const [settingsTierId, setSettingsTierId] = useState<string>('');
@@ -643,6 +658,72 @@ export default function CommissionManagement() {
       showToast('Distribution request failed', 'error');
     } finally {
       setMonthlyFeeDistributingId(null);
+    }
+  };
+
+  const handleMonthlyFeeRollback = async (paymentId: string) => {
+    if (
+      !window.confirm(
+        'Roll back this distribution? Open referral commissions will be reversed and the row will return to Pending so you can redistribute.'
+      )
+    ) {
+      return;
+    }
+    setMonthlyFeeActionId(paymentId);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(
+        buildApiUrl(`api/admin/monthly-fee-distributions/${paymentId}/rollback`),
+        {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast((data as { error?: string }).error || 'Rollback failed', 'error');
+        return;
+      }
+      showToast((data as { message?: string }).message || 'Distribution rolled back', 'success');
+      await fetchMonthlyFeeDistributions();
+    } catch (e) {
+      console.error(e);
+      showToast('Rollback request failed', 'error');
+    } finally {
+      setMonthlyFeeActionId(null);
+    }
+  };
+
+  const handleMonthlyFeeRemove = async (paymentId: string) => {
+    if (
+      !window.confirm(
+        'Remove this record from the distribution list? The payment itself stays completed; it just won’t appear here. If commissions were paid, roll those back first.'
+      )
+    ) {
+      return;
+    }
+    setMonthlyFeeActionId(paymentId);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(
+        buildApiUrl(`api/admin/monthly-fee-distributions/${paymentId}`),
+        {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        }
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast((data as { error?: string }).error || 'Remove failed', 'error');
+        return;
+      }
+      showToast((data as { message?: string }).message || 'Record removed', 'success');
+      await fetchMonthlyFeeDistributions();
+    } catch (e) {
+      console.error(e);
+      showToast('Remove request failed', 'error');
+    } finally {
+      setMonthlyFeeActionId(null);
     }
   };
 
@@ -1237,14 +1318,20 @@ export default function CommissionManagement() {
         <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-sm text-amber-950 dark:text-amber-100">
           <p className="font-semibold mb-2">How monthly fee distribution works</p>
           <ul className="list-disc list-inside space-y-1 opacity-95">
-            <li>Lists completed monthly fee payments only.</li>
+            <li>Lists completed monthly fee payments only (removed rows are hidden).</li>
             <li>
               Referral pool percentage and per-level rates come from the student&apos;s current package tier&apos;s
               <strong> monthly fee distribution</strong> settings.
             </li>
             <li>
-              Run <strong>Distribute</strong> once per payment. If there is no referrer, default-referral-only signup,
-              or a zero pool, the row is marked done with no payouts.
+              Distribution runs <strong>automatically</strong> when you approve a monthly fee payment. You can still use
+              <strong> Distribute</strong> manually if auto-run failed. If there is no referrer, default-referral-only
+              signup, or a zero pool, the row is marked done with no payouts.
+            </li>
+            <li>
+              Use <strong>Paid to</strong> to see who received commissions, <strong>Roll back</strong> to reverse a
+              mistaken payout, and <strong>Remove</strong> to hide a record (e.g. admin test fees) after any open
+              commissions are rolled back.
             </li>
           </ul>
         </div>
@@ -1638,6 +1725,9 @@ export default function CommissionManagement() {
                     Platform share
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                    Paid to
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
                     Status
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
@@ -1648,79 +1738,158 @@ export default function CommissionManagement() {
               <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                 {monthlyFeeRows.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={9} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                       No completed monthly fee payments found.
                     </td>
                   </tr>
                 ) : (
-                  monthlyFeeRows.map((row) => (
-                    <tr key={row.paymentId} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
-                        {formatDate(row.createdAt)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900 dark:text-white">
-                            {row.user
-                              ? `${row.user.firstName || ''} ${row.user.lastName || ''}`.trim() || '—'
-                              : '—'}
-                          </p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400">{row.user?.email}</p>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                        ${row.feeAmount.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                        {row.packageTierName}
-                        <span className="block text-xs text-gray-500">
-                          Pool {row.referralPoolPercentage.toFixed(1)}%
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400">
-                        ${row.referralPool.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400">
-                        ${row.platformShare.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-sm">
-                        {row.isDistributed ? (
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200">
-                            Done
-                            {row.commissionTxnCount > 0 ? ` (${row.commissionTxnCount} txns)` : ''}
-                          </span>
-                        ) : (
-                          <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-900 dark:bg-yellow-900/40 dark:text-yellow-100">
-                            Pending
-                          </span>
-                        )}
-                        {row.resolveError && (
-                          <p className="text-xs text-red-600 dark:text-red-400 mt-1 max-w-[200px]">{row.resolveError}</p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          disabled={
-                            row.isDistributed ||
-                            !!row.resolveError ||
-                            monthlyFeeDistributingId === row.paymentId
-                          }
-                          onClick={() => handleMonthlyFeeDistribute(row.paymentId)}
-                          className="px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1"
-                        >
-                          {monthlyFeeDistributingId === row.paymentId ? (
-                            <>
-                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                              …
-                            </>
-                          ) : (
-                            'Distribute'
-                          )}
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  monthlyFeeRows.map((row) => {
+                    const recipients = row.recipients || [];
+                    const expanded = monthlyFeeExpandedId === row.paymentId;
+                    const busy =
+                      monthlyFeeDistributingId === row.paymentId || monthlyFeeActionId === row.paymentId;
+                    return (
+                      <React.Fragment key={row.paymentId}>
+                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                            {formatDate(row.createdAt)}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div>
+                              <p className="text-sm font-medium text-gray-900 dark:text-white">
+                                {row.user
+                                  ? `${row.user.firstName || ''} ${row.user.lastName || ''}`.trim() || '—'
+                                  : '—'}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400">{row.user?.email}</p>
+                              {row.user?.role && row.user.role !== 'student' && (
+                                <span className="mt-1 inline-flex px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-100">
+                                  {row.user.role}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
+                            ${row.feeAmount.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
+                            {row.packageTierName}
+                            <span className="block text-xs text-gray-500">
+                              Pool {row.referralPoolPercentage.toFixed(1)}%
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400">
+                            ${row.referralPool.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400">
+                            ${row.platformShare.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white max-w-[220px]">
+                            {recipients.length === 0 ? (
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {row.isDistributed ? 'No payouts' : '—'}
+                              </span>
+                            ) : (
+                              <div className="space-y-1">
+                                {recipients.slice(0, expanded ? recipients.length : 2).map((r) => (
+                                  <div key={r.transactionId} className="leading-tight">
+                                    <p className="text-sm font-medium">
+                                      {r.user
+                                        ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() ||
+                                          r.user.email
+                                        : 'Unknown'}
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      L{r.level} · ${Number(r.amount).toFixed(2)}
+                                      {r.user?.email ? ` · ${r.user.email}` : ''}
+                                    </p>
+                                  </div>
+                                ))}
+                                {recipients.length > 2 && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setMonthlyFeeExpandedId(expanded ? null : row.paymentId)
+                                    }
+                                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+                                  >
+                                    {expanded ? 'Show less' : `+${recipients.length - 2} more`}
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-sm">
+                            {row.isDistributed ? (
+                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200">
+                                Done
+                                {row.commissionTxnCount > 0 ? ` (${row.commissionTxnCount} txns)` : ''}
+                              </span>
+                            ) : (
+                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-900 dark:bg-yellow-900/40 dark:text-yellow-100">
+                                Pending
+                              </span>
+                            )}
+                            {row.resolveError && (
+                              <p className="text-xs text-red-600 dark:text-red-400 mt-1 max-w-[200px]">
+                                {row.resolveError}
+                              </p>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex flex-col gap-1.5 min-w-[110px]">
+                              {!row.isDistributed && (
+                                <button
+                                  type="button"
+                                  disabled={!!row.resolveError || busy}
+                                  onClick={() => handleMonthlyFeeDistribute(row.paymentId)}
+                                  className="px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
+                                >
+                                  {monthlyFeeDistributingId === row.paymentId ? (
+                                    <>
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      …
+                                    </>
+                                  ) : (
+                                    'Distribute'
+                                  )}
+                                </button>
+                              )}
+                              {row.isDistributed && (
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  onClick={() => handleMonthlyFeeRollback(row.paymentId)}
+                                  className="px-3 py-1.5 text-sm font-medium rounded-lg border border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-100 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 disabled:opacity-40 inline-flex items-center justify-center gap-1"
+                                >
+                                  {busy && monthlyFeeActionId === row.paymentId ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                  ) : (
+                                    'Roll back'
+                                  )}
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                disabled={busy || (row.commissionTxnCount > 0 && row.isDistributed)}
+                                title={
+                                  row.commissionTxnCount > 0 && row.isDistributed
+                                    ? 'Roll back commissions first, then remove'
+                                    : 'Hide from this list'
+                                }
+                                onClick={() => handleMonthlyFeeRemove(row.paymentId)}
+                                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
+                              >
+                                {busy && monthlyFeeActionId === row.paymentId && row.isDistributed === false
+                                  ? '…'
+                                  : 'Remove'}
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      </React.Fragment>
+                    );
+                  })
                 )}
               </tbody>
             </table>

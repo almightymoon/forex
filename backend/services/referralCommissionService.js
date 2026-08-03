@@ -2,15 +2,23 @@ const User = require('../models/User');
 const BalanceTransaction = require('../models/BalanceTransaction');
 const Package = require('../models/Package');
 
-function monthlyFeeMetaIsDone(metadata) {
-  if (!metadata) return false;
+function monthlyFeeMetaStatus(metadata) {
+  if (!metadata) return null;
   if (metadata instanceof Map) {
-    return metadata.get('monthlyFeeDistributionStatus') === 'done';
+    return metadata.get('monthlyFeeDistributionStatus') || null;
   }
   if (typeof metadata.get === 'function') {
-    return metadata.get('monthlyFeeDistributionStatus') === 'done';
+    return metadata.get('monthlyFeeDistributionStatus') || null;
   }
-  return metadata.monthlyFeeDistributionStatus === 'done';
+  return metadata.monthlyFeeDistributionStatus || null;
+}
+
+function monthlyFeeMetaIsDone(metadata) {
+  return monthlyFeeMetaStatus(metadata) === 'done';
+}
+
+function monthlyFeeMetaIsSkipped(metadata) {
+  return monthlyFeeMetaStatus(metadata) === 'skipped';
 }
 
 class ReferralCommissionService {
@@ -987,18 +995,19 @@ class ReferralCommissionService {
           : payment._id
         : payment._id;
 
-      const existingCommissions = await BalanceTransaction.countDocuments({
-        relatedPayment: paymentId,
-        type: 'referral_commission'
-      });
-      if (existingCommissions > 0) {
+      const openCommissions = await this.getOpenPositiveReferralCommissionTransactions(paymentId);
+      if (openCommissions.length > 0) {
         console.log(
-          `[MonthlyFeeCommission] Already distributed (${existingCommissions} commission txns). Skipping.`
+          `[MonthlyFeeCommission] Already distributed (${openCommissions.length} open commission txn(s)). Skipping.`
         );
         return [];
       }
 
       const payMeta = await Payment.findById(paymentId).select('metadata').lean();
+      if (monthlyFeeMetaIsSkipped(payMeta?.metadata)) {
+        console.log('[MonthlyFeeCommission] Payment marked skipped/removed. Skipping.');
+        return [];
+      }
       if (monthlyFeeMetaIsDone(payMeta?.metadata)) {
         console.log('[MonthlyFeeCommission] Already marked done (no commission rows). Skipping.');
         return [];
@@ -1165,8 +1174,44 @@ class ReferralCommissionService {
     if (!doc.metadata) doc.metadata = new Map();
     doc.metadata.set('monthlyFeeDistributionStatus', 'done');
     doc.metadata.set('monthlyFeeDistributedAt', new Date().toISOString());
+    doc.metadata.delete('monthlyFeeSkippedAt');
     doc.markModified('metadata');
     await doc.save();
+  }
+
+  async _clearMonthlyFeeDistributionDone(paymentId) {
+    const Payment = require('../models/Payment');
+    const doc = await Payment.findById(paymentId);
+    if (!doc) return;
+    if (!doc.metadata) doc.metadata = new Map();
+    doc.metadata.delete('monthlyFeeDistributionStatus');
+    doc.metadata.delete('monthlyFeeDistributedAt');
+    doc.metadata.set('monthlyFeeRolledBackAt', new Date().toISOString());
+    doc.markModified('metadata');
+    await doc.save();
+  }
+
+  async _markMonthlyFeeDistributionSkipped(paymentId, { performedBy } = {}) {
+    const Payment = require('../models/Payment');
+    const doc = await Payment.findById(paymentId);
+    if (!doc) return;
+    if (!doc.metadata) doc.metadata = new Map();
+    doc.metadata.set('monthlyFeeDistributionStatus', 'skipped');
+    doc.metadata.set('monthlyFeeSkippedAt', new Date().toISOString());
+    if (performedBy) {
+      doc.metadata.set('monthlyFeeSkippedBy', String(performedBy));
+    }
+    doc.markModified('metadata');
+    await doc.save();
+  }
+
+  /**
+   * Reverse open monthly-fee referral commissions and clear the "done" flag so it can be redistributed.
+   */
+  async rollbackMonthlyFeeDistribution(paymentId, { performedBy } = {}) {
+    const rb = await this.rollbackOpenReferralCommissionsForPayment(paymentId, { performedBy });
+    await this._clearMonthlyFeeDistributionDone(paymentId);
+    return rb;
   }
 
   /**
@@ -1210,4 +1255,5 @@ class ReferralCommissionService {
 }
 
 ReferralCommissionService.monthlyFeeMetaIsDone = monthlyFeeMetaIsDone;
+ReferralCommissionService.monthlyFeeMetaIsSkipped = monthlyFeeMetaIsSkipped;
 module.exports = ReferralCommissionService;
