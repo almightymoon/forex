@@ -631,7 +631,7 @@ export default function CommissionManagement() {
   const handleMonthlyFeeDistribute = async (paymentId: string) => {
     if (
       !window.confirm(
-        'Run distribution for this monthly fee? Referrers will be credited from the referral pool (same rules as package purchases).'
+        'Run distribution for this monthly fee? Referrers (levels 1–5) will be credited from the referral pool using this student’s package settings.'
       )
     ) {
       return;
@@ -1320,12 +1320,14 @@ export default function CommissionManagement() {
           <ul className="list-disc list-inside space-y-1 opacity-95">
             <li>Lists completed monthly fee payments only (removed rows are hidden).</li>
             <li>
-              Referral pool percentage and per-level rates come from the student&apos;s current package tier&apos;s
-              <strong> monthly fee distribution</strong> settings.
+              Referral pool % and level rates (1–5) are read live from each student&apos;s package tier in
+              <strong> Monthly fee distribution settings</strong> (e.g. FX Starter vs FX Launch can differ). Changing
+              those settings affects the next distribute / approve.
             </li>
             <li>
               Distribution runs <strong>automatically</strong> when you approve a monthly fee payment. You can still use
-              <strong> Distribute</strong> manually if auto-run failed. If there is no referrer, default-referral-only
+              <strong> Distribute</strong> manually if auto-run failed. Payouts walk the referral chain for
+              <strong> levels 1–5</strong> using that package&apos;s rates. If there is no referrer, default-referral-only
               signup, or a zero pool, the row is marked done with no payouts.
             </li>
             <li>
