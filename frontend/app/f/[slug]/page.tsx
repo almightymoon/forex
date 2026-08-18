@@ -135,11 +135,14 @@ export default function PublicFormPage() {
   };
 
   const inputClass =
-    'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100';
+    'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-400 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-100 dark:bg-white dark:text-gray-900';
+  const labelClass = 'mb-2 block font-medium text-gray-900 dark:text-gray-900';
+  const optionClass = 'flex cursor-pointer items-center gap-2 text-base text-gray-900 dark:text-gray-900';
+  const cardClass = 'rounded-2xl bg-white p-6 text-gray-900 shadow-sm dark:bg-white dark:text-gray-900';
 
   if (loading) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f0ebf8]">
+      <main className="flex min-h-screen items-center justify-center bg-[#f0ebf8] text-gray-900">
         <Loader2 className="h-6 w-6 animate-spin text-red-600" />
       </main>
     );
@@ -148,10 +151,10 @@ export default function PublicFormPage() {
   if (error && !form) {
     return (
       <main className="flex min-h-screen items-center justify-center bg-[#f0ebf8] p-6">
-        <div className="max-w-md rounded-2xl bg-white p-8 text-center shadow">
+        <div className="max-w-md rounded-2xl bg-white p-8 text-center text-gray-900 shadow">
           <AlertCircle className="mx-auto mb-3 h-8 w-8 text-red-500" />
-          <h1 className="text-xl font-semibold">Form unavailable</h1>
-          <p className="mt-2 text-sm text-gray-500">{error}</p>
+          <h1 className="text-xl font-semibold text-gray-900">Form unavailable</h1>
+          <p className="mt-2 text-sm text-gray-600">{error}</p>
         </div>
       </main>
     );
@@ -160,10 +163,10 @@ export default function PublicFormPage() {
   if (done) {
     return (
       <main className="min-h-screen bg-[#f0ebf8] px-4 py-16">
-        <div className="mx-auto max-w-xl rounded-2xl border-t-8 border-red-600 bg-white p-8 shadow">
+        <div className="mx-auto max-w-xl rounded-2xl border-t-8 border-red-600 bg-white p-8 text-gray-900 shadow">
           <CheckCircle className="mb-3 h-8 w-8 text-green-600" />
           <h1 className="text-2xl font-semibold text-gray-900">{form?.title}</h1>
-          <p className="mt-3 text-gray-600">{done}</p>
+          <p className="mt-3 text-gray-700">{done}</p>
         </div>
       </main>
     );
@@ -174,27 +177,27 @@ export default function PublicFormPage() {
   if (form.status === 'closed') {
     return (
       <main className="min-h-screen bg-[#f0ebf8] px-4 py-16">
-        <div className="mx-auto max-w-xl rounded-2xl border-t-8 border-gray-400 bg-white p-8 shadow">
+        <div className="mx-auto max-w-xl rounded-2xl border-t-8 border-gray-400 bg-white p-8 text-gray-900 shadow">
           <h1 className="text-2xl font-semibold text-gray-900">{form.title}</h1>
-          <p className="mt-3 text-gray-600">This form is no longer accepting responses.</p>
+          <p className="mt-3 text-gray-700">This form is no longer accepting responses.</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="min-h-screen bg-[#f0ebf8] px-4 py-10">
-      <form onSubmit={onSubmit} className="mx-auto max-w-xl space-y-4">
-        <section className="rounded-2xl border-t-8 border-red-600 bg-white p-6 shadow-sm">
+    <main className="min-h-screen bg-[#f0ebf8] px-4 py-10 text-gray-900 dark:bg-[#f0ebf8] dark:text-gray-900" style={{ colorScheme: 'light' }}>
+      <form onSubmit={onSubmit} className="mx-auto max-w-xl space-y-4 text-gray-900">
+        <section className={`${cardClass} border-t-8 border-red-600`}>
           <p className="text-xs font-semibold uppercase tracking-wide text-red-600">Forex Navigators</p>
           <h1 className="mt-2 text-3xl font-bold text-gray-900">{form.title}</h1>
-          {form.description && <p className="mt-3 whitespace-pre-wrap text-gray-600">{form.description}</p>}
+          {form.description && <p className="mt-3 whitespace-pre-wrap text-gray-700">{form.description}</p>}
           <p className="mt-4 text-sm text-red-600">* Required</p>
         </section>
 
         {form.collectName && (
-          <label className="block rounded-2xl bg-white p-6 shadow-sm">
-            <span className="mb-2 block font-medium">Name *</span>
+          <label className={`block ${cardClass}`}>
+            <span className={labelClass}>Name *</span>
             <input
               required
               name="respondentName"
@@ -206,8 +209,8 @@ export default function PublicFormPage() {
         )}
 
         {form.collectEmail && (
-          <label className="block rounded-2xl bg-white p-6 shadow-sm">
-            <span className="mb-2 block font-medium">Email *</span>
+          <label className={`block ${cardClass}`}>
+            <span className={labelClass}>Email *</span>
             <input
               required
               name="respondentEmail"
@@ -220,11 +223,11 @@ export default function PublicFormPage() {
         )}
 
         {form.fields.map((field) => (
-          <div key={field.id} className="rounded-2xl bg-white p-6 shadow-sm">
+          <div key={field.id} className={cardClass}>
             <div className="mb-3 font-medium text-gray-900">
               {field.label} {field.required && <span className="text-red-600">*</span>}
             </div>
-            {field.description && <p className="mb-3 text-sm text-gray-500">{field.description}</p>}
+            {field.description && <p className="mb-3 text-sm text-gray-600">{field.description}</p>}
 
             {field.type === 'long_text' && (
               <textarea
@@ -279,7 +282,7 @@ export default function PublicFormPage() {
             {field.type === 'multiple_choice' && (
               <div className="space-y-2">
                 {(field.options || []).map((option) => (
-                  <label key={option} className="flex items-center gap-2">
+                  <label key={option} className={optionClass}>
                     <input
                       type="radio"
                       name={field.id}
@@ -287,7 +290,7 @@ export default function PublicFormPage() {
                       required={field.required}
                       onChange={() => setAnswer(field.id, option)}
                     />
-                    {option}
+                    <span>{option}</span>
                   </label>
                 ))}
               </div>
@@ -295,14 +298,14 @@ export default function PublicFormPage() {
             {field.type === 'checkboxes' && (
               <div className="space-y-2">
                 {(field.options || []).map((option) => (
-                  <label key={option} className="flex items-center gap-2">
+                  <label key={option} className={optionClass}>
                     <input
                       type="checkbox"
                       name={field.id}
                       value={option}
                       onChange={() => toggleCheckbox(field.id, option)}
                     />
-                    {option}
+                    <span>{option}</span>
                   </label>
                 ))}
               </div>
@@ -310,7 +313,7 @@ export default function PublicFormPage() {
             {field.type === 'yes_no' && (
               <div className="flex gap-4">
                 {['Yes', 'No'].map((option) => (
-                  <label key={option} className="flex items-center gap-2">
+                  <label key={option} className={optionClass}>
                     <input
                       type="radio"
                       name={field.id}
@@ -318,7 +321,7 @@ export default function PublicFormPage() {
                       required={field.required}
                       onChange={() => setAnswer(field.id, option)}
                     />
-                    {option}
+                    <span>{option}</span>
                   </label>
                 ))}
               </div>
