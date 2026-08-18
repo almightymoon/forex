@@ -115,7 +115,7 @@ router.get('/test-config', [authenticateToken, requireAdmin], async (req, res) =
 
 router.post(
   '/test-email',
-  [authenticateToken, requireAdmin, body('testEmail').isEmail().withMessage('Valid test email is required')],
+  [authenticateToken, requireAdmin, body('testEmail').optional().isEmail().withMessage('Valid test email is required')],
   async (req, res) => {
     try {
       const errors = validationResult(req);
@@ -123,7 +123,10 @@ router.post(
         return res.status(400).json({ error: 'Validation failed', details: errors.array() });
       }
 
-      const { testEmail } = req.body;
+      const testEmail = String(req.body.testEmail || req.user?.email || '').toLowerCase().trim();
+      if (!testEmail) {
+        return res.status(400).json({ error: 'A valid test email is required' });
+      }
       const configTest = await notificationService.testEmailConfiguration();
       if (!configTest.success) {
         return res.status(400).json({ error: 'Email configuration invalid', message: configTest.error });

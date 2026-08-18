@@ -628,13 +628,15 @@ export default function AdminDashboard() {
 
   // Settings management functions
   const handleSettingsChange = async (category: string, field: string, value: any) => {
+    const nextCategory = {
+      ...((localSettings as any)?.[category] || {}),
+      [field]: value
+    };
+
     // Update local settings state for immediate UI feedback
     setLocalSettings(prev => ({
       ...prev,
-      [category]: {
-        ...prev[category as keyof typeof prev],
-        [field]: value
-      }
+      [category]: nextCategory
     }));
 
     if (category === 'email') {
@@ -647,10 +649,7 @@ export default function AdminDashboard() {
             'Content-Type': 'application/json'
           },
           body: JSON.stringify({
-            email: {
-              ...(settings?.email || {}),
-              [field]: value
-            }
+            email: nextCategory
           })
         });
 
@@ -731,27 +730,24 @@ export default function AdminDashboard() {
     try {
       setTestingEmailConfig(true);
       const token = localStorage.getItem('token');
-      const response = await fetch(buildApiUrl('api/notifications/test-config'), {
-        method: 'GET',
+      const testEmail = (user as { email?: string } | undefined)?.email;
+      const response = await fetch(buildApiUrl('api/admin/notifications/test-email'), {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        body: JSON.stringify(testEmail ? { testEmail } : {})
       });
-      
+
+      const result = await response.json().catch(() => ({}));
       if (response.ok) {
-        const result = await response.json(); 
-        if (result.success) {
-          showToast('Email configuration is valid!', 'success');
-        } else {
-          showToast(`Email configuration error: ${result.error}`, 'error');
-        }
-      } else {
-        const error = await response.json();
-        showToast(error.message || `HTTP ${response.status}: Failed to check email configuration`, 'error');
+        showToast(`Test email sent to ${result.recipient || testEmail || 'your account'}`, 'success');
+        return;
       }
+      showToast(result.message || result.error || `HTTP ${response.status}: Failed to send test email`, 'error');
     } catch (error) {
-      showToast(`Network error: ${error.message}`, 'error');
+      showToast(`Network error: ${(error as Error).message}`, 'error');
     } finally {
       setTestingEmailConfig(false);
     }

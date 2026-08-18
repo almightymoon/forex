@@ -15,16 +15,32 @@ function escapeHtml(str) {
     .replace(/'/g, '&#039;');
 }
 
+function isUsableFromEmail(value) {
+  const email = String(value || '').trim();
+  if (!email || !email.includes('@')) return false;
+  const lower = email.toLowerCase();
+  return !lower.endsWith('@example.com') && lower !== 'noreply@example.com';
+}
+
+function isUsableFromName(value) {
+  const name = String(value || '').trim();
+  return Boolean(name) && !/^platform name$/i.test(name);
+}
+
 /** Merge DB email settings with .env fallback so .env SMTP works without re-entering in Admin */
 function getEffectiveEmailConfig(dbEmail) {
   const env = process.env;
+  const smtpUser = dbEmail?.smtpUser || env.SMTP_USER || '';
+  const fromEmailCandidate = dbEmail?.fromEmail || env.SMTP_FROM_EMAIL || '';
+  const fromNameCandidate = dbEmail?.fromName || env.SMTP_FROM_NAME || '';
   return {
     smtpHost: dbEmail?.smtpHost || env.SMTP_HOST || '',
     smtpPort: dbEmail?.smtpPort ?? (env.SMTP_PORT ? parseInt(env.SMTP_PORT, 10) : 587),
-    smtpUser: dbEmail?.smtpUser || env.SMTP_USER || '',
+    smtpUser,
     smtpPassword: dbEmail?.smtpPassword || env.SMTP_PASSWORD || '',
-    fromEmail: dbEmail?.fromEmail || env.SMTP_FROM_EMAIL || dbEmail?.fromEmail || 'noreply@forexnavigators.com',
-    fromName: dbEmail?.fromName || env.SMTP_FROM_NAME || dbEmail?.fromName || 'Forex Navigators',
+    // Gmail rejects mismatched From addresses; never send as example.com placeholders.
+    fromEmail: isUsableFromEmail(fromEmailCandidate) ? fromEmailCandidate.trim() : (smtpUser || 'noreply@forexnavigators.com'),
+    fromName: isUsableFromName(fromNameCandidate) ? fromNameCandidate.trim() : 'Forex Navigators',
     isMockMode: dbEmail?.isMockMode ?? false
   };
 }

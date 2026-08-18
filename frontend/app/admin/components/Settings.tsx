@@ -684,9 +684,12 @@ export default function Settings({
                   type="email" 
                   value={safeSettings.email.fromEmail}
                   onChange={(e) => onSettingsChange('email', 'fromEmail', e.target.value)}
-                  placeholder="noreply@example.com"
+                  placeholder="thefxnavigators@gmail.com"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 />
+                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                  For Gmail this must match the SMTP username (or a verified alias).
+                </p>
               </div>
               
               <div>
@@ -695,7 +698,7 @@ export default function Settings({
                   type="text" 
                   value={safeSettings.email.fromName}
                   onChange={(e) => onSettingsChange('email', 'fromName', e.target.value)}
-                  placeholder="Platform Name"
+                  placeholder="Forex Navigators"
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                 />
               </div>
@@ -715,7 +718,7 @@ export default function Settings({
                 ) : (
                   <>
                     <Server className="w-4 h-4" />
-                    <span>Test Email Configuration</span>
+                    <span>Send test email to me</span>
                   </>
                 )}
               </button>
