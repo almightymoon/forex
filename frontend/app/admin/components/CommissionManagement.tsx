@@ -21,10 +21,14 @@ import {
   Loader2,
   Save,
   Edit3,
-  Wrench
+  Wrench,
+  RotateCcw,
+  Trash2,
+  Share2
 } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
+import AdminRowActionsMenu from './AdminRowActionsMenu';
 
 type CommissionRates = { 1: number; 2: number; 3: number; 4: number; 5: number };
 
@@ -1315,27 +1319,11 @@ export default function CommissionManagement() {
       )}
 
       {activeView === 'monthly_fee' && (
-        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg p-4 text-sm text-amber-950 dark:text-amber-100">
-          <p className="font-semibold mb-2">How monthly fee distribution works</p>
-          <ul className="list-disc list-inside space-y-1 opacity-95">
-            <li>Lists completed monthly fee payments only (removed rows are hidden).</li>
-            <li>
-              Referral pool % and level rates (1–5) are read live from each student&apos;s package tier in
-              <strong> Monthly fee distribution settings</strong> (e.g. FX Starter vs FX Launch can differ). Changing
-              those settings affects the next distribute / approve.
-            </li>
-            <li>
-              Distribution runs <strong>automatically</strong> when you approve a monthly fee payment. You can still use
-              <strong> Distribute</strong> manually if auto-run failed. Payouts walk the referral chain for
-              <strong> levels 1–5</strong> using that package&apos;s rates. If there is no referrer, default-referral-only
-              signup, or a zero pool, the row is marked done with no payouts.
-            </li>
-            <li>
-              Use <strong>Paid to</strong> to see who received commissions, <strong>Roll back</strong> to reverse a
-              mistaken payout, and <strong>Remove</strong> to hide a record (e.g. admin test fees) after any open
-              commissions are rolled back.
-            </li>
-          </ul>
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/40 px-4 py-3 text-sm text-gray-700 dark:text-gray-300">
+          <p>
+            Approving a monthly fee auto-distributes levels 1–5 using that student&apos;s package settings below.
+            Pending rows can be distributed manually; use roll back if a payout was wrong.
+          </p>
         </div>
       )}
 
@@ -1343,9 +1331,9 @@ export default function CommissionManagement() {
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-5">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Monthly fee distribution settings</h3>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Package split settings</h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Set how much of a monthly fee goes to <strong>referrals</strong> vs <strong>platform</strong>, and the level splits.
+                Pool % and level rates used when a monthly fee is distributed.
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -1372,7 +1360,7 @@ export default function CommissionManagement() {
           {/* Saved settings list */}
           <div className="mt-4 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
             <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900/40 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">Saved package settings</p>
+              <p className="text-sm font-semibold text-gray-900 dark:text-white">Packages</p>
               {tiersLoading ? (
                 <span className="text-xs text-gray-500 inline-flex items-center gap-2">
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1704,43 +1692,45 @@ export default function CommissionManagement() {
       {/* Monthly fee distribution table */}
       {activeView === 'monthly_fee' && (
         <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white">Distribution log</h3>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                Completed monthly fees and who was paid from the referral pool
+              </p>
+            </div>
+            <span className="text-xs text-gray-500 dark:text-gray-400 tabular-nums">
+              {pagination.total} record{pagination.total === 1 ? '' : 's'}
+            </span>
+          </div>
           <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-gray-50 dark:bg-gray-700">
+            <table className="w-full min-w-[880px]">
+              <thead className="bg-gray-50 dark:bg-gray-900/50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">
                     Date
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">
                     Student
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Fee
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">
+                    Fee / split
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Tier (pool rules)
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">
+                    Recipients
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Referral pool
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Platform share
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Paid to
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
+                  <th className="px-4 py-2.5 text-left text-[11px] font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase">
-                    Action
+                  <th className="px-4 py-2.5 text-right text-[11px] font-semibold tracking-wide text-gray-500 dark:text-gray-400 uppercase">
+                    Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-700/80">
                 {monthlyFeeRows.length === 0 ? (
                   <tr>
-                    <td colSpan={9} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                    <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-500 dark:text-gray-400">
                       No completed monthly fee payments found.
                     </td>
                   </tr>
@@ -1750,145 +1740,190 @@ export default function CommissionManagement() {
                     const expanded = monthlyFeeExpandedId === row.paymentId;
                     const busy =
                       monthlyFeeDistributingId === row.paymentId || monthlyFeeActionId === row.paymentId;
+                    const paidTotal = recipients.reduce((sum, r) => sum + (Number(r.amount) || 0), 0);
+                    const studentName = row.user
+                      ? `${row.user.firstName || ''} ${row.user.lastName || ''}`.trim() || '—'
+                      : '—';
+                    const canRemove = !(row.commissionTxnCount > 0 && row.isDistributed);
+
                     return (
                       <React.Fragment key={row.paymentId}>
-                        <tr className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white whitespace-nowrap">
+                        <tr className="align-top hover:bg-gray-50/80 dark:hover:bg-gray-700/30">
+                          <td className="px-4 py-3 text-sm text-gray-700 dark:text-gray-300 whitespace-nowrap tabular-nums">
                             {formatDate(row.createdAt)}
                           </td>
-                          <td className="px-4 py-3">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                {row.user
-                                  ? `${row.user.firstName || ''} ${row.user.lastName || ''}`.trim() || '—'
-                                  : '—'}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">{row.user?.email}</p>
-                              {row.user?.role && row.user.role !== 'student' && (
-                                <span className="mt-1 inline-flex px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide rounded bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-100">
-                                  {row.user.role}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900 dark:text-white">
-                            ${row.feeAmount.toFixed(2)}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                            {row.packageTierName}
-                            <span className="block text-xs text-gray-500">
-                              Pool {row.referralPoolPercentage.toFixed(1)}%
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-sm text-green-600 dark:text-green-400">
-                            ${row.referralPool.toFixed(2)}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-blue-600 dark:text-blue-400">
-                            ${row.platformShare.toFixed(2)}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white max-w-[220px]">
-                            {recipients.length === 0 ? (
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                {row.isDistributed ? 'No payouts' : '—'}
+                          <td className="px-4 py-3 min-w-[180px]">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white leading-snug">
+                              {studentName}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate max-w-[220px]" title={row.user?.email}>
+                              {row.user?.email}
+                            </p>
+                            {row.user?.role && row.user.role !== 'student' && (
+                              <span className="mt-1 inline-flex text-[10px] font-semibold uppercase tracking-wide text-rose-700 dark:text-rose-300">
+                                {row.user.role}
                               </span>
-                            ) : (
-                              <div className="space-y-1">
-                                {recipients.slice(0, expanded ? recipients.length : 2).map((r) => (
-                                  <div key={r.transactionId} className="leading-tight">
-                                    <p className="text-sm font-medium">
-                                      {r.user
-                                        ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() ||
-                                          r.user.email
-                                        : 'Unknown'}
-                                    </p>
-                                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                                      L{r.level} · ${Number(r.amount).toFixed(2)}
-                                      {r.user?.email ? ` · ${r.user.email}` : ''}
-                                    </p>
-                                  </div>
-                                ))}
-                                {recipients.length > 2 && (
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setMonthlyFeeExpandedId(expanded ? null : row.paymentId)
-                                    }
-                                    className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
-                                  >
-                                    {expanded ? 'Show less' : `+${recipients.length - 2} more`}
-                                  </button>
-                                )}
-                              </div>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-sm">
-                            {row.isDistributed ? (
-                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-gray-100 text-gray-800 dark:bg-gray-600 dark:text-gray-200">
-                                Done
-                                {row.commissionTxnCount > 0 ? ` (${row.commissionTxnCount} txns)` : ''}
+                          <td className="px-4 py-3 whitespace-nowrap">
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white tabular-nums">
+                              ${row.feeAmount.toFixed(2)}
+                            </p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
+                              {row.packageTierName}
+                              <span className="text-gray-400 dark:text-gray-500"> · </span>
+                              {row.referralPoolPercentage.toFixed(0)}% pool
+                            </p>
+                            <p className="text-xs mt-1 tabular-nums">
+                              <span className="text-emerald-600 dark:text-emerald-400">
+                                Pool ${row.referralPool.toFixed(2)}
+                              </span>
+                              <span className="text-gray-400 dark:text-gray-500"> · </span>
+                              <span className="text-sky-600 dark:text-sky-400">
+                                Platform ${row.platformShare.toFixed(2)}
+                              </span>
+                            </p>
+                          </td>
+                          <td className="px-4 py-3 min-w-[160px]">
+                            {recipients.length === 0 ? (
+                              <span className="text-xs text-gray-500 dark:text-gray-400">
+                                {row.isDistributed ? 'No payouts' : 'Not distributed'}
                               </span>
                             ) : (
-                              <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-900 dark:bg-yellow-900/40 dark:text-yellow-100">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setMonthlyFeeExpandedId(expanded ? null : row.paymentId)
+                                }
+                                className="group text-left rounded-md -mx-1 px-1 py-0.5 hover:bg-gray-100 dark:hover:bg-gray-700/60 transition-colors"
+                              >
+                                <span className="inline-flex items-center gap-1.5 text-sm font-medium text-gray-900 dark:text-white">
+                                  {recipients.length} paid
+                                  <span className="text-gray-400 dark:text-gray-500 font-normal">·</span>
+                                  <span className="tabular-nums text-emerald-600 dark:text-emerald-400">
+                                    ${paidTotal.toFixed(2)}
+                                  </span>
+                                  {expanded ? (
+                                    <ChevronUp className="w-3.5 h-3.5 text-gray-400" />
+                                  ) : (
+                                    <ChevronDown className="w-3.5 h-3.5 text-gray-400 group-hover:text-gray-600 dark:group-hover:text-gray-300" />
+                                  )}
+                                </span>
+                                <span className="block text-xs text-gray-500 dark:text-gray-400 mt-0.5 truncate max-w-[200px]">
+                                  L{recipients[0].level}{' '}
+                                  {recipients[0].user
+                                    ? `${recipients[0].user.firstName || ''} ${recipients[0].user.lastName || ''}`.trim()
+                                    : 'Unknown'}
+                                  {recipients.length > 1 ? ` +${recipients.length - 1}` : ''}
+                                </span>
+                              </button>
+                            )}
+                          </td>
+                          <td className="px-4 py-3">
+                            {row.isDistributed ? (
+                              <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200">
+                                Done
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium rounded-md bg-amber-50 text-amber-900 dark:bg-amber-900/30 dark:text-amber-100">
                                 Pending
                               </span>
                             )}
                             {row.resolveError && (
-                              <p className="text-xs text-red-600 dark:text-red-400 mt-1 max-w-[200px]">
+                              <p className="text-xs text-red-600 dark:text-red-400 mt-1 max-w-[160px] leading-snug">
                                 {row.resolveError}
                               </p>
                             )}
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-col gap-1.5 min-w-[110px]">
-                              {!row.isDistributed && (
-                                <button
-                                  type="button"
-                                  disabled={!!row.resolveError || busy}
-                                  onClick={() => handleMonthlyFeeDistribute(row.paymentId)}
-                                  className="px-3 py-1.5 text-sm font-medium rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
-                                >
-                                  {monthlyFeeDistributingId === row.paymentId ? (
-                                    <>
-                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                      …
-                                    </>
-                                  ) : (
-                                    'Distribute'
-                                  )}
-                                </button>
-                              )}
-                              {row.isDistributed && (
-                                <button
-                                  type="button"
-                                  disabled={busy}
-                                  onClick={() => handleMonthlyFeeRollback(row.paymentId)}
-                                  className="px-3 py-1.5 text-sm font-medium rounded-lg border border-amber-300 text-amber-900 bg-amber-50 hover:bg-amber-100 dark:border-amber-700 dark:text-amber-100 dark:bg-amber-900/30 dark:hover:bg-amber-900/50 disabled:opacity-40 inline-flex items-center justify-center gap-1"
-                                >
-                                  {busy && monthlyFeeActionId === row.paymentId ? (
-                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                                  ) : (
-                                    'Roll back'
-                                  )}
-                                </button>
-                              )}
-                              <button
-                                type="button"
-                                disabled={busy || (row.commissionTxnCount > 0 && row.isDistributed)}
-                                title={
-                                  row.commissionTxnCount > 0 && row.isDistributed
-                                    ? 'Roll back commissions first, then remove'
-                                    : 'Hide from this list'
+                          <td className="px-4 py-3 text-right">
+                            <AdminRowActionsMenu
+                              disabled={busy}
+                              align="right"
+                              items={[
+                                {
+                                  id: 'distribute',
+                                  label: 'Distribute',
+                                  icon: Share2,
+                                  tone: 'info',
+                                  hidden: row.isDistributed,
+                                  disabled: !!row.resolveError || busy,
+                                  loading: monthlyFeeDistributingId === row.paymentId,
+                                  onClick: () => handleMonthlyFeeDistribute(row.paymentId)
+                                },
+                                {
+                                  id: 'rollback',
+                                  label: 'Roll back',
+                                  icon: RotateCcw,
+                                  tone: 'warning',
+                                  hidden: !row.isDistributed,
+                                  disabled: busy,
+                                  loading: monthlyFeeActionId === row.paymentId,
+                                  onClick: () => handleMonthlyFeeRollback(row.paymentId)
+                                },
+                                {
+                                  id: 'remove',
+                                  label: canRemove ? 'Remove from list' : 'Remove (roll back first)',
+                                  icon: Trash2,
+                                  tone: 'danger',
+                                  disabled: busy || !canRemove,
+                                  loading: monthlyFeeActionId === row.paymentId && !row.isDistributed,
+                                  onClick: () => handleMonthlyFeeRemove(row.paymentId)
                                 }
-                                onClick={() => handleMonthlyFeeRemove(row.paymentId)}
-                                className="px-3 py-1.5 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 bg-white hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1"
-                              >
-                                {busy && monthlyFeeActionId === row.paymentId && row.isDistributed === false
-                                  ? '…'
-                                  : 'Remove'}
-                              </button>
-                            </div>
+                              ]}
+                            />
                           </td>
                         </tr>
+                        {expanded && recipients.length > 0 && (
+                          <tr className="bg-gray-50/90 dark:bg-gray-900/40">
+                            <td colSpan={6} className="px-4 py-3">
+                              <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+                                <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+                                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">
+                                    Payout breakdown
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() => setMonthlyFeeExpandedId(null)}
+                                    className="text-xs text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+                                  >
+                                    Close
+                                  </button>
+                                </div>
+                                <div className="divide-y divide-gray-100 dark:divide-gray-700/80">
+                                  {recipients.map((r) => {
+                                    const name = r.user
+                                      ? `${r.user.firstName || ''} ${r.user.lastName || ''}`.trim() ||
+                                        r.user.email
+                                      : 'Unknown';
+                                    return (
+                                      <div
+                                        key={r.transactionId}
+                                        className="flex items-center justify-between gap-3 px-3 py-2.5"
+                                      >
+                                        <div className="min-w-0 flex items-center gap-3">
+                                          <span className="shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-md bg-indigo-50 dark:bg-indigo-900/40 text-xs font-semibold text-indigo-700 dark:text-indigo-200">
+                                            L{r.level}
+                                          </span>
+                                          <div className="min-w-0">
+                                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                              {name}
+                                            </p>
+                                            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                              {r.user?.email || '—'}
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <p className="shrink-0 text-sm font-semibold tabular-nums text-emerald-600 dark:text-emerald-400">
+                                          ${Number(r.amount).toFixed(2)}
+                                        </p>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
                       </React.Fragment>
                     );
                   })

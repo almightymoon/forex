@@ -17,7 +17,8 @@ const publicRoutes = [
   '/community',
   '/payment',
   '/not-found',
-  '/404'
+  '/404',
+  '/f',
 ];
 
 /** Block scanner POSTs that trigger "Failed to find Server Action" noise (this app has no Server Actions). */

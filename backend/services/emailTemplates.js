@@ -1384,7 +1384,7 @@ payment_complete_required: {
   }
 
   getAllTemplates() {
-    return Object.values(this.templates);
+    return Object.entries(this.templates).map(([id, template]) => ({ id, ...template }));
   }
 
   getTemplatesByCategory(category) {

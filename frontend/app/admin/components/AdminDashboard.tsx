@@ -15,6 +15,7 @@ import {
   ShoppingBag,
   Library,
   Megaphone,
+  ClipboardList,
 } from 'lucide-react';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../components/Toast';
@@ -36,7 +37,8 @@ import PromoCodeManagement from './PromoCodeManagement';
 import RankRewardsManagement from './RankRewardsManagement';
 import Analytics from './Analytics';
 import Settings from './Settings';
-import Notifications from './Notifications';
+import EmailServices from './EmailServices';
+import FormsManagement from './FormsManagement';
 import LogsManagement from './LogsManagement';
 import MonthlyProgressLandingEditor from '../../../components/MonthlyProgressLandingEditor';
 import NewJoinersLandingEditor from '../../../components/NewJoinersLandingEditor';
@@ -1063,7 +1065,8 @@ export default function AdminDashboard() {
                   { id: 'campaigns', label: 'App Campaigns', icon: Megaphone },
                   { id: 'analytics', label: 'Analytics', icon: TrendingUp },
                   { id: 'promocodes', label: 'Promo Codes', icon: Target },
-                  { id: 'notifications', label: 'Notifications', icon: Mail },
+                  { id: 'notifications', label: 'Email', icon: Mail },
+                  { id: 'forms', label: 'Forms', icon: ClipboardList },
                   { id: 'logs', label: 'Logs', icon: FileText },
                   { id: 'landing-progress', label: 'Landing progress', icon: LineChart },
                   { id: 'landing-joiners', label: 'Landing joiners', icon: Users2 },
@@ -1166,7 +1169,11 @@ export default function AdminDashboard() {
         )}
 
         {activeTab === 'notifications' && (
-          <Notifications />
+          <EmailServices />
+        )}
+
+        {activeTab === 'forms' && (
+          <FormsManagement />
         )}
 
         {activeTab === 'analytics' && (

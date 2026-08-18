@@ -126,6 +126,8 @@ router.use(async (req, _res, next) => {
 
 router.use('/monthly-progress', require('./landingMonthlyProgressRoutes'));
 router.use('/new-joiners', require('./landingNewJoinersRoutes'));
+router.use('/email', require('./adminEmail'));
+router.use('/forms', require('./adminForms'));
 
 // @route   GET /api/admin/activity-logs
 // @desc    List activity/audit logs (admin only)
