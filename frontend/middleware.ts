@@ -19,6 +19,7 @@ const publicRoutes = [
   '/not-found',
   '/404',
   '/f',
+  '/e',
 ];
 
 /** Block scanner POSTs that trigger "Failed to find Server Action" noise (this app has no Server Actions). */

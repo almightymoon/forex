@@ -18,6 +18,11 @@ import {
   FileText,
   History,
   Beaker,
+  MousePointerClick,
+  Table2,
+  Plus,
+  Download,
+  ArrowLeft,
 } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { fetchWithTokenRefresh } from '../../../utils/tokenUtils';
@@ -68,6 +73,45 @@ const STARTER_HTML = `<h2>Hello {{firstName}},</h2>
 <p>Write your message here. You can use variables like <strong>{{firstName}}</strong>, <strong>{{lastName}}</strong>, and <strong>{{email}}</strong>.</p>
 <p>Best regards,<br>The Forex Navigators Team</p>`;
 
+type ActionButton = { id: string; label: string; color: string };
+
+type CampaignRow = {
+  _id: string;
+  subject: string;
+  isTest?: boolean;
+  recipientCount?: number;
+  responseCount?: number;
+  sentAt?: string;
+  createdAt?: string;
+  buttons?: ActionButton[];
+};
+
+type CampaignClick = {
+  _id: string;
+  name?: string;
+  email: string;
+  buttonId?: string;
+  buttonLabel?: string;
+  clickedAt: string;
+};
+
+const DEFAULT_BUTTONS: ActionButton[] = [
+  { id: 'confirm', label: 'Confirm', color: '#dc2626' },
+  { id: 'decline', label: 'Decline', color: '#4b5563' },
+];
+
+function previewButtonMarkup(buttons: ActionButton[]) {
+  const cells = buttons
+    .filter((button) => button.label.trim())
+    .map(
+      (button) =>
+        `<td style="padding:6px;"><a href="#" style="display:inline-block;background:${button.color || '#dc2626'};color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">${button.label}</a></td>`
+    )
+    .join('');
+  if (!cells) return '';
+  return `<div style="text-align:center;margin:28px 0 8px;"><table role="presentation" cellspacing="0" cellpadding="0" align="center"><tr>${cells}</tr></table></div>`;
+}
+
 function authJson(method: string, body?: unknown): RequestInit {
   return {
     method,
@@ -80,7 +124,7 @@ function interpolate(html: string, vars: Record<string, string>) {
 }
 
 export default function EmailServices() {
-  const [tab, setTab] = useState<'compose' | 'templates' | 'history'>('compose');
+  const [tab, setTab] = useState<'compose' | 'templates' | 'history' | 'entries'>('compose');
   const [users, setUsers] = useState<UserRow[]>([]);
   const [builtin, setBuiltin] = useState<EmailTpl[]>([]);
   const [custom, setCustom] = useState<EmailTpl[]>([]);
@@ -101,6 +145,16 @@ export default function EmailServices() {
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [sendResult, setSendResult] = useState<{ total: number; successful: number; failed: number } | null>(null);
+  const [trackButtons, setTrackButtons] = useState(false);
+  const [buttons, setButtons] = useState<ActionButton[]>(DEFAULT_BUTTONS);
+  const [confirmationMessage, setConfirmationMessage] = useState('Thanks, your response has been recorded.');
+  const [campaigns, setCampaigns] = useState<CampaignRow[]>([]);
+  const [campaignsLoading, setCampaignsLoading] = useState(false);
+  const [activeCampaign, setActiveCampaign] = useState<CampaignRow | null>(null);
+  const [clicks, setClicks] = useState<CampaignClick[]>([]);
+  const [clickTotal, setClickTotal] = useState(0);
+  const [sheetSearch, setSheetSearch] = useState('');
+  const [sheetLoading, setSheetLoading] = useState(false);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -124,6 +178,43 @@ export default function EmailServices() {
     } catch (error) {
       console.error(error);
       showToast('Could not load email templates', 'error');
+    }
+  }, []);
+
+  const loadCampaigns = useCallback(async () => {
+    setCampaignsLoading(true);
+    try {
+      const res = await fetchWithTokenRefresh(buildApiUrl('api/admin/email/campaigns?includeTests=1'));
+      if (!res.ok) throw new Error('Failed to load campaigns');
+      const data = await res.json();
+      setCampaigns(data.campaigns || []);
+    } catch (error) {
+      console.error(error);
+      showToast('Could not load email entries', 'error');
+    } finally {
+      setCampaignsLoading(false);
+    }
+  }, []);
+
+  const openSheet = useCallback(async (campaign: CampaignRow, search = '') => {
+    setActiveCampaign(campaign);
+    setSheetLoading(true);
+    try {
+      const params = new URLSearchParams({ limit: '200' });
+      if (search.trim()) params.set('q', search.trim());
+      const res = await fetchWithTokenRefresh(
+        buildApiUrl(`api/admin/email/campaigns/${campaign._id}/clicks?${params}`)
+      );
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || 'Failed to load entries');
+      setClicks(data.clicks || []);
+      setClickTotal(data.total || 0);
+      if (data.campaign) setActiveCampaign((prev) => ({ ...(prev || campaign), ...data.campaign }));
+    } catch (error) {
+      console.error(error);
+      showToast('Could not load entries', 'error');
+    } finally {
+      setSheetLoading(false);
     }
   }, []);
 
@@ -153,14 +244,24 @@ export default function EmailServices() {
 
   const previewHtml = useMemo(() => {
     const sample = users[0];
-    return interpolate(html, {
+    const rendered = interpolate(html, {
       firstName: sample?.firstName || 'Alex',
       lastName: sample?.lastName || 'Trader',
       email: sample?.email || 'alex@example.com',
       userName: `${sample?.firstName || 'Alex'} ${sample?.lastName || 'Trader'}`,
       companyName: 'Forex Navigators',
     });
-  }, [html, users]);
+    if (!trackButtons) return rendered;
+    const markup = previewButtonMarkup(buttons);
+    if (!markup) return rendered;
+    if (/\{\{\s*actionButtons\s*\}\}/.test(rendered)) {
+      return rendered.replace(/\{\{\s*actionButtons\s*\}\}/g, markup);
+    }
+    if (/\{\{\s*button_[a-zA-Z0-9_-]+\s*\}\}/.test(rendered)) {
+      return rendered;
+    }
+    return `${rendered}${markup}`;
+  }, [html, users, trackButtons, buttons]);
 
   const filteredUsers = useMemo(() => {
     const q = userSearch.trim().toLowerCase();
@@ -195,6 +296,9 @@ export default function EmailServices() {
     audience,
     userIds: audience === 'custom' ? selectedUsers : undefined,
     emails: audience === 'emails' || collectEmails().length ? collectEmails() : undefined,
+    trackButtons,
+    buttons: trackButtons ? buttons.filter((button) => button.label.trim()) : undefined,
+    confirmationMessage: trackButtons ? confirmationMessage.trim() : undefined,
   });
 
   const handleSend = async () => {
@@ -210,6 +314,10 @@ export default function EmailServices() {
       showToast('Add at least one email address', 'error');
       return;
     }
+    if (trackButtons && buttons.filter((button) => button.label.trim()).length === 0) {
+      showToast('Add at least one button label to record clicks', 'error');
+      return;
+    }
     if (!window.confirm(`Send this email to about ${recipientEstimate} recipient(s)?`)) return;
 
     setSending(true);
@@ -222,7 +330,12 @@ export default function EmailServices() {
         return;
       }
       setSendResult({ total: data.total || 0, successful: data.successful || 0, failed: data.failed || 0 });
-      showToast(data.message || 'Emails sent', 'success');
+      showToast(
+        data.campaignId
+          ? `${data.message || 'Emails sent'} Responses will appear under Entries.`
+          : data.message || 'Emails sent',
+        'success'
+      );
     } catch (error) {
       console.error(error);
       showToast('Failed to send emails', 'error');
@@ -240,7 +353,13 @@ export default function EmailServices() {
     try {
       const res = await fetchWithTokenRefresh(
         buildApiUrl('api/admin/email/test'),
-        authJson('POST', { subject: subject.trim(), html })
+        authJson('POST', {
+          subject: subject.trim(),
+          html,
+          trackButtons,
+          buttons: trackButtons ? buttons.filter((button) => button.label.trim()) : undefined,
+          confirmationMessage: trackButtons ? confirmationMessage.trim() : undefined,
+        })
       );
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -298,9 +417,40 @@ export default function EmailServices() {
     }
   };
 
+  const updateButton = (index: number, patch: Partial<ActionButton>) => {
+    setButtons((prev) => prev.map((button, i) => (i === index ? { ...button, ...patch } : button)));
+  };
+
+  const addButton = () => {
+    if (buttons.length >= 6) return;
+    const n = buttons.length + 1;
+    setButtons((prev) => [...prev, { id: `btn_${n}`, label: `Option ${n}`, color: '#4b5563' }]);
+  };
+
+  const exportCsv = async () => {
+    if (!activeCampaign?._id) return;
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`api/admin/email/campaigns/${activeCampaign._id}/export`), {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('export failed');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${(activeCampaign.subject || 'campaign').replace(/[^a-z0-9]+/gi, '-').slice(0, 60)}-entries.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      showToast('Could not export CSV', 'error');
+    }
+  };
+
   const tabs = [
     { id: 'compose' as const, label: 'Compose', icon: Mail },
     { id: 'templates' as const, label: 'Templates', icon: FileText },
+    { id: 'entries' as const, label: 'Entries', icon: Table2 },
     { id: 'history' as const, label: 'History', icon: History },
   ];
 
@@ -311,7 +461,8 @@ export default function EmailServices() {
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Email services</h2>
           <p className="text-gray-600 dark:text-gray-300">
             Send HTML emails to everyone, a role, selected users, or any address. Use {'{{firstName}}'} and other
-            variables for personalization.
+            variables for personalization. Turn on tracked buttons to collect Confirm / Decline style responses in a
+            spreadsheet.
           </p>
         </div>
         <button
@@ -319,6 +470,10 @@ export default function EmailServices() {
           onClick={() => {
             loadUsers();
             loadTemplates();
+            if (tab === 'entries') {
+              if (activeCampaign) openSheet(activeCampaign, sheetSearch);
+              else loadCampaigns();
+            }
           }}
           className="inline-flex items-center gap-2 rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
         >
@@ -334,7 +489,10 @@ export default function EmailServices() {
             <button
               key={item.id}
               type="button"
-              onClick={() => setTab(item.id)}
+              onClick={() => {
+                setTab(item.id);
+                if (item.id === 'entries' && !activeCampaign) loadCampaigns();
+              }}
               className={`inline-flex items-center gap-2 border-b-2 px-4 py-2 text-sm font-medium ${
                 tab === item.id
                   ? 'border-red-600 text-red-600'
@@ -457,7 +615,83 @@ export default function EmailServices() {
             >
               <Eye className="h-4 w-4" /> {showPreview ? 'Hide preview' : 'Show preview'}
             </button>
-            <span className="text-xs text-gray-500">Variables: {'{{firstName}} {{lastName}} {{email}} {{userName}} {{companyName}}'}</span>
+            <span className="text-xs text-gray-500">
+              Variables: {'{{firstName}} {{lastName}} {{email}} {{userName}} {{companyName}}'}
+              {trackButtons ? ' · Place buttons with {{actionButtons}}' : ''}
+            </span>
+          </div>
+
+          <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={trackButtons}
+                onChange={(e) => {
+                  const on = e.target.checked;
+                  setTrackButtons(on);
+                  if (on && buttons.length === 0) setButtons(DEFAULT_BUTTONS);
+                }}
+              />
+              <span>
+                <span className="flex items-center gap-2 text-sm font-medium text-gray-900 dark:text-white">
+                  <MousePointerClick className="h-4 w-4" /> Record button clicks
+                </span>
+                <span className="mt-1 block text-xs text-gray-500">
+                  Each person who clicks a button is saved in Entries, like a form response. One row per person; a later
+                  click updates their answer.
+                </span>
+              </span>
+            </label>
+
+            {trackButtons && (
+              <div className="mt-4 space-y-4 border-t border-gray-100 pt-4 dark:border-gray-700">
+                {buttons.map((button, index) => (
+                  <div key={`${button.id}-${index}`} className="flex flex-wrap items-center gap-2">
+                    <input
+                      value={button.label}
+                      onChange={(e) => updateButton(index, { label: e.target.value })}
+                      placeholder="Button label"
+                      className="min-w-[140px] flex-1 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                    />
+                    <input
+                      type="color"
+                      value={button.color}
+                      onChange={(e) => updateButton(index, { color: e.target.value })}
+                      className="h-10 w-12 cursor-pointer rounded border border-gray-300 bg-white dark:border-gray-600"
+                      title="Button color"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setButtons((prev) => prev.filter((_, i) => i !== index))}
+                      className="rounded-lg border border-gray-300 px-2 py-2 text-gray-500 hover:text-red-600 dark:border-gray-600"
+                      aria-label="Remove button"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+                {buttons.length < 6 && (
+                  <button
+                    type="button"
+                    onClick={addButton}
+                    className="inline-flex items-center gap-1 text-sm text-red-600 hover:text-red-700"
+                  >
+                    <Plus className="h-4 w-4" /> Add button
+                  </button>
+                )}
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700 dark:text-gray-300">
+                    Confirmation message
+                  </label>
+                  <input
+                    value={confirmationMessage}
+                    onChange={(e) => setConfirmationMessage(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className={`grid gap-4 ${showPreview ? 'lg:grid-cols-2' : ''}`}>
@@ -566,6 +800,140 @@ export default function EmailServices() {
               ))}
             </div>
           </section>
+        </div>
+      )}
+
+      {tab === 'entries' && (
+        <div className="space-y-4">
+          {activeCampaign ? (
+            <>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveCampaign(null);
+                      setClicks([]);
+                      loadCampaigns();
+                    }}
+                    className="mb-2 inline-flex items-center gap-1 text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200"
+                  >
+                    <ArrowLeft className="h-4 w-4" /> All campaigns
+                  </button>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">{activeCampaign.subject}</h3>
+                  <p className="text-sm text-gray-500">
+                    {clickTotal} {clickTotal === 1 ? 'entry' : 'entries'}
+                    {activeCampaign.isTest ? ' · Test send' : ''}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    value={sheetSearch}
+                    onChange={(e) => setSheetSearch(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') openSheet(activeCampaign, sheetSearch);
+                    }}
+                    placeholder="Search sheet"
+                    className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => openSheet(activeCampaign, sheetSearch)}
+                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:text-gray-200"
+                  >
+                    Search
+                  </button>
+                  <button
+                    type="button"
+                    onClick={exportCsv}
+                    className="inline-flex items-center gap-1 rounded-lg border border-gray-300 px-3 py-2 text-sm dark:border-gray-600 dark:text-gray-200"
+                  >
+                    <Download className="h-4 w-4" /> CSV
+                  </button>
+                </div>
+              </div>
+              <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="bg-gray-50 text-xs uppercase tracking-wide text-gray-500 dark:bg-gray-900 dark:text-gray-400">
+                    <tr>
+                      <th className="px-4 py-3">Timestamp</th>
+                      <th className="px-4 py-3">Name</th>
+                      <th className="px-4 py-3">Email</th>
+                      <th className="px-4 py-3">Response</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sheetLoading ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                          <Loader2 className="mr-2 inline h-4 w-4 animate-spin" /> Loading sheet…
+                        </td>
+                      </tr>
+                    ) : clicks.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-4 py-8 text-center text-gray-500">
+                          No responses yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      clicks.map((row) => (
+                        <tr key={row._id} className="border-t border-gray-100 dark:border-gray-700">
+                          <td className="whitespace-nowrap px-4 py-3 text-gray-700 dark:text-gray-200">
+                            {row.clickedAt ? new Date(row.clickedAt).toLocaleString() : ''}
+                          </td>
+                          <td className="px-4 py-3 text-gray-900 dark:text-white">{row.name || '—'}</td>
+                          <td className="px-4 py-3 text-gray-700 dark:text-gray-200">{row.email}</td>
+                          <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">
+                            {row.buttonLabel || row.buttonId || '—'}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          ) : campaignsLoading ? (
+            <p className="flex items-center gap-2 text-sm text-gray-500">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading campaigns…
+            </p>
+          ) : campaigns.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-300 p-8 text-center dark:border-gray-600">
+              <Table2 className="mx-auto mb-3 h-8 w-8 text-gray-400" />
+              <p className="text-sm text-gray-500">
+                No tracked emails yet. Compose a message, turn on “Record button clicks”, and send.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {campaigns.map((item) => (
+                <button
+                  key={item._id}
+                  type="button"
+                  onClick={() => openSheet(item)}
+                  className="rounded-2xl border border-gray-200 bg-white p-4 text-left hover:border-red-300 dark:border-gray-700 dark:bg-gray-800"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <h4 className="font-semibold text-gray-900 dark:text-white">{item.subject}</h4>
+                    {item.isTest && (
+                      <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-600 dark:bg-gray-700 dark:text-gray-300">
+                        Test
+                      </span>
+                    )}
+                  </div>
+                  <p className="mt-2 text-sm text-gray-500">
+                    {item.responseCount || 0} / {item.recipientCount || 0} responses
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    {item.sentAt ? new Date(item.sentAt).toLocaleString() : ''}
+                  </p>
+                  <p className="mt-3 text-xs text-red-600">
+                    <Table2 className="mr-1 inline h-3.5 w-3.5" /> View sheet
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

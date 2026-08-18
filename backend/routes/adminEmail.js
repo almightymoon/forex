@@ -4,6 +4,13 @@ const User = require('../models/User');
 const EmailTemplate = require('../models/EmailTemplate');
 const notificationService = require('../services/notificationService');
 const { applyVariables, stripHtml, wrapHtmlEmail } = require('../services/htmlEmail');
+const {
+  sanitizeButtons,
+  renderTrackedHtml,
+  createCampaignAndRecipients,
+  EmailCampaign,
+  EmailButtonClick,
+} = require('../services/emailCampaigns');
 
 const router = express.Router();
 
@@ -184,7 +191,7 @@ router.post(
         return res.status(400).json({ error: 'Validation failed', details: errors.array() });
       }
 
-      const { subject, html, text, audience = 'all', userIds, emails, variables } = req.body;
+      const { subject, html, text, audience = 'all', userIds, emails, variables, trackButtons, buttons, confirmationMessage } = req.body;
       const recipients = await resolveRecipients({ audience, userIds, emails });
 
       if (recipients.length === 0) {
@@ -194,6 +201,22 @@ router.post(
         });
       }
 
+      const safeButtons = trackButtons ? sanitizeButtons(buttons) : [];
+      let campaign = null;
+      let recipientsByEmail = new Map();
+      if (safeButtons.length > 0) {
+        const created = await createCampaignAndRecipients({
+          subject,
+          html,
+          buttons: safeButtons,
+          recipients,
+          createdBy: req.user?._id,
+          confirmationMessage,
+        });
+        campaign = created.campaign;
+        recipientsByEmail = created.recipientsByEmail;
+      }
+
       const results = [];
       for (const recipient of recipients) {
         const vars = recipientVariables(recipient.user, {
@@ -201,7 +224,11 @@ router.post(
           variables: variables && typeof variables === 'object' ? variables : {},
         });
         const renderedSubject = applyVariables(subject, vars);
-        const renderedHtml = wrapHtmlEmail(applyVariables(html, vars), renderedSubject);
+        const token = recipientsByEmail.get(String(recipient.email).toLowerCase())?.token;
+        const renderedHtml =
+          token && safeButtons.length
+            ? renderTrackedHtml({ html, subject: renderedSubject, vars, token, buttons: safeButtons })
+            : wrapHtmlEmail(applyVariables(html, vars), renderedSubject);
         const renderedText = applyVariables(text || stripHtml(html), vars);
 
         try {
@@ -228,6 +255,7 @@ router.post(
         total: results.length,
         successful,
         failed,
+        campaignId: campaign?._id || null,
         results: results.slice(0, 25),
       });
     } catch (error) {
@@ -261,7 +289,30 @@ router.post(
 
       const vars = recipientVariables(req.user, { email: to, variables: req.body.variables });
       const subject = applyVariables(req.body.subject, vars);
-      const html = wrapHtmlEmail(applyVariables(req.body.html, vars), subject);
+      const safeButtons = req.body.trackButtons ? sanitizeButtons(req.body.buttons) : [];
+      let html;
+      let created = null;
+      if (safeButtons.length) {
+        created = await createCampaignAndRecipients({
+          subject,
+          html: req.body.html,
+          buttons: safeButtons,
+          recipients: [{ email: to, user: req.user }],
+          createdBy: req.user?._id,
+          isTest: true,
+          confirmationMessage: req.body.confirmationMessage,
+        });
+        const token = created.recipientsByEmail.get(to)?.token;
+        html = renderTrackedHtml({
+          html: req.body.html,
+          subject,
+          vars,
+          token,
+          buttons: safeButtons,
+        });
+      } else {
+        html = wrapHtmlEmail(applyVariables(req.body.html, vars), subject);
+      }
       const text = applyVariables(req.body.text || stripHtml(req.body.html), vars);
 
       const success = await notificationService.sendEmail({
@@ -277,12 +328,114 @@ router.post(
         return res.status(500).json({ error: 'Failed to send test email' });
       }
 
-      res.json({ success: true, message: 'Test email sent', recipient: to });
+      res.json({
+        success: true,
+        message: 'Test email sent',
+        recipient: to,
+        campaignId: created?.campaign?._id || null,
+      });
     } catch (error) {
       console.error('Test HTML email error:', error);
       res.status(500).json({ error: 'Failed to send test email', message: error.message });
     }
   }
 );
+
+function csvEscape(value) {
+  const str = value == null ? '' : String(value);
+  if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  return str;
+}
+
+router.get('/campaigns', async (req, res) => {
+  try {
+    const includeTests = String(req.query.includeTests || '') === '1';
+    const query = includeTests ? {} : { isTest: { $ne: true } };
+    const campaigns = await EmailCampaign.find(query)
+      .select('name subject buttons confirmationMessage isTest recipientCount responseCount sentAt createdAt')
+      .sort({ sentAt: -1 })
+      .limit(200)
+      .lean();
+    res.json({ campaigns });
+  } catch (error) {
+    console.error('List email campaigns error:', error);
+    res.status(500).json({ error: 'Failed to list campaigns', message: error.message });
+  }
+});
+
+router.get('/campaigns/:id', async (req, res) => {
+  try {
+    const campaign = await EmailCampaign.findById(req.params.id).lean();
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaign not found' });
+    }
+    res.json({ campaign });
+  } catch (error) {
+    console.error('Get email campaign error:', error);
+    res.status(500).json({ error: 'Failed to load campaign', message: error.message });
+  }
+});
+
+router.get('/campaigns/:id/clicks', async (req, res) => {
+  try {
+    const campaign = await EmailCampaign.findById(req.params.id).lean();
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaign not found' });
+    }
+
+    const q = String(req.query.q || '').trim();
+    const page = Math.max(1, Number(req.query.page) || 1);
+    const limit = Math.min(200, Math.max(1, Number(req.query.limit) || 100));
+    const filter = { campaign: campaign._id };
+    if (q) {
+      filter.$or = [
+        { email: new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') },
+        { name: new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') },
+        { buttonLabel: new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') },
+      ];
+    }
+
+    const [clicks, total] = await Promise.all([
+      EmailButtonClick.find(filter).sort({ clickedAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      EmailButtonClick.countDocuments(filter),
+    ]);
+
+    res.json({ campaign, clicks, total, page, limit });
+  } catch (error) {
+    console.error('List email campaign clicks error:', error);
+    res.status(500).json({ error: 'Failed to load entries', message: error.message });
+  }
+});
+
+router.get('/campaigns/:id/export', async (req, res) => {
+  try {
+    const campaign = await EmailCampaign.findById(req.params.id).lean();
+    if (!campaign) {
+      return res.status(404).json({ error: 'Campaign not found' });
+    }
+
+    const clicks = await EmailButtonClick.find({ campaign: campaign._id }).sort({ clickedAt: 1 }).lean();
+    const headers = ['Timestamp', 'Name', 'Email', 'Response'];
+    const rows = [headers.map(csvEscape).join(',')];
+    clicks.forEach((click) => {
+      rows.push(
+        [
+          click.clickedAt ? new Date(click.clickedAt).toISOString() : '',
+          click.name || '',
+          click.email || '',
+          click.buttonLabel || click.buttonId || '',
+        ].map(csvEscape).join(',')
+      );
+    });
+
+    const filename = `${String(campaign.subject || 'campaign').replace(/[^a-z0-9]+/gi, '-').slice(0, 60)}-entries.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(rows.join('\n'));
+  } catch (error) {
+    console.error('Export email campaign clicks error:', error);
+    res.status(500).json({ error: 'Failed to export entries', message: error.message });
+  }
+});
 
 module.exports = router;

@@ -278,6 +278,7 @@ app.use('/api/settings/public', require('./routes/settings'));
 app.use('/api/monthly-progress/public', require('./routes/monthlyProgressPublic'));
 app.use('/api/new-joiners/public', require('./routes/newJoinersPublic'));
 app.use('/api/public/forms', require('./routes/publicForms'));
+app.use('/api/public/email-actions', require('./routes/publicEmailActions'));
 app.use('/api/packages', packageRoutes);
 app.use('/api/products', require('./routes/products'));
 app.use('/api/campaigns', require('./routes/campaigns'));

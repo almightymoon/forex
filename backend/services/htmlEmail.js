@@ -56,9 +56,54 @@ function wrapHtmlEmail(html, subject) {
 </html>`;
 }
 
+function getPublicAppUrl() {
+  return String(process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || 'https://thefxnavigators.com').replace(/\/$/, '');
+}
+
+function buttonMarkup(buttons, urlsById) {
+  if (!Array.isArray(buttons) || buttons.length === 0) return '';
+  const cells = buttons
+    .map((button) => {
+      const href = urlsById[button.id] || '#';
+      const color = button.color || '#dc2626';
+      return `<td style="padding:6px;">
+        <a href="${escapeHtml(href)}" target="_blank" style="display:inline-block;background:${escapeHtml(color)};color:#ffffff;padding:12px 22px;border-radius:8px;text-decoration:none;font-weight:600;font-size:15px;">
+          ${escapeHtml(button.label || 'Respond')}
+        </a>
+      </td>`;
+    })
+    .join('');
+  return `<div style="text-align:center;margin:28px 0 8px;">
+    <table role="presentation" cellspacing="0" cellpadding="0" align="center"><tr>${cells}</tr></table>
+  </div>`;
+}
+
+function injectActionButtons(html, markup, urlsById = {}) {
+  const original = String(html || '');
+  const hasCustomButtonLinks = /\{\{\s*button_[a-zA-Z0-9_-]+\s*\}\}/.test(original);
+  let output = original;
+  Object.keys(urlsById).forEach((id) => {
+    output = applyVariables(output, { [`button_${id}`]: urlsById[id] });
+  });
+  if (!markup) return output;
+  if (/\{\{\s*actionButtons\s*\}\}/.test(output)) {
+    return output.replace(/\{\{\s*actionButtons\s*\}\}/g, markup);
+  }
+  if (hasCustomButtonLinks) {
+    return output;
+  }
+  if (/<\/body>/i.test(output)) {
+    return output.replace(/<\/body>/i, `${markup}</body>`);
+  }
+  return `${output}${markup}`;
+}
+
 module.exports = {
   escapeHtml,
   applyVariables,
   stripHtml,
   wrapHtmlEmail,
+  getPublicAppUrl,
+  buttonMarkup,
+  injectActionButtons,
 };
