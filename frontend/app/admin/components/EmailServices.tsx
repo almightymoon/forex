@@ -669,7 +669,7 @@ export default function EmailServices() {
                   : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
               }`}
             >
-              <Columns2 className="h-4 w-4" /> Split
+              <Columns className="h-4 w-4" /> Split
             </button>
             <button
               type="button"
