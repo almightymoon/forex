@@ -49,7 +49,7 @@ function renderTrackedHtml({ html, subject, vars, token, buttons }) {
   const urls = buttonUrls(token, buttons);
   const withVars = applyVariables(html, vars);
   const markup = buttonMarkup(buttons, urls);
-  const withButtons = injectActionButtons(withVars, markup, urls);
+  const withButtons = injectActionButtons(withVars, markup, urls, buttons);
   return wrapHtmlEmail(withButtons, subject);
 }
 

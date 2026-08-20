@@ -96,8 +96,7 @@ type CampaignClick = {
 };
 
 const DEFAULT_BUTTONS: ActionButton[] = [
-  { id: 'confirm', label: 'Confirm', color: '#dc2626' },
-  { id: 'decline', label: 'Decline', color: '#4b5563' },
+  { id: 'confirm', label: 'Reserve my spot', color: '#dc2626' },
 ];
 
 function previewButtonMarkup(buttons: ActionButton[]) {
@@ -617,7 +616,9 @@ export default function EmailServices() {
             </button>
             <span className="text-xs text-gray-500">
               Variables: {'{{firstName}} {{lastName}} {{email}} {{userName}} {{companyName}}'}
-              {trackButtons ? ' · Place buttons with {{actionButtons}}' : ''}
+              {trackButtons
+                ? ' · HTML buttons: use {{track}} or keep one tracked response to auto-wire CTAs'
+                : ''}
             </span>
           </div>
 
@@ -638,8 +639,9 @@ export default function EmailServices() {
                   <MousePointerClick className="h-4 w-4" /> Record button clicks
                 </span>
                 <span className="mt-1 block text-xs text-gray-500">
-                  Each person who clicks a button is saved in Entries, like a form response. One row per person; a later
-                  click updates their answer.
+                  Keep one response button (e.g. “Reserve my spot”). Your existing HTML link — like RESERVE MY SPOT —
+                  is converted to a tracked link automatically. You can also set href to {'{{track}}'} or{' '}
+                  {'{{button_confirm}}'}. Extra buttons are only appended if no HTML link was found.
                 </span>
               </span>
             </label>

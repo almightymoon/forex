@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useParams, useSearchParams } from 'next/navigation';
 import { AlertCircle, CheckCircle, Loader2 } from 'lucide-react';
 import { buildApiUrl } from '../../../../utils/api';
@@ -17,7 +17,17 @@ type CampaignView = {
   buttons: ActionButton[];
 };
 
-export default function EmailActionPage() {
+function LoadingState() {
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#f0ebf8] p-6" style={{ colorScheme: 'light' }}>
+      <p className="flex items-center gap-2 text-gray-700">
+        <Loader2 className="h-4 w-4 animate-spin" /> Loading…
+      </p>
+    </main>
+  );
+}
+
+function EmailActionInner() {
   const params = useParams();
   const searchParams = useSearchParams();
   const token = String(params?.token || '');
@@ -30,22 +40,6 @@ export default function EmailActionPage() {
   const [done, setDone] = useState('');
   const [chosen, setChosen] = useState('');
 
-  const record = async (buttonId: string, currentCampaign?: CampaignView | null) => {
-    const res = await fetch(buildApiUrl(`api/public/email-actions/${token}`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ buttonId }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      if (data.campaign) setCampaign(data.campaign);
-      throw new Error(data.error || 'Could not record your response');
-    }
-    setCampaign(data.campaign || currentCampaign);
-    setChosen(data.button?.label || '');
-    setDone(data.confirmationMessage || 'Thanks, your response has been recorded.');
-  };
-
   useEffect(() => {
     if (!token) {
       setError('This link is invalid');
@@ -54,6 +48,24 @@ export default function EmailActionPage() {
     }
 
     let cancelled = false;
+
+    const record = async (buttonId: string) => {
+      const res = await fetch(buildApiUrl(`api/public/email-actions/${token}`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buttonId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data.campaign && !cancelled) setCampaign(data.campaign);
+        throw new Error(data.error || 'Could not record your response');
+      }
+      if (cancelled) return;
+      setCampaign(data.campaign || null);
+      setChosen(data.button?.label || '');
+      setDone(data.confirmationMessage || 'Thanks, your response has been recorded.');
+    };
+
     (async () => {
       try {
         if (buttonFromLink) {
@@ -79,14 +91,25 @@ export default function EmailActionPage() {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, buttonFromLink]);
 
   const onChoose = async (buttonId: string) => {
     setSubmitting(true);
     setError('');
     try {
-      await record(buttonId, campaign);
+      const res = await fetch(buildApiUrl(`api/public/email-actions/${token}`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buttonId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        if (data.campaign) setCampaign(data.campaign);
+        throw new Error(data.error || 'Could not record your response');
+      }
+      setCampaign(data.campaign || campaign);
+      setChosen(data.button?.label || '');
+      setDone(data.confirmationMessage || 'Thanks, your response has been recorded.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not record your response');
     } finally {
@@ -94,15 +117,7 @@ export default function EmailActionPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#f0ebf8] p-6" style={{ colorScheme: 'light' }}>
-        <p className="flex items-center gap-2 text-gray-700">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading…
-        </p>
-      </main>
-    );
-  }
+  if (loading) return <LoadingState />;
 
   if (error && !campaign) {
     return (
@@ -131,7 +146,10 @@ export default function EmailActionPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f0ebf8] px-4 py-16 text-gray-900 dark:bg-[#f0ebf8] dark:text-gray-900" style={{ colorScheme: 'light' }}>
+    <main
+      className="min-h-screen bg-[#f0ebf8] px-4 py-16 text-gray-900 dark:bg-[#f0ebf8] dark:text-gray-900"
+      style={{ colorScheme: 'light' }}
+    >
       <div className="mx-auto max-w-xl rounded-2xl border-t-8 border-red-600 bg-white p-8 shadow">
         <p className="text-xs font-semibold uppercase tracking-wide text-red-600">Forex Navigators</p>
         <h1 className="mt-2 text-2xl font-semibold text-gray-900">{campaign?.subject || 'Choose a response'}</h1>
@@ -153,5 +171,13 @@ export default function EmailActionPage() {
         </div>
       </div>
     </main>
+  );
+}
+
+export default function EmailActionPage() {
+  return (
+    <Suspense fallback={<LoadingState />}>
+      <EmailActionInner />
+    </Suspense>
   );
 }

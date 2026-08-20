@@ -60,6 +60,109 @@ function getPublicAppUrl() {
   return String(process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || 'https://thefxnavigators.com').replace(/\/$/, '');
 }
 
+function normalizeButtonLabel(value) {
+  return String(value || '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&#160;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function labelsMatch(a, b) {
+  const left = normalizeButtonLabel(a);
+  const right = normalizeButtonLabel(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+  const compact = (s) => s.replace(/[^a-z0-9]+/g, '');
+  return compact(left) === compact(right);
+}
+
+function shouldSkipTrackedLink(href, inner) {
+  const blob = `${href || ''} ${normalizeButtonLabel(inner)}`.toLowerCase();
+  return /unsubscribe|mailto:|tel:|sms:|privacy|preferences|manage\s+subscription|view\s+in\s+browser|opt[\s-]?out/.test(
+    blob
+  );
+}
+
+function looksLikeCtaAnchor(fullTag, inner) {
+  const styleMatch = /style\s*=\s*(["'])([\s\S]*?)\1/i.exec(fullTag);
+  const style = (styleMatch?.[2] || '').toLowerCase();
+  if (/display\s*:\s*inline-block|padding\s*:|background(-color)?\s*:|border-radius\s*:|border\s*:/.test(style)) {
+    return true;
+  }
+  const text = normalizeButtonLabel(inner);
+  if (
+    /reserve|confirm|decline|spot|join|register|rsvp|book|claim|\byes\b|\bno\b|accept|respond|click here|get started|sign up|save my|claim my/.test(
+      text
+    )
+  ) {
+    return true;
+  }
+  const raw = String(inner)
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return raw.length >= 4 && raw.length <= 48 && raw === raw.toUpperCase() && /[A-Z]/.test(raw);
+}
+
+function replaceAnchorHref(full, beforeHref, quote, hrefValue, afterHref, inner, nextUrl) {
+  if (quote) {
+    return `<a${beforeHref}href=${quote}${nextUrl}${quote}${afterHref}>${inner}</a>`;
+  }
+  return `<a${beforeHref}href="${nextUrl}"${afterHref}>${inner}</a>`;
+}
+
+/**
+ * Point existing HTML <a> buttons at tracked URLs.
+ * Supports:
+ * - href="{{button_<id>}}" / href="{{track}}"
+ * - visible text matching a button label
+ * - with a single tracked button: CTA-looking links in the email HTML
+ */
+function rewireHtmlButtons(html, buttons, urlsById = {}) {
+  let output = String(html || '');
+  let rewired = 0;
+  const list = Array.isArray(buttons) ? buttons.filter((b) => b && b.id && urlsById[b.id]) : [];
+  const primaryUrl = list.length ? urlsById[list[0].id] : null;
+
+  Object.keys(urlsById).forEach((id) => {
+    const before = output;
+    output = applyVariables(output, { [`button_${id}`]: urlsById[id] });
+    if (output !== before) rewired += 1;
+  });
+  if (primaryUrl) {
+    const before = output;
+    output = applyVariables(output, { track: primaryUrl, trackUrl: primaryUrl });
+    if (output !== before) rewired += 1;
+  }
+
+  const anchorRe =
+    /<a\b([^>]*?)href\s*=\s*(?:(["'])([\s\S]*?)\2|([^\s>]+))([^>]*)>([\s\S]*?)<\/a>/gi;
+
+  output = output.replace(anchorRe, (full, beforeHref, quote, quotedHref, bareHref, afterHref, inner) => {
+    const currentHref = quotedHref != null ? quotedHref : bareHref || '';
+    if (shouldSkipTrackedLink(currentHref, inner)) return full;
+    if (/\/e\/r\//i.test(currentHref)) return full;
+
+    const matched = list.find((button) => labelsMatch(inner, button.label));
+    if (matched) {
+      rewired += 1;
+      return replaceAnchorHref(full, beforeHref, quote, currentHref, afterHref, inner, urlsById[matched.id]);
+    }
+
+    if (list.length === 1 && primaryUrl && looksLikeCtaAnchor(full, inner)) {
+      rewired += 1;
+      return replaceAnchorHref(full, beforeHref, quote, currentHref, afterHref, inner, primaryUrl);
+    }
+
+    return full;
+  });
+
+  return { html: output, rewired };
+}
+
 function buttonMarkup(buttons, urlsById) {
   if (!Array.isArray(buttons) || buttons.length === 0) return '';
   const cells = buttons
@@ -78,18 +181,17 @@ function buttonMarkup(buttons, urlsById) {
   </div>`;
 }
 
-function injectActionButtons(html, markup, urlsById = {}) {
+function injectActionButtons(html, markup, urlsById = {}, buttons = []) {
   const original = String(html || '');
-  const hasCustomButtonLinks = /\{\{\s*button_[a-zA-Z0-9_-]+\s*\}\}/.test(original);
-  let output = original;
-  Object.keys(urlsById).forEach((id) => {
-    output = applyVariables(output, { [`button_${id}`]: urlsById[id] });
-  });
+  const { html: wired, rewired } = rewireHtmlButtons(original, buttons, urlsById);
+  let output = wired;
+
   if (!markup) return output;
   if (/\{\{\s*actionButtons\s*\}\}/.test(output)) {
     return output.replace(/\{\{\s*actionButtons\s*\}\}/g, markup);
   }
-  if (hasCustomButtonLinks) {
+  // HTML already has tracked buttons — don't append extras
+  if (rewired > 0) {
     return output;
   }
   if (/<\/body>/i.test(output)) {
@@ -106,4 +208,6 @@ module.exports = {
   getPublicAppUrl,
   buttonMarkup,
   injectActionButtons,
+  rewireHtmlButtons,
+  labelsMatch,
 };

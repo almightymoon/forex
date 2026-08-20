@@ -4,7 +4,18 @@ import { usePathname } from 'next/navigation';
 import { useMaintenanceContext } from '../context/MaintenanceContext';
 import MaintenancePage from './MaintenancePage';
 
-const PUBLIC_PATHS = ['/', '/login', '/register', '/forgot-password', '/about', '/contact', '/terms', '/faq'];
+const PUBLIC_PATHS = [
+  '/',
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/about',
+  '/contact',
+  '/terms',
+  '/faq',
+  '/f',
+  '/e',
+];
 
 export default function MaintenanceGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

@@ -28,7 +28,9 @@ const PUBLIC_PATH_PREFIXES = [
   '/contact',
   '/terms',
   '/packages',
-  '/shop'
+  '/shop',
+  '/f',
+  '/e',
 ];
 
 function isPublicMarketingPath(pathname: string | null): boolean {
