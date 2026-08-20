@@ -45,10 +45,12 @@ function getEffectiveEmailConfig(dbEmail) {
   };
 }
 
-/** Strip any {{...}} placeholders so variables never appear in sent emails */
+/** Strip leftover {{...}} placeholders, but keep tracked-button placeholders if somehow unreplaced. */
 function stripTemplatePlaceholders(str) {
   if (str == null || typeof str !== 'string') return str;
-  return str.replace(/\{\{[^}]*\}\}/g, '');
+  return str
+    .replace(/\{\{\s*(track|trackUrl|button_[a-zA-Z0-9_-]+)\s*\}\}/g, '#')
+    .replace(/\{\{[^}]*\}\}/g, '');
 }
 
 class NotificationService {

@@ -26,8 +26,52 @@ function stripHtml(html) {
     .trim();
 }
 
+/**
+ * Clean pasted email HTML (ChatGPT fences, escaped tags) before send/preview.
+ */
+function normalizeEmailHtml(input) {
+  let html = String(input || '').trim();
+  if (!html) return '';
+
+  // Quill often wraps paste as paragraphs — flatten obvious fence markers first
+  html = html
+    .replace(/<\/p>\s*<p[^>]*>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?p[^>]*>/gi, '\n');
+
+  // Remove surrounding markdown code fences: ```html ... ```
+  const fenced = html.match(/```(?:html|htm)?\s*\r?\n?([\s\S]*?)\r?\n?```/i);
+  if (fenced && (/<!DOCTYPE/i.test(fenced[1]) || /<html[\s>]/i.test(fenced[1]) || /<body[\s>]/i.test(fenced[1]))) {
+    html = fenced[1].trim();
+  } else if (/^```(?:html|htm)?\b/i.test(html)) {
+    html = html.replace(/^```(?:html|htm)?\s*\r?\n?/i, '').replace(/\r?\n?```\s*$/i, '').trim();
+  }
+
+  // Drop leftover fence lines
+  html = html.replace(/^```(?:html|htm)?\s*$/gim, '').trim();
+
+  // Quill / paste sometimes stores a full document as escaped text
+  if (/&lt;(!DOCTYPE|html|body)\b/i.test(html)) {
+    html = html
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&#x27;/gi, "'")
+      .replace(/&amp;/g, '&');
+  }
+
+  // If we still have a full document buried in noise, extract it
+  const docMatch = html.match(/<!DOCTYPE[\s\S]*<\/html>/i) || html.match(/<html[\s\S]*<\/html>/i);
+  if (docMatch) {
+    html = docMatch[0].trim();
+  }
+
+  return html.trim();
+}
+
 function wrapHtmlEmail(html, subject) {
-  const trimmed = String(html || '').trim();
+  const trimmed = normalizeEmailHtml(html);
   if (!trimmed) return '';
   if (/^<!DOCTYPE/i.test(trimmed) || /^<html[\s>]/i.test(trimmed)) {
     return trimmed;
@@ -204,6 +248,7 @@ module.exports = {
   escapeHtml,
   applyVariables,
   stripHtml,
+  normalizeEmailHtml,
   wrapHtmlEmail,
   getPublicAppUrl,
   buttonMarkup,

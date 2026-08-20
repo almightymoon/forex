@@ -3,7 +3,7 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const EmailTemplate = require('../models/EmailTemplate');
 const notificationService = require('../services/notificationService');
-const { applyVariables, stripHtml, wrapHtmlEmail } = require('../services/htmlEmail');
+const { applyVariables, stripHtml, wrapHtmlEmail, normalizeEmailHtml } = require('../services/htmlEmail');
 const {
   sanitizeButtons,
   renderTrackedHtml,
@@ -191,7 +191,8 @@ router.post(
         return res.status(400).json({ error: 'Validation failed', details: errors.array() });
       }
 
-      const { subject, html, text, audience = 'all', userIds, emails, variables, trackButtons, buttons, confirmationMessage } = req.body;
+      const { subject, text, audience = 'all', userIds, emails, variables, trackButtons, buttons, confirmationMessage } = req.body;
+      const html = normalizeEmailHtml(req.body.html);
       const recipients = await resolveRecipients({ audience, userIds, emails });
 
       if (recipients.length === 0) {
@@ -289,13 +290,14 @@ router.post(
 
       const vars = recipientVariables(req.user, { email: to, variables: req.body.variables });
       const subject = applyVariables(req.body.subject, vars);
+      const sourceHtml = normalizeEmailHtml(req.body.html);
       const safeButtons = req.body.trackButtons ? sanitizeButtons(req.body.buttons) : [];
       let html;
       let created = null;
       if (safeButtons.length) {
         created = await createCampaignAndRecipients({
           subject,
-          html: req.body.html,
+          html: sourceHtml,
           buttons: safeButtons,
           recipients: [{ email: to, user: req.user }],
           createdBy: req.user?._id,
@@ -304,16 +306,16 @@ router.post(
         });
         const token = created.recipientsByEmail.get(to)?.token;
         html = renderTrackedHtml({
-          html: req.body.html,
+          html: sourceHtml,
           subject,
           vars,
           token,
           buttons: safeButtons,
         });
       } else {
-        html = wrapHtmlEmail(applyVariables(req.body.html, vars), subject);
+        html = wrapHtmlEmail(applyVariables(sourceHtml, vars), subject);
       }
-      const text = applyVariables(req.body.text || stripHtml(req.body.html), vars);
+      const text = applyVariables(req.body.text || stripHtml(sourceHtml), vars);
 
       const success = await notificationService.sendEmail({
         to,

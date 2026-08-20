@@ -130,6 +130,35 @@ function interpolate(html: string, vars: Record<string, string>) {
   return html.replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) => vars[key] ?? '');
 }
 
+/** Strip ChatGPT ```html fences and unescape pasted full documents. */
+function normalizeEmailHtmlClient(input: string) {
+  let value = String(input || '').trim();
+  if (!value) return '';
+  value = value
+    .replace(/<\/p>\s*<p[^>]*>/gi, '\n')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/?p[^>]*>/gi, '\n');
+  const fenced = value.match(/```(?:html|htm)?\s*\r?\n?([\s\S]*?)\r?\n?```/i);
+  if (fenced && (/<!DOCTYPE/i.test(fenced[1]) || /<html[\s>]/i.test(fenced[1]) || /<body[\s>]/i.test(fenced[1]))) {
+    value = fenced[1].trim();
+  } else if (/^```(?:html|htm)?\b/i.test(value)) {
+    value = value.replace(/^```(?:html|htm)?\s*\r?\n?/i, '').replace(/\r?\n?```\s*$/i, '').trim();
+  }
+  value = value.replace(/^```(?:html|htm)?\s*$/gim, '').trim();
+  if (/&lt;(!DOCTYPE|html|body)\b/i.test(value)) {
+    value = value
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&#x27;/gi, "'")
+      .replace(/&amp;/g, '&');
+  }
+  const docMatch = value.match(/<!DOCTYPE[\s\S]*<\/html>/i) || value.match(/<html[\s\S]*<\/html>/i);
+  if (docMatch) value = docMatch[0].trim();
+  return value.trim();
+}
+
 export default function EmailServices() {
   const [tab, setTab] = useState<'compose' | 'templates' | 'history' | 'entries'>('compose');
   const [users, setUsers] = useState<UserRow[]>([]);
@@ -254,7 +283,7 @@ export default function EmailServices() {
 
   const previewHtml = useMemo(() => {
     const sample = users[0];
-    let rendered = interpolate(html, {
+    let rendered = interpolate(normalizeEmailHtmlClient(html), {
       firstName: sample?.firstName || 'Alex',
       lastName: sample?.lastName || 'Trader',
       email: sample?.email || 'alex@example.com',
@@ -325,9 +354,9 @@ export default function EmailServices() {
       .map((e) => e.trim())
       .filter((e) => e.includes('@'));
 
-  const sendPayload = () => ({
+  const sendPayload = (htmlBody = html) => ({
     subject: subject.trim(),
-    html,
+    html: normalizeEmailHtmlClient(htmlBody),
     audience,
     userIds: audience === 'custom' ? selectedUsers : undefined,
     emails: audience === 'emails' || collectEmails().length ? collectEmails() : undefined,
@@ -336,11 +365,31 @@ export default function EmailServices() {
     confirmationMessage: trackButtons ? confirmationMessage.trim() : undefined,
   });
 
+  const prepareHtmlForSend = () => {
+    const cleaned = normalizeEmailHtmlClient(html);
+    const needsCleanup = cleaned !== html.trim() || /^```|\b```html\b/i.test(html) || /&lt;(!DOCTYPE|html)\b/i.test(html);
+    const looksLikeFullDoc = /<!DOCTYPE|<html[\s>]/i.test(cleaned);
+    if (needsCleanup || (looksLikeFullDoc && editorMode === 'visual')) {
+      setHtml(cleaned);
+      setEditorMode('html');
+      showToast(
+        needsCleanup
+          ? 'Cleaned pasted HTML (removed ```html wrappers). Check the preview, then click send again.'
+          : 'Full HTML emails need HTML mode. Switched — click send again.',
+        'success'
+      );
+      return null;
+    }
+    return cleaned;
+  };
+
   const handleSend = async () => {
     if (!subject.trim() || !html.trim()) {
       showToast('Subject and email body are required', 'error');
       return;
     }
+    const cleanedHtml = prepareHtmlForSend();
+    if (cleanedHtml == null) return;
     if (audience === 'custom' && selectedUsers.length === 0) {
       showToast('Select at least one user', 'error');
       return;
@@ -358,7 +407,7 @@ export default function EmailServices() {
     setSending(true);
     setSendResult(null);
     try {
-      const res = await fetchWithTokenRefresh(buildApiUrl('api/admin/email/send'), authJson('POST', sendPayload()));
+      const res = await fetchWithTokenRefresh(buildApiUrl('api/admin/email/send'), authJson('POST', sendPayload(cleanedHtml)));
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         showToast(data.message || data.error || 'Failed to send emails', 'error');
@@ -384,13 +433,15 @@ export default function EmailServices() {
       showToast('Subject and email body are required', 'error');
       return;
     }
+    const cleanedHtml = prepareHtmlForSend();
+    if (cleanedHtml == null) return;
     setTesting(true);
     try {
       const res = await fetchWithTokenRefresh(
         buildApiUrl('api/admin/email/test'),
         authJson('POST', {
           subject: subject.trim(),
-          html,
+          html: cleanedHtml,
           trackButtons,
           buttons: trackButtons ? buttons.filter((button) => button.label.trim()) : undefined,
           confirmationMessage: trackButtons ? confirmationMessage.trim() : undefined,
@@ -687,10 +738,20 @@ export default function EmailServices() {
             </button>
             <button
               type="button"
-              onClick={() => setShowPreview((v) => !v)}
+              onClick={() => {
+                const cleaned = normalizeEmailHtmlClient(html);
+                setHtml(cleaned);
+                setEditorMode('html');
+                showToast(
+                  cleaned !== html.trim()
+                    ? 'Cleaned HTML — fences/escapes removed'
+                    : 'Already clean — switched to HTML mode',
+                  'success'
+                );
+              }}
               className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 dark:bg-gray-700 dark:text-gray-200"
             >
-              {showPreview ? 'Hide preview' : 'Show preview'}
+              <Code className="h-4 w-4" /> Clean HTML
             </button>
             <span className="text-xs text-gray-500">
               Variables: {'{{firstName}} {{lastName}} {{email}} {{userName}} {{companyName}}'}
