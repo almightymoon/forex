@@ -753,6 +753,13 @@ export default function EmailServices() {
             >
               <Code className="h-4 w-4" /> Clean HTML
             </button>
+            <button
+              type="button"
+              onClick={() => setShowPreview((v) => !v)}
+              className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 dark:bg-gray-700 dark:text-gray-200"
+            >
+              {showPreview ? 'Hide preview' : 'Show preview'}
+            </button>
             <span className="text-xs text-gray-500">
               Variables: {'{{firstName}} {{lastName}} {{email}} {{userName}} {{companyName}}'}
               {trackButtons
