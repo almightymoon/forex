@@ -23,6 +23,14 @@ import {
   Plus,
   Download,
   ArrowLeft,
+  Monitor,
+  Tablet,
+  Smartphone,
+  Maximize2,
+  Minimize2,
+  ExternalLink,
+  Columns,
+  Square,
 } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { fetchWithTokenRefresh } from '../../../utils/tokenUtils';
@@ -136,6 +144,9 @@ export default function EmailServices() {
   const [html, setHtml] = useState(STARTER_HTML);
   const [editorMode, setEditorMode] = useState<'visual' | 'html'>('visual');
   const [showPreview, setShowPreview] = useState(true);
+  const [previewWidth, setPreviewWidth] = useState<'desktop' | 'tablet' | 'mobile'>('desktop');
+  const [previewLayout, setPreviewLayout] = useState<'split' | 'stacked' | 'preview'>('split');
+  const [previewFullscreen, setPreviewFullscreen] = useState(false);
   const [audience, setAudience] = useState<Audience>('all');
   const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [customEmails, setCustomEmails] = useState('');
@@ -243,24 +254,49 @@ export default function EmailServices() {
 
   const previewHtml = useMemo(() => {
     const sample = users[0];
-    const rendered = interpolate(html, {
+    let rendered = interpolate(html, {
       firstName: sample?.firstName || 'Alex',
       lastName: sample?.lastName || 'Trader',
       email: sample?.email || 'alex@example.com',
       userName: `${sample?.firstName || 'Alex'} ${sample?.lastName || 'Trader'}`,
       companyName: 'Forex Navigators',
     });
-    if (!trackButtons) return rendered;
-    const markup = previewButtonMarkup(buttons);
-    if (!markup) return rendered;
-    if (/\{\{\s*actionButtons\s*\}\}/.test(rendered)) {
-      return rendered.replace(/\{\{\s*actionButtons\s*\}\}/g, markup);
+    if (trackButtons) {
+      const firstButton = buttons.find((button) => button.label.trim());
+      if (firstButton) {
+        const trackHref = '#preview-track';
+        rendered = interpolate(rendered, {
+          track: trackHref,
+          trackUrl: trackHref,
+          [`button_${firstButton.id}`]: trackHref,
+        });
+      }
+      const markup = previewButtonMarkup(buttons);
+      if (markup) {
+        if (/\{\{\s*actionButtons\s*\}\}/.test(rendered)) {
+          rendered = rendered.replace(/\{\{\s*actionButtons\s*\}\}/g, markup);
+        } else if (!/\{\{\s*button_[a-zA-Z0-9_-]+\s*\}\}/.test(rendered) && !/<a\b[^>]*href=/i.test(rendered)) {
+          rendered = `${rendered}${markup}`;
+        }
+      }
     }
-    if (/\{\{\s*button_[a-zA-Z0-9_-]+\s*\}\}/.test(rendered)) {
-      return rendered;
-    }
-    return `${rendered}${markup}`;
+    return rendered;
   }, [html, users, trackButtons, buttons]);
+
+  const previewFrameWidth =
+    previewWidth === 'mobile' ? 390 : previewWidth === 'tablet' ? 768 : '100%';
+
+  const openPreviewTab = () => {
+    const tab = window.open('', '_blank');
+    if (!tab) {
+      showToast('Pop-up blocked — allow pop-ups to open preview', 'error');
+      return;
+    }
+    tab.document.open();
+    tab.document.write(previewHtml);
+    tab.document.close();
+    tab.document.title = subject || 'Email preview';
+  };
 
   const filteredUsers = useMemo(() => {
     const q = userSearch.trim().toLowerCase();
@@ -609,10 +645,52 @@ export default function EmailServices() {
             </button>
             <button
               type="button"
+              onClick={() => {
+                setShowPreview(true);
+                setPreviewLayout((prev) => (prev === 'preview' ? 'split' : 'preview'));
+              }}
+              className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm ${
+                previewLayout === 'preview'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+              }`}
+            >
+              <Square className="h-4 w-4" /> Preview only
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowPreview(true);
+                setPreviewLayout('split');
+              }}
+              className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm ${
+                showPreview && previewLayout === 'split'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+              }`}
+            >
+              <Columns2 className="h-4 w-4" /> Split
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setShowPreview(true);
+                setPreviewLayout('stacked');
+              }}
+              className={`inline-flex items-center gap-1 rounded-lg px-3 py-1.5 text-sm ${
+                showPreview && previewLayout === 'stacked'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200'
+              }`}
+            >
+              <Eye className="h-4 w-4" /> Stacked
+            </button>
+            <button
+              type="button"
               onClick={() => setShowPreview((v) => !v)}
               className="inline-flex items-center gap-1 rounded-lg bg-gray-100 px-3 py-1.5 text-sm text-gray-700 dark:bg-gray-700 dark:text-gray-200"
             >
-              <Eye className="h-4 w-4" /> {showPreview ? 'Hide preview' : 'Show preview'}
+              {showPreview ? 'Hide preview' : 'Show preview'}
             </button>
             <span className="text-xs text-gray-500">
               Variables: {'{{firstName}} {{lastName}} {{email}} {{userName}} {{companyName}}'}
@@ -696,30 +774,172 @@ export default function EmailServices() {
             )}
           </div>
 
-          <div className={`grid gap-4 ${showPreview ? 'lg:grid-cols-2' : ''}`}>
-            <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
-              {editorMode === 'visual' ? (
-                <div className="overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600 [&_.ql-editor]:min-h-[280px] [&_.ql-toolbar]:bg-gray-50 dark:[&_.ql-toolbar]:bg-gray-700">
-                  <ReactQuill theme="snow" value={html} onChange={setHtml} modules={QUILL_MODULES} />
-                </div>
-              ) : (
-                <textarea
-                  value={html}
-                  onChange={(e) => setHtml(e.target.value)}
-                  rows={16}
-                  className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
-                />
-              )}
-            </div>
+          <div
+            className={`grid gap-4 ${
+              showPreview && previewLayout === 'split'
+                ? 'lg:grid-cols-2'
+                : showPreview && previewLayout === 'stacked'
+                  ? 'grid-cols-1'
+                  : ''
+            }`}
+          >
+            {previewLayout !== 'preview' && (
+              <div className="rounded-2xl border border-gray-200 bg-white p-4 dark:border-gray-700 dark:bg-gray-800">
+                {editorMode === 'visual' ? (
+                  <div className="overflow-hidden rounded-lg border border-gray-300 dark:border-gray-600 [&_.ql-editor]:min-h-[420px] [&_.ql-toolbar]:bg-gray-50 dark:[&_.ql-toolbar]:bg-gray-700">
+                    <ReactQuill theme="snow" value={html} onChange={setHtml} modules={QUILL_MODULES} />
+                  </div>
+                ) : (
+                  <textarea
+                    value={html}
+                    onChange={(e) => setHtml(e.target.value)}
+                    rows={22}
+                    className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 font-mono text-sm dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+                  />
+                )}
+              </div>
+            )}
+
             {showPreview && (
               <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-800">
-                <div className="border-b border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 dark:border-gray-700 dark:text-gray-200">
-                  Preview · {subject || 'Untitled'}
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-3 py-2 dark:border-gray-700">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-gray-800 dark:text-gray-100">
+                      Preview · {subject || 'Untitled'}
+                    </p>
+                    <p className="text-[11px] text-gray-500">
+                      {previewWidth === 'desktop' ? 'Desktop' : previewWidth === 'tablet' ? 'Tablet' : 'Mobile'} ·{' '}
+                      {typeof previewFrameWidth === 'number' ? `${previewFrameWidth}px` : 'Full width'}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {(
+                      [
+                        { id: 'desktop' as const, icon: Monitor, label: 'Desktop' },
+                        { id: 'tablet' as const, icon: Tablet, label: 'Tablet' },
+                        { id: 'mobile' as const, icon: Smartphone, label: 'Mobile' },
+                      ] as const
+                    ).map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          title={item.label}
+                          onClick={() => setPreviewWidth(item.id)}
+                          className={`inline-flex items-center gap-1 rounded-md px-2 py-1.5 text-xs ${
+                            previewWidth === item.id
+                              ? 'bg-red-600 text-white'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200'
+                          }`}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          <span className="hidden sm:inline">{item.label}</span>
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      title="Open in new tab"
+                      onClick={openPreviewTab}
+                      className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">New tab</span>
+                    </button>
+                    <button
+                      type="button"
+                      title="Fullscreen preview"
+                      onClick={() => setPreviewFullscreen(true)}
+                      className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2 py-1.5 text-xs text-gray-600 hover:bg-gray-200 dark:bg-gray-700 dark:text-gray-200"
+                    >
+                      <Maximize2 className="h-3.5 w-3.5" />
+                      <span className="hidden sm:inline">Full</span>
+                    </button>
+                  </div>
                 </div>
-                <iframe title="Email preview" className="h-[380px] w-full bg-white" srcDoc={previewHtml} />
+                <div className="bg-gray-100 p-3 dark:bg-gray-900/60">
+                  <div
+                    className="mx-auto overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm dark:border-gray-700"
+                    style={{
+                      width: previewFrameWidth,
+                      maxWidth: '100%',
+                    }}
+                  >
+                    <iframe
+                      title="Email preview"
+                      className="block w-full bg-white"
+                      style={{ height: previewLayout === 'preview' || previewLayout === 'stacked' ? '70vh' : '560px' }}
+                      srcDoc={previewHtml}
+                    />
+                  </div>
+                </div>
               </div>
             )}
           </div>
+
+          {previewFullscreen && (
+            <div className="fixed inset-0 z-[80] flex flex-col bg-gray-950/80 p-3 backdrop-blur-sm sm:p-6">
+              <div className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-gray-900">
+                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 px-4 py-3 dark:border-gray-700">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                      Fullscreen preview · {subject || 'Untitled'}
+                    </p>
+                    <p className="text-xs text-gray-500">Same HTML recipients will receive</p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {(
+                      [
+                        { id: 'desktop' as const, icon: Monitor, label: 'Desktop' },
+                        { id: 'tablet' as const, icon: Tablet, label: 'Tablet' },
+                        { id: 'mobile' as const, icon: Smartphone, label: 'Mobile' },
+                      ] as const
+                    ).map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => setPreviewWidth(item.id)}
+                          className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs ${
+                            previewWidth === item.id
+                              ? 'bg-red-600 text-white'
+                              : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200'
+                          }`}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          {item.label}
+                        </button>
+                      );
+                    })}
+                    <button
+                      type="button"
+                      onClick={openPreviewTab}
+                      className="inline-flex items-center gap-1 rounded-md bg-gray-100 px-2.5 py-1.5 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-200"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" /> New tab
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPreviewFullscreen(false)}
+                      className="inline-flex items-center gap-1 rounded-md bg-gray-900 px-2.5 py-1.5 text-xs text-white dark:bg-gray-100 dark:text-gray-900"
+                    >
+                      <Minimize2 className="h-3.5 w-3.5" /> Close
+                    </button>
+                  </div>
+                </div>
+                <div className="flex-1 overflow-auto bg-gray-100 p-4 dark:bg-gray-950">
+                  <div
+                    className="mx-auto h-full overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg dark:border-gray-700"
+                    style={{ width: previewFrameWidth, maxWidth: '100%', minHeight: '80%' }}
+                  >
+                    <iframe title="Fullscreen email preview" className="h-full min-h-[80vh] w-full bg-white" srcDoc={previewHtml} />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           {sendResult && (
             <div className="flex items-center gap-3 rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-200">
