@@ -267,6 +267,7 @@ let coldStartTapHandled = false;
 /** Foreground display + tap-to-open listeners. Returns cleanup function. */
 export async function setupNotificationListeners(
   onTap?: NotificationTapHandler,
+  onReceive?: NotificationTapHandler,
 ): Promise<(() => void) | null> {
   const Notifications = await getNotifications();
   if (!Notifications) return null;
@@ -286,7 +287,8 @@ export async function setupNotificationListeners(
   }
 
   const receivedSub = Notifications.addNotificationReceivedListener((notification) => {
-    console.log('[Push] Received in foreground:', notification.request.content.title);
+    const data = (notification.request.content.data || {}) as Record<string, unknown>;
+    onReceive?.(data);
   });
 
   const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {

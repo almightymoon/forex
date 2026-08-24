@@ -8,6 +8,7 @@ import {
   setupNotificationListeners,
 } from '../utils/pushNotifications';
 import { resolvePushDataRoute } from '../utils/notificationRouting';
+import { invalidateCachedEndpoints } from '../utils/offlineCache';
 
 function navigateFromNotificationData(
   router: ReturnType<typeof useRouter>,
@@ -55,12 +56,18 @@ export function PushNotificationSetup() {
     const sub = AppState.addEventListener('change', onAppState);
 
     let cleanup: (() => void) | null = null;
-    void setupNotificationListeners((data) => {
-      // Avoid double-navigating if cold-start response fires with mount
-      if (handledColdStartTap.current && Object.keys(data).length === 0) return;
-      handledColdStartTap.current = true;
-      navigateFromNotificationData(router, data);
-    }).then((fn) => {
+    void setupNotificationListeners(
+      (data) => {
+        // Avoid double-navigating if cold-start response fires with mount
+        if (handledColdStartTap.current && Object.keys(data).length === 0) return;
+        handledColdStartTap.current = true;
+        navigateFromNotificationData(router, data);
+      },
+      () => {
+        // A push landed — drop stale lists so the next screen visit shows it
+        void invalidateCachedEndpoints(/signals|notifications/i);
+      },
+    ).then((fn) => {
       cleanup = fn;
     });
 

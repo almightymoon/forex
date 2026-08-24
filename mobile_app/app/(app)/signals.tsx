@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from 'expo-router';
 import type { AppColors } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   Modal,
@@ -57,10 +58,10 @@ export default function SignalsScreen() {
   const [selected, setSelected] = useState<Signal | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
-  const fetchSignals = async () => {
+  const fetchSignals = useCallback(async (mode: 'default' | 'reload' = 'reload') => {
     setError(null);
     try {
-      const res = await apiFetch('api/signals');
+      const res = await apiFetch('api/signals', { cache: mode });
       if (res.ok) {
         const raw = await res.json();
         setSignals(normalizeList<Record<string, unknown>>(raw).map(normalizeSignal));
@@ -73,10 +74,16 @@ export default function SignalsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { fetchSignals(); }, []);
-  const onRefresh = () => { setRefreshing(true); fetchSignals(); };
+  // Always hit the network when the screen is focused so new signals show immediately
+  useFocusEffect(
+    useCallback(() => {
+      void fetchSignals('reload');
+    }, [fetchSignals]),
+  );
+
+  const onRefresh = () => { setRefreshing(true); void fetchSignals('reload'); };
 
   const openDetail = async (base: Signal) => {
     setSelected(base);
@@ -136,7 +143,7 @@ export default function SignalsScreen() {
         {loading ? (
           <ActivityIndicator color={colors.black} style={{ marginTop: 40 }} />
         ) : error ? (
-          <ScreenError message={error} onRetry={fetchSignals} />
+          <ScreenError message={error} onRetry={() => fetchSignals('reload')} />
         ) : displayed.length === 0 ? (
           <GlassEmptyState
             title={filter === 'active' ? 'No active signals' : filter === 'closed' ? 'No closed signals' : 'No signals yet'}

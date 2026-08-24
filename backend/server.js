@@ -52,6 +52,29 @@ const { authenticateToken, requirePackageSubscription, requireAdmin } = require(
 const app = express();
 const PORT = process.env.PORT || 4000;
 
+let _cachedRevision;
+
+/** Short git revision of the running code, so a deploy can be verified from /api/health. */
+function getDeployedRevision() {
+  if (_cachedRevision !== undefined) return _cachedRevision;
+
+  _cachedRevision =
+    process.env.GIT_COMMIT ||
+    process.env.SOURCE_COMMIT ||
+    (() => {
+      try {
+        return require('child_process')
+          .execSync('git rev-parse --short HEAD', { cwd: __dirname, stdio: ['ignore', 'pipe', 'ignore'] })
+          .toString()
+          .trim();
+      } catch {
+        return null;
+      }
+    })();
+
+  return _cachedRevision;
+}
+
 // Ensure log directory exists (used by morgan + console mirror)
 const LOG_DIR = path.join(__dirname, 'logs');
 try {
@@ -670,12 +693,18 @@ app.use(
 );
 app.use('/api/trades', checkSessionTimeout, authenticateToken, requirePackageSubscription, tradeRoutes);
 
-// Health check endpoint
+// Health check endpoint — includes deployed revision so clients can verify a deploy landed
 app.get('/api/health', (req, res) => {
   res.status(200).json({ 
     status: 'OK', 
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    revision: getDeployedRevision(),
+    features: {
+      // Lets us confirm whether the running build has the push/notification fixes
+      notificationsUngated: true,
+      pushDiagnostics: true
+    }
   });
 });
 

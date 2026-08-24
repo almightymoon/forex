@@ -62,6 +62,78 @@ router.put('/push-token', [
   }
 });
 
+function maskToken(token) {
+  if (!token) return null;
+  const str = String(token);
+  return str.length <= 14 ? str : `${str.slice(0, 10)}…${str.slice(-6)}`;
+}
+
+/** Report whether the server has a usable push token for this user. */
+router.get('/push-status', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .select('preferences.expoPushToken preferences.pushNotifications role isActive')
+      .lean();
+
+    const token = user?.preferences?.expoPushToken || null;
+    res.json({
+      hasToken: !!token,
+      token: maskToken(token),
+      pushEnabled: user?.preferences?.pushNotifications !== false,
+      role: user?.role,
+      eligibleForSignalPush: user?.role === 'student' && user?.isActive !== false && !!token,
+    });
+  } catch (error) {
+    console.error('[MobilePush] Status error:', error);
+    res.status(500).json({ error: 'Failed to read push status' });
+  }
+});
+
+/** Send a test push to this user's own device to verify end-to-end delivery. */
+router.post('/push-test', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .select('preferences.expoPushToken preferences.pushNotifications')
+      .lean();
+
+    const token = user?.preferences?.expoPushToken;
+    if (!token) {
+      return res.status(400).json({
+        ok: false,
+        reason: 'no_token',
+        message: 'No push token stored for this account. Open the app once with notifications allowed.',
+      });
+    }
+
+    const { sendToTokens } = require('../services/expoPushService');
+    const result = await sendToTokens([token], {
+      title: 'Test notification',
+      body: 'Push notifications are working on this device.',
+      data: { type: 'system', link: '/(app)/notifications' },
+      channelId: 'default',
+    });
+
+    console.log(
+      `[MobilePush] Test push for ${req.user._id}: sent=${result.sent} failed=${result.failed} ${(result.errors || []).join('; ')}`
+    );
+
+    res.json({
+      ok: result.sent > 0,
+      token: maskToken(token),
+      sent: result.sent,
+      failed: result.failed,
+      errors: result.errors || [],
+      message:
+        result.sent > 0
+          ? 'Test push accepted by Expo. It should arrive on your device within seconds.'
+          : (result.errors || []).join('; ') || 'Expo rejected the push request.',
+    });
+  } catch (error) {
+    console.error('[MobilePush] Test push error:', error);
+    res.status(500).json({ ok: false, error: 'Failed to send test push', message: error.message });
+  }
+});
+
 /** Accept crash / error reports from the mobile app (auth optional). */
 router.post('/crash-reports', (req, res) => {
   try {

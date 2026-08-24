@@ -64,6 +64,7 @@ export default function SettingsScreen() {
   const [prefsSaving, setPrefsSaving] = useState(false);
   const [pushStatus, setPushStatus] = useState<PushRegistrationStatus | null>(null);
   const [pushRetrying, setPushRetrying] = useState(false);
+  const [pushTesting, setPushTesting] = useState(false);
 
   // 2FA
   const [twoFAEnabled, setTwoFAEnabled] = useState(false);
@@ -182,6 +183,41 @@ export default function SettingsScreen() {
       }
     } finally {
       setPushRetrying(false);
+    }
+  };
+
+  /** Ask the server to push to this device — pinpoints where delivery breaks. */
+  const sendTestPush = async () => {
+    if (pushTesting) return;
+    setPushTesting(true);
+    try {
+      const status = await registerPushTokenDetailed();
+      setPushStatus(status);
+      if (!status.ok) {
+        Alert.alert('Device not registered', status.message);
+        return;
+      }
+
+      const res = await apiFetch('api/mobile/push-test', { method: 'POST' });
+      const data = await res.json().catch(() => ({}));
+
+      if (res.ok && data.ok) {
+        Alert.alert(
+          'Test sent',
+          'The server accepted the push. If it does not appear within ~10 seconds, notifications are blocked for this app in your phone settings.',
+        );
+      } else if (res.status === 404) {
+        Alert.alert(
+          'Server not updated',
+          'This server build does not have push diagnostics yet. Redeploy the backend and try again.',
+        );
+      } else {
+        Alert.alert('Push failed', data.message || `Server responded with ${res.status}.`);
+      }
+    } catch {
+      Alert.alert('Push failed', 'Could not reach the server. Check your connection.');
+    } finally {
+      setPushTesting(false);
     }
   };
 
@@ -478,6 +514,18 @@ export default function SettingsScreen() {
               ) : null}
               <GlassDivider />
               <ToggleRow label="Email Alerts" sublabel="Get updates via email" value={emailNotif} onChange={handleEmailToggle} saving={prefsSaving} />
+              {isPushNotificationsSupported() ? (
+                <>
+                  <GlassDivider />
+                  <StorageActionRow
+                    icon="notifications"
+                    label="Send test notification"
+                    sublabel="Check push delivery on this device right now"
+                    onPress={sendTestPush}
+                    busy={pushTesting}
+                  />
+                </>
+              ) : null}
             </GlassSection>
           )}
 

@@ -14,8 +14,9 @@ const memory = new Map<string, CacheEntry>();
 
 /** Per-endpoint freshness windows (ms). */
 const TTL_RULES: Array<{ match: RegExp; ttl: number }> = [
-  { match: /notifications/i, ttl: 30_000 },
-  { match: /signals/i, ttl: 2 * 60_000 },
+  // Signals and notifications are time-critical — keep the stale window tiny
+  { match: /notifications/i, ttl: 5_000 },
+  { match: /signals/i, ttl: 10_000 },
   { match: /news/i, ttl: 3 * 60_000 },
   { match: /community\/channels\/[^/]+\/messages/i, ttl: 45_000 },
   { match: /courses/i, ttl: 15 * 60_000 },
@@ -138,6 +139,21 @@ export async function clearOfflineCache(): Promise<void> {
     const keys = await AsyncStorage.getAllKeys();
     const cacheKeys = keys.filter((k) => k.startsWith(PREFIX));
     if (cacheKeys.length > 0) await AsyncStorage.multiRemove(cacheKeys);
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Drop cached responses whose endpoint matches, e.g. after a signal push arrives. */
+export async function invalidateCachedEndpoints(pattern: RegExp): Promise<void> {
+  for (const key of [...memory.keys()]) {
+    if (pattern.test(key)) memory.delete(key);
+  }
+
+  try {
+    const keys = await AsyncStorage.getAllKeys();
+    const stale = keys.filter((k) => k.startsWith(PREFIX) && pattern.test(k));
+    if (stale.length > 0) await AsyncStorage.multiRemove(stale);
   } catch {
     /* ignore */
   }

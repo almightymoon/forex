@@ -156,7 +156,7 @@ export default function NotificationsScreen() {
   const fetchNotifications = useCallback(async () => {
     setError(null);
     try {
-      const res = await apiFetch('api/notifications/user?limit=50');
+      const res = await apiFetch('api/notifications/user?limit=50', { cache: 'reload' });
       if (res.ok) {
         const d = await res.json();
         setItems(d.notifications ?? d ?? []);

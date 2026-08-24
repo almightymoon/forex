@@ -93,15 +93,17 @@ async function sendToTokens(
     interruptionLevel = 'timeSensitive',
   } = {}
 ) {
-  const list = (Array.isArray(tokens) ? tokens : [])
+  const provided = (Array.isArray(tokens) ? tokens : [])
     .map((t) => String(t || '').trim())
-    .filter((t) => Expo.isExpoPushToken(t));
+    .filter(Boolean);
+  const list = provided.filter((t) => Expo.isExpoPushToken(t));
+  const malformed = provided.length - list.length;
 
   // Dedupe — same device token stored on multiple accounts would spam Expo
   const unique = [...new Set(list)];
 
   if (unique.length === 0) {
-    return { sent: 0, failed: 0 };
+    return { sent: 0, failed: 0, errors: [], malformed };
   }
 
   const messages = unique.map((to) => ({
@@ -124,6 +126,8 @@ async function sendToTokens(
   let failed = 0;
   /** @type {Array<{ ticketId: string, to: string }>} */
   const ticketMap = [];
+  /** @type {string[]} */
+  const errors = [];
 
   for (const chunk of chunks) {
     try {
@@ -138,8 +142,9 @@ async function sendToTokens(
           }
         } else {
           failed += 1;
-          console.error('[ExpoPush] Ticket error:', ticket.message, ticket.details);
           const errCode = ticket.details?.error;
+          console.error('[ExpoPush] Ticket error:', ticket.message, ticket.details);
+          errors.push(errCode ? `${errCode}: ${ticket.message}` : String(ticket.message || 'unknown'));
           if (
             to &&
             (errCode === 'DeviceNotRegistered' || errCode === 'InvalidCredentials')
@@ -152,6 +157,7 @@ async function sendToTokens(
     } catch (error) {
       failed += chunk.length;
       console.error('[ExpoPush] Send failed:', error.message);
+      errors.push(error.message);
     }
   }
 
@@ -162,7 +168,7 @@ async function sendToTokens(
     });
   }
 
-  return { sent, failed };
+  return { sent, failed, errors, malformed };
 }
 
 module.exports = {
