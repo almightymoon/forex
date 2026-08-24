@@ -19,10 +19,42 @@ export type PushRegistrationStatus =
         | 'unsupported'
         | 'permission_denied'
         | 'missing_project_id'
+        | 'fcm_not_configured'
         | 'save_failed'
         | 'error';
       message: string;
     };
+
+/** Map native / Expo errors into a clear user-facing registration status. */
+export function classifyPushRegistrationError(error: unknown): PushRegistrationStatus {
+  const raw =
+    error instanceof Error
+      ? `${error.message} ${error.stack || ''}`
+      : String(error || '');
+  const lower = raw.toLowerCase();
+
+  if (
+    lower.includes('firebaseapp is not initialized') ||
+    lower.includes('default firebaseapp is not initialized') ||
+    lower.includes('fcm-credentials') ||
+    lower.includes('google-services') ||
+    lower.includes('firebaseapp.initializeapp')
+  ) {
+    return {
+      ok: false,
+      reason: 'fcm_not_configured',
+      message:
+        'Android push is not configured (missing Firebase). This app needs a new build with google-services.json. See mobile_app/PUSH_NOTIFICATIONS.md.',
+    };
+  }
+
+  return {
+    ok: false,
+    reason: 'error',
+    message:
+      error instanceof Error ? error.message : 'Failed to register for push notifications.',
+  };
+}
 
 /** Remote push is not available in Expo Go (SDK 53+). Use a dev/production build. */
 export function isPushNotificationsSupported(): boolean {
@@ -217,12 +249,7 @@ export async function registerPushTokenDetailed(): Promise<PushRegistrationStatu
     console.log('[Push] Token registered');
     return okStatus;
   } catch (error) {
-    const status: PushRegistrationStatus = {
-      ok: false,
-      reason: 'error',
-      message:
-        error instanceof Error ? error.message : 'Failed to register for push notifications.',
-    };
+    const status = classifyPushRegistrationError(error);
     await persistRegistrationStatus(status);
     console.warn('[Push] registerPushToken failed:', error);
     return status;

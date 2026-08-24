@@ -38,6 +38,7 @@
         "backgroundColor": "#00050A"
       },
       "package": "com.fxnavigators.app",
+      "googleServicesFile": "./google-services.json",
       "backgroundColor": "#00050A",
       "permissions": [
         "android.permission.POST_NOTIFICATIONS",

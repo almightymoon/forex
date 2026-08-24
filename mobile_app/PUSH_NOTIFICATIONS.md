@@ -3,42 +3,78 @@
 WhatsApp-style delivery uses **Expo Push → FCM (Android) / APNs (iOS)**.  
 Remote push does **not** work in Expo Go — use an EAS development or production build.
 
-## Prerequisites (EAS credentials)
+## Android FCM (required — this is what fixes “FirebaseApp is not initialized”)
 
-Run from `mobile_app/`:
+If Settings shows *Default FirebaseApp is not initialized* / *complete the guide at fcm-credentials*, the APK was built **without** Firebase.
 
-```bash
-npx eas credentials
+### 1. Create Firebase Android app
+
+1. Open [Firebase Console](https://console.firebase.google.com) → create or select a project.
+2. Add an **Android** app with package name exactly: `com.fxnavigators.app`
+3. Download **`google-services.json`**
+4. Place it at:
+
+```text
+mobile_app/google-services.json
 ```
 
-Confirm:
+5. `app.json` already has:
+
+```json
+"android": {
+  "package": "com.fxnavigators.app",
+  "googleServicesFile": "./google-services.json"
+}
+```
+
+### 2. Upload FCM V1 service account to EAS (server send path)
+
+1. Firebase → Project settings → Service accounts → **Generate new private key**
+2. From `mobile_app/`:
+
+```bash
+npx eas credentials -p android
+```
+
+Choose **Google Service Account** → **FCM V1** → upload that JSON.  
+Do **not** commit the private key (only `google-services.json` belongs in the repo).
+
+Guide: https://docs.expo.dev/push-notifications/fcm-credentials/
+
+### 3. Validate before building
+
+```bash
+cd mobile_app
+node scripts/test-push-classification.cjs
+node scripts/validate-push-setup.cjs
+```
+
+`validate-push-setup.cjs` must exit **0** before you run `eas build`.
+
+### 4. Build & install a **new** APK
+
+Old builds without `google-services.json` will keep failing. Rebuild after adding the file:
+
+```bash
+npx eas build --profile preview --platform android
+```
+
+## Prerequisites checklist
 
 | Platform | Required |
 |----------|----------|
-| Android | FCM V1 service account (or Google Services) linked to project `6a3902ef-0f67-4a9f-b79b-3f6048acc816` |
+| Android | `google-services.json` in app + FCM V1 key on EAS |
 | iOS | APNs key for bundle `com.fxnavigators.app` |
 
-Expo dashboard: https://expo.dev → project **the-fx-navigators** → Credentials.
-
-## Build & install
-
-```bash
-# Preview APK (Android) or internal iOS build
-npx eas build --profile preview --platform android
-# or
-npx eas build --profile preview --platform ios
-```
-
-Install that build on a physical device (not Expo Go, not only a simulator without push).
+Expo project: `6a3902ef-0f67-4a9f-b79b-3f6048acc816` (`@moontech94/the-fx-navigators`).
 
 ## Device checklist
 
-1. Open the app once while logged in as a **student** (creates Android `Trading Signals` channel + registers Expo token).
-2. Settings → Push Notifications **on**. If you see “Notifications are off”, tap retry and allow system permission.
-3. Force-quit the app (swipe away from recents).
-4. Teacher publishes a trading signal from the web/admin.
-5. Within a few seconds you should get a system banner with title like `New BUY signal`.
-6. Tap → opens Signals screen.
+1. Install the **new** build; log in as a **student**.
+2. Settings → Push Notifications **on** (no Firebase error).
+3. Force-quit the app.
+4. Teacher publishes a signal → system banner within seconds.
+5. Tap → Signals screen.
 
 ## Backend audience
 
@@ -49,14 +85,14 @@ Push goes to users where:
 - `preferences.pushNotifications !== false`
 - `preferences.expoPushToken` is a non-empty Expo token
 
-Stale tokens (`DeviceNotRegistered`) are cleared automatically after Expo receipt polling so the next app open can re-register.
+Stale tokens (`DeviceNotRegistered`) are cleared after Expo receipt polling.
 
 ## Common failures
 
 | Symptom | Cause |
 |---------|--------|
+| `FirebaseApp is not initialized` | Missing `google-services.json` in this build |
 | No banner in Expo Go | Expected — use EAS build |
 | Ticket OK, no Android banner | `signals` channel missing — open new build once |
-| Never receives | No FCM/APNs credentials in EAS |
-| Works then stops | Stale token — open app to re-register (auto-cleared on receipt error) |
-| Permission denied | Enable in phone Settings → Apps → The FX Navigators → Notifications |
+| Never receives | No FCM V1 key on EAS |
+| Permission denied | Phone Settings → Apps → Notifications |

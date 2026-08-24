@@ -172,6 +172,11 @@ export default function SettingsScreen() {
           'Notifications are off',
           'Enable notifications for The FX Navigators in your phone Settings, then tap Retry.',
         );
+      } else if (status.reason === 'fcm_not_configured') {
+        Alert.alert(
+          'Push not set up on this build',
+          'Android needs Firebase (google-services.json) baked into the app. Install a new build after FCM is configured — Expo Go / old APKs cannot get a push token.',
+        );
       } else {
         Alert.alert('Could not enable alerts', status.message);
       }

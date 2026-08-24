@@ -10,3 +10,7 @@ backend/logs/
 backend/logs/*.log
 backend/*.log
 website-screenshots/
+# Firebase FCM V1 private keys (never commit). google-services.json is OK to commit.
+**/firebase-adminsdk*.json
+**/*-firebase-adminsdk-*.json
+
