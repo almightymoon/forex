@@ -32,7 +32,12 @@ import {
   getCrashLogs,
   type CrashLogEntry,
 } from '../../utils/crashReporter';
-import { isPushNotificationsSupported, registerPushToken } from '../../utils/pushNotifications';
+import {
+  getPushRegistrationStatus,
+  isPushNotificationsSupported,
+  registerPushTokenDetailed,
+  type PushRegistrationStatus,
+} from '../../utils/pushNotifications';
 import { getStoredUser } from '../../utils/auth';
 import {
   clearBiometricCredentials,
@@ -43,11 +48,6 @@ import {
   setupBiometricLogin,
   type BiometricKind,
 } from '../../utils/biometric';
-
-// ─── Push notification registration ────────────────────────────────────────
-async function ensurePushToken() {
-  await registerPushToken();
-}
 
 export default function SettingsScreen() {
   const { colors, mode: themeMode, setMode: setThemeMode } = useTheme();
@@ -62,6 +62,8 @@ export default function SettingsScreen() {
   const [emailNotif, setEmailNotif] = useState(true);
   const [prefsLoading, setPrefsLoading] = useState(true);
   const [prefsSaving, setPrefsSaving] = useState(false);
+  const [pushStatus, setPushStatus] = useState<PushRegistrationStatus | null>(null);
+  const [pushRetrying, setPushRetrying] = useState(false);
 
   // 2FA
   const [twoFAEnabled, setTwoFAEnabled] = useState(false);
@@ -127,7 +129,12 @@ export default function SettingsScreen() {
     }).catch(() => {}).finally(() => setTwoFALoading(false));
 
     if (isPushNotificationsSupported()) {
-      ensurePushToken();
+      void (async () => {
+        const status = await registerPushTokenDetailed();
+        setPushStatus(status);
+      })();
+    } else {
+      void getPushRegistrationStatus().then(setPushStatus);
     }
 
     (async () => {
@@ -150,10 +157,39 @@ export default function SettingsScreen() {
     } catch { /* ignore */ } finally { setPrefsSaving(false); }
   };
 
+  const retryPushRegistration = async () => {
+    if (pushRetrying) return;
+    setPushRetrying(true);
+    try {
+      const status = await registerPushTokenDetailed();
+      setPushStatus(status);
+      if (status.ok) {
+        setPushNotif(true);
+        await savePrefs(true, emailNotif);
+        Alert.alert('Notifications on', 'You will receive signal alerts even when the app is closed.');
+      } else if (status.reason === 'permission_denied') {
+        Alert.alert(
+          'Notifications are off',
+          'Enable notifications for The FX Navigators in your phone Settings, then tap Retry.',
+        );
+      } else {
+        Alert.alert('Could not enable alerts', status.message);
+      }
+    } finally {
+      setPushRetrying(false);
+    }
+  };
+
   const handlePushToggle = async (v: boolean) => {
     setPushNotif(v);
     savePrefs(v, emailNotif);
-    if (v) await ensurePushToken();
+    if (v) {
+      const status = await registerPushTokenDetailed();
+      setPushStatus(status);
+      if (!status.ok) {
+        Alert.alert('Notifications need attention', status.message);
+      }
+    }
   };
   const handleEmailToggle = (v: boolean) => { setEmailNotif(v); savePrefs(pushNotif, v); };
 
@@ -391,7 +427,7 @@ export default function SettingsScreen() {
                 label="Push Notifications"
                 sublabel={
                   isPushNotificationsSupported()
-                    ? 'Receive alerts on your device'
+                    ? 'Instant signal alerts (even when the app is closed)'
                     : 'Requires a development or production build (not available in Expo Go)'
                 }
                 value={pushNotif}
@@ -399,6 +435,42 @@ export default function SettingsScreen() {
                 saving={prefsSaving}
                 disabled={!isPushNotificationsSupported()}
               />
+              {pushStatus && !pushStatus.ok ? (
+                <>
+                  <GlassDivider />
+                  <Pressable
+                    onPress={retryPushRegistration}
+                    disabled={pushRetrying}
+                    style={{
+                      paddingVertical: 12,
+                      paddingHorizontal: 4,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 10,
+                    }}
+                  >
+                    <Ionicons name="warning-outline" size={18} color={colors.gold} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: colors.text, fontSize: 14, fontWeight: '600' }}>
+                        Notifications are off
+                      </Text>
+                      <Text style={{ color: colors.textMuted, fontSize: 12, marginTop: 2 }}>
+                        {pushStatus.message}
+                      </Text>
+                      <Text
+                        style={{
+                          color: colors.primary,
+                          fontSize: 13,
+                          fontWeight: '600',
+                          marginTop: 6,
+                        }}
+                      >
+                        {pushRetrying ? 'Retrying…' : 'Tap to enable / retry'}
+                      </Text>
+                    </View>
+                  </Pressable>
+                </>
+              ) : null}
               <GlassDivider />
               <ToggleRow label="Email Alerts" sublabel="Get updates via email" value={emailNotif} onChange={handleEmailToggle} saving={prefsSaving} />
             </GlassSection>

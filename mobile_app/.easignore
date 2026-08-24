@@ -1,8 +1,20 @@
+# Keep EAS upload lean — large local artifacts crash/stall uploads
 build-output/
 *.apk
+*.aab
 *.ipa
 *.tar.gz
+*.app/
 design-mockups/
 scripts/
 *.bak
 .DS_Store
+.git/
+.expo/
+coverage/
+*.log
+ios/Pods/
+android/.gradle/
+android/app/build/
+android/build/
+node_modules/

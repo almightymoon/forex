@@ -2,8 +2,9 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import {
+  ensureAndroidChannels,
   isPushNotificationsSupported,
-  registerPushToken,
+  registerPushTokenDetailed,
   setupNotificationListeners,
 } from '../utils/pushNotifications';
 
@@ -39,14 +40,18 @@ function navigateFromNotificationData(
 export function PushNotificationSetup() {
   const router = useRouter();
   const registering = useRef(false);
+  const handledColdStartTap = useRef(false);
 
   useEffect(() => {
+    // Always create Android channels on cold start (even if Expo Go / permission denied)
+    void ensureAndroidChannels();
+
     if (!isPushNotificationsSupported()) return;
 
     const register = () => {
       if (registering.current) return;
       registering.current = true;
-      void registerPushToken().finally(() => {
+      void registerPushTokenDetailed().finally(() => {
         registering.current = false;
       });
     };
@@ -54,12 +59,18 @@ export function PushNotificationSetup() {
     register();
 
     const onAppState = (state: AppStateStatus) => {
-      if (state === 'active') register();
+      if (state === 'active') {
+        void ensureAndroidChannels();
+        register();
+      }
     };
     const sub = AppState.addEventListener('change', onAppState);
 
     let cleanup: (() => void) | null = null;
     void setupNotificationListeners((data) => {
+      // Avoid double-navigating if cold-start response fires with mount
+      if (handledColdStartTap.current && Object.keys(data).length === 0) return;
+      handledColdStartTap.current = true;
       navigateFromNotificationData(router, data);
     }).then((fn) => {
       cleanup = fn;

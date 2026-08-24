@@ -30,5 +30,5 @@ mobile_app/
 
 ## Notes
 
-- Auth forms are UI-only for now; backend API wiring can be added next.
-- All work stays inside `mobile_app/` — no changes to the main monorepo.
+- Remote push (signal alerts when the app is closed) requires an **EAS build**, not Expo Go. See [PUSH_NOTIFICATIONS.md](./PUSH_NOTIFICATIONS.md).
+- Auth and API calls use the shared backend at `thefxnavigators.com`.
