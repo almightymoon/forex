@@ -87,22 +87,27 @@ router.post('/', [
 
     // Additional business logic validation
     const validationErrors = [];
+    const hasPositive = (v) => v != null && v !== '' && Number.isFinite(Number(v)) && Number(v) > 0;
+    const bid = hasPositive(req.body.currentBid) ? Number(req.body.currentBid) : null;
+    const ask = hasPositive(req.body.currentAsk) ? Number(req.body.currentAsk) : null;
+    const dailyLow = hasPositive(req.body.dailyLow) ? Number(req.body.dailyLow) : null;
+    const dailyHigh = hasPositive(req.body.dailyHigh) ? Number(req.body.dailyHigh) : null;
 
-    // Validate bid/ask relationship (only if both provided)
-    if (req.body.currentBid != null && req.body.currentAsk != null && req.body.currentBid >= req.body.currentAsk) {
+    // Validate bid/ask relationship (only when both are real market values)
+    if (bid != null && ask != null && bid >= ask) {
       validationErrors.push({
         field: 'currentBid',
         message: 'Bid price must be lower than ask price',
-        value: { bid: req.body.currentBid, ask: req.body.currentAsk }
+        value: { bid, ask }
       });
     }
 
-    // Validate daily high/low relationship (only if both provided)
-    if (req.body.dailyLow != null && req.body.dailyHigh != null && req.body.dailyLow >= req.body.dailyHigh) {
+    // Validate daily high/low relationship (only when both are real market values)
+    if (dailyLow != null && dailyHigh != null && dailyLow >= dailyHigh) {
       validationErrors.push({
         field: 'dailyLow',
         message: 'Daily low must be lower than daily high',
-        value: { low: req.body.dailyLow, high: req.body.dailyHigh }
+        value: { low: dailyLow, high: dailyHigh }
       });
     }
 
@@ -165,16 +170,16 @@ router.post('/', [
 
     // Validate current prices are within daily range (with tolerance)
     if (
-      req.body.currentBid != null &&
-      req.body.currentAsk != null &&
-      req.body.dailyLow != null &&
-      req.body.dailyHigh != null &&
-      (req.body.currentBid < req.body.dailyLow * 0.8 || req.body.currentAsk > req.body.dailyHigh * 1.2)
+      bid != null &&
+      ask != null &&
+      dailyLow != null &&
+      dailyHigh != null &&
+      (bid < dailyLow * 0.8 || ask > dailyHigh * 1.2)
     ) {
       validationErrors.push({
         field: 'currentBid',
         message: 'Current prices should be reasonably within daily high/low range (allowing 20% tolerance for market volatility)',
-        value: { bid: req.body.currentBid, ask: req.body.currentAsk, low: req.body.dailyLow, high: req.body.dailyHigh }
+        value: { bid, ask, low: dailyLow, high: dailyHigh }
       });
     }
 
@@ -233,6 +238,13 @@ router.post('/', [
         if (!isNaN(numValue)) {
           signalData[field] = numValue;
         }
+      }
+    });
+
+    // Treat 0 market-snapshot fields as unset so the model can derive them from entry
+    ['currentBid', 'currentAsk', 'dailyHigh', 'dailyLow'].forEach((field) => {
+      if (!(Number(signalData[field]) > 0)) {
+        delete signalData[field];
       }
     });
 

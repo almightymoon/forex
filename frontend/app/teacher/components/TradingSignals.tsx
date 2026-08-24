@@ -295,13 +295,39 @@ export default function TradingSignals() {
         return;
       }
 
+      const entry = Number(newSignal.entryPrice);
+      const payload: CreateSignalData = {
+        ...newSignal,
+        targets: Array.isArray(newSignal.targets)
+          ? newSignal.targets.map((n) => Number(n)).filter((n) => Number.isFinite(n) && n > 0)
+          : [],
+      };
+
+      // Market snapshot fields are optional in the UI — derive them from entry when unset
+      const hasMarketSnapshot =
+        Number(payload.currentBid) > 0 &&
+        Number(payload.currentAsk) > 0 &&
+        Number(payload.dailyHigh) > 0 &&
+        Number(payload.dailyLow) > 0;
+      if (!hasMarketSnapshot && Number.isFinite(entry) && entry > 0) {
+        const spread = Math.max(entry * 0.0002, 0.0001);
+        payload.currentBid = entry;
+        payload.currentAsk = parseFloat((entry + spread).toFixed(4));
+        payload.dailyHigh = parseFloat(Math.max(payload.currentAsk, entry * 1.01).toFixed(4));
+        payload.dailyLow = parseFloat(Math.min(payload.currentBid, entry * 0.99).toFixed(4));
+        payload.priceChange = parseFloat((payload.currentAsk - payload.currentBid).toFixed(4));
+        payload.priceChangePercent = parseFloat(
+          (((payload.currentAsk - payload.currentBid) / payload.currentBid) * 100).toFixed(2)
+        );
+      }
+
       const response = await fetch(buildApiUrl('api/signals'), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(newSignal)
+        body: JSON.stringify(payload)
       });
 
       if (response.ok) {
