@@ -11,6 +11,13 @@ function navigateFromNotificationData(
   data: Record<string, unknown>,
 ) {
   const link = typeof data.link === 'string' ? data.link : null;
+  const type = typeof data.type === 'string' ? data.type : '';
+
+  if (type === 'signal' || type === 'trading_signal' || (link && link.includes('signals'))) {
+    router.push('/(app)/signals');
+    return;
+  }
+
   if (link) {
     if (link.includes('/notifications') || data.notificationId) {
       router.push('/(app)/notifications');
