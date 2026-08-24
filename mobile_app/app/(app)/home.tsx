@@ -240,7 +240,7 @@ export default function HomeScreen() {
   useFocusEffect(
     useCallback(() => {
       getStoredUser().then(setUser);
-      apiFetch('api/notifications/user')
+      apiFetch('api/notifications/user?limit=50', { cache: 'reload' })
         .then(async (r) => {
           if (r.ok) {
             const d = await r.json();
@@ -290,6 +290,7 @@ export default function HomeScreen() {
           <HomeHeader
             firstName={firstName}
             hasUnread={unreadCount > 0}
+            unreadCount={unreadCount}
             profileImage={user?.profileImage}
             onSettings={() => router.push('/(app)/settings')}
             onNotifications={() => router.push('/(app)/notifications')}

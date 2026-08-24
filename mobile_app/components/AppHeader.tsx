@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Image, Pressable, StyleSheet, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { AppIcon } from './AppIcon';
 import { Logo } from './Logo';
 import type { AppColors } from '../constants/theme';
@@ -11,23 +11,36 @@ type Props = {
   onProfile?: () => void;
   profileImage?: string;
   hasUnread?: boolean;
+  unreadCount?: number;
   title?: string;
   subtitle?: string;
 };
 
-export function AppHeader({ onNotifications, onProfile, profileImage, hasUnread }: Props) {
+export function AppHeader({ onNotifications, onProfile, profileImage, hasUnread, unreadCount = 0 }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const avatarUri = resolveMediaUrl(profileImage);
+  const badgeCount = unreadCount > 0 ? unreadCount : hasUnread ? 1 : 0;
+  const badgeLabel = badgeCount > 99 ? '99+' : String(badgeCount);
 
   return (
     <View style={styles.row}>
       <Logo size="header" />
       <View style={styles.actions}>
-        <Pressable style={styles.iconBtn} onPress={onNotifications}>
+        <Pressable
+          style={styles.iconBtn}
+          onPress={onNotifications}
+          accessibilityLabel={
+            badgeCount > 0 ? `Notifications, ${badgeCount} unread` : 'Notifications'
+          }
+        >
           <AppIcon name="notifications" size={19} color={colors.textSilver} strokeWidth={2} />
-          {hasUnread ? <View style={styles.dot} /> : null}
+          {badgeCount > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{badgeLabel}</Text>
+            </View>
+          ) : null}
         </Pressable>
         <Pressable style={styles.avatarBtn} onPress={onProfile}>
           {avatarUri ? (
@@ -77,6 +90,26 @@ function createStyles(colors: AppColors) {
     backgroundColor: colors.brandPurpleDeep,
     borderWidth: 1.5,
     borderColor: colors.surface,
+  },
+  badge: {
+    position: 'absolute',
+    top: 2,
+    right: 0,
+    minWidth: 16,
+    height: 16,
+    paddingHorizontal: 3,
+    borderRadius: 8,
+    backgroundColor: colors.brandPurpleDeep,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: colors.surface,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
+    lineHeight: 11,
   },
   avatarBtn: {
     width: 38,

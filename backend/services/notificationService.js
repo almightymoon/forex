@@ -1836,7 +1836,7 @@ class NotificationService {
         data: pushData,
         channelId: 'signals',
         ttl: 24 * 60 * 60,
-        interruptionLevel: 'timeSensitive',
+        interruptionLevel: 'time-sensitive',
       });
     } catch (error) {
       console.error('[SignalNotify] Push failed:', error.message);

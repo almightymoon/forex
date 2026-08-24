@@ -14,6 +14,8 @@ type Props = {
   onProfile?: () => void;
   profileImage?: string;
   hasUnread?: boolean;
+  /** Unread count shown as a badge on the bell (preferred over hasUnread alone). */
+  unreadCount?: number;
 };
 
 export function HomeHeader({
@@ -23,11 +25,14 @@ export function HomeHeader({
   onProfile,
   profileImage,
   hasUnread,
+  unreadCount = 0,
 }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   const avatarUri = resolveMediaUrl(profileImage);
+  const badgeCount = unreadCount > 0 ? unreadCount : hasUnread ? 1 : 0;
+  const badgeLabel = badgeCount > 99 ? '99+' : String(badgeCount);
 
   return (
     <View style={styles.wrap}>
@@ -47,9 +52,19 @@ export function HomeHeader({
         <Pressable style={styles.iconBtn} onPress={onSettings} accessibilityLabel="Settings">
           <AppIcon name="settings" size={20} color={colors.textSilver} strokeWidth={2} />
         </Pressable>
-        <Pressable style={styles.iconBtn} onPress={onNotifications} accessibilityLabel="Notifications">
+        <Pressable
+          style={styles.iconBtn}
+          onPress={onNotifications}
+          accessibilityLabel={
+            badgeCount > 0 ? `Notifications, ${badgeCount} unread` : 'Notifications'
+          }
+        >
           <AppIcon name="notifications" size={20} color={colors.textSilver} strokeWidth={2} />
-          {hasUnread ? <View style={styles.dot} /> : null}
+          {badgeCount > 0 ? (
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{badgeLabel}</Text>
+            </View>
+          ) : null}
         </Pressable>
         <Pressable style={styles.avatarBtn} onPress={onProfile} accessibilityLabel="Profile">
           {avatarUri ? (
@@ -116,6 +131,26 @@ function createStyles(colors: AppColors) {
       height: 8,
       borderRadius: 4,
       backgroundColor: colors.brandPurple,
+    },
+    badge: {
+      position: 'absolute',
+      top: 4,
+      right: 2,
+      minWidth: 18,
+      height: 18,
+      paddingHorizontal: 4,
+      borderRadius: 9,
+      backgroundColor: colors.brandPurple,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: colors.surfaceHover,
+    },
+    badgeText: {
+      color: '#FFFFFF',
+      fontSize: 10,
+      fontWeight: '800',
+      lineHeight: 12,
     },
     avatarBtn: {
       width: 44,

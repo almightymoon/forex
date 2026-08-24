@@ -80,7 +80,7 @@ async function processPushReceipts(ticketMap) {
 
 /**
  * Send the same push to many Expo tokens (WhatsApp-style broadcast).
- * @returns {Promise<{ sent: number, failed: number }>}
+ * @returns {Promise<{ sent: number, failed: number, errors?: string[], malformed?: number }>}
  */
 async function sendToTokens(
   tokens,
@@ -90,7 +90,7 @@ async function sendToTokens(
     data = {},
     channelId = 'default',
     ttl = DEFAULT_TTL_SECONDS,
-    interruptionLevel = 'timeSensitive',
+    interruptionLevel = 'time-sensitive',
   } = {}
 ) {
   const provided = (Array.isArray(tokens) ? tokens : [])
@@ -106,6 +106,17 @@ async function sendToTokens(
     return { sent: 0, failed: 0, errors: [], malformed };
   }
 
+  // Expo Push API only accepts kebab-case for interruptionLevel
+  const normalizedInterruption =
+    interruptionLevel === 'timeSensitive' || interruptionLevel === 'time_sensitive'
+      ? 'time-sensitive'
+      : interruptionLevel === 'time-sensitive' ||
+          interruptionLevel === 'active' ||
+          interruptionLevel === 'critical' ||
+          interruptionLevel === 'passive'
+        ? interruptionLevel
+        : 'time-sensitive';
+
   const messages = unique.map((to) => ({
     to,
     sound: 'default',
@@ -117,7 +128,7 @@ async function sendToTokens(
     // Deliver for up to 24h if the device is offline
     ttl: typeof ttl === 'number' ? ttl : DEFAULT_TTL_SECONDS,
     // iOS Focus / DND: treat as time-sensitive (WhatsApp-like urgency)
-    interruptionLevel: interruptionLevel || 'timeSensitive',
+    interruptionLevel: normalizedInterruption,
     _contentAvailable: true,
   }));
 
