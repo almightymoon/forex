@@ -1805,10 +1805,18 @@ class NotificationService {
       link: '/(app)/signals',
     };
 
+    // Everyone who should hear about a signal, except the teacher who published it.
+    // Admins/developers are included so signal delivery can be verified from any account.
+    const authorId = signal.teacher?.toString?.() || String(signal.teacher || '');
+    const audienceFilter = {
+      role: { $in: ['student', 'admin', 'developer'] },
+      isActive: { $ne: false },
+      ...(authorId ? { _id: { $ne: authorId } } : {}),
+    };
+
     // 1) Instant push — only users who have a device token
     const pushUsers = await User.find({
-      role: 'student',
-      isActive: { $ne: false },
+      ...audienceFilter,
       'preferences.pushNotifications': { $ne: false },
       'preferences.expoPushToken': { $type: 'string', $ne: '' },
     })
@@ -1834,18 +1842,15 @@ class NotificationService {
       console.error('[SignalNotify] Push failed:', error.message);
     }
 
-    // 2) In-app notifications for all active students (does not block push)
+    // 2) In-app notifications for the same audience (does not block push)
     let notified = 0;
     try {
-      const students = await User.find({
-        role: 'student',
-        isActive: { $ne: false },
-      })
+      const students = await User.find(audienceFilter)
         .select('_id')
         .lean();
 
       if (students.length === 0) {
-        console.warn('[SignalNotify] No active students found for in-app notifications');
+        console.warn('[SignalNotify] No eligible recipients found for in-app notifications');
       } else {
         const Notification = require('../models/Notification');
         const docs = students.map((user) => ({
@@ -1885,12 +1890,13 @@ class NotificationService {
 
     if (tokens.length === 0) {
       console.warn(
-        '[SignalNotify] No Expo push tokens registered — students must open the production/preview APK once with notification permission'
+        '[SignalNotify] No Expo push tokens registered — recipients must open the production/preview APK once with notification permission'
       );
     }
 
     console.log(
-      `[SignalNotify] ${symbol}: students_in_app=${notified}, push_tokens=${tokens.length}, sent=${pushResult.sent}, failed=${pushResult.failed}`
+      `[SignalNotify] ${symbol}: in_app=${notified}, push_tokens=${tokens.length}, sent=${pushResult.sent}, failed=${pushResult.failed}` +
+        ((pushResult.errors || []).length ? ` errors=${pushResult.errors.join('; ')}` : '')
     );
 
     return { notified, pushed: pushResult.sent };
