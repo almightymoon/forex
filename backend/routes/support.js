@@ -3,7 +3,6 @@ const { body, validationResult } = require('express-validator');
 const SupportTicket = require('../models/SupportTicket');
 const { INQUIRY_TYPES } = require('../models/SupportTicket');
 const User = require('../models/User');
-const Notification = require('../models/Notification');
 const { authenticateToken, requireAdmin } = require('../middleware/auth');
 
 const router = express.Router();
