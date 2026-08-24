@@ -7,7 +7,8 @@ const NOTIFICATION_TYPES = Object.freeze([
   'security',
   'referral',
   'commission',
-  'live_session'
+  'live_session',
+  'signal',
 ]);
 
 module.exports = {

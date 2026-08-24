@@ -2,6 +2,7 @@ const express = require('express');
 const { body, validationResult } = require('express-validator');
 const TradingSignal = require('../models/TradingSignal');
 const { authenticateToken, requireTeacher, requireOwnership, requireVerifiedPayment } = require('../middleware/auth');
+const notificationService = require('../services/notificationService');
 
 const router = express.Router();
 
@@ -257,6 +258,14 @@ router.post('/', [
       throw saveError;
     }
 
+    if (signal.isPublished !== false) {
+      setImmediate(() => {
+        notificationService.notifyNewTradingSignal(signal).catch((err) => {
+          console.error('[Signal] Push notify failed:', err.message);
+        });
+      });
+    }
+
     res.status(201).json({
       message: 'Signal created successfully',
       signal
@@ -366,6 +375,12 @@ router.put('/:id', [
       });
     }
 
+    const existing = await TradingSignal.findById(req.params.id).select('isPublished');
+    if (!existing) {
+      return res.status(404).json({ error: 'Signal not found' });
+    }
+    const wasPublished = !!existing.isPublished;
+
     const signal = await TradingSignal.findByIdAndUpdate(
       req.params.id,
       req.body,
@@ -374,6 +389,14 @@ router.put('/:id', [
 
     if (!signal) {
       return res.status(404).json({ error: 'Signal not found' });
+    }
+
+    if (!wasPublished && signal.isPublished) {
+      setImmediate(() => {
+        notificationService.notifyNewTradingSignal(signal).catch((err) => {
+          console.error('[Signal] Publish push notify failed:', err.message);
+        });
+      });
     }
 
     res.json({

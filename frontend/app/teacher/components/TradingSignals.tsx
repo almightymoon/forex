@@ -102,6 +102,18 @@ interface CreateSignalData {
   tags: string[];
 }
 
+function formatSignalPrice(value: number | string | undefined | null) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '0';
+  if (Math.abs(n) >= 100) {
+    return n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+  }
+  if (Math.abs(n) >= 1) {
+    return n.toFixed(2);
+  }
+  return n.toFixed(4);
+}
+
 export default function TradingSignals() {
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -769,114 +781,121 @@ export default function TradingSignals() {
                 </div>
 
                 {/* Price tiles */}
-                <div className="mt-5 grid grid-cols-3 gap-3">
-                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Entry</p>
-                    <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">${Number(signal.entryPrice || 0).toFixed(2)}</p>
+                <div className="mt-5 grid grid-cols-3 gap-2 sm:gap-3">
+                  <div className="min-w-0 rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-3 dark:border-gray-700 dark:bg-gray-800 sm:px-3">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Entry</p>
+                    <p className="mt-1 truncate text-base font-bold tabular-nums text-gray-900 dark:text-white sm:text-lg">
+                      ${formatSignalPrice(signal.entryPrice)}
+                    </p>
                   </div>
-                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3">
-                    <div className="flex items-center justify-between">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Target</p>
+                  <div className="min-w-0 rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-3 dark:border-gray-700 dark:bg-gray-800 sm:px-3">
+                    <div className="flex items-center justify-between gap-1">
+                      <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Target</p>
                       {Array.isArray((signal as any).targets) && (signal as any).targets.length > 1 ? (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700">
+                        <span className="shrink-0 rounded-full bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-600 dark:bg-gray-700 dark:text-gray-300">
                           +{(signal as any).targets.length - 1}
                         </span>
                       ) : null}
                     </div>
-                    <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">
-                      ${Number(signal.targetPrice || 0).toFixed(2)}
+                    <p className="mt-1 truncate text-base font-bold tabular-nums text-gray-900 dark:text-white sm:text-lg">
+                      ${formatSignalPrice(signal.targetPrice)}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-4 py-3">
-                    <p className="text-xs text-gray-500 dark:text-gray-400">Stop Loss</p>
-                    <p className="mt-1 text-2xl font-bold text-gray-900 dark:text-white">${Number(signal.stopLoss || 0).toFixed(2)}</p>
+                  <div className="min-w-0 rounded-xl border border-gray-200 bg-gray-50 px-2.5 py-3 dark:border-gray-700 dark:bg-gray-800 sm:px-3">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-500 dark:text-gray-400">Stop</p>
+                    <p className="mt-1 truncate text-base font-bold tabular-nums text-gray-900 dark:text-white sm:text-lg">
+                      ${formatSignalPrice(signal.stopLoss)}
+                    </p>
                   </div>
                 </div>
 
                 {/* Meta */}
-                <div className="mt-4 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
-                    <span>Confidence: {signal.confidence}%</span>
-                    <div className="h-1.5 w-28 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-1 items-center gap-2 text-sm text-gray-700 dark:text-gray-200">
+                    <span className="shrink-0">Confidence {signal.confidence}%</span>
+                    <div className="h-1.5 min-w-[4rem] flex-1 max-w-[7rem] overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
                       <div
                         className="h-full rounded-full bg-blue-500"
                         style={{ width: `${Math.min(100, Math.max(0, Number(signal.confidence || 0)))}%` }}
                       />
                     </div>
                   </div>
-                  <span className="px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:border-gray-700">
+                  <span className="rounded-full border border-gray-200 bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200">
                     {signal.riskLevel}
                   </span>
                 </div>
 
-                <div className="mt-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-gray-500 dark:text-gray-400">
                   <span className="inline-flex items-center gap-2">
-                    Timeframe: {signal.timeframe}
+                    {signal.timeframe}
                     <span className="opacity-60">•</span>
                     {new Date(signal.createdAt).toLocaleDateString()}
                   </span>
-                  <span className="inline-flex items-center gap-4">
+                  <span className="inline-flex items-center gap-3">
                     <span className="inline-flex items-center gap-1">
-                      <Eye className="w-4 h-4" />
+                      <Eye className="h-3.5 w-3.5" />
                       {signal.views}
                     </span>
                     <span className="inline-flex items-center gap-1">
-                      <MessageSquare className="w-4 h-4" />
+                      <MessageSquare className="h-3.5 w-3.5" />
                       {signal.comments.length}
                     </span>
                   </span>
                 </div>
 
                 {/* Actions */}
-                <div className="mt-5 flex items-center gap-2 flex-wrap">
+                <div className="mt-5 space-y-3 border-t border-gray-100 pt-4 dark:border-gray-800">
                   {signal.status === 'active' && (
-                    <>
+                    <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => handleTogglePublish(signal._id, signal.isPublished)}
-                        className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${
+                        className={`rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors ${
                           signal.isPublished
-                            ? 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-200 dark:border-amber-800/50 dark:hover:bg-amber-900/30'
-                            : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-200 dark:border-emerald-800/50 dark:hover:bg-emerald-900/30'
+                            ? 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-200 dark:hover:bg-amber-900/30'
+                            : 'border border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-200 dark:hover:bg-emerald-900/30'
                         }`}
                       >
                         {signal.isPublished ? 'Unpublish' : 'Publish'}
                       </button>
                       <button
                         onClick={() => handleCloseSignal(signal._id)}
-                        className="px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
+                        className="rounded-xl bg-blue-600 px-3 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
                       >
                         Close Signal
                       </button>
-                    </>
+                    </div>
                   )}
 
-                  <div className="ml-auto flex items-center gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => {
                         setSelectedSignal(signal);
                         setShowViewModal(true);
                       }}
-                      className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 border border-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-700 dark:text-gray-200"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                       title="View Signal"
                     >
-                      <Eye className="w-4 h-4" />
+                      <Eye className="h-4 w-4" />
+                      Preview
                     </button>
                     <button
                       onClick={() => {
                         setEditingSignal(signal);
                         setShowEditModal(true);
                       }}
-                      className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 border border-gray-200 text-gray-700 dark:bg-gray-800 dark:hover:bg-gray-700 dark:border-gray-700 dark:text-gray-200"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                       title="Edit Signal"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Edit className="h-4 w-4" />
+                      Edit
                     </button>
                     <button
                       onClick={() => handleDeleteSignal(signal._id)}
-                      className="px-3 py-2 rounded-xl bg-gray-100 hover:bg-rose-50 border border-gray-200 text-rose-700 dark:bg-gray-800 dark:hover:bg-rose-900/20 dark:border-gray-700 dark:text-rose-200"
+                      className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-medium text-rose-700 hover:bg-rose-100 dark:border-rose-800/50 dark:bg-rose-900/20 dark:text-rose-200 dark:hover:bg-rose-900/30"
                       title="Delete Signal"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="h-4 w-4" />
+                      Delete
                     </button>
                   </div>
                 </div>

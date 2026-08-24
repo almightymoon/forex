@@ -1771,6 +1771,81 @@ class NotificationService {
       delivered: inAppOk || !!emailResult?.email
     };
   }
+
+  /**
+   * Notify students about a new published trading signal (in-app + Expo push).
+   */
+  async notifyNewTradingSignal(signal) {
+    if (!signal || signal.isPublished === false) {
+      return { notified: 0, pushed: 0 };
+    }
+
+    const typeLabel = String(signal.type || 'buy')
+      .replace(/_/g, ' ')
+      .toUpperCase();
+    const symbol = signal.symbol || 'SIGNAL';
+    const entry = Number(signal.entryPrice || 0);
+    const target = Number(signal.targetPrice || 0);
+    const stop = Number(signal.stopLoss || 0);
+    const format = (n) =>
+      Number.isFinite(n) ? (Math.abs(n) >= 100 ? n.toFixed(2) : n.toFixed(4)) : '0';
+
+    const title = `New ${typeLabel} signal`;
+    const message = `${symbol}: Entry ${format(entry)} · TP ${format(target)} · SL ${format(stop)}`;
+    const signalId = signal._id?.toString?.() || String(signal._id || '');
+    const link = '/dashboard';
+
+    const students = await User.find({
+      role: 'student',
+      isActive: { $ne: false },
+    })
+      .select('_id preferences.expoPushToken preferences.pushNotifications')
+      .lean();
+
+    if (!students.length) {
+      return { notified: 0, pushed: 0 };
+    }
+
+    const Notification = require('../models/Notification');
+    const docs = students.map((user) => ({
+      userId: user._id,
+      type: 'signal',
+      title,
+      message,
+      link,
+      data: { signalId, type: 'signal' },
+      read: false,
+      priority: 'high',
+    }));
+
+    try {
+      await Notification.insertMany(docs, { ordered: false });
+    } catch (error) {
+      console.error('[SignalNotify] In-app insert failed:', error.message);
+    }
+
+    const tokens = students
+      .filter((user) => user.preferences?.pushNotifications !== false)
+      .map((user) => user.preferences?.expoPushToken)
+      .filter(Boolean);
+
+    const { sendToTokens } = require('./expoPushService');
+    const pushResult = await sendToTokens(tokens, {
+      title,
+      body: message,
+      data: {
+        type: 'signal',
+        signalId,
+        link: '/(app)/signals',
+      },
+    });
+
+    console.log(
+      `[SignalNotify] ${symbol}: in-app=${docs.length}, push sent=${pushResult.sent}, failed=${pushResult.failed}`
+    );
+
+    return { notified: docs.length, pushed: pushResult.sent };
+  }
 }
 
 // Export singleton instance
