@@ -1,10 +1,12 @@
 # Keep EAS upload lean — large local artifacts crash/stall uploads
 build-output/
+build-*.apk
 *.apk
 *.aab
 *.ipa
 *.tar.gz
-*.app/
+**/*.app/
+**/*.app
 design-mockups/
 scripts/
 *.bak
@@ -13,8 +15,9 @@ scripts/
 .expo/
 coverage/
 *.log
-ios/Pods/
-android/.gradle/
-android/app/build/
-android/build/
+ios/
+android/
 node_modules/
+fcm-service-account.json
+**/firebase-adminsdk*.json
+**/*-firebase-adminsdk-*.json
