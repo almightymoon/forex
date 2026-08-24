@@ -1,6 +1,5 @@
 const RankRewardRule = require('../models/RankRewardRule');
 const RankRewardUnlock = require('../models/RankRewardUnlock');
-const Notification = require('../models/Notification');
 const notificationService = require('./notificationService');
 const User = require('../models/User');
 const Payment = require('../models/Payment');
@@ -9,15 +8,15 @@ async function notifyUserUnlocked(userId, payload) {
   const title = payload?.title || 'Rank reward unlocked';
   const message = payload?.message || 'You have unlocked a new reward.';
 
-  // In-app notification (always)
+  // In-app notification + push
   try {
-    await Notification.createNotification({
-      userId,
+    await notificationService.createNotification({
+      user: userId,
       type: 'system',
       title,
       message,
       data: payload?.data || {},
-      link: '/dashboard'
+      link: '/(app)/rank-rewards',
     });
   } catch (e) {
     // best-effort

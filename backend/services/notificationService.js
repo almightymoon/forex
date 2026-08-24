@@ -310,7 +310,13 @@ class NotificationService {
       }
 
       const { sendToToken } = require('./expoPushService');
-      const sent = await sendToToken(token, { title, body, data });
+      const sent = await sendToToken(token, {
+        title,
+        body,
+        data,
+        channelId: 'default',
+        interruptionLevel: 'time-sensitive',
+      });
       if (sent) {
         console.log(`[Push] Sent to user ${userId}: ${title}`);
       }
@@ -1660,6 +1666,7 @@ class NotificationService {
             type: notificationData.type || 'system',
             notificationId: notification._id.toString(),
             link: notificationData.link || null,
+            ...(notificationData.data || {}),
           },
         }).catch((err) => {
           console.error('[Push] In-app notification push failed:', err.message);
@@ -1774,6 +1781,106 @@ class NotificationService {
   }
 
   /**
+   * Create many in-app notifications and fan out Expo push (same path as the Settings test push).
+   * @returns {Promise<{ notified: number, pushed: number, failed: number, errors: string[] }>}
+   */
+  async notifyUsersBulk({
+    userIds,
+    type = 'system',
+    title,
+    message,
+    link = null,
+    data = {},
+    channelId = 'default',
+    priority = 'medium',
+  }) {
+    const ids = [...new Set(
+      (userIds || [])
+        .map((id) => (id && id.toString ? id.toString() : String(id || '')))
+        .filter(Boolean)
+    )];
+
+    if (ids.length === 0 || !title || !message) {
+      return { notified: 0, pushed: 0, failed: 0, errors: [] };
+    }
+
+    const Notification = require('../models/Notification');
+    let notified = 0;
+
+    try {
+      const docs = ids.map((userId) => ({
+        userId,
+        type,
+        title,
+        message,
+        link,
+        data: { ...(data || {}), type, link },
+        read: false,
+        priority,
+      }));
+      try {
+        const inserted = await Notification.insertMany(docs, { ordered: false });
+        notified = inserted.length;
+      } catch (bulkError) {
+        if (Array.isArray(bulkError?.insertedDocs)) {
+          notified = bulkError.insertedDocs.length;
+        } else if (bulkError?.result?.nInserted) {
+          notified = bulkError.result.nInserted;
+        }
+        console.error('[NotifyBulk] insert partial/failed:', bulkError.message, `inserted≈${notified}/${docs.length}`);
+      }
+    } catch (error) {
+      console.error('[NotifyBulk] In-app insert failed:', error.message);
+    }
+
+    const pushUsers = await User.find({
+      _id: { $in: ids },
+      isActive: { $ne: false },
+      'preferences.pushNotifications': { $ne: false },
+      'preferences.expoPushToken': { $type: 'string', $ne: '' },
+    })
+      .select('preferences.expoPushToken')
+      .lean();
+
+    const tokens = pushUsers
+      .map((u) => u.preferences?.expoPushToken)
+      .filter(Boolean);
+
+    const { sendToTokens } = require('./expoPushService');
+    let pushResult = { sent: 0, failed: 0, errors: [] };
+    try {
+      pushResult = await sendToTokens(tokens, {
+        title,
+        body: message,
+        data: {
+          type,
+          link,
+          ...(data || {}),
+        },
+        // Use the same channel as the working Settings test push
+        channelId: channelId || 'default',
+        ttl: 24 * 60 * 60,
+        interruptionLevel: 'time-sensitive',
+      });
+    } catch (error) {
+      console.error('[NotifyBulk] Push failed:', error.message);
+      pushResult.errors = [error.message];
+    }
+
+    console.log(
+      `[NotifyBulk] type=${type} in_app=${notified} tokens=${tokens.length} sent=${pushResult.sent} failed=${pushResult.failed}` +
+        ((pushResult.errors || []).length ? ` errors=${pushResult.errors.join('; ')}` : '')
+    );
+
+    return {
+      notified,
+      pushed: pushResult.sent || 0,
+      failed: pushResult.failed || 0,
+      errors: pushResult.errors || [],
+    };
+  }
+
+  /**
    * Notify students about a new published trading signal (in-app + Expo push).
    * Push is sent first so students get it instantly; in-app rows are written after.
    */
@@ -1799,107 +1906,39 @@ class NotificationService {
       ? `${symbol}: Entry ${format(entry)} · TP ${format(target)} · SL ${format(stop)} — ${remarkSnippet}`
       : `${symbol}: Entry ${format(entry)} · TP ${format(target)} · SL ${format(stop)}`;
     const signalId = signal._id?.toString?.() || String(signal._id || '');
-    const pushData = {
-      type: 'signal',
-      signalId,
-      link: '/(app)/signals',
-    };
 
-    // Everyone who should hear about a signal, except the teacher who published it.
-    // Admins/developers are included so signal delivery can be verified from any account.
-    const authorId = signal.teacher?.toString?.() || String(signal.teacher || '');
-    const audienceFilter = {
-      role: { $in: ['student', 'admin', 'developer'] },
+    // Publisher id (ObjectId or populated user) — kept for logs only; we still notify everyone
+    const authorId =
+      signal.teacher?._id?.toString?.() ||
+      signal.teacher?.toString?.() ||
+      String(signal.teacher || '');
+
+    // All active app users — include the publisher so self-testing works.
+    // Previously student-only + author exclusion meant many real devices never got alerts.
+    const recipients = await User.find({
       isActive: { $ne: false },
-      ...(authorId ? { _id: { $ne: authorId } } : {}),
-    };
-
-    // 1) Instant push — only users who have a device token
-    const pushUsers = await User.find({
-      ...audienceFilter,
-      'preferences.pushNotifications': { $ne: false },
-      'preferences.expoPushToken': { $type: 'string', $ne: '' },
+      role: { $in: ['student', 'admin', 'developer', 'teacher', 'instructor'] },
     })
-      .select('preferences.expoPushToken')
+      .select('_id')
       .lean();
 
-    const tokens = pushUsers
-      .map((user) => user.preferences?.expoPushToken)
-      .filter(Boolean);
-
-    const { sendToTokens } = require('./expoPushService');
-    let pushResult = { sent: 0, failed: 0 };
-    try {
-      pushResult = await sendToTokens(tokens, {
-        title,
-        body: message,
-        data: pushData,
-        channelId: 'signals',
-        ttl: 24 * 60 * 60,
-        interruptionLevel: 'time-sensitive',
-      });
-    } catch (error) {
-      console.error('[SignalNotify] Push failed:', error.message);
-    }
-
-    // 2) In-app notifications for the same audience (does not block push)
-    let notified = 0;
-    try {
-      const students = await User.find(audienceFilter)
-        .select('_id')
-        .lean();
-
-      if (students.length === 0) {
-        console.warn('[SignalNotify] No eligible recipients found for in-app notifications');
-      } else {
-        const Notification = require('../models/Notification');
-        const docs = students.map((user) => ({
-          userId: user._id,
-          type: 'signal',
-          title,
-          message,
-          link: '/(app)/signals',
-          data: { signalId, type: 'signal', link: '/(app)/signals' },
-          read: false,
-          priority: 'high',
-        }));
-
-        try {
-          const inserted = await Notification.insertMany(docs, { ordered: false });
-          notified = inserted.length;
-        } catch (bulkError) {
-          // Partial success still counts when ordered:false
-          const result = bulkError?.insertedDocs || bulkError?.result?.insertedIds;
-          if (Array.isArray(bulkError?.insertedDocs)) {
-            notified = bulkError.insertedDocs.length;
-          } else if (bulkError?.result?.nInserted) {
-            notified = bulkError.result.nInserted;
-          } else if (result && typeof result === 'object') {
-            notified = Object.keys(result).length;
-          }
-          console.error(
-            '[SignalNotify] In-app insert partial/failed:',
-            bulkError.message,
-            `inserted≈${notified}/${docs.length}`
-          );
-        }
-      }
-    } catch (error) {
-      console.error('[SignalNotify] In-app insert failed:', error.message);
-    }
-
-    if (tokens.length === 0) {
-      console.warn(
-        '[SignalNotify] No Expo push tokens registered — recipients must open the production/preview APK once with notification permission'
-      );
-    }
-
+    const userIds = recipients.map((u) => u._id);
     console.log(
-      `[SignalNotify] ${symbol}: in_app=${notified}, push_tokens=${tokens.length}, sent=${pushResult.sent}, failed=${pushResult.failed}` +
-        ((pushResult.errors || []).length ? ` errors=${pushResult.errors.join('; ')}` : '')
+      `[SignalNotify] ${symbol}: recipients=${userIds.length} author=${authorId || 'unknown'}`
     );
 
-    return { notified, pushed: pushResult.sent };
+    const result = await this.notifyUsersBulk({
+      userIds,
+      type: 'signal',
+      title,
+      message,
+      link: '/(app)/signals',
+      data: { signalId, type: 'signal', link: '/(app)/signals' },
+      channelId: 'default',
+      priority: 'high',
+    });
+
+    return { notified: result.notified, pushed: result.pushed };
   }
 }
 

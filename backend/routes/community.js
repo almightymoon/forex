@@ -16,6 +16,126 @@ const useCloudinary = !!(
   process.env.CLOUDINARY_API_SECRET
 );
 
+/** Extract @handles from chat text, e.g. @Ali or @moon. */
+function extractMentionHandles(content) {
+  const text = String(content || '');
+  const matches = text.match(/@([A-Za-z][\w.-]{0,40})/g) || [];
+  return [...new Set(matches.map((m) => m.slice(1).toLowerCase()))];
+}
+
+/**
+ * Push + bell for replies and @mentions on a community message.
+ */
+async function notifyCommunityRecipients({ message, channel, author }) {
+  const User = require('../models/User');
+  const notificationService = require('../services/notificationService');
+
+  const authorId = String(author?._id || author?.id || '');
+  const authorName =
+    [author?.firstName, author?.lastName].filter(Boolean).join(' ').trim() ||
+    message?.author?.firstName ||
+    'Someone';
+  const channelName = channel?.name ? `#${channel.name}` : 'community';
+  const snippet = String(message.content || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 120);
+  const link = '/(app)/community';
+
+  /** @type {Map<string, { title: string, message: string }>} */
+  const byUser = new Map();
+
+  // 1) Reply → notify original author
+  const parentAuthorId =
+    message.parentMessage?.author?._id?.toString?.() ||
+    message.parentMessage?.author?.toString?.() ||
+    null;
+  if (parentAuthorId && parentAuthorId !== authorId) {
+    byUser.set(parentAuthorId, {
+      title: `${authorName} replied to you`,
+      message: snippet ? `${channelName}: ${snippet}` : `New reply in ${channelName}`,
+    });
+  }
+
+  // 2) @mentions → match firstName / lastName / email local-part against channel members (or all active for public)
+  const handles = extractMentionHandles(message.content);
+  if (handles.length > 0) {
+    let candidates = [];
+    const memberIds = (channel.members || [])
+      .map((m) => m.userId)
+      .filter(Boolean);
+
+    if (channel.isPrivate && memberIds.length > 0) {
+      candidates = await User.find({ _id: { $in: memberIds }, isActive: { $ne: false } })
+        .select('_id firstName lastName email')
+        .lean();
+    } else {
+      candidates = await User.find({ isActive: { $ne: false } })
+        .select('_id firstName lastName email')
+        .limit(500)
+        .lean();
+    }
+
+    for (const user of candidates) {
+      const uid = user._id.toString();
+      if (uid === authorId) continue;
+      const first = String(user.firstName || '').toLowerCase();
+      const last = String(user.lastName || '').toLowerCase();
+      const full = `${first}${last}`;
+      const emailLocal = String(user.email || '')
+        .split('@')[0]
+        .toLowerCase();
+      const hit = handles.some(
+        (h) =>
+          h === first ||
+          h === last ||
+          h === full ||
+          h === `${first}.${last}` ||
+          h === emailLocal
+      );
+      if (!hit) continue;
+      byUser.set(uid, {
+        title: `${authorName} mentioned you`,
+        message: snippet ? `${channelName}: ${snippet}` : `You were mentioned in ${channelName}`,
+      });
+    }
+  }
+
+  if (byUser.size === 0) return;
+
+  // Persist mention refs on the message (best-effort)
+  try {
+    const mentionDocs = [...byUser.keys()].map((userId) => ({ userId, type: 'user' }));
+    if (mentionDocs.length > 0) {
+      message.mentions = mentionDocs;
+      await message.save();
+    }
+  } catch (e) {
+    console.warn('[Community] Failed to persist mentions:', e.message);
+  }
+
+  // One notification per recipient (title may differ for reply vs mention)
+  await Promise.all(
+    [...byUser.entries()].map(([userId, copy]) =>
+      notificationService.createNotification({
+        user: userId,
+        type: 'message',
+        title: copy.title,
+        message: copy.message,
+        link,
+        data: {
+          type: 'message',
+          channelId: channel._id?.toString?.() || String(channel._id || ''),
+          messageId: message._id?.toString?.() || String(message._id || ''),
+          link,
+        },
+      }).catch((err) => {
+        console.error('[Community] createNotification failed:', err.message);
+      })
+    )
+  );
+}
+
 const communityImageDir = path.join(__dirname, '..', 'uploads', 'community-images');
 if (!fs.existsSync(communityImageDir)) {
   fs.mkdirSync(communityImageDir, { recursive: true });
@@ -294,6 +414,15 @@ router.post('/channels/:id/messages', authenticateToken, (req, res, next) => {
       path: 'parentMessage',
       select: 'content author',
       populate: { path: 'author', select: 'firstName lastName role' },
+    });
+
+    // In-app + push for replies and @mentions (same delivery path as signals / test push)
+    void notifyCommunityRecipients({
+      message,
+      channel,
+      author: req.user,
+    }).catch((err) => {
+      console.error('[Community] Notify recipients failed:', err.message);
     });
     
     // Broadcast new message via WebSocket

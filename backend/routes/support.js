@@ -31,8 +31,8 @@ async function notifyAdminsAndSupport(ticket) {
     const message = `${ticket.name} (${ticket.inquiryType}): ${ticket.subject}`;
 
     for (const admin of admins) {
-      await Notification.create({
-        userId: admin._id,
+      await notificationService.createNotification({
+        user: admin._id,
         type: 'system',
         title,
         message,
@@ -41,7 +41,6 @@ async function notifyAdminsAndSupport(ticket) {
           ticketNumber: ticket.ticketNumber,
           inquiryType: ticket.inquiryType,
         },
-        priority: ticket.inquiryType === 'billing' || ticket.inquiryType === 'withdrawal' ? 'high' : 'medium',
         link: `/admin?tab=support&ticket=${ticket._id}`,
       });
     }
@@ -92,13 +91,14 @@ async function createTicket(payload) {
 
   if (payload.userId) {
     try {
-      await Notification.create({
-        userId: payload.userId,
+      const notificationService = require('../services/notificationService');
+      await notificationService.createNotification({
+        user: payload.userId,
         type: 'system',
         title: 'Support request received',
         message: `We received your message (${ticket.ticketNumber}). Our team will reply within 24 hours.`,
         data: { ticketId: ticket._id, ticketNumber: ticket.ticketNumber },
-        priority: 'low',
+        link: '/(app)/support',
       });
     } catch (err) {
       console.error('User ticket confirmation notification error:', err);
@@ -277,12 +277,14 @@ router.patch('/admin/tickets/:id', requireAdmin, async (req, res) => {
 
     if (ticket.user && (status === 'resolved' || status === 'closed')) {
       try {
-        await Notification.create({
-          userId: ticket.user,
+        const notificationService = require('../services/notificationService');
+        await notificationService.createNotification({
+          user: ticket.user,
           type: 'system',
           title: 'Support ticket updated',
           message: `Your ticket ${ticket.ticketNumber} has been marked as ${status}.`,
           data: { ticketId: ticket._id, ticketNumber: ticket.ticketNumber, status },
+          link: '/(app)/support',
         });
       } catch (err) {
         console.error('Ticket status user notification error:', err);
