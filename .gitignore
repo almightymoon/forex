@@ -13,4 +13,6 @@ website-screenshots/
 # Firebase FCM V1 private keys (never commit). google-services.json is OK to commit.
 **/firebase-adminsdk*.json
 **/*-firebase-adminsdk-*.json
+**/fcm-service-account.json
+mobile_app/fcm-service-account.json
 

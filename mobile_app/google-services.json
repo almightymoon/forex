@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "411800585312",
+    "project_id": "fxnavigator-73e59",
+    "storage_bucket": "fxnavigator-73e59.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:411800585312:android:94a57965ed7d8e6ae32f05",
+        "android_client_info": {
+          "package_name": "com.fxnavigators.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCF6AeXnpkQgIFLOrt--h_dF61APO-exBE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
