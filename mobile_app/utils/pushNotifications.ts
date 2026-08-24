@@ -48,6 +48,16 @@ async function ensureAndroidChannel(Notifications: NotificationsModule): Promise
     lightColor: '#036FFC',
     sound: 'default',
   });
+  // Dedicated high-priority channel for trading signals (matches backend channelId)
+  await Notifications.setNotificationChannelAsync('signals', {
+    name: 'Trading Signals',
+    importance: Notifications.AndroidImportance.MAX,
+    vibrationPattern: [0, 250, 250, 250],
+    lightColor: '#036FFC',
+    sound: 'default',
+    enableVibrate: true,
+    showBadge: true,
+  });
 }
 
 async function saveTokenToBackend(token: string): Promise<void> {

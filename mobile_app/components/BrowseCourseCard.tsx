@@ -57,6 +57,8 @@ export function BrowseCourseCard({
               style={styles.thumbImage}
               cachePolicy="memory-disk"
               contentFit="cover"
+              recyclingKey={thumbnail}
+              transition={0}
             />
           ) : (
             <LinearGradient colors={accent.stripe} style={styles.thumbPlaceholder}>
@@ -84,7 +86,7 @@ export function BrowseCourseCard({
               <View style={[styles.levelDot, { backgroundColor: accent.glow }]} />
               <Text style={styles.levelPillText}>{levelLabel}</Text>
             </View>
-            {typeof rating === 'number' && rating > 0 ? (
+            {typeof rating === 'number' && Number.isFinite(rating) && rating > 0 ? (
               <View style={styles.ratingPill}>
                 <Ionicons name="star" size={11} color={colors.gold} />
                 <Text style={styles.ratingPillText}>{rating.toFixed(1)}</Text>

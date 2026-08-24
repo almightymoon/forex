@@ -1774,6 +1774,7 @@ class NotificationService {
 
   /**
    * Notify students about a new published trading signal (in-app + Expo push).
+   * Push is sent first so students get it instantly; in-app rows are written after.
    */
   async notifyNewTradingSignal(signal) {
     if (!signal || signal.isPublished === false) {
@@ -1797,58 +1798,73 @@ class NotificationService {
       ? `${symbol}: Entry ${format(entry)} · TP ${format(target)} · SL ${format(stop)} — ${remarkSnippet}`
       : `${symbol}: Entry ${format(entry)} · TP ${format(target)} · SL ${format(stop)}`;
     const signalId = signal._id?.toString?.() || String(signal._id || '');
-    const link = '/dashboard';
+    const pushData = {
+      type: 'signal',
+      signalId,
+      link: '/(app)/signals',
+    };
 
-    const students = await User.find({
+    // 1) Instant push — only users who have a device token
+    const pushUsers = await User.find({
       role: 'student',
       isActive: { $ne: false },
+      'preferences.pushNotifications': { $ne: false },
+      'preferences.expoPushToken': { $type: 'string', $ne: '' },
     })
-      .select('_id preferences.expoPushToken preferences.pushNotifications')
+      .select('preferences.expoPushToken')
       .lean();
 
-    if (!students.length) {
-      return { notified: 0, pushed: 0 };
-    }
-
-    const Notification = require('../models/Notification');
-    const docs = students.map((user) => ({
-      userId: user._id,
-      type: 'signal',
-      title,
-      message,
-      link,
-      data: { signalId, type: 'signal' },
-      read: false,
-      priority: 'high',
-    }));
-
-    try {
-      await Notification.insertMany(docs, { ordered: false });
-    } catch (error) {
-      console.error('[SignalNotify] In-app insert failed:', error.message);
-    }
-
-    const tokens = students
-      .filter((user) => user.preferences?.pushNotifications !== false)
+    const tokens = pushUsers
       .map((user) => user.preferences?.expoPushToken)
       .filter(Boolean);
 
     const { sendToTokens } = require('./expoPushService');
-    const pushResult = await sendToTokens(tokens, {
-      title,
-      body: message,
-      data: {
-        type: 'signal',
-        signalId,
-        link: '/(app)/signals',
-      },
-    });
+    let pushResult = { sent: 0, failed: 0 };
+    try {
+      pushResult = await sendToTokens(tokens, {
+        title,
+        body: message,
+        data: pushData,
+        channelId: 'signals',
+      });
+    } catch (error) {
+      console.error('[SignalNotify] Push failed:', error.message);
+    }
+
+    // 2) In-app notifications for all active students (does not block push)
+    let notified = 0;
+    try {
+      const students = await User.find({
+        role: 'student',
+        isActive: { $ne: false },
+      })
+        .select('_id')
+        .lean();
+
+      if (students.length > 0) {
+        const Notification = require('../models/Notification');
+        const docs = students.map((user) => ({
+          userId: user._id,
+          type: 'signal',
+          title,
+          message,
+          link: '/(app)/signals',
+          data: { signalId, type: 'signal' },
+          read: false,
+          priority: 'high',
+        }));
+        await Notification.insertMany(docs, { ordered: false });
+        notified = docs.length;
+      }
+    } catch (error) {
+      console.error('[SignalNotify] In-app insert failed:', error.message);
+    }
 
     console.log(
-      `[SignalNotify] ${symbol}: in-app=${docs.length}, push sent=${pushResult.sent}, failed=${pushResult.failed}`
+      `[SignalNotify] ${symbol}: in-app=${notified}, push recipients=${tokens.length}, sent=${pushResult.sent}, failed=${pushResult.failed}`
     );
 
-    return { notified: docs.length, pushed: pushResult.sent };
+    return { notified, pushed: pushResult.sent };
   }
 }
 

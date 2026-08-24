@@ -1,5 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { AppState, type AppStateStatus } from 'react-native';
 import {
   isPushNotificationsSupported,
   registerPushToken,
@@ -34,14 +35,28 @@ function navigateFromNotificationData(
   }
 }
 
-/** Registers push token on app open and wires notification tap handling. */
+/** Registers push token on app open / resume and wires notification tap handling. */
 export function PushNotificationSetup() {
   const router = useRouter();
+  const registering = useRef(false);
 
   useEffect(() => {
     if (!isPushNotificationsSupported()) return;
 
-    void registerPushToken();
+    const register = () => {
+      if (registering.current) return;
+      registering.current = true;
+      void registerPushToken().finally(() => {
+        registering.current = false;
+      });
+    };
+
+    register();
+
+    const onAppState = (state: AppStateStatus) => {
+      if (state === 'active') register();
+    };
+    const sub = AppState.addEventListener('change', onAppState);
 
     let cleanup: (() => void) | null = null;
     void setupNotificationListeners((data) => {
@@ -51,6 +66,7 @@ export function PushNotificationSetup() {
     });
 
     return () => {
+      sub.remove();
       cleanup?.();
     };
   }, [router]);

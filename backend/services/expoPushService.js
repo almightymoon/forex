@@ -15,23 +15,29 @@ async function sendToToken(token, { title, body, data = {} }) {
  * Send the same push to many Expo tokens (WhatsApp-style broadcast).
  * @returns {Promise<{ sent: number, failed: number }>}
  */
-async function sendToTokens(tokens, { title, body, data = {} }) {
+async function sendToTokens(tokens, { title, body, data = {}, channelId = 'default' }) {
   const list = (Array.isArray(tokens) ? tokens : [])
     .map((t) => String(t || '').trim())
     .filter((t) => Expo.isExpoPushToken(t));
 
-  if (list.length === 0) {
+  // Dedupe — same device token stored on multiple accounts would spam Expo
+  const unique = [...new Set(list)];
+
+  if (unique.length === 0) {
     return { sent: 0, failed: 0 };
   }
 
-  const messages = list.map((to) => ({
+  const messages = unique.map((to) => ({
     to,
     sound: 'default',
     title: title || 'The FX Navigators',
     body: body || '',
     data: data || {},
     priority: 'high',
-    channelId: 'default',
+    channelId: channelId || 'default',
+    // Deliver ASAP; Expo drops delayed messages after this TTL
+    ttl: 60 * 60,
+    _contentAvailable: true,
   }));
 
   const chunks = expo.chunkPushNotifications(messages);

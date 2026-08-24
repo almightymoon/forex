@@ -259,10 +259,9 @@ router.post('/', [
     }
 
     if (signal.isPublished !== false) {
-      setImmediate(() => {
-        notificationService.notifyNewTradingSignal(signal).catch((err) => {
-          console.error('[Signal] Push notify failed:', err.message);
-        });
+      // Fire immediately — do not wait for the HTTP response round-trip
+      void notificationService.notifyNewTradingSignal(signal).catch((err) => {
+        console.error('[Signal] Push notify failed:', err.message);
       });
     }
 
@@ -392,10 +391,8 @@ router.put('/:id', [
     }
 
     if (!wasPublished && signal.isPublished) {
-      setImmediate(() => {
-        notificationService.notifyNewTradingSignal(signal).catch((err) => {
-          console.error('[Signal] Publish push notify failed:', err.message);
-        });
+      void notificationService.notifyNewTradingSignal(signal).catch((err) => {
+        console.error('[Signal] Publish push notify failed:', err.message);
       });
     }
 

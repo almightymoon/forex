@@ -123,11 +123,16 @@ const QUICK_PAIRS = [
   { symbol: 'NAS100', instrumentType: 'indices' as const },
 ];
 
-const QUICK_TIMEFRAMES: Array<{ value: CreateSignalData['timeframe']; label: string }> = [
+const QUICK_TIMEFRAMES: Array<{ value: string; label: string }> = [
+  { value: '1m', label: 'M1' },
+  { value: '5m', label: 'M5' },
   { value: '15m', label: 'M15' },
+  { value: '30m', label: 'M30' },
   { value: '1h', label: 'H1' },
   { value: '4h', label: 'H4' },
   { value: '1d', label: 'D1' },
+  { value: '1w', label: 'W1' },
+  { value: '1M', label: 'MN' },
 ];
 
 function emptyCreateSignal(): CreateSignalData {
@@ -1587,9 +1592,6 @@ export default function TradingSignals() {
                     {QUICK_TIMEFRAMES.map((tf) => (
                       <option key={tf.value} value={tf.value}>{tf.label}</option>
                     ))}
-                    <option value="5m">M5</option>
-                    <option value="30m">M30</option>
-                    <option value="1w">W1</option>
                   </select>
                 </div>
               </div>

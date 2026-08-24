@@ -10,7 +10,6 @@ import {
   Platform,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -26,7 +25,7 @@ import { apiFetch } from '../../utils/api';
 import { hapticSuccess } from '../../utils/haptics';
 import { addEnrolledCourseId, getEnrolledCourseIds } from '../../utils/enrollment';
 import { formatInstructor } from '../../utils/formatInstructor';
-import { NormalizedCourse, normalizeCourse, normalizeList } from '../../utils/normalize';
+import { NormalizedCourse, normalizeCourse, normalizeList, dedupeByKey } from '../../utils/normalize';
 
 type Tab = 'enrolled' | 'browse';
 
@@ -51,7 +50,7 @@ export default function CoursesScreen() {
     try {
       const [enrolledRes, catalogRes, profileRes] = await Promise.allSettled([
         apiFetch('api/courses/enrolled', { cache }),
-        apiFetch('api/courses?limit=200', { cache }),
+        apiFetch('api/courses?limit=100', { cache }),
         apiFetch('api/users/profile/me', { cache }),
       ]);
 
@@ -62,7 +61,12 @@ export default function CoursesScreen() {
       // Always build the full catalog first
       if (catalogRes.status === 'fulfilled' && catalogRes.value.ok) {
         const raw = await catalogRes.value.json();
-        catalogList = normalizeList<Record<string, unknown>>(raw).map(normalizeCourse);
+        catalogList = dedupeByKey(
+          normalizeList<Record<string, unknown>>(raw)
+            .map(normalizeCourse)
+            .filter((c) => Boolean(c._id)),
+          (c) => c._id,
+        );
       } else {
         catalogFailed = true;
       }
@@ -72,7 +76,10 @@ export default function CoursesScreen() {
         const raw = await enrolledRes.value.json();
         const list = normalizeList<Record<string, unknown>>(raw).map(normalizeCourse);
         if (list.length > 0) {
-          enrolledList = list;
+          enrolledList = dedupeByKey(
+            list.filter((c) => Boolean(c._id)),
+            (c) => c._id,
+          );
         }
       }
 
@@ -242,19 +249,9 @@ export default function CoursesScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        removeClippedSubviews={Platform.OS === 'android'}
-        windowSize={5}
-        maxToRenderPerBatch={6}
-        initialNumToRender={8}
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={
           tab === 'browse' ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterRow}
-              style={styles.filterScroll}
-            >
+            <View style={styles.filterRow}>
               {(['all', 'beginner', 'intermediate', 'advanced'] as const).map((lvl) => (
                 <Pressable
                   key={lvl}
@@ -276,10 +273,14 @@ export default function CoursesScreen() {
                   <Text style={[exploreChipStyles.chipText, sortBy === val && exploreChipStyles.chipTextActive]}>{label}</Text>
                 </Pressable>
               ))}
-            </ScrollView>
+            </View>
           ) : undefined
         }
-        stickyHeaderIndices={tab === 'browse' ? [0] : undefined}
+        removeClippedSubviews={false}
+        windowSize={7}
+        maxToRenderPerBatch={4}
+        initialNumToRender={4}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListEmptyComponent={
           loading ? (
             <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
@@ -437,10 +438,9 @@ function createStyles(colors: AppColors, isDark: boolean) {
   tabCountTextActive: {
     color: colors.primaryForeground,
   },
-  filterScroll: {
-    marginBottom: 4,
-  },
   filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: 4,
     paddingBottom: 14,
     gap: 8,

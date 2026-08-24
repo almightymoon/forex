@@ -30,6 +30,8 @@ export function resolveMediaUrl(url?: string | null): string | undefined {
   if (!url || typeof url !== 'string') return undefined;
   const trimmed = url.trim();
   if (!trimmed) return undefined;
+  // Reject non-http schemes that can crash native Image (file://, data:, blob:, etc.)
+  if (/^(file|data|blob|content):/i.test(trimmed)) return undefined;
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) return trimmed;
   const origin = API_BASE.replace(/\/api\/?$/, '');
   return trimmed.startsWith('/') ? `${origin}${trimmed}` : `${origin}/${trimmed}`;

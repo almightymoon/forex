@@ -38,23 +38,49 @@ router.get('/', async (req, res) => {
 
     const sortObj = {};
     sortObj[sort] = order === 'desc' ? -1 : 1;
-    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '200'), 10) || 200, 1), 500);
-    
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '100'), 10) || 100, 1), 200);
+
+    // Catalog payload must stay light — full content/videos arrays crash mobile clients.
     const courses = await Course.find(query)
+      .select(
+        'title description thumbnail level category rating totalRatings teacher createdAt updatedAt status isPublished allowedPackages price currency totalStudents isFeatured'
+      )
       .populate('teacher', 'firstName lastName profileImage')
       .sort(sortObj)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
-    const withAccess = courses.map((course) => {
-      const plain = course.toObject ? course.toObject() : course;
-      return {
-        ...plain,
-        packageAccessible: canAccessCourseByPackage(plain, packageContext.userPackagePrice, {
-          isPrivileged: packageContext.isPrivileged,
-        }),
-      };
-    });
-    
+    // Lesson counts without shipping lesson bodies
+    const ids = courses.map((c) => c._id);
+    const sizeById = new Map();
+    if (ids.length > 0) {
+      const sizes = await Course.aggregate([
+        { $match: { _id: { $in: ids } } },
+        {
+          $project: {
+            lessonCount: {
+              $add: [
+                { $size: { $ifNull: ['$content', []] } },
+                { $size: { $ifNull: ['$videos', []] } },
+              ],
+            },
+          },
+        },
+      ]);
+      for (const row of sizes) {
+        sizeById.set(String(row._id), row.lessonCount || 0);
+      }
+    }
+
+    const withAccess = courses.map((plain) => ({
+      ...plain,
+      lessonCount: sizeById.get(String(plain._id)) || 0,
+      totalLessons: sizeById.get(String(plain._id)) || 0,
+      packageAccessible: canAccessCourseByPackage(plain, packageContext.userPackagePrice, {
+        isPrivileged: packageContext.isPrivileged,
+      }),
+    }));
+
     res.json(withAccess);
   } catch (error) {
     console.error('Get courses error:', error);
