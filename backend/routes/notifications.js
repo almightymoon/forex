@@ -149,7 +149,7 @@ router.get('/user', [
 ], async (req, res) => {
   try {
     const Notification = require('../models/Notification');
-    const { limit = 20, unreadOnly = false, type, cursor } = req.query;
+    const { limit = 50, unreadOnly = false, type, cursor } = req.query;
     
     const notifications = await Notification.getUserNotifications(req.user._id, {
       limit: parseInt(limit),

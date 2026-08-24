@@ -1,7 +1,8 @@
-import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Modal,
   Platform,
   Pressable,
   RefreshControl,
@@ -18,12 +19,14 @@ import { GlassListCard } from '../../components/glass/GlassListCard';
 import type { AppColors } from '../../constants/theme';
 import { useTheme } from '../../contexts/ThemeContext';
 import { apiFetch } from '../../utils/api';
+import { resolveNotificationRoute } from '../../utils/notificationRouting';
 
 interface Notification {
   _id: string;
   title: string;
   message: string;
   type?: string;
+  link?: string | null;
   read?: boolean;
   createdAt: string;
   data?: Record<string, unknown>;
@@ -74,21 +77,6 @@ function typeMeta(colors: AppColors): Record<string, { icon: AppIconName; color:
 
 function toast(msg: string) {
   if (Platform.OS === 'android') ToastAndroid.show(msg, ToastAndroid.SHORT);
-}
-
-function resolveRoute(n: Notification): string | null {
-  const t = n.type ?? '';
-  if (t === 'trading_signal' || t === 'signal') return '/(app)/signals';
-  if (t === 'live_session' || t === 'session') return '/(app)/live-sessions';
-  if (t === 'course' || t === 'course_enrollment' || t === 'lesson_complete' || t === 'assignment') {
-    const courseId = n.data?.courseId as string | undefined;
-    return courseId ? `/(app)/course/${courseId}` : '/(app)/courses';
-  }
-  if (t === 'certificate') return '/(app)/certificates';
-  if (t === 'payment') return '/(app)/subscription';
-  if (t === 'referral') return '/(app)/referrals';
-  if (t === 'rank_reward_unlocked') return '/(app)/rank-rewards';
-  return null;
 }
 
 function matchesFilter(n: Notification, filter: FilterKey) {
@@ -163,11 +151,12 @@ export default function NotificationsScreen() {
   const [markingAll, setMarkingAll] = useState(false);
   const [filter, setFilter] = useState<FilterKey>('all');
   const [error, setError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Notification | null>(null);
 
-  const fetchNotifications = async () => {
+  const fetchNotifications = useCallback(async () => {
     setError(null);
     try {
-      const res = await apiFetch('api/notifications/user');
+      const res = await apiFetch('api/notifications/user?limit=50');
       if (res.ok) {
         const d = await res.json();
         setItems(d.notifications ?? d ?? []);
@@ -180,15 +169,17 @@ export default function NotificationsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
-
-  useEffect(() => {
-    fetchNotifications();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void fetchNotifications();
+    }, [fetchNotifications]),
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchNotifications();
+    void fetchNotifications();
   };
 
   const markRead = async (id: string) => {
@@ -215,8 +206,14 @@ export default function NotificationsScreen() {
   };
 
   const handlePress = (n: Notification) => {
-    if (!n.read) markRead(n._id);
-    const route = resolveRoute(n);
+    if (!n.read) void markRead(n._id);
+    setSelected(n);
+  };
+
+  const openSelectedTarget = () => {
+    if (!selected) return;
+    const route = resolveNotificationRoute(selected);
+    setSelected(null);
     if (route) router.push(route as never);
   };
 
@@ -357,9 +354,7 @@ export default function NotificationsScreen() {
 
                       <View style={styles.rowTrailing}>
                         {!n.read ? <View style={styles.unreadDot} /> : null}
-                        {resolveRoute(n) ? (
-                          <AppIcon name="chevron-right" size={16} color={colors.textDim} strokeWidth={2} />
-                        ) : null}
+                        <AppIcon name="chevron-right" size={16} color={colors.textDim} strokeWidth={2} />
                       </View>
                     </Pressable>
                   );
@@ -369,6 +364,49 @@ export default function NotificationsScreen() {
           ))
         )}
       </ScrollView>
+
+      <Modal
+        visible={!!selected}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelected(null)}
+      >
+        <Pressable style={styles.modalBackdrop} onPress={() => setSelected(null)}>
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            {selected ? (
+              <>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>{selected.title}</Text>
+                  <Pressable
+                    style={styles.modalClose}
+                    onPress={() => setSelected(null)}
+                    hitSlop={12}
+                  >
+                    <Text style={styles.modalCloseText}>✕</Text>
+                  </Pressable>
+                </View>
+                <Text style={styles.modalMeta}>
+                  {formatRowTime(selected.createdAt)}
+                  {selected.type ? ` · ${selected.type.replace(/_/g, ' ')}` : ''}
+                </Text>
+                <ScrollView style={styles.modalBody} showsVerticalScrollIndicator={false}>
+                  <Text style={styles.modalMessage}>{selected.message}</Text>
+                </ScrollView>
+                <View style={styles.modalActions}>
+                  {resolveNotificationRoute(selected) ? (
+                    <Pressable style={styles.modalPrimary} onPress={openSelectedTarget}>
+                      <Text style={styles.modalPrimaryText}>Open</Text>
+                    </Pressable>
+                  ) : null}
+                  <Pressable style={styles.modalSecondary} onPress={() => setSelected(null)}>
+                    <Text style={styles.modalSecondaryText}>Close</Text>
+                  </Pressable>
+                </View>
+              </>
+            ) : null}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </View>
   );
 }
@@ -566,6 +604,91 @@ function createStyles(colors: AppColors) {
     height: 8,
     borderRadius: 4,
     backgroundColor: colors.cyan,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: colors.surface,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    maxHeight: '72%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  modalTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.text,
+    letterSpacing: -0.2,
+  },
+  modalClose: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceHover,
+  },
+  modalCloseText: {
+    fontSize: 14,
+    color: colors.textMuted,
+    fontWeight: '700',
+  },
+  modalMeta: {
+    marginTop: 6,
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.textDim,
+    textTransform: 'capitalize',
+  },
+  modalBody: {
+    marginTop: 14,
+    marginBottom: 16,
+    maxHeight: 280,
+  },
+  modalMessage: {
+    fontSize: 15,
+    lineHeight: 22,
+    color: colors.textSilver,
+  },
+  modalActions: {
+    gap: 10,
+  },
+  modalPrimary: {
+    backgroundColor: colors.cyan,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalPrimaryText: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#041018',
+  },
+  modalSecondary: {
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: colors.surfaceHover,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  modalSecondaryText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textMuted,
   },
   empty: {
     alignItems: 'center',

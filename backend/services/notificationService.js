@@ -1646,6 +1646,7 @@ class NotificationService {
         title: notificationData.title,
         message: notificationData.message,
         link: notificationData.link,
+        data: notificationData.data || {},
         read: false
       });
 
@@ -1843,7 +1844,9 @@ class NotificationService {
         .select('_id')
         .lean();
 
-      if (students.length > 0) {
+      if (students.length === 0) {
+        console.warn('[SignalNotify] No active students found for in-app notifications');
+      } else {
         const Notification = require('../models/Notification');
         const docs = students.map((user) => ({
           userId: user._id,
@@ -1851,19 +1854,43 @@ class NotificationService {
           title,
           message,
           link: '/(app)/signals',
-          data: { signalId, type: 'signal' },
+          data: { signalId, type: 'signal', link: '/(app)/signals' },
           read: false,
           priority: 'high',
         }));
-        await Notification.insertMany(docs, { ordered: false });
-        notified = docs.length;
+
+        try {
+          const inserted = await Notification.insertMany(docs, { ordered: false });
+          notified = inserted.length;
+        } catch (bulkError) {
+          // Partial success still counts when ordered:false
+          const result = bulkError?.insertedDocs || bulkError?.result?.insertedIds;
+          if (Array.isArray(bulkError?.insertedDocs)) {
+            notified = bulkError.insertedDocs.length;
+          } else if (bulkError?.result?.nInserted) {
+            notified = bulkError.result.nInserted;
+          } else if (result && typeof result === 'object') {
+            notified = Object.keys(result).length;
+          }
+          console.error(
+            '[SignalNotify] In-app insert partial/failed:',
+            bulkError.message,
+            `inserted≈${notified}/${docs.length}`
+          );
+        }
       }
     } catch (error) {
       console.error('[SignalNotify] In-app insert failed:', error.message);
     }
 
+    if (tokens.length === 0) {
+      console.warn(
+        '[SignalNotify] No Expo push tokens registered — students must open the production/preview APK once with notification permission'
+      );
+    }
+
     console.log(
-      `[SignalNotify] ${symbol}: in-app=${notified}, push recipients=${tokens.length}, sent=${pushResult.sent}, failed=${pushResult.failed}`
+      `[SignalNotify] ${symbol}: students_in_app=${notified}, push_tokens=${tokens.length}, sent=${pushResult.sent}, failed=${pushResult.failed}`
     );
 
     return { notified, pushed: pushResult.sent };

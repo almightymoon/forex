@@ -642,7 +642,7 @@ app.get('/api/courses/:id', async (req, res) => {
 // These routes will check for package subscription after authentication
 app.use('/api/2fa', checkSessionTimeout, authenticateToken, requirePackageSubscription, twoFactorRoutes);
 app.use('/api/user2fa', checkSessionTimeout, authenticateToken, requirePackageSubscription, require('./routes/user2fa'));
-app.use('/api/notifications', checkSessionTimeout, authenticateToken, requirePackageSubscription, notificationRoutes);
+app.use('/api/notifications', checkSessionTimeout, authenticateToken, notificationRoutes);
 app.use('/api/community', checkSessionTimeout, authenticateToken, requirePackageSubscription, communityRoutes);
 app.use('/api/certificates', checkSessionTimeout, authenticateToken, requirePackageSubscription, certificateRoutes);
 app.use('/api/certificate-templates', checkSessionTimeout, authenticateToken, requirePackageSubscription, require('./routes/certificateTemplates'));

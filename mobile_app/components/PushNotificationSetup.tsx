@@ -7,28 +7,16 @@ import {
   registerPushTokenDetailed,
   setupNotificationListeners,
 } from '../utils/pushNotifications';
+import { resolvePushDataRoute } from '../utils/notificationRouting';
 
 function navigateFromNotificationData(
   router: ReturnType<typeof useRouter>,
   data: Record<string, unknown>,
 ) {
-  const link = typeof data.link === 'string' ? data.link : null;
-  const type = typeof data.type === 'string' ? data.type : '';
-
-  if (type === 'signal' || type === 'trading_signal' || (link && link.includes('signals'))) {
-    router.push('/(app)/signals');
+  const route = resolvePushDataRoute(data);
+  if (route) {
+    router.push(route as never);
     return;
-  }
-
-  if (link) {
-    if (link.includes('/notifications') || data.notificationId) {
-      router.push('/(app)/notifications');
-      return;
-    }
-    if (link.includes('/payment') || link.includes('/monthly-fee')) {
-      router.push('/(app)/monthly-fee');
-      return;
-    }
   }
 
   if (data.notificationId || data.type) {
