@@ -89,7 +89,7 @@ const CertificateAssignmentManager: React.FC = () => {
         fetch('/api/teacher/students', {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
-        fetch('/api/teacher/courses', {
+        fetch('/api/teacher/courses?limit=1000', {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
         fetch('/api/certificate-assignments/teacher', {

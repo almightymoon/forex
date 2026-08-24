@@ -17,6 +17,7 @@ export type SignalCardProps = {
   status?: SignalStatus;
   pips?: string;
   createdAt?: string;
+  remark?: string;
   onPress?: () => void;
   variant?: 'list' | 'featured' | 'compact';
 };
@@ -69,6 +70,7 @@ export function SignalCard({
   status = 'active',
   pips,
   createdAt,
+  remark,
   onPress,
   variant = 'compact',
 }: SignalCardProps) {
@@ -128,6 +130,12 @@ export function SignalCard({
           last
         />
       </View>
+
+      {remark ? (
+        <Text style={styles.remark} numberOfLines={variant === 'featured' ? 6 : 2}>
+          {remark}
+        </Text>
+      ) : null}
     </>
   );
 
@@ -291,6 +299,13 @@ function createStyles(colors: AppColors) {
     fontWeight: '800',
     fontVariant: ['tabular-nums'],
     textAlign: 'center',
+  },
+  remark: {
+    marginTop: 12,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '500',
+    color: colors.textMuted,
   },
 });
 }

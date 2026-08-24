@@ -38,6 +38,7 @@ export default function CoursesScreen() {
   const [tab, setTab] = useState<Tab>('browse');
   const [enrolled, setEnrolled] = useState<NormalizedCourse[]>([]);
   const [catalog, setCatalog] = useState<NormalizedCourse[]>([]);
+  const [catalogError, setCatalogError] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [search, setSearch] = useState('');
@@ -50,17 +51,20 @@ export default function CoursesScreen() {
     try {
       const [enrolledRes, catalogRes, profileRes] = await Promise.allSettled([
         apiFetch('api/courses/enrolled', { cache }),
-        apiFetch('api/courses', { cache }),
+        apiFetch('api/courses?limit=200', { cache }),
         apiFetch('api/users/profile/me', { cache }),
       ]);
 
       let enrolledList: NormalizedCourse[] = [];
       let catalogList: NormalizedCourse[] = [];
+      let catalogFailed = false;
 
       // Always build the full catalog first
       if (catalogRes.status === 'fulfilled' && catalogRes.value.ok) {
         const raw = await catalogRes.value.json();
         catalogList = normalizeList<Record<string, unknown>>(raw).map(normalizeCourse);
+      } else {
+        catalogFailed = true;
       }
 
       // Strategy 1: dedicated enrolled endpoint (may be blocked by requireVerifiedPayment)
@@ -97,11 +101,13 @@ export default function CoursesScreen() {
 
       setEnrolled(enrolledList);
       setCatalog(catalogList);
+      setCatalogError(catalogFailed);
       if (enrolledList.length > 0) {
         setTab('enrolled');
       }
       return { enrolledList, catalogList };
     } catch {
+      setCatalogError(true);
       return { enrolledList: [], catalogList: [] };
     } finally {
       setLoading(false);
@@ -279,13 +285,23 @@ export default function CoursesScreen() {
             <ActivityIndicator color={colors.primary} style={{ marginTop: 40 }} />
           ) : (
             <GlassEmptyState
-              title={query ? 'No matches found' : tab === 'enrolled' ? 'No courses yet' : 'No courses available'}
+              title={
+                query
+                  ? 'No matches found'
+                  : tab === 'enrolled'
+                    ? 'No courses yet'
+                    : catalogError
+                      ? 'Could not load courses'
+                      : 'No courses available'
+              }
               message={
                 query
                   ? 'Try a different search term.'
                   : tab === 'enrolled'
                     ? 'Browse our catalog and enroll in a course to get started.'
-                    : 'Check back soon for new courses.'
+                    : catalogError
+                      ? 'Pull down to retry, or check your connection.'
+                      : 'Check back soon for new courses.'
               }
               actionLabel={tab === 'enrolled' && !query ? 'Explore catalog' : undefined}
               onAction={tab === 'enrolled' && !query ? () => setTab('browse') : undefined}

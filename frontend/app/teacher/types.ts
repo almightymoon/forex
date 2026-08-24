@@ -7,7 +7,7 @@ export interface Course {
   totalLessons: number;
   completedLessons: number;
   rating: number;
-  status: 'active' | 'draft' | 'archived';
+  status: 'active' | 'published' | 'draft' | 'archived';
   createdAt: string;
   thumbnail?: string;
   assignments?: Assignment[];

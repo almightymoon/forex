@@ -1791,7 +1791,11 @@ class NotificationService {
       Number.isFinite(n) ? (Math.abs(n) >= 100 ? n.toFixed(2) : n.toFixed(4)) : '0';
 
     const title = `New ${typeLabel} signal`;
-    const message = `${symbol}: Entry ${format(entry)} · TP ${format(target)} · SL ${format(stop)}`;
+    const remark = String(signal.description || '').trim().replace(/\s+/g, ' ');
+    const remarkSnippet = remark ? (remark.length > 80 ? `${remark.slice(0, 77)}…` : remark) : '';
+    const message = remarkSnippet
+      ? `${symbol}: Entry ${format(entry)} · TP ${format(target)} · SL ${format(stop)} — ${remarkSnippet}`
+      : `${symbol}: Entry ${format(entry)} · TP ${format(target)} · SL ${format(stop)}`;
     const signalId = signal._id?.toString?.() || String(signal._id || '');
     const link = '/dashboard';
 

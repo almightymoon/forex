@@ -4,7 +4,6 @@ const Course = require('../models/Course');
 const User = require('../models/User');
 const { authenticateToken, requireTeacher, requireOwnership, requireEnrollment, requireVerifiedPayment } = require('../middleware/auth');
 const {
-  buildCoursePackageFilter,
   getUserPackagePrice,
   canAccessCourseByPackage,
 } = require('../utils/coursePackageAccess');
@@ -12,8 +11,8 @@ const {
 const router = express.Router();
 
 // @route   GET /api/courses
-// @desc    Get all published courses (filtered by user's package if authenticated)
-// @access  Public (with package filtering for authenticated users)
+// @desc    Get all published courses (browse catalog; package gating on enroll/detail)
+// @access  Public
 router.get('/', async (req, res) => {
   try {
     const { category, level, search, sort = 'createdAt', order = 'desc' } = req.query;
@@ -31,27 +30,32 @@ router.get('/', async (req, res) => {
       query.$text = { $search: search };
     }
     
-    // Get user's package price if authenticated
+    // Optional auth for packageAccessible UI hints
     let packageContext = { userPackagePrice: null, isPrivileged: false, isAuthenticatedStudent: false };
     if (req.user) {
       packageContext = await getUserPackagePrice(req.user);
     }
 
-    const packageFilter = buildCoursePackageFilter(packageContext);
-    if (packageFilter) {
-      query.$and = query.$and || [];
-      query.$and.push(packageFilter);
-    }
-    
     const sortObj = {};
     sortObj[sort] = order === 'desc' ? -1 : 1;
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '200'), 10) || 200, 1), 500);
     
     const courses = await Course.find(query)
       .populate('teacher', 'firstName lastName profileImage')
       .sort(sortObj)
-      .limit(20);
+      .limit(limit);
+
+    const withAccess = courses.map((course) => {
+      const plain = course.toObject ? course.toObject() : course;
+      return {
+        ...plain,
+        packageAccessible: canAccessCourseByPackage(plain, packageContext.userPackagePrice, {
+          isPrivileged: packageContext.isPrivileged,
+        }),
+      };
+    });
     
-    res.json(courses);
+    res.json(withAccess);
   } catch (error) {
     console.error('Get courses error:', error);
     res.status(500).json({ error: 'Failed to fetch courses' });

@@ -160,6 +160,7 @@ export default function SignalsScreen() {
                 status={s.status}
                 pips={s.pips}
                 createdAt={s.createdAt}
+                remark={s.description}
                 onPress={() => openDetail(s)}
               />
             ))}
@@ -194,6 +195,7 @@ export default function SignalsScreen() {
                 status={selected.status}
                 pips={selected.pips}
                 createdAt={selected.createdAt}
+                remark={selected.description}
               />
 
               {detailLoading ? (
@@ -222,7 +224,7 @@ export default function SignalsScreen() {
 
               {selected.description ? (
                 <View style={detail.analysisCard}>
-                  <Text style={detail.sectionLabel}>Analysis</Text>
+                  <Text style={detail.sectionLabel}>Remarks</Text>
                   <Text style={detail.analysisText}>{selected.description}</Text>
                 </View>
               ) : null}

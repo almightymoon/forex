@@ -192,32 +192,43 @@ router.get('/dashboard', async (req, res) => {
 // Get teacher's courses
 router.get('/courses', async (req, res) => {
   try {
-    const { status, search, page = 1, limit = 10 } = req.query;
+    const { status, search, page = 1, limit = 1000 } = req.query;
     
     // Show all courses to all teachers (removed teacher filter)
     let query = {};
     
-    // Apply status filter
+    // Apply status filter (UI uses "published"; accept legacy "active")
     if (status && status !== 'all') {
-      query.status = status;
+      if (status === 'active' || status === 'published') {
+        query.$or = [{ status: 'published' }, { status: 'active' }, { isPublished: true }];
+      } else {
+        query.status = status;
+      }
     }
     
     // Apply search filter
     if (search) {
-      query.$or = [
+      const searchClause = [
         { title: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } }
       ];
+      if (query.$or) {
+        query = { $and: [{ $or: query.$or }, { $or: searchClause }] };
+      } else {
+        query.$or = searchClause;
+      }
     }
     
-    const skip = (page - 1) * limit;
+    const pageNum = Math.max(parseInt(String(page), 10) || 1, 1);
+    const limitNum = Math.min(Math.max(parseInt(String(limit), 10) || 1000, 1), 2000);
+    const skip = (pageNum - 1) * limitNum;
     
     const courses = await Course.find(query)
       .populate('teacher', 'firstName lastName email')
       .populate('enrolledStudents.student', 'firstName lastName email')
       .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(parseInt(limit));
+      .limit(limitNum);
     
     const total = await Course.countDocuments(query);
     
@@ -245,10 +256,10 @@ router.get('/courses', async (req, res) => {
       success: true,
       courses: transformedCourses,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / limitNum)
       }
     });
   } catch (error) {

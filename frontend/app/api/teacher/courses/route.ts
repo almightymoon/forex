@@ -25,7 +25,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Forbidden - Only teachers and admins can access this route' }, { status: 403 });
     }
 
-    const backendResponse = await fetch(buildBackendApiUrl(request, 'teacher/courses'), {
+    const search = request.nextUrl.search || '';
+    const backendUrl = `${buildBackendApiUrl(request, 'teacher/courses')}${search}`;
+    const backendResponse = await fetch(backendUrl, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'

@@ -336,7 +336,7 @@ app.get('/api/courses', async (req, res) => {
       query.$text = { $search: search };
     }
     
-    // Try to get user's package if authenticated (optional auth header)
+    // Get user's package context for optional client hints (browse shows all published)
     let packageContext = { userPackagePrice: null, isPrivileged: false, isAuthenticatedStudent: false };
     try {
       const authHeader = req.headers['authorization'];
@@ -356,21 +356,28 @@ app.get('/api/courses', async (req, res) => {
       console.log('Auth check failed, showing public courses:', authError.message);
     }
 
-    const packageFilter = buildCoursePackageFilter(packageContext);
-    if (packageFilter) {
-      query.$and = query.$and || [];
-      query.$and.push(packageFilter);
-    }
-    
+    // Browse catalog: show all published courses (package gating applies on enroll/detail).
     const sortObj = {};
     sortObj[sort] = order === 'desc' ? -1 : 1;
-    
+    const limit = Math.min(Math.max(parseInt(String(req.query.limit || '200'), 10) || 200, 1), 500);
+
     const courses = await Course.find(query)
       .populate('teacher', 'firstName lastName profileImage')
       .sort(sortObj)
-      .limit(20);
+      .limit(limit);
+
+    // Attach whether the viewer can enroll under their package (UI hint only)
+    const withAccess = courses.map((course) => {
+      const plain = course.toObject ? course.toObject() : course;
+      return {
+        ...plain,
+        packageAccessible: canAccessCourseByPackage(plain, packageContext.userPackagePrice, {
+          isPrivileged: packageContext.isPrivileged,
+        }),
+      };
+    });
     
-    res.json(courses);
+    res.json(withAccess);
   } catch (error) {
     console.error('Get courses error:', error);
     res.status(500).json({ error: 'Failed to fetch courses' });

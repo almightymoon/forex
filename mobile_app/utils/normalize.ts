@@ -82,6 +82,11 @@ export interface NormalizedSignal {
   status: 'active' | 'closed' | 'pending';
   pips?: string;
   createdAt?: string;
+  description?: string;
+  timeframe?: string;
+  confidence?: number;
+  riskRewardRatio?: number;
+  notes?: string;
 }
 
 export function normalizeSignal(raw: Record<string, unknown>): NormalizedSignal {
@@ -93,6 +98,17 @@ export function normalizeSignal(raw: Record<string, unknown>): NormalizedSignal 
   const status: NormalizedSignal['status'] =
     rawStatus === 'expired' || rawStatus === 'closed' ? 'closed' : rawStatus === 'pending' ? 'pending' : 'active';
 
+  const description = raw.description != null ? String(raw.description).trim() : '';
+  const notes = raw.notes != null ? String(raw.notes).trim() : '';
+  const timeframe = raw.timeframe != null ? String(raw.timeframe) : undefined;
+  const confidence = typeof raw.confidence === 'number' ? raw.confidence : undefined;
+  const riskRewardRatio =
+    typeof raw.riskRewardRatio === 'number'
+      ? raw.riskRewardRatio
+      : raw.riskRewardRatio != null
+        ? Number(raw.riskRewardRatio)
+        : undefined;
+
   return {
     _id: String(raw._id ?? ''),
     pair: String(raw.symbol ?? raw.pair ?? '—'),
@@ -103,6 +119,11 @@ export function normalizeSignal(raw: Record<string, unknown>): NormalizedSignal 
     status,
     pips: raw.pips != null ? String(raw.pips) : undefined,
     createdAt: raw.createdAt as string | undefined,
+    description: description || undefined,
+    timeframe,
+    confidence,
+    riskRewardRatio: Number.isFinite(riskRewardRatio as number) ? (riskRewardRatio as number) : undefined,
+    notes: notes || undefined,
   };
 }
 

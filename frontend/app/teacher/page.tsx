@@ -123,7 +123,7 @@ export default function TeacherDashboard() {
         
         // Fetch all data in parallel with proper error handling
         const [coursesRes, studentsRes, liveSessionsRes, analyticsRes] = await Promise.all([
-          fetch('/api/teacher/courses', {
+          fetch('/api/teacher/courses?limit=1000', {
             headers: { 
               'Authorization': `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -232,7 +232,11 @@ export default function TeacherDashboard() {
   const filteredCourses = Array.isArray(courses) ? courses.filter(course => {
     const matchesSearch = course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          course.description.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesFilter = selectedFilter === 'all' || course.status === selectedFilter;
+    const status = course.status || '';
+    const matchesFilter =
+      selectedFilter === 'all' ||
+      status === selectedFilter ||
+      (selectedFilter === 'published' && (status === 'published' || status === 'active'));
     return matchesSearch && matchesFilter;
   }) : [];
 
