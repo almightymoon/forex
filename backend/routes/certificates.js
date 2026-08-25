@@ -8,11 +8,22 @@ const User = require('../models/User');
 const CourseProgress = require('../models/CourseProgress');
 const certificateService = require('../services/certificateService');
 const { authenticateToken, requireRole, requireVerifiedPayment } = require('../middleware/auth');
+const { resolveRequestUserObjectId } = require('../utils/resolveUserId');
+
+async function getAuthObjectId(req) {
+  const id = await resolveRequestUserObjectId(req.user);
+  if (!id) {
+    const err = new Error('Unable to resolve authenticated user');
+    err.status = 401;
+    throw err;
+  }
+  return id;
+}
 
 // Get all certificates for a teacher's courses (teacher only) - MOVED UP TO AVOID ROUTE CONFLICT
 router.get('/teacher/courses', authenticateToken, requireRole(['teacher']), async (req, res) => {
   try {
-    const teacherId = req.user.userId || req.user._id;
+    const teacherId = await getAuthObjectId(req);
     
     // Get teacher's courses
     const courses = await Course.find({ teacher: teacherId }).select('_id title');
@@ -174,7 +185,7 @@ router.put('/template/:courseId', authenticateToken, async (req, res) => {
   try {
     const { courseId } = req.params;
     const { templateData } = req.body;
-    const userId = req.user.userId || req.user._id;
+    const userId = await getAuthObjectId(req);
 
     // Check if course exists and teacher owns it
     const course = await Course.findOne({ _id: courseId, teacher: userId });
@@ -201,7 +212,7 @@ router.put('/template/:courseId', authenticateToken, async (req, res) => {
 router.get('/template/:courseId', authenticateToken, async (req, res) => {
   try {
     const { courseId } = req.params;
-    const userId = req.user.userId || req.user._id;
+    const userId = await getAuthObjectId(req);
 
     // Check if course exists and teacher owns it
     const course = await Course.findOne({ _id: courseId, teacher: userId });
@@ -235,7 +246,7 @@ router.get('/template/:courseId', authenticateToken, async (req, res) => {
 router.post('/generate/:courseId', authenticateToken, requireRole(['student']), async (req, res) => {
   try {
     const { courseId } = req.params;
-    const userId = req.user.userId || req.user._id;
+    const userId = await getAuthObjectId(req);
 
     // Check if course exists
     const course = await Course.findById(courseId).populate('teacher', 'firstName lastName');
@@ -347,7 +358,7 @@ router.post('/generate/:courseId', authenticateToken, requireRole(['student']), 
 router.put('/:certificateId', authenticateToken, requireRole(['teacher']), async (req, res) => {
   try {
     const { certificateId } = req.params;
-    const teacherId = req.user.userId || req.user._id;
+    const teacherId = await getAuthObjectId(req);
     const { studentName, courseTitle, instructorName, completionPercentage } = req.body;
     
     // Find certificate and verify teacher owns the course
@@ -390,7 +401,7 @@ router.put('/:certificateId', authenticateToken, requireRole(['teacher']), async
 router.delete('/:certificateId', authenticateToken, requireRole(['teacher']), async (req, res) => {
   try {
     const { certificateId } = req.params;
-    const teacherId = req.user.userId || req.user._id;
+    const teacherId = await getAuthObjectId(req);
     
     // Find certificate and verify teacher owns the course
     const certificate = await Certificate.findById(certificateId)
@@ -438,7 +449,7 @@ router.delete('/:certificateId', authenticateToken, requireRole(['teacher']), as
 router.post('/regenerate/:certificateId', authenticateToken, requireRole(['teacher']), async (req, res) => {
   try {
     const { certificateId } = req.params;
-    const teacherId = req.user.userId || req.user._id;
+    const teacherId = await getAuthObjectId(req);
     
     // Find certificate and verify teacher owns the course
     const certificate = await Certificate.findById(certificateId)
@@ -500,7 +511,7 @@ router.post('/regenerate/:certificateId', authenticateToken, requireRole(['teach
 // Get student's certificates
 router.get('/my-certificates', authenticateToken, requireVerifiedPayment, requireRole(['student']), async (req, res) => {
   try {
-    const userId = req.user.userId || req.user._id;
+    const userId = await getAuthObjectId(req);
     
     const certificates = await Certificate.find({ student: userId })
       .populate('course', 'title description thumbnail')

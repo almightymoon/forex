@@ -1188,6 +1188,20 @@ router.post('/enroll-student', async (req, res) => {
   try {
     const { studentId, courseId } = req.body;
     const teacherId = req.user._id;
+    const { resolveUserObjectId, isStrictObjectId } = require('../utils/resolveUserId');
+
+    if (!studentId || !courseId) {
+      return res.status(400).json({ success: false, error: 'studentId and courseId are required' });
+    }
+
+    if (!isStrictObjectId(courseId)) {
+      return res.status(400).json({ success: false, error: 'Invalid courseId' });
+    }
+
+    const studentObjectId = await resolveUserObjectId(studentId);
+    if (!studentObjectId) {
+      return res.status(404).json({ success: false, error: 'Student not found' });
+    }
     
     // Verify course belongs to teacher
     const course = await Course.findOne({ _id: courseId, teacher: teacherId });
@@ -1197,7 +1211,7 @@ router.post('/enroll-student', async (req, res) => {
     
     // Verify student exists and is a student
     const student = await User.findOne({
-      _id: studentId,
+      _id: studentObjectId,
       role: 'student'
     });
     
@@ -1207,7 +1221,7 @@ router.post('/enroll-student', async (req, res) => {
     
     // Check if student is already enrolled in this course
     const existingEnrollment = await User.findOne({
-      _id: studentId,
+      _id: studentObjectId,
       enrolledCourses: { $elemMatch: { courseId: courseId } }
     });
     
@@ -1216,7 +1230,7 @@ router.post('/enroll-student', async (req, res) => {
     }
     
     // Add course to student's enrolled courses
-    await User.findByIdAndUpdate(studentId, {
+    await User.findByIdAndUpdate(studentObjectId, {
       $push: {
         enrolledCourses: {
           courseId,
@@ -1232,7 +1246,7 @@ router.post('/enroll-student', async (req, res) => {
     await Course.findByIdAndUpdate(courseId, {
       $addToSet: { 
         enrolledStudents: {
-          student: studentId,
+          student: studentObjectId,
           enrolledAt: new Date(),
           progress: 0,
           completedVideos: [],
@@ -1242,10 +1256,10 @@ router.post('/enroll-student', async (req, res) => {
     });
     
     // Update student's totalCourses count
-    const updatedStudent = await User.findById(studentId);
+    const updatedStudent = await User.findById(studentObjectId);
     if (updatedStudent) {
       const totalCourses = updatedStudent.enrolledCourses ? updatedStudent.enrolledCourses.length : 0;
-      await User.findByIdAndUpdate(studentId, {
+      await User.findByIdAndUpdate(studentObjectId, {
         $set: { totalCourses: totalCourses }
       });
     }
@@ -1255,7 +1269,7 @@ router.post('/enroll-student', async (req, res) => {
       const Notification = require('../models/Notification');
       
       const notification = new Notification({
-        userId: studentId,
+        userId: studentObjectId,
         type: 'course',
         title: `Welcome to ${course.title}!`,
         message: `You have been successfully enrolled in "${course.title}" by your teacher. Start learning now!`,
@@ -1284,6 +1298,19 @@ router.delete('/remove-student', async (req, res) => {
   try {
     const { studentId, courseId } = req.body;
     const teacherId = req.user._id;
+    const { resolveUserObjectId, isStrictObjectId } = require('../utils/resolveUserId');
+
+    if (!studentId || !courseId) {
+      return res.status(400).json({ success: false, error: 'studentId and courseId are required' });
+    }
+    if (!isStrictObjectId(courseId)) {
+      return res.status(400).json({ success: false, error: 'Invalid courseId' });
+    }
+
+    const studentObjectId = await resolveUserObjectId(studentId);
+    if (!studentObjectId) {
+      return res.status(404).json({ success: false, error: 'Student not found' });
+    }
     
     // Verify course belongs to teacher
     const course = await Course.findOne({ _id: courseId, teacher: teacherId });
@@ -1292,20 +1319,20 @@ router.delete('/remove-student', async (req, res) => {
     }
     
     // Remove course from student's enrolled courses
-    await User.findByIdAndUpdate(studentId, {
+    await User.findByIdAndUpdate(studentObjectId, {
       $pull: { enrolledCourses: { courseId } }
     });
     
     // Remove student from course's enrolled students
     await Course.findByIdAndUpdate(courseId, {
-      $pull: { enrolledStudents: { student: studentId } }
+      $pull: { enrolledStudents: { student: studentObjectId } }
     });
     
     // Update student's totalCourses count
-    const student = await User.findById(studentId);
+    const student = await User.findById(studentObjectId);
     if (student) {
       const totalCourses = student.enrolledCourses ? student.enrolledCourses.length : 0;
-      await User.findByIdAndUpdate(studentId, {
+      await User.findByIdAndUpdate(studentObjectId, {
         $set: { totalCourses: totalCourses }
       });
     }

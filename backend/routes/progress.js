@@ -5,28 +5,15 @@ const CourseProgress = require('../models/CourseProgress');
 const Course = require('../models/Course');
 const User = require('../models/User');
 const mongoose = require('mongoose');
+const { resolveRequestUserObjectId } = require('../utils/resolveUserId');
 
 // Helper function to get user ObjectId from req.user
 async function getUserObjectId(req) {
-  // If _id is already an ObjectId, use it
-  if (req.user._id && mongoose.Types.ObjectId.isValid(req.user._id)) {
-    return req.user._id;
+  const id = await resolveRequestUserObjectId(req.user);
+  if (!id) {
+    throw new Error('Unable to determine user ObjectId');
   }
-  
-  // If userId is a string (like "USER-K1DWG7"), look up the user
-  if (req.user.userId && typeof req.user.userId === 'string') {
-    const user = await User.findOne({ userId: req.user.userId });
-    if (user && user._id) {
-      return user._id;
-    }
-  }
-  
-  // Fallback: try to use _id even if it's not valid ObjectId
-  if (req.user._id) {
-    return req.user._id;
-  }
-  
-  throw new Error('Unable to determine user ObjectId');
+  return id;
 }
 
 // @route   GET /api/progress/:courseId

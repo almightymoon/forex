@@ -133,6 +133,26 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Serve static files from uploads directory
+// Block secret-file probes before static (scanners hit /uploads/.env)
+app.use('/uploads', (req, res, next) => {
+  const base = String(req.path || '').split('/').filter(Boolean).pop() || '';
+  const lower = base.toLowerCase();
+  if (
+    !base ||
+    lower.startsWith('.env') ||
+    lower === '.git' ||
+    lower === '.gitignore' ||
+    lower === '.htaccess' ||
+    lower.endsWith('.pem') ||
+    lower.endsWith('.key') ||
+    lower === 'package.json' ||
+    lower === 'credentials.json' ||
+    lower === 'wp-config.php'
+  ) {
+    return res.status(404).end();
+  }
+  return next();
+});
 app.use('/uploads', express.static('uploads'));
 
 // Multer configuration for handling file uploads

@@ -22,6 +22,39 @@ const publicRoutes = [
   '/e',
 ];
 
+/** Filenames scanners probe via /uploads — never proxy these. */
+const SENSITIVE_UPLOAD_BASENAMES = new Set([
+  '.env',
+  '.env.local',
+  '.env.production',
+  '.env.development',
+  '.env.example',
+  '.git',
+  '.gitignore',
+  '.htaccess',
+  'wp-config.php',
+  'composer.json',
+  'package.json',
+  'package-lock.json',
+  'id_rsa',
+  'id_rsa.pub',
+  'credentials.json',
+  'service-account.json',
+]);
+
+function isSensitiveUploadPath(pathname: string): boolean {
+  if (!pathname.startsWith('/uploads')) return false;
+  const parts = pathname.split('/').filter(Boolean);
+  const base = (parts[parts.length - 1] || '').toLowerCase();
+  if (!base) return true;
+  if (SENSITIVE_UPLOAD_BASENAMES.has(base)) return true;
+  if (base.startsWith('.env')) return true;
+  if (base.endsWith('.pem') || base.endsWith('.key') || base.endsWith('.p12')) return true;
+  // Path traversal / hidden files under uploads
+  if (parts.some((p) => p === '..' || p === '.git')) return true;
+  return false;
+}
+
 /** Block scanner POSTs that trigger "Failed to find Server Action" noise (this app has no Server Actions). */
 function isBogusServerActionProbe(request: NextRequest): boolean {
   const actionId = request.headers.get('next-action') || request.headers.get('Next-Action');
@@ -36,7 +69,12 @@ export function middleware(request: NextRequest) {
   }
 
   const { pathname } = request.nextUrl;
-  
+
+  // Security probes hitting /uploads/.env etc. — short-circuit before Next rewrite proxy
+  if (isSensitiveUploadPath(pathname)) {
+    return new NextResponse(null, { status: 404 });
+  }
+
   // Skip middleware for public routes
   if (publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))) {
     return NextResponse.next();
@@ -53,52 +91,33 @@ export function middleware(request: NextRequest) {
   }
 
   // Check if this is a protected route
-  const protectedRoute = Object.keys(protectedRoutes).find(route => 
+  const protectedRoute = Object.keys(protectedRoutes).find(route =>
     pathname === route || pathname.startsWith(route + '/')
   );
 
   if (protectedRoute) {
-    const requiredRoles = protectedRoutes[protectedRoute];
-    
-    // Get token from cookies or Authorization header
-    const token = request.cookies.get('token')?.value || 
+    const token = request.cookies.get('token')?.value ||
                   request.headers.get('authorization')?.replace('Bearer ', '');
 
-    console.log('Middleware - Protected route:', protectedRoute);
-    console.log('Middleware - Required roles:', requiredRoles);
-    console.log('Middleware - Token found:', !!token);
-
     if (!token) {
-      // Redirect to login with error message
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
       loginUrl.searchParams.set('error', 'not_authenticated');
       return NextResponse.redirect(loginUrl);
     }
 
-    // For now, skip JWT verification in middleware due to Edge runtime limitations
-    // The backend will handle JWT verification for API calls
-    // The admin layout will handle client-side authentication checks
-    console.log('Middleware - Skipping JWT verification (Edge runtime limitation)');
-    console.log('Middleware - Allowing access to:', protectedRoute);
     return NextResponse.next();
   }
 
-  // Not a protected route, allow access
   return NextResponse.next();
 }
 
 export const config = {
   matcher: [
     /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * - login, register, forgot-password (public auth pages)
-     * - about, community (public pages)
+     * Match all request paths except static Next internals.
+     * Include /uploads so we can reject secret-file probes before rewrites.
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|login|register|forgot-password|about|community).*)',
+    '/((?!_next/static|_next/image|favicon.ico).*)',
   ],
 };
