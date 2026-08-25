@@ -2,6 +2,7 @@
 build-output/
 build-*.apk
 *.apk
+**/*.apk
 *.aab
 *.ipa
 *.tar.gz
@@ -21,3 +22,4 @@ node_modules/
 fcm-service-account.json
 **/firebase-adminsdk*.json
 **/*-firebase-adminsdk-*.json
+notification-icon-256.png
