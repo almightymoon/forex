@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Eye, EyeOff, Mail, Lock, User, Phone, CheckCircle, AlertCircle, Share2 } from 'lucide-react';
 import Link from 'next/link';
@@ -20,7 +20,18 @@ import AuthPortalShell, {
   authSelectClass,
 } from '../../components/auth/AuthPortalShell';
 
-export default function RegisterPage() {
+function RegisterLoadingShell() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#101012]">
+      <div className="text-center">
+        <div className="mx-auto mb-4 h-11 w-11 animate-spin rounded-full border-2 border-white/10 border-t-violet-400" />
+        <p className="text-[14px] font-medium text-white/45">Loading…</p>
+      </div>
+    </div>
+  );
+}
+
+function RegisterPageContent() {
   const searchParams = useSearchParams();
   const [formData, setFormData] = useState({
     firstName: '',
@@ -437,5 +448,13 @@ export default function RegisterPage() {
         </p>
       </motion.div>
     </AuthPortalShell>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<RegisterLoadingShell />}>
+      <RegisterPageContent />
+    </Suspense>
   );
 }
