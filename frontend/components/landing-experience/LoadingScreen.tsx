@@ -40,8 +40,12 @@ export default function LoadingScreen({ onDone, ready = true }: Props) {
     const body = document.body;
     const prevHtmlBg = html.style.backgroundColor;
     const prevBodyBg = body.style.backgroundColor;
+    const prevHtmlOverflow = html.style.overflow;
+    const prevBodyOverflow = body.style.overflow;
     html.style.backgroundColor = '#060709';
     body.style.backgroundColor = '#060709';
+    html.style.overflow = 'hidden';
+    body.style.overflow = 'hidden';
 
     const complete = () => {
       if (doneRef.current) return;
@@ -79,6 +83,8 @@ export default function LoadingScreen({ onDone, ready = true }: Props) {
       cancelAnimationFrame(rafRef.current);
       html.style.backgroundColor = prevHtmlBg;
       body.style.backgroundColor = prevBodyBg;
+      html.style.overflow = prevHtmlOverflow;
+      body.style.overflow = prevBodyOverflow;
     };
   }, []);
 
@@ -159,7 +165,9 @@ export default function LoadingScreen({ onDone, ready = true }: Props) {
       role="status"
     >
       {exiting ? (
-        <div ref={portalRef} className="loading-screen__portal" aria-hidden />
+        <div className="loading-screen__portal-wrap" aria-hidden>
+          <div ref={portalRef} className="loading-screen__portal" />
+        </div>
       ) : null}
       <CandleStreamFrame candles={candles} />
     </div>

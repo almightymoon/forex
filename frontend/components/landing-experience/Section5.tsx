@@ -85,6 +85,24 @@ export default function Section5() {
   };
 
   useEffect(() => {
+    const mobileMq = window.matchMedia('(max-width: 1024px)');
+
+    const applyMobileStatic = () => {
+      if (!mobileMq.matches) return false;
+      if (rootRef.current) {
+        rootRef.current.style.setProperty('--spread', '1');
+        rootRef.current.style.setProperty('--flip', '0');
+      }
+      if (entryRef.current) {
+        entryRef.current.style.opacity = '1';
+        entryRef.current.style.transform = 'none';
+        entryRef.current.style.filter = 'none';
+      }
+      return true;
+    };
+
+    if (applyMobileStatic()) return;
+
     let rafId: number;
     let flipHoldUntil = 0;
     let unflipStartedAt = 0;

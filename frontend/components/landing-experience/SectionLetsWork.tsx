@@ -101,6 +101,22 @@ export default function SectionLetsWork() {
   }, []);
 
   useEffect(() => {
+    const mobileMq = window.matchMedia('(max-width: 1024px)');
+
+    const applyMobileStatic = () => {
+      if (!mobileMq.matches) return false;
+      if (innerRef.current) {
+        innerRef.current.style.opacity = '1';
+        innerRef.current.style.transform = 'none';
+      }
+      if (vantaRef.current) {
+        vantaRef.current.style.transform = 'none';
+      }
+      return true;
+    };
+
+    if (applyMobileStatic()) return;
+
     let rafId: number;
     const loop = () => {
       if (sectionRef.current && innerRef.current) {
