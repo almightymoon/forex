@@ -53,14 +53,35 @@ html.landing-experience-active .s3 {
 }
 
 html.landing-experience-active .s5:not(.s5--many) {
-  min-height: 168vh;
+  /*
+    Tall pin runway: packages stay sticky until the next section has time to
+    fully cover them. Cover starts ~late in the pin (after flip + hold).
+  */
+  min-height: 480vh;
 }
 
-/* Was margin-top: -40vh; padding-top: 50vh; min-height: 160vh — vast white runway */
+/*
+  Only the section immediately after packages pulls over it.
+  (Monthly progress when enabled; otherwise Let's Work.)
+*/
+html.landing-experience-active .s5 + .fx-mp,
+html.landing-experience-active .s5 + .lw {
+  margin-top: -100vh;
+}
+
+html.landing-experience-active .fx-mp + .lw {
+  margin-top: 0;
+}
+
 html.landing-experience-active .lw {
-  margin-top: -18vh;
-  padding-top: 22vh;
-  min-height: 108vh;
+  padding-top: 0;
+  min-height: 100vh;
+}
+
+html.landing-experience-active .fx-mp {
+  position: relative;
+  z-index: 60;
+  padding-top: clamp(96px, 12vh, 140px);
 }
 
 /* More than three API packages: simpler strip instead of triple-deck spread */

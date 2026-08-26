@@ -51,7 +51,6 @@ export default function Section5() {
   const entryTgt = useRef(0);
   const spreadProg = useRef(0);
   const flipProg = useRef(0);
-  const exitDepthProg = useRef(0);
 
   const [plans, setPlans] = useState<PackagePlan[]>(() => uiPackagesToPlans(getDefaultPackages()));
 
@@ -90,12 +89,11 @@ export default function Section5() {
     let flipHoldUntil = 0;
     let unflipStartedAt = 0;
 
-    /** Spread early; flip mid-scroll; time-based hold on back; then auto flip-back. */
-    const SPREAD_END = 0.4;
-    const FLIP_START = 0.62;
-    const FLIP_END = 0.8;
-    const EXIT_START = 0.88;
-    const FLIP_HOLD_MS = 1600;
+    /** Spread → flip → long hold for viewing; cover happens late in the runway. */
+    const SPREAD_END = 0.28;
+    const FLIP_START = 0.3;
+    const FLIP_END = 0.46;
+    const FLIP_HOLD_MS = 2600;
     const UNFLIP_MS = 900;
 
     const phaseProgress = (t: number, start: number, end: number) =>
@@ -135,7 +133,6 @@ export default function Section5() {
 
         const spreadTgt = phaseProgress(pinned, 0, SPREAD_END);
         const scrollFlipTgt = phaseProgress(pinned, FLIP_START, FLIP_END);
-        const exitTgt = phaseProgress(pinned, EXIT_START, 1);
 
         let flipTgt = scrollFlipTgt;
 
@@ -159,16 +156,13 @@ export default function Section5() {
           unflipStartedAt = 0;
         }
 
-        const edCurr = exitDepthProg.current;
-        const edNext = edCurr + (exitTgt - edCurr) * 0.065;
-        exitDepthProg.current = Math.abs(exitTgt - edNext) < 0.0008 ? exitTgt : edNext;
-        const exit = easeInOutQuart(exitDepthProg.current);
-
-        const ty = (1 - e) * 70;
-        const tz = -exit * 260;
-        const sc = 1 - exit * 0.12;
-        entryRef.current.style.opacity = String(Math.min(1, e * 1.25) * (1 - exit * 0.38));
-        entryRef.current.style.transform = `translateY(${ty}px) translateZ(${tz}px) scale(${sc})`;
+        const enterOp = Math.min(1, e * 1.25);
+        // Packages stay locked in place while pinned — next section covers them.
+        // Do not translate/fade them away (that reads as the section “scrolling”).
+        entryRef.current.style.opacity = String(enterOp);
+        entryRef.current.style.transform = `translateY(${(1 - e) * 70}px)`;
+        entryRef.current.style.filter = 'none';
+        entryRef.current.style.pointerEvents = '';
 
         const sCurr = spreadProg.current;
         const sNext = sCurr + (spreadTgt - sCurr) * 0.06;

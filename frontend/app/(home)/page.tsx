@@ -21,6 +21,8 @@ export default function HomePage() {
   const { settings, loading } = useSettings();
   const [introDone, setIntroDone] = useState(false);
 
+  const ready = !loading;
+
   const handleIntroComplete = () => {
     setIntroDone(true);
     requestAnimationFrame(() => {
@@ -28,28 +30,29 @@ export default function HomePage() {
     });
   };
 
-  const showIntro = loading || !introDone;
-
-  if (showIntro) {
-    return <LoadingScreen onDone={handleIntroComplete} ready={!loading} />;
-  }
-
+  // Mount the dark hero under the loader once settings are ready so the exit
+  // fade reveals black, not the default white body (no flashbang).
   return (
-    <LandingExperienceRoot platformName={settings.platformName}>
-      <AppCampaignGate />
-      <ScrollScene />
-      <main ref={mainRef} id="main" tabIndex={-1}>
-        <Suspense fallback={null}>
-          <Section3 />
-          <Section4 />
-          <Section5 />
-          <SectionMonthlyProgress />
-          <SectionLetsWork />
-          <SectionNewJoiners />
-          <SectionTestimonials />
-          <Footer />
-        </Suspense>
-      </main>
-    </LandingExperienceRoot>
+    <>
+      {!introDone && <LoadingScreen onDone={handleIntroComplete} ready={ready} />}
+      {ready && (
+        <LandingExperienceRoot platformName={settings.platformName}>
+          <AppCampaignGate />
+          <ScrollScene />
+          <main ref={mainRef} id="main" tabIndex={-1}>
+            <Suspense fallback={null}>
+              <Section3 />
+              <Section4 />
+              <Section5 />
+              <SectionMonthlyProgress />
+              <SectionLetsWork />
+              <SectionNewJoiners />
+              <SectionTestimonials />
+              <Footer />
+            </Suspense>
+          </main>
+        </LandingExperienceRoot>
+      )}
+    </>
   );
 }

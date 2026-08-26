@@ -25,6 +25,15 @@ export default function LoadingScreen({ onDone, ready = true }: Props) {
   });
 
   useEffect(() => {
+    // Keep the page chrome dark under the loader so any opacity fade never
+    // flashes the default white body behind a dark hero.
+    const html = document.documentElement;
+    const body = document.body;
+    const prevHtmlBg = html.style.backgroundColor;
+    const prevBodyBg = body.style.backgroundColor;
+    html.style.backgroundColor = '#060709';
+    body.style.backgroundColor = '#060709';
+
     const complete = () => {
       if (doneRef.current) return;
       doneRef.current = true;
@@ -59,6 +68,8 @@ export default function LoadingScreen({ onDone, ready = true }: Props) {
     return () => {
       window.removeEventListener('load', onLoad);
       cancelAnimationFrame(rafRef.current);
+      html.style.backgroundColor = prevHtmlBg;
+      body.style.backgroundColor = prevBodyBg;
     };
   }, []);
 
