@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type AnimationEvent } from 'react';
+import { CandleStreamFrame, useCandlePipeline } from '../CandleStreamLoader';
 
 type Props = {
   onDone: () => void;
@@ -13,33 +14,22 @@ export default function LoadingScreen({ onDone, ready = true }: Props) {
   const doneRef = useRef(false);
   const rafRef = useRef(0);
   const readyRef = useRef(ready);
+  const patternDoneRef = useRef(false);
   readyRef.current = ready;
 
-  useEffect(() => {
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const candles = useCandlePipeline({
+    loop: false,
+    onPatternComplete: () => {
+      patternDoneRef.current = true;
+    },
+  });
 
+  useEffect(() => {
     const complete = () => {
       if (doneRef.current) return;
       doneRef.current = true;
-      window.setTimeout(() => setExiting(true), 120);
+      window.setTimeout(() => setExiting(true), 180);
     };
-
-    const tryComplete = () => {
-      if (readyRef.current) {
-        complete();
-        return true;
-      }
-      return false;
-    };
-
-    if (reduced) {
-      const tickReduced = () => {
-        if (tryComplete()) return;
-        window.setTimeout(tickReduced, 50);
-      };
-      const t = window.setTimeout(tickReduced, 100);
-      return () => window.clearTimeout(t);
-    }
 
     let pageLoaded = document.readyState === 'complete';
     const onLoad = () => {
@@ -47,19 +37,16 @@ export default function LoadingScreen({ onDone, ready = true }: Props) {
     };
     window.addEventListener('load', onLoad);
 
-    const minMs = 1200;
-    const maxMs = 4000;
+    const minMs = 1800;
+    const maxMs = 4500;
     const start = performance.now();
 
     const tick = () => {
       const elapsed = performance.now() - start;
-      const canComplete = pageLoaded && elapsed >= minMs && readyRef.current;
+      const canComplete =
+        pageLoaded && elapsed >= minMs && readyRef.current && patternDoneRef.current;
 
-      if (canComplete) {
-        complete();
-        return;
-      }
-      if (elapsed >= maxMs) {
+      if (canComplete || elapsed >= maxMs) {
         complete();
         return;
       }
@@ -88,9 +75,7 @@ export default function LoadingScreen({ onDone, ready = true }: Props) {
       aria-label="Loading"
       role="status"
     >
-      <span className="ls-word" aria-hidden>
-        Loading
-      </span>
+      <CandleStreamFrame candles={candles} />
     </div>
   );
 }

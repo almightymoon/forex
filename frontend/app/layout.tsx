@@ -1,4 +1,5 @@
 import './globals.css'
+import '../styles/landing-loading-screen.css'
 import type { Metadata } from 'next'
 import { SettingsProvider } from '../context/SettingsContext'
 import { LanguageProvider } from '../context/LanguageContext'
