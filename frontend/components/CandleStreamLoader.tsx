@@ -70,6 +70,11 @@ type CandleStreamProps = {
 
 /** Full-screen candle chart — all slots reserved; candles draw in place only. */
 export function CandleStreamFrame({ candles, className = '' }: CandleStreamProps) {
+  const centerIndex = Math.min(
+    Math.floor((candles.length - 1) / 2) + 1,
+    candles.length - 1,
+  );
+
   return (
     <div className={`fx-navigator-loader ${className}`.trim()}>
       <div className="ambient-glow" aria-hidden />
@@ -78,12 +83,12 @@ export function CandleStreamFrame({ candles, className = '' }: CandleStreamProps
           {candles.map((c, i) => (
             <div
               key={c.id}
-              className="terminal-candle-slot"
+              className={`terminal-candle-slot${i === centerIndex ? ' terminal-candle-slot--center' : ''}`}
               style={{ '--y': c.y } as CSSProperties}
             >
               <div
                 key={`${c.id}-${c.generation}`}
-                className={`terminal-candle${c.dimmed ? ' dimmed' : ''}${c.visible ? ' is-drawn' : ''}`}
+                className={`terminal-candle${c.dimmed ? ' dimmed' : ''}${c.visible ? ' is-drawn' : ''}${i === centerIndex ? ' terminal-candle--center' : ''}`}
                 style={
                   {
                     '--h': c.h,

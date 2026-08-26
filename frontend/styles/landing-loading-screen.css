@@ -154,37 +154,120 @@
   border: 0;
 }
 
+/* ── Portal exit: walk through the candle into the hero ───────────────── */
+/*
+  Rectangular portal window. Transparent center = hero visible.
+  box-shadow paints the dark veil outside the rect. We scale the rect with
+  transform (not clip-path) so it stays candle-shaped instead of morphing
+  into a diamond.
+*/
+
+.loading-screen__portal {
+  position: absolute;
+  z-index: 3;
+  box-sizing: border-box;
+  background: transparent;
+  outline: 1.5px solid rgba(139, 147, 163, 0.95);
+  outline-offset: 0;
+  /* Huge shadow = dark veil everywhere outside the candle window */
+  box-shadow: 0 0 0 100vmax var(--ls-bg-main);
+  pointer-events: none;
+  transform-origin: center center;
+  will-change: transform, outline-color;
+}
+
 .loading-screen--exiting {
   pointer-events: none;
-  animation: loader-exit 0.85s cubic-bezier(0.76, 0, 0.24, 1) forwards;
+  background: transparent;
+  /* Allow the portal shadow to cover the viewport while scaling */
+  overflow: visible;
+  isolation: auto;
+}
+
+.loading-screen--exiting .fx-navigator-loader {
+  z-index: 5;
+}
+
+.loading-screen--exiting .chart-canvas {
+  overflow: visible;
+  background: transparent;
+  z-index: 5;
+}
+
+.loading-screen--exiting .candle-stream {
+  justify-content: center;
+  /* Hold, then dissolve with the portal zoom — no leftover bars or wicks */
+  animation: loader-portal-candles-dissolve 1.35s cubic-bezier(0.33, 0, 0.2, 1) forwards;
+  will-change: opacity, filter;
 }
 
 .loading-screen--exiting .ambient-glow {
-  animation: none;
+  z-index: 1;
+  animation: loader-portal-glow 0.4s ease-out forwards;
 }
 
 .loading-screen--exiting .terminal-candle {
-  animation: none;
+  animation: none !important;
   opacity: 1;
   transform: scaleY(1);
+  visibility: visible;
 }
 
-@keyframes loader-exit {
+/* Side candles stay above the veil until the dissolve finishes */
+.loading-screen--exiting .terminal-candle-slot:not(.terminal-candle-slot--center) {
+  z-index: 6;
+}
+
+/* Center candle clears so the portal window shows the hero, not the gray body */
+.loading-screen--exiting .terminal-candle-slot--center {
+  z-index: 2;
+}
+
+.loading-screen--exiting .terminal-candle--center {
+  opacity: 0 !important;
+  background-color: transparent !important;
+  animation: none !important;
+  visibility: hidden !important;
+}
+
+.loading-screen--exiting .terminal-candle--center::before {
+  opacity: 0 !important;
+  content: none !important;
+}
+
+/* Soften / kill wicks as the stream dissolves so no hairline artifacts remain */
+.loading-screen--exiting .terminal-candle::before {
+  transition: opacity 0.35s ease;
+  opacity: 0 !important;
+}
+
+@keyframes loader-portal-glow {
+  to {
+    opacity: 0;
+  }
+}
+
+/* Visible at portal start → fully gone mid-zoom; visibility hidden kills any paint leftovers */
+@keyframes loader-portal-candles-dissolve {
   0% {
     opacity: 1;
-    transform: scale(1);
     filter: blur(0);
+    visibility: visible;
+  }
+  18% {
+    opacity: 1;
+    filter: blur(0);
+    visibility: visible;
+  }
+  72% {
+    opacity: 0;
+    filter: blur(5px);
+    visibility: hidden;
   }
   100% {
     opacity: 0;
-    transform: scale(1.03);
-    filter: blur(10px);
-  }
-}
-
-@keyframes loader-exit-reduced {
-  to {
-    opacity: 0;
+    filter: blur(6px);
+    visibility: hidden;
   }
 }
 
@@ -201,8 +284,16 @@
     transform: scaleY(1);
   }
 
-  .loading-screen--exiting {
-    animation: loader-exit-reduced 0.3s ease forwards;
+  .loading-screen--exiting .candle-stream {
+    animation: none !important;
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .loading-screen--exiting .terminal-candle--center,
+  .loading-screen--exiting .terminal-candle--center::before,
+  .loading-screen--exiting .ambient-glow {
+    animation: none !important;
   }
 }
 

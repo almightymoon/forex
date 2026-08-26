@@ -87,6 +87,46 @@ export default function SectionTestimonials() {
   const [active, setActive] = useState(3);
   const [direction, setDirection] = useState<1 | -1>(1);
   const [entryVisible, setEntryVisible] = useState(false);
+  const [quotePhase, setQuotePhase] = useState<'in' | 'out'>('in');
+  const activeRef = useRef(active);
+  activeRef.current = active;
+
+  /** Time each quote stays fully visible before advancing */
+  const HOLD_MS = 3000;
+  const FADE_MS = 280;
+  const swapTimerRef = useRef<number | null>(null);
+  const holdTimerRef = useRef<number | null>(null);
+  const autoplayOn = useRef(false);
+
+  const clearTimers = () => {
+    if (swapTimerRef.current) {
+      window.clearTimeout(swapTimerRef.current);
+      swapTimerRef.current = null;
+    }
+    if (holdTimerRef.current) {
+      window.clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
+
+  const scheduleNext = () => {
+    if (!autoplayOn.current) return;
+    if (holdTimerRef.current) window.clearTimeout(holdTimerRef.current);
+    holdTimerRef.current = window.setTimeout(() => {
+      holdTimerRef.current = null;
+      if (!autoplayOn.current) return;
+      const next = (activeRef.current + 1) % TESTIMONIALS.length;
+      setDirection(1);
+      setQuotePhase('out');
+      if (swapTimerRef.current) window.clearTimeout(swapTimerRef.current);
+      swapTimerRef.current = window.setTimeout(() => {
+        setActive(next);
+        setQuotePhase('in');
+        swapTimerRef.current = null;
+        scheduleNext();
+      }, FADE_MS);
+    }, HOLD_MS);
+  };
 
   useEffect(() => {
     const el = sectionRef.current;
@@ -115,17 +155,54 @@ export default function SectionTestimonials() {
     }));
   }, [points]);
 
+  const advanceTo = (next: number, dir: 1 | -1, thenSchedule: boolean) => {
+    if (next === activeRef.current) {
+      if (thenSchedule) scheduleNext();
+      return;
+    }
+    setDirection(dir);
+    setQuotePhase('out');
+    if (swapTimerRef.current) window.clearTimeout(swapTimerRef.current);
+    swapTimerRef.current = window.setTimeout(() => {
+      setActive(next);
+      setQuotePhase('in');
+      swapTimerRef.current = null;
+      if (thenSchedule) scheduleNext();
+    }, FADE_MS);
+  };
+
+  const selectIndex = (next: number, dir: 1 | -1) => {
+    clearTimers();
+    advanceTo(next, dir, autoplayOn.current);
+  };
+
   const goPrev = () => {
-    setDirection(-1);
-    setActive((prev) => (prev - 1 + TESTIMONIALS.length) % TESTIMONIALS.length);
+    const next = (activeRef.current - 1 + TESTIMONIALS.length) % TESTIMONIALS.length;
+    selectIndex(next, -1);
   };
 
   const goNext = () => {
-    setDirection(1);
-    setActive((prev) => (prev + 1) % TESTIMONIALS.length);
+    const next = (activeRef.current + 1) % TESTIMONIALS.length;
+    selectIndex(next, 1);
   };
 
-  const fromX = direction === 1 ? '10px' : '-10px';
+  useEffect(() => {
+    if (!entryVisible) return;
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (reduced) return;
+
+    autoplayOn.current = true;
+    scheduleNext();
+
+    return () => {
+      autoplayOn.current = false;
+      clearTimers();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entryVisible]);
+
+  const fromX = direction === 1 ? '28px' : '-28px';
+  const outX = direction === 1 ? '-18px' : '18px';
 
   return (
     <>
@@ -250,25 +327,37 @@ export default function SectionTestimonials() {
 
         .fx-testimonials__orbit {
           position: absolute;
-          transform: translate(-50%, -50%);
+          transform: translate(-50%, -50%) scale(0.92);
           width: 104px;
           height: 104px;
           border-radius: 999px;
           border: 1.5px dashed #d9d9d9;
           box-sizing: border-box;
           pointer-events: none;
-          transition: all 0.28s ease;
+          opacity: 0.85;
+          transition:
+            width 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+            height 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+            border-color 0.45s ease,
+            border-width 0.45s ease,
+            transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+            opacity 0.45s ease,
+            box-shadow 0.55s ease;
         }
 
         .fx-testimonials__orbit--active {
           width: 128px;
           height: 128px;
           border: 2px solid #ea5a5a;
+          transform: translate(-50%, -50%) scale(1);
+          opacity: 1;
+          box-shadow: 0 0 0 6px rgba(234, 90, 90, 0.12);
+          animation: fx-orbit-pulse 2.4s ease-in-out infinite;
         }
 
         .fx-testimonials__avatar {
           position: absolute;
-          transform: translate(-50%, -50%);
+          transform: translate(-50%, -50%) scale(1);
           width: 78px;
           height: 78px;
           border: none;
@@ -276,17 +365,27 @@ export default function SectionTestimonials() {
           padding: 0;
           border-radius: 999px;
           cursor: pointer;
-          transition: transform 0.22s ease;
+          transition:
+            width 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+            height 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+            transform 0.55s cubic-bezier(0.22, 1, 0.36, 1),
+            filter 0.45s ease;
           z-index: 2;
+          filter: grayscale(0.35) brightness(0.96);
         }
 
         .fx-testimonials__avatar:hover {
-          transform: translate(-50%, -50%) scale(1.05);
+          transform: translate(-50%, -50%) scale(1.06);
+          filter: grayscale(0) brightness(1);
         }
 
         .fx-testimonials__avatar--active {
           width: 102px;
           height: 102px;
+          z-index: 4;
+          filter: grayscale(0) brightness(1);
+          transform: translate(-50%, -50%) scale(1.04);
+          animation: fx-avatar-pop 0.6s cubic-bezier(0.22, 1, 0.36, 1);
         }
 
         .fx-testimonials__avatar img {
@@ -297,6 +396,14 @@ export default function SectionTestimonials() {
           object-fit: cover;
           border: 2px solid #ea5a5a;
           box-shadow: 0 4px 16px rgba(0, 0, 0, 0.07);
+          transition: box-shadow 0.45s ease, border-color 0.45s ease;
+        }
+
+        .fx-testimonials__avatar--active img {
+          border-color: #ea5a5a;
+          box-shadow:
+            0 10px 28px rgba(234, 90, 90, 0.22),
+            0 4px 14px rgba(0, 0, 0, 0.1);
         }
 
         .fx-testimonials__quoteRow {
@@ -331,11 +438,18 @@ export default function SectionTestimonials() {
 
         .fx-testimonials__quote {
           text-align: center;
-          min-height: 0;
+          min-height: 7.5em;
           display: flex;
           flex-direction: column;
           justify-content: center;
-          animation: fx-fade-in 0.28s ease;
+        }
+
+        .fx-testimonials__quote--in {
+          animation: fx-quote-in 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+        }
+
+        .fx-testimonials__quote--out {
+          animation: fx-quote-out 0.32s cubic-bezier(0.4, 0, 1, 1) both;
         }
 
         .fx-testimonials__quoteText {
@@ -354,15 +468,64 @@ export default function SectionTestimonials() {
           letter-spacing: 0.01em;
         }
 
-        @keyframes fx-fade-in {
+        .fx-testimonials__progress {
+          display: flex;
+          justify-content: center;
+          gap: 8px;
+          margin-top: 18px;
+        }
+
+        .fx-testimonials__dot {
+          width: 7px;
+          height: 7px;
+          border-radius: 999px;
+          border: none;
+          padding: 0;
+          background: #d4d4d4;
+          cursor: pointer;
+          transition: width 0.45s cubic-bezier(0.22, 1, 0.36, 1), background 0.35s ease;
+        }
+
+        .fx-testimonials__dot--active {
+          width: 22px;
+          background: #ea5a5a;
+        }
+
+        @keyframes fx-quote-in {
           from {
             opacity: 0;
-            transform: translateX(${fromX});
+            transform: translate3d(${fromX}, 12px, 0) scale(0.98);
+            filter: blur(4px);
           }
           to {
             opacity: 1;
-            transform: translateX(0);
+            transform: translate3d(0, 0, 0) scale(1);
+            filter: blur(0);
           }
+        }
+
+        @keyframes fx-quote-out {
+          from {
+            opacity: 1;
+            transform: translate3d(0, 0, 0) scale(1);
+            filter: blur(0);
+          }
+          to {
+            opacity: 0;
+            transform: translate3d(${outX}, -8px, 0) scale(0.985);
+            filter: blur(3px);
+          }
+        }
+
+        @keyframes fx-avatar-pop {
+          0% { transform: translate(-50%, -50%) scale(0.92); }
+          60% { transform: translate(-50%, -50%) scale(1.08); }
+          100% { transform: translate(-50%, -50%) scale(1.04); }
+        }
+
+        @keyframes fx-orbit-pulse {
+          0%, 100% { box-shadow: 0 0 0 6px rgba(234, 90, 90, 0.1); }
+          50% { box-shadow: 0 0 0 12px rgba(234, 90, 90, 0.06); }
         }
 
         @media (prefers-reduced-motion: reduce) {
@@ -372,6 +535,14 @@ export default function SectionTestimonials() {
             opacity: 1;
             transform: none;
             transition: none;
+          }
+
+          .fx-testimonials__orbit,
+          .fx-testimonials__avatar,
+          .fx-testimonials__quote--in,
+          .fx-testimonials__quote--out {
+            animation: none !important;
+            transition: none !important;
           }
         }
 
@@ -534,10 +705,8 @@ export default function SectionTestimonials() {
                         top: `${point.topPct}%`,
                       }}
                       aria-label={`Show testimonial from ${item.name}`}
-                      onClick={() => {
-                        setDirection(index > active ? 1 : -1);
-                        setActive(index);
-                      }}
+                      aria-current={isActive ? 'true' : undefined}
+                      onClick={() => selectIndex(index, index > active ? 1 : -1)}
                     >
                       <img src={item.photoUrl} alt={item.name} loading="lazy" />
                     </button>
@@ -552,7 +721,10 @@ export default function SectionTestimonials() {
               ‹
             </button>
 
-            <div key={active} className="fx-testimonials__quote">
+            <div
+              key={active}
+              className={`fx-testimonials__quote fx-testimonials__quote--${quotePhase}`}
+            >
               <p className="fx-testimonials__quoteText">
                 {TESTIMONIALS[active].quote.replace(/__BRAND__/g, platformName)}
               </p>
@@ -562,6 +734,20 @@ export default function SectionTestimonials() {
             <button type="button" className="fx-testimonials__arrow" onClick={goNext} aria-label="Next testimonial">
               ›
             </button>
+          </div>
+
+          <div className="fx-testimonials__progress" role="tablist" aria-label="Testimonials">
+            {TESTIMONIALS.map((item, index) => (
+              <button
+                key={item.name}
+                type="button"
+                role="tab"
+                aria-selected={index === active}
+                className={`fx-testimonials__dot${index === active ? ' fx-testimonials__dot--active' : ''}`}
+                aria-label={`Show ${item.name}`}
+                onClick={() => selectIndex(index, index > active ? 1 : -1)}
+              />
+            ))}
           </div>
         </div>
       </section>

@@ -191,6 +191,11 @@ export default function PackageGuard({ children }: PackageGuardProps) {
   }, [pathname, router, setFromResponse]);
 
   if (isChecking) {
+    // Public marketing pages (esp. home) have their own intro loader.
+    // Blocking here double-plays the candle screen: CoolLoader → unmount → LoadingScreen.
+    if (isPublicMarketingPath(pathname)) {
+      return <>{children}</>;
+    }
     return <CoolLoader message="Verifying access..." />;
   }
 

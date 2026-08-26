@@ -156,11 +156,8 @@ export const SettingsProvider: React.FC<SettingsProviderProps> = ({ children }) 
     }
   }, [mounted]);
 
-  // Prevent hydration mismatch
-  if (!mounted) {
-    return <div style={{ visibility: 'hidden' }}>{children}</div>;
-  }
-
+  // Keep the provider tree stable — swapping a hidden wrapper for the provider
+  // remounts the whole app and replays the home candle loader.
   return (
     <SettingsContext.Provider
       value={{ settings, loading, settingsLoaded, refreshSettings, toggleDarkMode, setDarkMode }}

@@ -18,10 +18,12 @@ const Footer = lazy(() => import('../../components/landing-experience/Footer'));
 
 export default function HomePage() {
   const mainRef = useRef<HTMLElement>(null);
-  const { settings, loading } = useSettings();
+  const { settings, settingsLoaded } = useSettings();
   const [introDone, setIntroDone] = useState(false);
 
-  const ready = !loading;
+  // Wait for the settings fetch to finish once — avoid !loading flipping
+  // true→false→true and remounting the hero under the intro.
+  const ready = settingsLoaded;
 
   const handleIntroComplete = () => {
     setIntroDone(true);
@@ -31,7 +33,7 @@ export default function HomePage() {
   };
 
   // Mount the dark hero under the loader once settings are ready so the exit
-  // fade reveals black, not the default white body (no flashbang).
+  // fade reveals the hero, not the default white body (no flashbang).
   return (
     <>
       {!introDone && <LoadingScreen onDone={handleIntroComplete} ready={ready} />}
