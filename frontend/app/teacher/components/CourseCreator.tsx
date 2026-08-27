@@ -2,10 +2,8 @@ import React, { useState, useRef, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { useToast } from '../../../components/Toast';
 import { buildApiUrl } from '../../../utils/api';
-
-// Rich text editor (react-quill-new: React 18+ compatible, no findDOMNode)
-const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
-import 'react-quill-new/dist/quill.snow.css';
+import CourseRichTextEditor from '../../../components/CourseRichTextEditor';
+import { sanitizeCourseHtml } from '../../../lib/sanitizeHtml';
 import { 
   Plus, 
   Save, 
@@ -1344,53 +1342,15 @@ function ContentBlock({
   );
 }
 
-// ========================================
-// RICH TEXT EDITOR COMPONENT (ReactQuill)
-// ========================================
-const QUILL_MODULES = {
-  toolbar: [
-    [{ header: [1, 2, 3, false] }],
-    ['bold', 'italic', 'underline', 'strike'],
-    [{ list: 'ordered' }, { list: 'bullet' }],
-    [{ color: [] }, { background: [] }],
-    [{ align: [] }],
-    ['link', 'image'],
-    ['clean'],
-  ],
-};
-
 function RichTextEditor({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <textarea
-        value={value ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Enter your text content here..."
-        rows={12}
-        className="w-full min-h-[300px] px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-      />
-    );
-  }
-
   return (
-    <div className="rich-text-editor-wrapper border border-gray-300 dark:border-gray-600 rounded-lg overflow-hidden bg-white dark:bg-gray-800 [&_.ql-toolbar]:bg-gray-50 dark:[&_.ql-toolbar]:bg-gray-700 [&_.ql-toolbar]:border-gray-300 dark:[&_.ql-toolbar]:border-gray-600 [&_.ql-container]:border-gray-300 dark:[&_.ql-container]:border-gray-600 [&_.ql-editor]:min-h-[300px] [&_.ql-editor]:text-gray-900 dark:[&_.ql-editor]:text-white [&_.ql-editor.ql-blank::before]:text-gray-500 dark:[&_.ql-editor.ql-blank::before]:text-gray-400">
-      <ReactQuill
-        theme="snow"
-        value={value ?? ''}
-        onChange={onChange}
-        placeholder="Enter your text content here..."
-        modules={QUILL_MODULES}
-      />
-    </div>
+    <CourseRichTextEditor
+      value={value ?? ''}
+      onChange={onChange}
+      placeholder="Type / for commands, or start writing…"
+    />
   );
 }
-// ========================================
 
 // Content Editor Component
 function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload, isUploading }: any) {
@@ -1412,8 +1372,8 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className={`bg-white dark:bg-gray-800 rounded-xl shadow-xl w-full mx-auto max-h-[92vh] overflow-y-auto ${block.type === 'text' ? 'max-w-5xl' : 'max-w-4xl'}`}>
         <div className="p-6">
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
@@ -1447,6 +1407,9 @@ function ContentEditor({ block, onSave, onCancel, fileInputRef, handleFileUpload
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                   Content
                 </label>
+                <p className="mb-2 text-xs text-gray-500 dark:text-gray-400">
+                  Type <kbd className="rounded border border-gray-300 px-1 dark:border-gray-600">/</kbd> for headings, lists, tables, images, and YouTube.
+                </p>
                 <RichTextEditor
                   value={editingData.content ?? ''}
                   onChange={(value) => setEditingData({ ...editingData, content: value })}
@@ -2204,8 +2167,8 @@ function PreviewTab({ courseData, contentBlocks, quizzes }: any) {
                 
                 {block.type === 'text' && (
                   <div 
-                    className="text-gray-700 dark:text-gray-300 prose max-w-none dark:prose-invert"
-                    dangerouslySetInnerHTML={{ __html: block.content }}
+                    className="course-rich-html text-gray-700 dark:text-gray-300 prose max-w-none dark:prose-invert"
+                    dangerouslySetInnerHTML={{ __html: sanitizeCourseHtml(block.content) }}
                   />
                 )}
                 

@@ -2,7 +2,7 @@ const path = require('path');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ['@splinetool/react-spline', '@splinetool/runtime', 'three-globe'],
+  transpilePackages: ['@splinetool/react-spline', '@splinetool/runtime', 'three-globe', '@harshtalks/slash-tiptap'],
   // Remove console logs in production
   compiler: {
     removeConsole: process.env.NODE_ENV === 'production' ? {

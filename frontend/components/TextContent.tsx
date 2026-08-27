@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Clock, BookOpen, Eye } from 'lucide-react';
 import { useTextProgress } from '../hooks/useTextProgress';
+import { sanitizeCourseHtml } from '../lib/sanitizeHtml';
 
 interface TextContentProps {
   content: {
@@ -185,8 +186,8 @@ const TextContent: React.FC<TextContentProps> = ({
         <div className="overflow-x-auto rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800 sm:p-6">
           {textContent ? (
             <div 
-              dangerouslySetInnerHTML={{ __html: textContent }}
-              className="break-words leading-relaxed text-gray-800 dark:text-gray-200 [&_img]:h-auto [&_img]:max-w-full [&_table]:max-w-full"
+              dangerouslySetInnerHTML={{ __html: sanitizeCourseHtml(textContent) }}
+              className="course-rich-html break-words leading-relaxed text-gray-800 dark:text-gray-200 [&_img]:h-auto [&_img]:max-w-full [&_table]:max-w-full"
             />
           ) : (
             <div className="text-gray-500 dark:text-gray-400 italic text-center py-8">

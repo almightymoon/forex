@@ -27,8 +27,8 @@ input[type="password"],
 input[type="search"],
 input[type="url"],
 textarea,
-[contenteditable="true"],
-[contenteditable],
+[contenteditable="true"]:not(.ProseMirror),
+[contenteditable]:not(.ProseMirror),
 .content-editable {
   direction: ltr !important;
   text-align: left !important;
@@ -38,7 +38,7 @@ textarea,
 
 /* Force LTR for all text content in the editor */
 .rich-text-editor,
-.rich-text-editor *,
+.rich-text-editor *:not(.ProseMirror):not(.ProseMirror *),
 .rich-text-editor div,
 .rich-text-editor p,
 .rich-text-editor span {
@@ -56,17 +56,17 @@ textarea,
   unicode-bidi: normal !important;
 }
 
-/* Force LTR for all contenteditable elements */
-[contenteditable="true"] *,
-[contenteditable] * {
+/* Force LTR for all contenteditable elements except TipTap */
+[contenteditable="true"]:not(.ProseMirror) *,
+[contenteditable]:not(.ProseMirror) * {
   direction: ltr !important;
   text-align: left !important;
   unicode-bidi: normal !important;
 }
 
 /* Aggressive LTR enforcement for rich text editor */
-.rich-text-editor [contenteditable="true"],
-.rich-text-editor [contenteditable],
+.rich-text-editor [contenteditable="true"]:not(.ProseMirror),
+.rich-text-editor [contenteditable]:not(.ProseMirror),
 .rich-text-editor .content-editable {
   direction: ltr !important;
   text-align: left !important;
@@ -74,8 +74,8 @@ textarea,
   writing-mode: horizontal-tb !important;
 }
 
-.rich-text-editor [contenteditable="true"] *,
-.rich-text-editor [contenteditable] *,
+.rich-text-editor [contenteditable="true"]:not(.ProseMirror) *,
+.rich-text-editor [contenteditable]:not(.ProseMirror) *,
 .rich-text-editor .content-editable * {
   direction: ltr !important;
   text-align: left !important;
@@ -322,4 +322,97 @@ textarea,
 .rd3t-label__attributes {
   font-weight: 400 !important;
   font-size: 16px !important;
+}
+
+/* TipTap / Notion editor: don't animate every keystroke color */
+.ProseMirror,
+.ProseMirror * {
+  transition: none;
+}
+
+body.notion-table-resizing,
+body.notion-table-resizing * {
+  cursor: ns-resize !important;
+}
+
+body.notion-table-col-resizing,
+body.notion-table-col-resizing * {
+  cursor: col-resize !important;
+}
+
+.course-rich-html {
+  overflow-wrap: anywhere;
+}
+
+.course-rich-html h1 { font-size: 2rem; font-weight: 700; margin: 0.6em 0 0.35em; }
+.course-rich-html h2 { font-size: 1.4rem; font-weight: 650; margin: 0.7em 0 0.3em; }
+.course-rich-html h3 { font-size: 1.15rem; font-weight: 600; margin: 0.7em 0 0.25em; }
+.course-rich-html p { margin: 0.4em 0; }
+.course-rich-html ul,
+.course-rich-html ol { margin: 0.4em 0 0.4em 1.25rem; }
+.course-rich-html blockquote {
+  border-left: 3px solid #7c3aed;
+  padding: 0.5rem 1rem;
+  margin: 0.75rem 0;
+  background: rgba(124, 58, 237, 0.08);
+  border-radius: 0 8px 8px 0;
+}
+.course-rich-html pre {
+  background: #18181b;
+  color: #e4e4e7;
+  padding: 0.85rem 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+}
+.course-rich-html code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+.course-rich-html table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 0.9rem;
+}
+.course-rich-html th,
+.course-rich-html td {
+  border: 1px solid #d4d4d8;
+  padding: 0.5rem 0.75rem;
+  vertical-align: top;
+}
+.dark .course-rich-html th,
+.dark .course-rich-html td {
+  border-color: #3f3f46;
+}
+.course-rich-html th { font-weight: 600; }
+.course-rich-html img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 0.75rem auto;
+}
+.course-rich-html iframe[src*="youtube"],
+.course-rich-html iframe[src*="youtu.be"],
+.course-rich-html [data-youtube-video] iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  height: auto;
+  border: 0;
+  border-radius: 8px;
+  margin: 0.75rem 0;
+}
+.course-rich-html ul[data-type="taskList"] {
+  list-style: none;
+  margin-left: 0;
+  padding-left: 0;
+}
+.course-rich-html ul[data-type="taskList"] li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.course-rich-html ul[data-type="taskList"] li[data-checked="true"] {
+  color: #71717a;
+  text-decoration: line-through;
 }

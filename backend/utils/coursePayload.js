@@ -1,3 +1,5 @@
+const { sanitizeCourseHtml } = require('./sanitizeHtml');
+
 const VALID_CATEGORIES = ['forex', 'crypto', 'stocks', 'commodities', 'options', 'futures', 'general'];
 const VALID_LEVELS = ['beginner', 'intermediate', 'advanced'];
 const VALID_STATUSES = ['draft', 'review', 'published', 'archived'];
@@ -32,7 +34,7 @@ function sanitizeContentBlocks(content) {
       };
 
       if (type === 'text') {
-        const textContent = String(block.textContent || block.content || '').trim();
+        const textContent = sanitizeCourseHtml(String(block.textContent || block.content || '').trim());
         if (!textContent) return null;
         return { ...base, textContent };
       }
