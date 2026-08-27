@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useScrollReveal } from './useScrollReveal';
 
 const CARDS = [
   {
@@ -50,12 +51,67 @@ function easeInOutQuart(t: number): number {
 export default function Section3() {
   const rootRef = useRef<HTMLElement>(null);
   const stickyRef = useRef<HTMLDivElement>(null);
+  const revealed = useScrollReveal(rootRef, { mobileOnly: true, threshold: 0.1 });
+  const [activeStackIndex, setActiveStackIndex] = useState(0);
 
   const entryProg = useRef(0);
   const entryTgt = useRef(0);
   const spreadProg = useRef(0);
 
   useEffect(() => {
+    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    if (!mobileMq.matches || !stickyRef.current) return;
+    stickyRef.current.style.opacity = '';
+    stickyRef.current.style.transform = '';
+  }, []);
+
+  useEffect(() => {
+    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    if (!mobileMq.matches) return;
+
+    const root = rootRef.current;
+    if (!root) return;
+
+    const slots = root.querySelectorAll<HTMLElement>('.s3-card-stack-slot');
+    if (!slots.length) return;
+
+    const syncSlotStates = () => {
+      let bestIdx = 0;
+      let bestRatio = -1;
+
+      slots.forEach((slot) => {
+        const idx = Number(slot.dataset.stackIndex);
+        const rect = slot.getBoundingClientRect();
+        const vh = window.innerHeight;
+        const visible = Math.min(rect.bottom, vh * 0.72) - Math.max(rect.top, vh * 0.22);
+        const ratio = visible / Math.max(1, rect.height);
+
+        slot.classList.toggle('is-passed', rect.bottom < vh * 0.28);
+        slot.classList.toggle('is-active', ratio > 0.42 && rect.top < vh * 0.55);
+
+        if (ratio > bestRatio) {
+          bestRatio = ratio;
+          bestIdx = idx;
+        }
+      });
+
+      setActiveStackIndex(bestIdx);
+    };
+
+    syncSlotStates();
+    window.addEventListener('scroll', syncSlotStates, { passive: true });
+    window.addEventListener('resize', syncSlotStates);
+
+    return () => {
+      window.removeEventListener('scroll', syncSlotStates);
+      window.removeEventListener('resize', syncSlotStates);
+    };
+  }, []);
+
+  useEffect(() => {
+    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    if (mobileMq.matches) return;
+
     let rafId: number;
 
     const loop = () => {
@@ -102,56 +158,85 @@ export default function Section3() {
     return () => cancelAnimationFrame(rafId);
   }, []);
 
+  const renderExpertCard = (c: (typeof CARDS)[number], i: number) => (
+    <article
+      className="s3-card"
+      style={{ '--reveal-i': i, '--stack-i': i } as React.CSSProperties}
+    >
+      <div className="s3-card__header">
+        <h3 className="s3-card__title">{c.title}</h3>
+        <div className="s3-card__icon" aria-hidden>
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d={c.icon} />
+          </svg>
+        </div>
+      </div>
+
+      <ul className="s3-card__list">
+        {c.items.map((item, idx) => (
+          <li key={idx}>{item}</li>
+        ))}
+      </ul>
+
+      <div className="s3-card__footer" aria-hidden>
+        <div className="s3-card__icon s3-card__icon--bottom">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d={c.icon} />
+          </svg>
+        </div>
+        <h3 className="s3-card__title s3-card__title--bottom">{c.title}</h3>
+      </div>
+    </article>
+  );
+
   return (
-    <section ref={rootRef} id="expertise" className="s3">
+    <section
+      ref={rootRef}
+      id="expertise"
+      className={`s3 s3--stack${revealed ? ' s3--revealed' : ''}`}
+      style={{ '--stack-count': CARDS.length } as React.CSSProperties}
+    >
       <div className="s3__sticky">
         <div ref={stickyRef} className="s3__entry" style={{ opacity: 0, transform: 'translateY(80px)' }}>
           <div className="s3__inner">
             <div className="s3__head">
               <h2 className="s3__title">EXPERTISE</h2>
+              <div className="s3-stack-rail" aria-hidden>
+                {CARDS.map((c, i) => (
+                  <span
+                    key={c.title}
+                    className={`s3-stack-rail__pip${
+                      activeStackIndex === i ? ' is-active' : ''
+                    }${activeStackIndex > i ? ' is-passed' : ''}`}
+                  />
+                ))}
+              </div>
             </div>
 
-            <div className="s3__cards">
-              {CARDS.map((c) => (
-                <article key={c.title} className="s3-card">
-                  <div className="s3-card__header">
-                    <h3 className="s3-card__title">{c.title}</h3>
-                    <div className="s3-card__icon" aria-hidden>
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d={c.icon} />
-                      </svg>
-                    </div>
-                  </div>
-
-                  <ul className="s3-card__list">
-                    {c.items.map((item, idx) => (
-                      <li key={idx}>{item}</li>
-                    ))}
-                  </ul>
-
-                  <div className="s3-card__footer" aria-hidden>
-                    <div className="s3-card__icon s3-card__icon--bottom">
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="3"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d={c.icon} />
-                      </svg>
-                    </div>
-                    <h3 className="s3-card__title s3-card__title--bottom">{c.title}</h3>
-                  </div>
-                </article>
+            <div className="s3__cards s3__cards--stack">
+              {CARDS.map((c, i) => (
+                <div
+                  key={c.title}
+                  className="s3-card-stack-slot"
+                  data-stack-index={i}
+                  style={{ '--stack-i': i } as React.CSSProperties}
+                >
+                  {renderExpertCard(c, i)}
+                </div>
               ))}
             </div>
           </div>

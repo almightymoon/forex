@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { fetchMergedPublicPackages, getDefaultPackages, type UiPackage } from '../../lib/publicPackages';
+import { useScrollReveal } from './useScrollReveal';
 
 const ACCESS_BACK_ART = [
   '/landing/access-card.png',
@@ -47,10 +48,12 @@ function uiPackagesToPlans(pkgs: UiPackage[]): PackagePlan[] {
 export default function Section5() {
   const rootRef = useRef<HTMLElement>(null);
   const entryRef = useRef<HTMLDivElement>(null);
+  const revealed = useScrollReveal(rootRef, { mobileOnly: true, threshold: 0.08 });
   const entryProg = useRef(0);
   const entryTgt = useRef(0);
   const spreadProg = useRef(0);
   const flipProg = useRef(0);
+  const [activeStackIndex, setActiveStackIndex] = useState(0);
 
   const [plans, setPlans] = useState<PackagePlan[]>(() => uiPackagesToPlans(getDefaultPackages()));
 
@@ -86,22 +89,58 @@ export default function Section5() {
 
   useEffect(() => {
     const mobileMq = window.matchMedia('(max-width: 1024px)');
+    if (!mobileMq.matches || !entryRef.current) return;
+    entryRef.current.style.opacity = '';
+    entryRef.current.style.transform = '';
+    entryRef.current.style.filter = '';
+  }, []);
 
-    const applyMobileStatic = () => {
-      if (!mobileMq.matches) return false;
-      if (rootRef.current) {
-        rootRef.current.style.setProperty('--spread', '1');
-        rootRef.current.style.setProperty('--flip', '0');
-      }
-      if (entryRef.current) {
-        entryRef.current.style.opacity = '1';
-        entryRef.current.style.transform = 'none';
-        entryRef.current.style.filter = 'none';
-      }
-      return true;
+  useEffect(() => {
+    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    if (!mobileMq.matches || many) return;
+
+    const root = rootRef.current;
+    if (!root) return;
+
+    const slots = root.querySelectorAll<HTMLElement>('.s5-card-stack-slot');
+    if (!slots.length) return;
+
+    const syncSlotStates = () => {
+      let bestIdx = 0;
+      let bestRatio = -1;
+
+      slots.forEach((slot) => {
+        const idx = Number(slot.dataset.stackIndex);
+        const rect = slot.getBoundingClientRect();
+        const vh = window.innerHeight;
+        const visible = Math.min(rect.bottom, vh * 0.72) - Math.max(rect.top, vh * 0.22);
+        const ratio = visible / Math.max(1, rect.height);
+
+        slot.classList.toggle('is-passed', rect.bottom < vh * 0.28);
+        slot.classList.toggle('is-active', ratio > 0.42 && rect.top < vh * 0.55);
+
+        if (ratio > bestRatio) {
+          bestRatio = ratio;
+          bestIdx = idx;
+        }
+      });
+
+      setActiveStackIndex(bestIdx);
     };
 
-    if (applyMobileStatic()) return;
+    syncSlotStates();
+    window.addEventListener('scroll', syncSlotStates, { passive: true });
+    window.addEventListener('resize', syncSlotStates);
+
+    return () => {
+      window.removeEventListener('scroll', syncSlotStates);
+      window.removeEventListener('resize', syncSlotStates);
+    };
+  }, [many, plans.length]);
+
+  useEffect(() => {
+    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    if (mobileMq.matches) return;
 
     let rafId: number;
     let flipHoldUntil = 0;
@@ -203,8 +242,97 @@ export default function Section5() {
     return () => cancelAnimationFrame(rafId);
   }, []);
 
+  const renderPlanCard = (p: PackagePlan, i: number) => {
+    const v = getCardTransformVars(i, plans.length);
+    return (
+      <article
+        className={`s5-card${p.badge ? ' s5-card--featured' : ''}`}
+        style={
+          {
+            '--fd': `${i * 0.055}`,
+            '--ox': v.ox,
+            '--oy': v.oy,
+            '--or': v.or,
+            '--reveal-i': i,
+            '--stack-i': i,
+            zIndex: v.z,
+          } as React.CSSProperties
+        }
+      >
+        {p.badge && <div className="s5-card__badge">{p.badge}</div>}
+
+        <div className="s5-card__inner">
+          <div className="s5-card__face s5-card__face--back" aria-hidden>
+            <img
+              className="s5-card__back-art"
+              src={ACCESS_BACK_ART[i % ACCESS_BACK_ART.length] ?? '/landing/access-card.png'}
+              alt=""
+              draggable={false}
+            />
+          </div>
+
+          <div className="s5-card__face s5-card__face--front">
+            <div className="s5-card__header">
+              <div className="s5-card__header-left">
+                <h3 className="s5-card__title">{p.name}</h3>
+                <p className="s5-card__meta">
+                  <span className="s5-card__meta-price">{p.price}</span>
+                  {p.cadence && <span className="s5-card__meta-cad">{p.cadence}</span>}
+                </p>
+                {p.blurb && <p className="s5-card__blurb">{p.blurb}</p>}
+              </div>
+              <div className="s5-card__icon" aria-hidden>
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d={iconForPlan(p.id)} />
+                </svg>
+              </div>
+            </div>
+
+            <ul className="s5-card__list">
+              {p.highlights.map((h) => (
+                <li key={h}>{h}</li>
+              ))}
+            </ul>
+
+            <Link href="/register" className="s5-card__cta">
+              Get started
+            </Link>
+
+            <div className="s5-card__footer" aria-hidden>
+              <div className="s5-card__icon s5-card__icon--bottom">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d={iconForPlan(p.id)} />
+                </svg>
+              </div>
+              <h3 className="s5-card__title s5-card__title--bottom">{p.name}</h3>
+            </div>
+          </div>
+        </div>
+      </article>
+    );
+  };
+
   return (
-    <section ref={rootRef} id="packages" className={`s5${many ? ' s5--many' : ''}`}>
+    <section
+      ref={rootRef}
+      id="packages"
+      className={`s5${many ? ' s5--many' : ' s5--stack'}${revealed ? ' s5--revealed' : ''}`}
+      style={{ '--stack-count': plans.length } as React.CSSProperties}
+    >
       <div className="s5__sticky">
         <div ref={entryRef} className="s5__entry" style={{ opacity: 0, transform: 'translateY(70px)' }}>
           <div className="s5__inner">
@@ -213,91 +341,35 @@ export default function Section5() {
               <h2 className="s5__title">Choose your plan</h2>
               <p className="s5__sub">
               </p>
+              {!many && plans.length > 1 && (
+                <div className="s5-stack-rail" aria-hidden>
+                  {plans.map((p, i) => (
+                    <span
+                      key={p.id}
+                      className={`s5-stack-rail__pip${
+                        activeStackIndex === i ? ' is-active' : ''
+                      }${activeStackIndex > i ? ' is-passed' : ''}`}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
 
-            <div className="s5__cards">
-              {plans.map((p, i) => {
-                const v = getCardTransformVars(i, plans.length);
-                return (
-                  <article
+            <div className={`s5__cards${!many ? ' s5__cards--stack' : ''}`}>
+              {plans.map((p, i) =>
+                many ? (
+                  renderPlanCard(p, i)
+                ) : (
+                  <div
                     key={p.id}
-                    className={`s5-card${p.badge ? ' s5-card--featured' : ''}`}
-                    style={
-                      {
-                        '--fd': `${i * 0.055}`,
-                        '--ox': v.ox,
-                        '--oy': v.oy,
-                        '--or': v.or,
-                        zIndex: v.z,
-                      } as React.CSSProperties
-                    }
+                    className="s5-card-stack-slot"
+                    data-stack-index={i}
+                    style={{ '--stack-i': i } as React.CSSProperties}
                   >
-                  {p.badge && <div className="s5-card__badge">{p.badge}</div>}
-
-                  <div className="s5-card__inner">
-                    <div className="s5-card__face s5-card__face--back" aria-hidden>
-                      <img
-                        className="s5-card__back-art"
-                        src={ACCESS_BACK_ART[i % ACCESS_BACK_ART.length] ?? '/landing/access-card.png'}
-                        alt=""
-                        draggable={false}
-                      />
-                    </div>
-
-                    <div className="s5-card__face s5-card__face--front">
-                      <div className="s5-card__header">
-                        <div className="s5-card__header-left">
-                          <h3 className="s5-card__title">{p.name}</h3>
-                          <p className="s5-card__meta">
-                            <span className="s5-card__meta-price">{p.price}</span>
-                            {p.cadence && <span className="s5-card__meta-cad">{p.cadence}</span>}
-                          </p>
-                          {p.blurb && <p className="s5-card__blurb">{p.blurb}</p>}
-                        </div>
-                        <div className="s5-card__icon" aria-hidden>
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d={iconForPlan(p.id)} />
-                          </svg>
-                        </div>
-                      </div>
-
-                      <ul className="s5-card__list">
-                        {p.highlights.map((h) => (
-                          <li key={h}>{h}</li>
-                        ))}
-                      </ul>
-
-                      <Link href="/register" className="s5-card__cta">
-                        Get started
-                      </Link>
-
-                      <div className="s5-card__footer" aria-hidden>
-                        <div className="s5-card__icon s5-card__icon--bottom">
-                          <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="3"
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                          >
-                            <path d={iconForPlan(p.id)} />
-                          </svg>
-                        </div>
-                        <h3 className="s5-card__title s5-card__title--bottom">{p.name}</h3>
-                      </div>
-                    </div>
+                    {renderPlanCard(p, i)}
                   </div>
-                </article>
-                );
-              })}
+                ),
+              )}
             </div>
           </div>
         </div>

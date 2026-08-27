@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useScrollReveal } from './useScrollReveal';
 
 function easeOutCubic(t: number) {
   return 1 - (1 - t) ** 3;
@@ -42,6 +43,7 @@ export default function SectionLetsWork() {
   const innerRef = useRef<HTMLDivElement>(null);
   const revealProg = useRef(0);
   const vantaRef = useRef<HTMLDivElement>(null);
+  const revealed = useScrollReveal(sectionRef, { mobileOnly: true, threshold: 0.15 });
 
   useEffect(() => {
     const el = vantaRef.current;
@@ -102,20 +104,14 @@ export default function SectionLetsWork() {
 
   useEffect(() => {
     const mobileMq = window.matchMedia('(max-width: 1024px)');
+    if (!mobileMq.matches || !innerRef.current) return;
+    innerRef.current.style.opacity = '';
+    innerRef.current.style.transform = '';
+  }, []);
 
-    const applyMobileStatic = () => {
-      if (!mobileMq.matches) return false;
-      if (innerRef.current) {
-        innerRef.current.style.opacity = '1';
-        innerRef.current.style.transform = 'none';
-      }
-      if (vantaRef.current) {
-        vantaRef.current.style.transform = 'none';
-      }
-      return true;
-    };
-
-    if (applyMobileStatic()) return;
+  useEffect(() => {
+    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    if (mobileMq.matches) return;
 
     let rafId: number;
     const loop = () => {
@@ -153,7 +149,7 @@ export default function SectionLetsWork() {
     <section
       ref={sectionRef}
       id="lets-work"
-      className="lw"
+      className={`lw${revealed ? ' lw--revealed' : ''}`}
       aria-labelledby="lw-heading"
       data-nav-surface="light"
     >

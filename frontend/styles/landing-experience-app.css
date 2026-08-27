@@ -1621,11 +1621,11 @@ html.scene-done .scroll-scene__layer {
   will-change: transform;
 }
 
-/* Base Fan Positions for spread=0 */
-.s3-card:nth-child(1) { --ox: calc(150% + 30px); --oy: 60px; --or: -12deg; z-index: 1; }
-.s3-card:nth-child(2) { --ox: calc(50% + 10px);  --oy: 20px; --or: -4deg;  z-index: 2; }
-.s3-card:nth-child(3) { --ox: calc(-50% - 10px); --oy: 20px; --or: 4deg;   z-index: 3; }
-.s3-card:nth-child(4) { --ox: calc(-150% - 30px); --oy: 60px; --or: 12deg; z-index: 4; }
+/* Base fan positions for spread=0 */
+.s3-card-stack-slot:nth-child(1) .s3-card { --ox: calc(150% + 30px); --oy: 60px; --or: -12deg; z-index: 1; }
+.s3-card-stack-slot:nth-child(2) .s3-card { --ox: calc(50% + 10px);  --oy: 20px; --or: -4deg;  z-index: 2; }
+.s3-card-stack-slot:nth-child(3) .s3-card { --ox: calc(-50% - 10px); --oy: 20px; --or: 4deg;   z-index: 3; }
+.s3-card-stack-slot:nth-child(4) .s3-card { --ox: calc(-150% - 30px); --oy: 60px; --or: 12deg; z-index: 4; }
 
 .s3-card:hover {
   margin-top: -12px;
@@ -1699,31 +1699,141 @@ html.scene-done .scroll-scene__layer {
   transform: rotate(180deg);
 }
 
+.s3-stack-rail {
+  display: none;
+}
+
+.s3-card-stack-slot {
+  display: contents;
+}
+
 @media (max-width: 1024px) {
-  .s3__cards {
-    flex-wrap: wrap;
-    align-items: center;
-  }
-  .s3-card {
-    height: auto;
-    min-height: 400px;
-    flex: 1 1 40%;
-    /* Disable spread animation on small screens */
-    transform: none !important;
-  }
   .s3 {
-    min-height: 0;
+    min-height: 0 !important;
+    height: auto !important;
+    --spread: 1;
   }
+
   .s3__sticky {
+    position: relative !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: clamp(48px, 10vw, 72px) 0 clamp(32px, 6vw, 48px);
+    display: block;
+  }
+
+  .s3__entry {
+    height: auto !important;
+    display: block !important;
+    will-change: auto !important;
+  }
+
+  .s3__inner {
+    width: 100%;
+    max-width: 100%;
+    gap: 0;
+    padding: 0;
+  }
+
+  .s3__head {
+    padding-inline: clamp(20px, 5vw, 32px);
+    margin-bottom: 28px;
+  }
+
+  .s3__title {
+    font-size: clamp(2.4rem, 10vw, 3.5rem);
+  }
+
+  .s3--stack .s3__cards--stack {
+    display: block;
+    flex-wrap: nowrap;
+    overflow: visible;
+    padding: 0 clamp(16px, 4.5vw, 28px);
+    perspective: none;
+    gap: 0;
+  }
+
+  .s3-stack-rail {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 20px;
+  }
+
+  .s3-stack-rail__pip {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.22);
+    transition:
+      width 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+      background 0.35s ease;
+  }
+
+  .s3-stack-rail__pip.is-passed {
+    background: rgba(46, 204, 113, 0.55);
+  }
+
+  .s3-stack-rail__pip.is-active {
+    width: 26px;
+    background: #2ecc71;
+    box-shadow: 0 0 16px rgba(46, 204, 113, 0.45);
+  }
+
+  .s3-card-stack-slot {
+    display: block;
+    --stack-nav: clamp(64px, 11vw, 84px);
+    --stack-offset: calc(var(--stack-i, 0) * 14px);
+    height: min(84vh, 640px);
     position: relative;
+    pointer-events: none;
+  }
+
+  .s3-card-stack-slot:last-child {
+    height: min(50vh, 380px);
+  }
+
+  .s3-card-stack-slot .s3-card {
+    pointer-events: auto;
+    position: sticky;
+    top: calc(var(--stack-nav) + var(--stack-offset));
+    width: min(340px, 92vw);
+    max-width: 100%;
+    margin: 0 auto;
+    flex: none;
     height: auto;
-    padding: 60px 0;
+    min-height: 380px;
+    z-index: calc(12 + var(--stack-i, 0));
+    transform: scale(calc(1 - var(--stack-i, 0) * 0.012));
+    transition:
+      transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+      filter 0.45s ease,
+      box-shadow 0.45s ease;
+    will-change: transform, filter, box-shadow;
+  }
+
+  .s3-card-stack-slot.is-active .s3-card {
+    transform: scale(1);
+    filter: none;
+    box-shadow: 0 24px 56px rgba(0, 0, 0, 0.55);
+  }
+
+  .s3-card-stack-slot.is-passed .s3-card {
+    transform: scale(0.94) translateY(-6px);
+    filter: brightness(0.94) saturate(0.92);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35) !important;
+  }
+
+  .s3-card__footer {
+    display: none !important;
   }
 }
 
 @media (max-width: 600px) {
-  .s3-card {
-    flex: 1 1 100%;
+  .s3-card-stack-slot .s3-card {
+    width: min(320px, 92vw);
+    min-height: 360px;
   }
 }
 
@@ -2401,6 +2511,15 @@ html.scene-done .scroll-scene__layer {
   transform: rotate(180deg);
 }
 
+.s5-stack-rail {
+  display: none;
+}
+
+/* Stack slots are layout-neutral on desktop — cards stay flex children */
+.s5-card-stack-slot {
+  display: contents;
+}
+
 @media (max-width: 1024px) {
   /* ── Kill the 250vh scroll-animation space on mobile ───────────────────── */
   .s5 {
@@ -2422,10 +2541,7 @@ html.scene-done .scroll-scene__layer {
 
   /* Override the JS inline opacity:0 / translateY(70px) so cards show immediately */
   .s5__entry {
-    opacity: 1 !important;
-    transform: none !important;
     height: auto !important;
-    /* reset flex centering — let inner grid stack heading → cards normally */
     display: block !important;
     will-change: auto !important;
     transform-style: flat !important;
@@ -2447,29 +2563,118 @@ html.scene-done .scroll-scene__layer {
     margin-bottom: 28px;
   }
 
-  /* Stack cards vertically on mobile — one full card per row */
-  .s5__cards {
-    flex-direction: column;
+  /* Sticky card stack — each plan slides over the previous as you scroll */
+  .s5--stack .s5__cards--stack {
+    display: block;
+    flex-direction: unset;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    overflow: visible;
+    padding: 0 clamp(16px, 4.5vw, 28px);
+    perspective: none;
+  }
+
+  .s5-stack-rail {
+    display: flex;
     align-items: center;
-    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+    margin-top: 22px;
+  }
+
+  .s5-stack-rail__pip {
+    width: 7px;
+    height: 7px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.22);
+    transition:
+      width 0.4s cubic-bezier(0.22, 1, 0.36, 1),
+      background 0.35s ease,
+      transform 0.35s ease;
+  }
+
+  .s5-stack-rail__pip.is-passed {
+    background: rgba(46, 204, 113, 0.55);
+  }
+
+  .s5-stack-rail__pip.is-active {
+    width: 26px;
+    background: #2ecc71;
+    box-shadow: 0 0 16px rgba(46, 204, 113, 0.45);
+  }
+
+  .s5-card-stack-slot {
+    display: block;
+    --stack-nav: clamp(64px, 11vw, 84px);
+    --stack-offset: calc(var(--stack-i, 0) * 14px);
+    height: min(86vh, 680px);
+    position: relative;
+    pointer-events: none;
+  }
+
+  .s5-card-stack-slot:last-child {
+    height: min(52vh, 400px);
+  }
+
+  .s5-card-stack-slot .s5-card {
+    pointer-events: auto;
+    position: sticky;
+    top: calc(var(--stack-nav) + var(--stack-offset));
+    width: min(340px, 92vw);
+    max-width: 100%;
+    margin: 0 auto;
+    flex: none;
+    min-height: auto;
+    height: auto;
+    z-index: calc(12 + var(--stack-i, 0));
+    scroll-snap-align: none;
+    overflow: visible;
+    transform: scale(calc(1 - var(--stack-i, 0) * 0.012));
+    transition:
+      transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+      filter 0.45s ease,
+      box-shadow 0.45s ease;
+  }
+
+  .s5-card-stack-slot.is-active .s5-card {
+    transform: scale(1);
+    filter: none;
+  }
+
+  .s5-card-stack-slot.is-passed .s5-card {
+    transform: scale(0.94) translateY(-6px);
+    filter: brightness(0.94) saturate(0.92);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.22) !important;
+  }
+
+  .s5-card-stack-slot.is-active .s5-card .s5-card__face--front {
+    box-shadow:
+      0 24px 56px rgba(0, 0, 0, 0.38),
+      0 0 0 1px rgba(255, 255, 255, 0.06);
+  }
+
+  /* Horizontal strip when many plans */
+  .s5--many .s5__cards {
+    flex-direction: row;
+    align-items: stretch;
+    flex-wrap: nowrap;
     justify-content: flex-start;
-    overflow-x: visible;
+    overflow-x: auto;
     overflow-y: visible;
-    scroll-snap-type: none;
+    scroll-snap-type: x proximity;
     gap: 20px;
     padding: 4px clamp(20px, 5vw, 32px) 28px;
     perspective: none;
   }
   .s5__cards::-webkit-scrollbar { display: none; }
 
-  .s5-card {
-    flex: none;
-    width: min(320px, 92vw);
-    max-width: 100%;
+  .s5--many .s5-card {
+    flex: 0 0 min(300px, 86vw);
+    width: min(300px, 86vw);
+    max-width: 320px;
     min-height: auto;
     height: auto;
-    transform: none !important;
-    scroll-snap-align: none;
+    scroll-snap-align: center;
     overflow: visible;
   }
 
@@ -2520,11 +2725,6 @@ html.scene-done .scroll-scene__layer {
     height: auto !important;
     padding: clamp(48px, 10vw, 80px) 0 !important;
   }
-  /* Override the JS inline opacity/translate so the CTA shows immediately */
-  .lw__inner {
-    opacity: 1 !important;
-    transform: none !important;
-  }
 
   .lw__sticky {
     padding-top: clamp(24px, 4vw, 40px);
@@ -2552,7 +2752,8 @@ html.scene-done .scroll-scene__layer {
   .s5__title {
     font-size: clamp(1.85rem, 8vw, 2.35rem);
   }
-  .s5-card {
+  .s5--stack .s5-card-stack-slot .s5-card,
+  .s5--many .s5-card {
     width: min(320px, 92vw);
     max-width: 100%;
     min-height: auto;
