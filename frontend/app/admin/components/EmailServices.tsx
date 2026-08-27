@@ -31,6 +31,7 @@ import {
   ExternalLink,
   Columns,
   Square,
+  Star,
 } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { fetchWithTokenRefresh } from '../../../utils/tokenUtils';
@@ -80,6 +81,22 @@ const STARTER_HTML = `<h2>Hello {{firstName}},</h2>
 <p>We have an update for you from Forex Navigators.</p>
 <p>Write your message here. You can use variables like <strong>{{firstName}}</strong>, <strong>{{lastName}}</strong>, and <strong>{{email}}</strong>.</p>
 <p>Best regards,<br>The Forex Navigators Team</p>`;
+
+const DEFAULT_TRUSTPILOT_URL = 'https://www.trustpilot.com/evaluate/thefxnavigators.com';
+
+function buildTrustpilotReviewHtml(reviewUrl: string) {
+  const safeUrl = reviewUrl.replace(/"/g, '&quot;');
+  return `<h2>Hello {{firstName}},</h2>
+<p>We hope you're enjoying your journey with Forex Navigators.</p>
+<p>If our mentorship, signals, or community have helped you, we'd be grateful if you shared a short review on Trustpilot. It only takes a minute and helps other traders find us.</p>
+<p style="text-align:center;margin:28px 0;">
+  <a href="${safeUrl}" style="display:inline-block;background:#00b67a;color:#ffffff;padding:14px 28px;border-radius:8px;text-decoration:none;font-weight:700;font-size:15px;">
+    Leave a Trustpilot review
+  </a>
+</p>
+<p>Thank you for being part of the desk.</p>
+<p>Best regards,<br>The Forex Navigators Team</p>`;
+}
 
 type ActionButton = { id: string; label: string; color: string };
 
@@ -194,6 +211,7 @@ export default function EmailServices() {
   const [clickTotal, setClickTotal] = useState(0);
   const [sheetSearch, setSheetSearch] = useState('');
   const [sheetLoading, setSheetLoading] = useState(false);
+  const [trustpilotReviewUrl, setTrustpilotReviewUrl] = useState(DEFAULT_TRUSTPILOT_URL);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -219,6 +237,29 @@ export default function EmailServices() {
       showToast('Could not load email templates', 'error');
     }
   }, []);
+
+  const loadTrustpilotSettings = useCallback(async () => {
+    try {
+      const res = await fetchWithTokenRefresh(buildApiUrl('api/admin/settings'));
+      if (!res.ok) return;
+      const data = await res.json();
+      const url = String(data?.general?.trustpilotReviewUrl || '').trim();
+      if (url) setTrustpilotReviewUrl(url);
+    } catch (error) {
+      console.error(error);
+    }
+  }, []);
+
+  const applyTrustpilotReviewTemplate = useCallback(() => {
+    const url = trustpilotReviewUrl.trim() || DEFAULT_TRUSTPILOT_URL;
+    setSubject('Would you share a quick Trustpilot review?');
+    setHtml(buildTrustpilotReviewHtml(url));
+    setEditorMode('visual');
+    setTrackButtons(false);
+    if (audience === 'all') setAudience('student');
+    setTab('compose');
+    showToast('Trustpilot review email ready — pick recipients and send', 'success');
+  }, [audience, trustpilotReviewUrl]);
 
   const loadCampaigns = useCallback(async () => {
     setCampaignsLoading(true);
@@ -260,10 +301,10 @@ export default function EmailServices() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await Promise.all([loadUsers(), loadTemplates()]);
+      await Promise.all([loadUsers(), loadTemplates(), loadTrustpilotSettings()]);
       setLoading(false);
     })();
-  }, [loadUsers, loadTemplates]);
+  }, [loadUsers, loadTemplates, loadTrustpilotSettings]);
 
   const roleCount = useCallback(
     (role?: string) => users.filter((u) => (role ? u.role === role : true) && u.isActive !== false).length,
@@ -594,6 +635,35 @@ export default function EmailServices() {
 
       {tab === 'compose' && (
         <div className="space-y-6">
+          <div className="rounded-2xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white p-5 shadow-sm dark:border-emerald-800 dark:from-emerald-950/40 dark:to-gray-800">
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500 text-white">
+                  <Star className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                    Ask members for a Trustpilot review
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                    Loads a ready-made email with a review button. Choose recipients below, edit if you want, then send.
+                  </p>
+                  <p className="mt-1 truncate text-xs text-emerald-700 dark:text-emerald-300">
+                    Link: {trustpilotReviewUrl || DEFAULT_TRUSTPILOT_URL}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={applyTrustpilotReviewTemplate}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700"
+              >
+                <Star className="h-4 w-4" />
+                Use review template
+              </button>
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-700 dark:bg-gray-800">
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">Recipients</label>

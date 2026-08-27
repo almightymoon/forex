@@ -45,7 +45,8 @@ const getDefaultSettings = () => ({
     maintenanceAllowTeachers: false,
     defaultReferralCode: '',
     telegramInviteEnabled: true,
-    telegramInviteUrl: ''
+    telegramInviteUrl: '',
+    trustpilotReviewUrl: 'https://www.trustpilot.com/evaluate/thefxnavigators.com',
   },
   security: {
     twoFactorAuth: false,

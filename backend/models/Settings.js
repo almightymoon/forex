@@ -50,6 +50,12 @@ const settingsSchema = new mongoose.Schema({
     trim: true,
     maxlength: [500, 'Telegram invite URL cannot exceed 500 characters']
   },
+  trustpilotReviewUrl: {
+    type: String,
+    default: 'https://www.trustpilot.com/evaluate/thefxnavigators.com',
+    trim: true,
+    maxlength: [500, 'Trustpilot review URL cannot exceed 500 characters']
+  },
 
   // Security Settings
   security: {

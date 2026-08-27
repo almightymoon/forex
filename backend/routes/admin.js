@@ -3131,7 +3131,9 @@ router.get('/settings', async (req, res) => {
         maintenanceAllowTeachers: settings.maintenanceAllowTeachers || false,
         defaultReferralCode: settings.defaultReferralCode || '',
         telegramInviteEnabled: settings.telegramInviteEnabled !== false,
-        telegramInviteUrl: (settings.telegramInviteUrl || '').trim()
+        telegramInviteUrl: (settings.telegramInviteUrl || '').trim(),
+        trustpilotReviewUrl: (settings.trustpilotReviewUrl || '').trim() ||
+          'https://www.trustpilot.com/evaluate/thefxnavigators.com',
       },
       security: settings.security,
       notifications: settings.notifications,

@@ -112,6 +112,7 @@ export interface AdminSettings {
     defaultReferralCode: string;
     telegramInviteEnabled: boolean;
     telegramInviteUrl: string;
+    trustpilotReviewUrl: string;
   };
   security: {
     twoFactorAuth: boolean;

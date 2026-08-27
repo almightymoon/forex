@@ -4,7 +4,7 @@ import React, { useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { 
   Save, RotateCcw, Globe, Shield, Bell, CreditCard, Mail, 
-  Server, CheckCircle, User, Zap, AlertTriangle, Smartphone, Database, MessageCircle
+  Server, CheckCircle, User, Zap, AlertTriangle, Smartphone, Database, MessageCircle, Star
 } from 'lucide-react';
 import { AdminSettings } from './types';
 
@@ -96,7 +96,8 @@ export default function Settings({
       maintenanceAllowTeachers: false,
       defaultReferralCode: '',
       telegramInviteEnabled: true,
-      telegramInviteUrl: ''
+      telegramInviteUrl: '',
+      trustpilotReviewUrl: 'https://www.trustpilot.com/evaluate/thefxnavigators.com',
     },
     security: {
       twoFactorAuth: false,
@@ -310,6 +311,38 @@ export default function Settings({
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Click Save Settings below to apply. Visitors who chose &quot;Don&apos;t show again&quot; must clear site data to see it again.
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/80 dark:bg-emerald-950/30 p-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-lg bg-emerald-500 flex items-center justify-center shrink-0">
+                  <Star className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-medium text-gray-900 dark:text-white">Trustpilot reviews</p>
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Used when admins ask members for a review from Email services
+                  </p>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Trustpilot review page URL
+                </label>
+                <input
+                  type="url"
+                  value={
+                    safeSettings.general.trustpilotReviewUrl ||
+                    'https://www.trustpilot.com/evaluate/thefxnavigators.com'
+                  }
+                  onChange={(e) => onSettingsChange('general', 'trustpilotReviewUrl', e.target.value.trim())}
+                  placeholder="https://www.trustpilot.com/evaluate/thefxnavigators.com"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Members open this link to leave a public review on Trustpilot.
                 </p>
               </div>
             </div>
