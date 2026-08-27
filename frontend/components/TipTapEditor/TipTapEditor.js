@@ -494,7 +494,14 @@ function normalizeHtmlForTiptap(html) {
   }
 }
 
-export default function TipTapEditor({ value, onChange, placeholder = "Type / for commands…", variant = "default", tableColors: tableColorsProp, onTableColorsChange }) {
+export default function TipTapEditor({
+  value,
+  onChange,
+  placeholder = "Type / for commands…",
+  variant = "default",
+  tableColors: tableColorsProp = null,
+  onTableColorsChange = undefined,
+}) {
   const isNotion = variant === "notion";
   const [tableColorPreset, setTableColorPreset] = useState(0);
   const [tableColorCustom, setTableColorCustom] = useState(null);
