@@ -75,9 +75,20 @@ export function middleware(request: NextRequest) {
     return new NextResponse(null, { status: 404 });
   }
 
+  const withFreshHtmlCache = (response: NextResponse) => {
+    // Prevent year-long HTML caching that points at deleted /_next chunks after deploy
+    if (!pathname.startsWith('/_next/static')) {
+      response.headers.set(
+        'Cache-Control',
+        'private, no-cache, no-store, max-age=0, must-revalidate'
+      );
+    }
+    return response;
+  };
+
   // Skip middleware for public routes
   if (publicRoutes.some(route => pathname === route || pathname.startsWith(route + '/'))) {
-    return NextResponse.next();
+    return withFreshHtmlCache(NextResponse.next());
   }
 
   // Skip middleware for static files and Next.js internals
@@ -103,13 +114,13 @@ export function middleware(request: NextRequest) {
       const loginUrl = new URL('/login', request.url);
       loginUrl.searchParams.set('redirect', pathname);
       loginUrl.searchParams.set('error', 'not_authenticated');
-      return NextResponse.redirect(loginUrl);
+      return withFreshHtmlCache(NextResponse.redirect(loginUrl));
     }
 
-    return NextResponse.next();
+    return withFreshHtmlCache(NextResponse.next());
   }
 
-  return NextResponse.next();
+  return withFreshHtmlCache(NextResponse.next());
 }
 
 export const config = {

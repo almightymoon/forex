@@ -24,8 +24,13 @@ const nextConfig = {
   async headers() {
     return [
       {
-        source: '/(.*)',
+        // HTML / app routes — never long-cache, or refresh after deploy 404s on old chunks
+        source: '/:path*',
         headers: [
+          {
+            key: 'Cache-Control',
+            value: 'private, no-cache, no-store, max-age=0, must-revalidate',
+          },
           {
             key: 'X-Frame-Options',
             value: 'DENY',
@@ -37,6 +42,16 @@ const nextConfig = {
           {
             key: 'Referrer-Policy',
             value: 'origin-when-cross-origin',
+          },
+        ],
+      },
+      {
+        // Fingerprinted Next assets — safe to cache forever (must come after /:path*)
+        source: '/_next/static/:path*',
+        headers: [
+          {
+            key: 'Cache-Control',
+            value: 'public, max-age=31536000, immutable',
           },
         ],
       },
