@@ -434,7 +434,6 @@ router.delete('/courses/:courseId', async (req, res) => {
     const { courseId } = req.params;
     // Support forceDelete from query param or body
     const forceDelete = req.query.forceDelete === 'true' || req.body?.forceDelete === true;
-    const teacherId = req.user._id;
     
     console.log(`Delete course request: courseId=${courseId}, forceDelete=${forceDelete}`);
     
