@@ -60,7 +60,7 @@ jobs:
             if ! git diff --quiet || ! git diff --cached --quiet; then
               echo "Local changes detected. Discarding changes to package files..."
               # Discard changes to package files (these should come from repo)
-              git checkout -- frontend/package.json frontend/package-lock.json backend/package.json backend/package-lock.json backend/mt5-bridge/pm2.config.js 2>/dev/null || true
+              git checkout -- frontend/package.json frontend/package-lock.json backend/package.json backend/package-lock.json 2>/dev/null || true
               # Stash any other changes
               git stash push -m "Pipeline auto-stash before pull" || true
             fi
@@ -147,75 +147,6 @@ jobs:
             }
             cd ..
             
-            # Setup MT5 Bridge
-            echo "=========================================="
-            echo "Setting up MT5 Bridge..."
-            echo "=========================================="
-            cd backend/mt5-bridge/
-            
-            # Check if Python 3 is installed
-            if ! command -v python3 &> /dev/null; then
-              echo "Python 3 not found. Installing..."
-              sudo apt-get update -qq
-              sudo apt-get install -y python3 python3-pip python3-venv
-            else
-              echo "Python 3 found: $(python3 --version)"
-            fi
-            
-            # Create virtual environment if it doesn't exist or is incomplete
-            if [ ! -d "venv" ] || [ ! -f "venv/bin/activate" ]; then
-              echo "Creating Python virtual environment..."
-              rm -rf venv
-              python3 -m venv venv
-            else
-              echo "Virtual environment already exists"
-            fi
-            
-            # Activate virtual environment and install dependencies
-            echo "Activating virtual environment..."
-            source venv/bin/activate || {
-              echo "Failed to activate virtual environment. Recreating..."
-              rm -rf venv
-              python3 -m venv venv
-              source venv/bin/activate
-            }
-            echo "Upgrading pip..."
-            pip install --upgrade pip -q
-            echo "Installing Python dependencies..."
-            pip install -r requirements.txt || {
-              echo "Error: Failed to install core dependencies"
-              exit 1
-            }
-            echo "Core Python dependencies installed successfully"
-            echo "Note: MetaTrader5 package requires MT5 terminal installation on the server"
-            echo "The bridge will run in compatibility mode if MT5 is not available"
-            
-            # Create .env file if it doesn't exist or verify it has required variables
-            if [ ! -f ".env" ]; then
-              echo "Creating .env file..."
-              echo "PORT=8080" > .env
-              echo "HOST=0.0.0.0" >> .env
-              echo "DEBUG=False" >> .env
-            else
-              echo ".env file already exists"
-              # Verify required variables exist
-              if ! grep -q "PORT=" .env; then
-                echo "PORT=8080" >> .env
-              fi
-              if ! grep -q "HOST=" .env; then
-                echo "HOST=0.0.0.0" >> .env
-              fi
-              if ! grep -q "DEBUG=" .env; then
-                echo "DEBUG=False" >> .env
-              fi
-            fi
-            echo "Verifying .env file contents:"
-            cat .env
-            
-            cd ../..
-            echo "MT5 Bridge setup completed!"
-            echo "=========================================="
-            
             # Restart services
             cd frontend/
             pm2 restart frontend || pm2 start npm --name "frontend" -- start
@@ -225,81 +156,11 @@ jobs:
             pm2 restart backend || pm2 start npm --name "backend" -- start
             cd ..
             
-            # Restart MT5 Bridge
-            echo "=========================================="
-            echo "Restarting MT5 Bridge..."
-            echo "=========================================="
-            cd backend/mt5-bridge/
-            
-            # Create logs directory if it doesn't exist
-            mkdir -p logs
-            
-            # Ensure virtual environment exists and is valid
-            if [ ! -f "venv/bin/python3" ]; then
-              echo "Warning: Virtual environment not found. Recreating..."
-              rm -rf venv
-              python3 -m venv venv
-              source venv/bin/activate
-              pip install --upgrade pip -q
-              pip install -r requirements.txt -q
-            fi
-            
-            # Verify Python interpreter exists
-            if [ ! -f "venv/bin/python3" ]; then
-              echo "ERROR: Python interpreter not found in venv!"
-              exit 1
-            fi
-            
-            # Get absolute path
-            BRIDGE_DIR=$(pwd)
-            echo "Bridge directory: $BRIDGE_DIR"
-            
-            # Check if bridge is already running
+            # Stop MT5 bridge if it is still running from older deploys
             if pm2 list | grep -q "mt5-bridge"; then
-              echo "MT5 Bridge found in PM2. Stopping and removing..."
+              echo "Removing leftover mt5-bridge from PM2..."
               pm2 delete mt5-bridge || true
-              sleep 1
             fi
             
-            echo "Starting MT5 Bridge with PM2..."
-            # Update PM2 config with correct path
-            cd "$BRIDGE_DIR"
-            # Use PM2 config file if it exists, otherwise use command line
-            if [ -f "pm2.config.js" ]; then
-              # Update cwd in config if needed (sed replacement)
-              sed -i "s|/var/www/forex/mt5-bridge|$BRIDGE_DIR|g" pm2.config.js || true
-              pm2 start pm2.config.js
-            else
-              # Fallback to command line start
-              PORT=8080 HOST=0.0.0.0 DEBUG=False pm2 start "$BRIDGE_DIR/venv/bin/python3" --name "mt5-bridge" -- "$BRIDGE_DIR/app.py"
-            fi
-            sleep 3
-            
-            # Verify bridge started successfully
-            if pm2 list | grep -q "mt5-bridge"; then
-              BRIDGE_STATUS=$(pm2 jlist | python3 -c "import sys, json; data=json.load(sys.stdin); bridge=[x for x in data if x['name']=='mt5-bridge']; print(bridge[0]['pm2_env']['status'] if bridge else 'not found')" 2>/dev/null || echo "unknown")
-              echo "MT5 Bridge PM2 Status: $BRIDGE_STATUS"
-              
-              if [ "$BRIDGE_STATUS" != "online" ]; then
-                echo "WARNING: MT5 Bridge status is not 'online'. Checking logs..."
-                pm2 logs mt5-bridge --lines 20 --nostream || true
-              else
-                echo "✓ MT5 Bridge is running successfully"
-              fi
-            else
-              echo "ERROR: Failed to start MT5 Bridge in PM2"
-              pm2 logs mt5-bridge --lines 50 --nostream || true
-              exit 1
-            fi
-            
-            # Save PM2 configuration
             pm2 save || echo "Warning: Failed to save PM2 configuration"
-            
-            # Test bridge health endpoint
-            echo "Testing bridge health endpoint..."
-            sleep 3
-            curl -f http://localhost:8080/health || echo "WARNING: Bridge health check failed (this might be normal if bridge is still starting)"
-            
-            cd ..
-            echo "MT5 Bridge deployment completed!"
-            echo "=========================================="
+            echo "Deployment completed!"
