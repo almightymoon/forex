@@ -11,6 +11,24 @@ const LiveSession = require('../models/LiveSession');
 const { sanitizeAllowedPackages } = require('../utils/coursePayload');
 const Assignment = require('../models/Assignment');
 const TeacherMessage = require('../models/TeacherMessage');
+const mongoose = require('mongoose');
+
+/**
+ * Course list is shared across teachers/admins. Load by id (not owner) so
+ * edit/save matches what the UI already shows.
+ */
+async function findSharedCourse(courseId, populate = null) {
+  if (!courseId || !mongoose.Types.ObjectId.isValid(String(courseId))) {
+    return null;
+  }
+  let query = Course.findById(courseId);
+  if (populate) {
+    for (const p of populate) {
+      query = query.populate(p.path, p.select);
+    }
+  }
+  return query;
+}
 
 // Debug endpoint to check teacher's student count specifically
 router.get('/debug-student-count', authenticateToken, requireTeacher, async (req, res) => {
@@ -283,7 +301,8 @@ router.get('/courses/:courseId', async (req, res) => {
     
     // Return full course data with all fields
     const fullCourseData = {
-      id: course._id,
+      id: course._id.toString(),
+      _id: course._id.toString(),
       title: course.title,
       description: course.description || '',
       category: course.category || 'forex',
@@ -353,10 +372,9 @@ router.post('/courses', async (req, res) => {
 router.put('/courses/:courseId', async (req, res) => {
   try {
     const { courseId } = req.params;
-    const teacherId = req.user._id;
     
-    // Verify course belongs to teacher
-    const existingCourse = await Course.findOne({ _id: courseId, teacher: teacherId });
+    // Shared teacher desk: any teacher/admin can update courses they can see in the list
+    const existingCourse = await findSharedCourse(courseId);
     if (!existingCourse) {
       return res.status(404).json({ success: false, error: 'Course not found' });
     }
@@ -403,6 +421,9 @@ router.put('/courses/:courseId', async (req, res) => {
     if (error.name === 'ValidationError') {
       return res.status(400).json({ success: false, error: formatValidationError(error) });
     }
+    if (error.name === 'CastError') {
+      return res.status(404).json({ success: false, error: 'Course not found' });
+    }
     res.status(500).json({ success: false, error: 'Failed to update course' });
   }
 });
@@ -417,9 +438,10 @@ router.delete('/courses/:courseId', async (req, res) => {
     
     console.log(`Delete course request: courseId=${courseId}, forceDelete=${forceDelete}`);
     
-    // Verify course belongs to teacher
-    const course = await Course.findOne({ _id: courseId, teacher: teacherId })
-      .populate('enrolledStudents.student', 'firstName lastName email role');
+    // Shared teacher desk: match list visibility (any teacher/admin can manage)
+    const course = await findSharedCourse(courseId, [
+      { path: 'enrolledStudents.student', select: 'firstName lastName email role' },
+    ]);
     if (!course) {
       return res.status(404).json({ success: false, error: 'Course not found' });
     }

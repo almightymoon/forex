@@ -74,7 +74,15 @@ export default function Courses({
       console.log('Sending course data to API:', courseData);
 
       const method = editingCourse ? 'PUT' : 'POST';
-      const url = editingCourse ? `/api/teacher/courses/${editingCourse.id}` : '/api/teacher/courses';
+      const courseId = editingCourse?.id || editingCourse?._id;
+      const url = editingCourse && courseId
+        ? `/api/teacher/courses/${courseId}`
+        : '/api/teacher/courses';
+
+      if (editingCourse && !courseId) {
+        showToast('Cannot update course: missing course id. Please reopen the course and try again.', 'error');
+        return;
+      }
       
       const response = await fetch(url, {
         method,
@@ -142,7 +150,7 @@ export default function Courses({
         return;
       }
 
-      const response = await fetch(`/api/teacher/courses/${course.id}`, {
+      const response = await fetch(`/api/teacher/courses/${course.id || course._id}`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -152,7 +160,14 @@ export default function Courses({
       if (response.ok) {
         const fullCourseData = await response.json();
         // The API might return { course: {...} } or just the course object
-        const courseData = fullCourseData.course || fullCourseData;
+        const courseData = fullCourseData.course || fullCourseData.data || fullCourseData;
+        if (!courseData?.id && !courseData?._id) {
+          showToast('Failed to load course details (missing id)', 'error');
+          return;
+        }
+        // Normalize id so save always has a string course id
+        courseData.id = String(courseData.id || courseData._id);
+        courseData._id = courseData.id;
         setEditingCourse(courseData);
         setShowCourseCreator(true);
       } else {
