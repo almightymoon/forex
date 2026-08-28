@@ -445,9 +445,24 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
     }
   };
 
+  const parseApiError = (data: unknown, fallback: string) => {
+    const payload = data as { error?: string; message?: string; errors?: Array<{ msg?: string }> };
+    if (payload?.error) return payload.error;
+    if (payload?.message) return payload.message;
+    if (Array.isArray(payload?.errors) && payload.errors.length) {
+      return payload.errors.map((e) => e.msg).filter(Boolean).join(', ') || fallback;
+    }
+    return fallback;
+  };
+
   const openGrantPackageModal = async () => {
+    if (['admin', 'teacher', 'instructor'].includes(currentUser.role)) {
+      showToast('Packages can only be granted to student accounts', 'error');
+      return;
+    }
     setShowGrantPackageModal(true);
     setGrantReason('');
+    setGrantPackageId('');
     try {
       const token = localStorage.getItem('token');
       const res = await fetch(buildApiUrl('api/admin/packages'), {
@@ -455,12 +470,17 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
       });
       if (res.ok) {
         const rows = await res.json();
-        const active = Array.isArray(rows) ? rows.filter((p: any) => p && p.isActive !== false) : [];
+        const active = Array.isArray(rows)
+          ? rows.filter((p: any) => p && p.isActive !== false && Number(p.price) > 0)
+          : [];
         setGrantPackages(active);
-        if (!grantPackageId && active.length) setGrantPackageId(active[0]._id);
+        if (active.length) setGrantPackageId(active[0]._id);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        showToast(parseApiError(data, 'Failed to load packages'), 'error');
       }
     } catch {
-      // ignore
+      showToast('Failed to load packages', 'error');
     }
   };
 
@@ -472,7 +492,8 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
     setIsGrantingPackage(true);
     try {
       const token = localStorage.getItem('token');
-      const res = await fetch(buildApiUrl(`api/admin/users/${user._id}/grant-package`), {
+      const userId = currentUser._id || user._id;
+      const res = await fetch(buildApiUrl(`api/admin/users/${userId}/grant-package`), {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -486,11 +507,12 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        showToast((data as any)?.error || 'Failed to grant package', 'error');
+        showToast(parseApiError(data, 'Failed to grant package'), 'error');
         return;
       }
       showToast('Package granted and account activated', 'success');
       setShowGrantPackageModal(false);
+      await refreshUserSnapshot();
       await fetchUserDetails();
     } catch (e) {
       console.error(e);
@@ -864,29 +886,29 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
             <div className="flex min-w-0 items-center gap-3.5">
               <div className="user-detail-modal__avatar-ring">
                 {user.profileImage ? (
-                  <img src={user.profileImage} alt="" className="h-14 w-14 rounded-full object-cover" />
+                  <img src={currentUser.profileImage || user.profileImage} alt="" className="h-14 w-14 rounded-full object-cover" />
                 ) : (
                   <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-xl font-bold text-white">
-                    {(user.firstName || user.email || 'U').charAt(0).toUpperCase()}
+                    {(currentUser.firstName || user.firstName || user.email || 'U').charAt(0).toUpperCase()}
                   </span>
                 )}
               </div>
               <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <h3 className="truncate text-lg font-bold text-white sm:text-xl">
-                    {user.firstName} {user.lastName}
+                    {currentUser.firstName} {currentUser.lastName}
                   </h3>
-                  <span className={`udm-role-pill is-${user.role}`}>{user.role}</span>
-                  <span className={`udm-status-pill ${user.isActive ? 'is-active' : 'is-inactive'}`}>
-                    {user.isActive ? 'Active' : 'Inactive'}
+                  <span className={`udm-role-pill is-${currentUser.role}`}>{currentUser.role}</span>
+                  <span className={`udm-status-pill ${currentUser.isActive ? 'is-active' : 'is-inactive'}`}>
+                    {currentUser.isActive ? 'Active' : 'Inactive'}
                   </span>
-                  {user.isVerified ? (
+                  {currentUser.isVerified ? (
                     <span className="udm-status-pill is-verified">Verified</span>
                   ) : (
                     <span className="udm-status-pill is-pending">Unverified</span>
                   )}
                 </div>
-                <p className="mt-0.5 truncate text-sm text-indigo-100/85">{user.email}</p>
+                <p className="mt-0.5 truncate text-sm text-indigo-100/85">{currentUser.email}</p>
                 {(currentUser as { userId?: string }).userId ? (
                   <p className="mt-1 font-mono text-[11px] text-indigo-200/60">{(currentUser as { userId?: string }).userId}</p>
                 ) : null}
@@ -917,7 +939,7 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                 items={[
                   { id: 'debit', label: 'Debit', icon: Minus, onClick: () => openBalanceModal('debit') },
                   { id: 'bonus', label: 'Bonus', icon: Gift, onClick: () => openBalanceModal('bonus') },
-                  { id: 'grant', label: 'Grant package', icon: Package, onClick: () => openGrantPackageModal },
+                  { id: 'grant', label: 'Grant package', icon: Package, onClick: openGrantPackageModal },
                   { id: 'revoke', label: 'Revoke package', icon: X, onClick: openRevokePackageModal, tone: 'danger' },
                   {
                     id: 'impose-fee',
@@ -2127,8 +2149,9 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
       )}
 
       {/* Grant Package Modal */}
-      {showGrantPackageModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60] p-4">
+      {showGrantPackageModal &&
+        createPortal(
+          <div className="user-detail-submodal-overlay fixed inset-0 flex items-center justify-center bg-black/50 p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -2210,8 +2233,9 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
               </div>
             </div>
           </motion.div>
-        </div>
-      )}
+        </div>,
+          document.body
+        )}
 
       {/* Revoke Package Modal */}
       {showRevokePackageModal && (

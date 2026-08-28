@@ -1469,6 +1469,10 @@
 }
 
 /* User detail modal — portaled to document.body, so define admin tokens here */
+.user-detail-submodal-overlay {
+  z-index: 110;
+}
+
 .user-detail-modal {
   --admin-bg: #f3f5f9;
   --admin-bg-accent: rgba(91, 91, 214, 0.07);

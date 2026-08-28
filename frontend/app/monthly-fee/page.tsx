@@ -8,6 +8,9 @@ import { hasMonthlyFeeAccessLock } from '@/utils/monthlyFeeAccessLock';
 import DarkModeToggle from '../../components/DarkModeToggle';
 import CoolLoader from '../../components/CoolLoader';
 import ReceiptDownloadButton from '../../components/ReceiptDownloadButton';
+import UserProfileDropdown from '../components/UserProfileDropdown';
+import { useDashboard } from '../../context/DashboardContext';
+import { useSettings } from '../../context/SettingsContext';
 import {
   CalendarClock,
   Wallet,
@@ -95,6 +98,8 @@ function formatUsd(n: number | null | undefined) {
 
 export default function MonthlyFeePage() {
   const router = useRouter();
+  const { settings } = useSettings();
+  const { data: { user }, refreshUser } = useDashboard();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [policy, setPolicy] = useState<Policy | null>(null);
@@ -167,6 +172,21 @@ export default function MonthlyFeePage() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    void refreshUser();
+  }, [refreshUser]);
+
+  const profileUser = user
+    ? {
+        firstName: user.firstName,
+        lastName: user.lastName,
+        email: user.email,
+        role: user.role,
+        profileImage: user.profileImage,
+        balance: user.balance,
+      }
+    : null;
 
   const ensurePendingAndPay = async () => {
     setCreating(true);
@@ -269,20 +289,42 @@ export default function MonthlyFeePage() {
       obligationResolved === 'not_applicable');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-violet-50/40 to-slate-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 p-4 sm:p-8">
-      <div className="max-w-4xl mx-auto">
-        <header className="flex items-start justify-between gap-4 mb-8">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-violet-50/40 to-slate-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
+      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-gray-800 dark:bg-gray-950/80">
+        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-4 py-3 sm:px-8">
+          <Link
+            href={mayLeaveToDashboard ? '/dashboard' : '/monthly-fee'}
+            className="flex min-w-0 items-center gap-3 rounded-xl transition-opacity hover:opacity-90"
+            aria-label={mayLeaveToDashboard ? 'Back to dashboard' : 'Monthly fee home'}
+          >
+            <img
+              src="/all-07.svg"
+              alt={`${settings.platformName} logo`}
+              className="h-9 w-auto object-contain dark:invert sm:h-10"
+            />
+            <span className="hidden truncate text-sm font-semibold text-gray-700 dark:text-gray-200 sm:inline">
+              {settings.platformName}
+            </span>
+          </Link>
+          <div className="flex shrink-0 items-center gap-2">
+            <DarkModeToggle size="sm" />
+            <UserProfileDropdown user={profileUser} />
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-4xl p-4 sm:p-8">
+        <header className="mb-8">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400 mb-1">
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">
               Billing
             </p>
-            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 dark:text-white tracking-tight">Monthly fee</h1>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400 max-w-xl">
+            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">Monthly fee</h1>
+            <p className="mt-2 max-w-xl text-sm text-gray-600 dark:text-gray-400">
               Same secure flow as your package payment: USDT (TRC20), transaction hash, your details, and a screenshot for
               admin review.
             </p>
           </div>
-          <DarkModeToggle size="sm" />
         </header>
 
         {policy?.adminImposedAccessBlock && (
