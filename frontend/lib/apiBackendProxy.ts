@@ -87,11 +87,11 @@ export async function proxyToBackendApi(
     headers.set(key, value);
   });
 
-  const contentType = request.headers.get('content-type') || '';
+  const requestContentType = request.headers.get('content-type') || '';
 
   let body: BodyInit | undefined;
   if (method !== 'GET' && method !== 'HEAD') {
-    if (contentType.toLowerCase().includes('multipart/form-data')) {
+    if (requestContentType.toLowerCase().includes('multipart/form-data')) {
       try {
         const buf = await request.arrayBuffer();
         body = buf.byteLength ? buf : undefined;
@@ -119,16 +119,16 @@ export async function proxyToBackendApi(
     body
   });
 
-  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  const responseContentType = (response.headers.get('content-type') || '').toLowerCase();
   const isBinary =
-    contentType.includes('application/pdf') ||
-    contentType.includes('application/octet-stream') ||
-    contentType.includes('application/zip') ||
-    contentType.includes('application/gzip') ||
-    contentType.includes('application/x-gzip') ||
-    contentType.includes('image/') ||
-    contentType.includes('audio/') ||
-    contentType.includes('video/');
+    responseContentType.includes('application/pdf') ||
+    responseContentType.includes('application/octet-stream') ||
+    responseContentType.includes('application/zip') ||
+    responseContentType.includes('application/gzip') ||
+    responseContentType.includes('application/x-gzip') ||
+    responseContentType.includes('image/') ||
+    responseContentType.includes('audio/') ||
+    responseContentType.includes('video/');
 
   const responseBody = isBinary ? await response.arrayBuffer() : await response.text();
 
