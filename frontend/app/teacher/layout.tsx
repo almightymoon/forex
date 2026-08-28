@@ -3,6 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import LoadingSpinner from './components/LoadingSpinner';
+import '../admin/components/admin.css';
+import './components/teacher.css';
 
 interface User {
   _id: string;
@@ -84,42 +86,36 @@ export default function TeacherLayout({
   // Prevent hydration mismatch by not rendering until client-side
   if (!isClient) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="admin-shell teacher-shell min-h-screen flex items-center justify-center">
         <div className="text-center">
           <LoadingSpinner />
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Loading...</p>
+          <p className="mt-4 text-[var(--admin-muted)]">Loading...</p>
         </div>
       </div>
     );
   }
 
-  // Show loading spinner while checking authentication
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="admin-shell teacher-shell min-h-screen flex items-center justify-center">
         <div className="text-center">
           <LoadingSpinner />
-          <p className="mt-4 text-gray-600 dark:text-gray-400">Verifying access...</p>
+          <p className="mt-4 text-[var(--admin-muted)]">Verifying access...</p>
         </div>
       </div>
     );
   }
 
-  // Show error if not authenticated
   if (!isAuthenticated || !user) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="admin-shell teacher-shell min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-emerald-600" />
           <p className="mt-4 text-red-600 dark:text-red-400">Redirecting to login...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {children}
-    </div>
-  );
+  return <>{children}</>;
 }

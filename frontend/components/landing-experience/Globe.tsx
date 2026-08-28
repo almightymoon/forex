@@ -11,6 +11,34 @@ import ThreeGlobe from 'three-globe';
 
 const GLOBE_RADIUS = 100;
 
+/** Avoid overlapping WebGL inits when React Strict Mode remounts quickly. */
+let globeInitSerial = 0;
+
+function releaseWebGLContext(renderer: THREE.WebGLRenderer) {
+  try {
+    const gl = renderer.getContext();
+    const ext = gl.getExtension('WEBGL_lose_context');
+    ext?.loseContext();
+  } catch {
+    /* ignore */
+  }
+  renderer.dispose();
+}
+
+function createGlobeRenderer(options: THREE.WebGLRendererParameters): THREE.WebGLRenderer | null {
+  try {
+    const renderer = new THREE.WebGLRenderer(options);
+    if (!renderer.getContext()) {
+      renderer.dispose();
+      return null;
+    }
+    return renderer;
+  } catch (error) {
+    console.warn('[Globe] WebGL renderer unavailable:', error);
+    return null;
+  }
+}
+
 interface Hub {
   city: string;
   lat: number;
@@ -97,22 +125,54 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const labelRefs = useRef<(HTMLDivElement | null)[]>(new Array(HUBS.length).fill(null));
   const [tooltip, setTooltip] = useState<TooltipState | null>(null);
+  const [webglFailed, setWebglFailed] = useState(false);
 
   useEffect(() => {
     const container = mountRef.current;
     if (!container) return;
 
-    const isAuth = variant === 'auth';
-    const isMarketing = variant === 'marketing';
+    const serial = ++globeInitSerial;
+    let disposed = false;
+    let cleanupScene: (() => void) | undefined;
+    let initTimer: ReturnType<typeof setTimeout> | undefined;
 
-    const w = container.clientWidth;
-    const h = container.clientHeight;
+    const initGlobe = () => {
+      if (disposed || serial !== globeInitSerial) return;
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: true,
-      powerPreference: 'high-performance',
-      alpha: isMarketing,
-    });
+      const isAuth = variant === 'auth';
+      const isMarketing = variant === 'marketing';
+
+      const w = container.clientWidth;
+      const h = container.clientHeight;
+      if (w <= 0 || h <= 0) {
+        const waitForSize = new ResizeObserver(() => {
+          if (disposed || serial !== globeInitSerial) {
+            waitForSize.disconnect();
+            return;
+          }
+          if (container.clientWidth > 0 && container.clientHeight > 0) {
+            waitForSize.disconnect();
+            initGlobe();
+          }
+        });
+        waitForSize.observe(container);
+        return;
+      }
+
+      const renderer = createGlobeRenderer({
+        antialias: !isAuth,
+        powerPreference: isAuth ? 'default' : 'high-performance',
+        alpha: isMarketing,
+        preserveDrawingBuffer: false,
+        failIfMajorPerformanceCaveat: false,
+      });
+
+      if (!renderer) {
+        setWebglFailed(true);
+        return;
+      }
+
+      setWebglFailed(false);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, isAuth || isMarketing ? 2 : 1.5));
     renderer.setSize(w, h);
     renderer.toneMapping = THREE.ReinhardToneMapping;
@@ -409,7 +469,7 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
 
     kick();
 
-    return () => {
+    cleanupScene = () => {
       io?.disconnect();
       releaseGlobeTouchScroll?.();
       cancelAnimationFrame(rafId);
@@ -428,13 +488,32 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
       cityLightsTex.dispose();
       (globeMat as THREE.Material).dispose();
       composer.dispose();
-      renderer.dispose();
+      releaseWebGLContext(renderer);
       if (container.contains(renderer.domElement)) container.removeChild(renderer.domElement);
+    };
+    };
+
+    initTimer = setTimeout(() => {
+      if (disposed) return;
+      initGlobe();
+    }, variant === 'auth' ? 64 : 0);
+
+    return () => {
+      disposed = true;
+      globeInitSerial += 1;
+      if (initTimer) clearTimeout(initTimer);
+      cleanupScene?.();
     };
   }, [variant]);
 
   return (
-    <div ref={mountRef} className="globe-mount">
+    <div ref={mountRef} className={`globe-mount${webglFailed ? ' globe-mount--fallback' : ''}`}>
+      {webglFailed ? (
+        <div className="globe-fallback" aria-hidden>
+          <div className="globe-fallback__glow" />
+          <div className="globe-fallback__ring" />
+        </div>
+      ) : null}
       {HUBS.map((hub, i) => (
         <div
           key={hub.city}

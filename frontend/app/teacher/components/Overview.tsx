@@ -1,7 +1,95 @@
+'use client';
+
 import React from 'react';
-import { Users, BookOpen, TrendingUp, Award, Clock } from 'lucide-react';
-import StatsCard from './StatsCard';
+import { motion } from 'framer-motion';
+import CountUp from 'react-countup';
+import {
+  Users,
+  BookOpen,
+  TrendingUp,
+  Award,
+  Clock,
+  ArrowRight,
+  ArrowUpRight,
+  Video,
+  MessageSquare,
+  Activity,
+  BookMarked,
+} from 'lucide-react';
 import { Student, LiveSession, Analytics } from '../types';
+import type { TeacherTabId } from '../config/nav';
+import { AdminPanel, AdminPanelHeader } from '../../admin/components/AdminUI';
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function studentName(student: Student): string {
+  if (student.firstName && student.lastName) return `${student.firstName} ${student.lastName}`;
+  return student.name || 'Unknown student';
+}
+
+function studentInitial(student: Student): string {
+  const name = student.firstName || student.name || student.email || '?';
+  return name.charAt(0).toUpperCase();
+}
+
+type MetricProps = {
+  label: string;
+  value: number;
+  prefix?: string;
+  suffix?: string;
+  decimals?: number;
+  accent: 'indigo' | 'emerald' | 'violet' | 'sky';
+  icon: React.ReactNode;
+  delay?: number;
+};
+
+function MetricTile({ label, value, prefix = '', suffix = '', decimals = 0, accent, icon, delay = 0 }: MetricProps) {
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay }}
+      className={`overview-metric overview-metric--${accent}`}
+    >
+      <div className="overview-metric__glow" aria-hidden />
+      <div className="overview-metric__top">
+        <div className="overview-metric__icon">{icon}</div>
+      </div>
+      <p className="overview-metric__label">{label}</p>
+      <p className="overview-metric__value">
+        {prefix}
+        <CountUp end={value} duration={1.2} decimals={decimals} separator="," />
+        {suffix}
+      </p>
+    </motion.article>
+  );
+}
+
+type ActionTileProps = {
+  title: string;
+  subtitle: string;
+  accent: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+};
+
+function ActionTile({ title, subtitle, accent, icon, onClick }: ActionTileProps) {
+  return (
+    <button type="button" onClick={onClick} className={`overview-action-tile ${accent}`}>
+      <div className="overview-action-tile__icon">{icon}</div>
+      <div className="overview-action-tile__body">
+        <span className="overview-action-tile__title">{title}</span>
+        <span className="overview-action-tile__sub">{subtitle}</span>
+      </div>
+      <ArrowUpRight className="overview-action-tile__arrow" />
+    </button>
+  );
+}
 
 interface OverviewProps {
   analytics: Analytics | null;
@@ -9,150 +97,238 @@ interface OverviewProps {
   liveSessions: LiveSession[];
   isLoading: boolean;
   onRefresh: () => void;
+  onTabChange: (tab: TeacherTabId) => void;
+  teacherName?: string;
+  platformName?: string;
   getSessionStatusColor: (status: string) => string;
 }
 
-export default function Overview({ 
-  analytics, 
-  students, 
-  liveSessions, 
-  isLoading, 
+export default function Overview({
+  analytics,
+  students,
+  liveSessions,
+  isLoading,
   onRefresh,
-  getSessionStatusColor 
+  onTabChange,
+  teacherName = 'Teacher',
+  platformName = 'Forex Navigators',
+  getSessionStatusColor,
 }: OverviewProps) {
-  const stats = [
-    {
-      icon: Users,
-      title: 'Total Students',
-      value: analytics?.totalStudents || 0,
-      iconBgColor: 'bg-blue-100',
-      iconColor: 'text-blue-600'
-    },
-    {
-      icon: BookOpen,
-      title: 'Total Courses',
-      value: analytics?.totalCourses || 0,
-      iconBgColor: 'bg-green-100',
-      iconColor: 'text-green-600'
-    },
-    {
-      icon: TrendingUp,
-      title: 'Revenue',
-      value: `$${(analytics?.totalRevenue || 0).toLocaleString()}`,
-      iconBgColor: 'bg-purple-100',
-      iconColor: 'text-purple-600'
-    },
-    {
-      icon: Award,
-      title: 'Avg Rating',
-      value: `${analytics?.averageRating || 0}/5.0`,
-      iconBgColor: 'bg-yellow-100',
-      iconColor: 'text-yellow-600'
-    }
-  ];
+  const scheduledSessions = liveSessions.filter((s) => s.status === 'scheduled');
+  const todayStr = new Date().toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
 
   return (
-    <div className="space-y-6">
-      {/* Header with Refresh Button */}
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Dashboard Overview</h2>
-          <p className="text-gray-600 dark:text-gray-300">Real-time insights into your teaching performance</p>
+    <div className="overview-command">
+      <motion.header
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="overview-hero"
+      >
+        <div className="overview-hero__mesh" aria-hidden />
+        <div className="overview-hero__content">
+          <div>
+            <p className="overview-hero__eyebrow">{platformName}</p>
+            <h2 className="overview-hero__title">
+              {greeting()}, {teacherName}
+            </h2>
+            <p className="overview-hero__date">{todayStr}</p>
+          </div>
+          <div className="overview-hero__pills">
+            <div className="overview-hero__pill">
+              <Users className="h-4 w-4 text-emerald-400" />
+              <span>
+                <strong>{analytics?.totalStudents ?? students.length}</strong> students
+              </span>
+            </div>
+            <div className="overview-hero__pill">
+              <BookOpen className="h-4 w-4 text-indigo-400" />
+              <span>
+                <strong>{analytics?.totalCourses ?? 0}</strong> courses
+              </span>
+            </div>
+            <div className="overview-hero__pill">
+              <Video className="h-4 w-4 text-violet-400" />
+              <span>
+                <strong>{scheduledSessions.length}</strong> upcoming sessions
+              </span>
+            </div>
+          </div>
+          <div className="overview-hero__actions">
+            <button type="button" className="overview-hero__primary-action" onClick={() => onTabChange('courses')}>
+              Manage courses <ArrowRight className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className="overview-hero__secondary-action"
+              onClick={onRefresh}
+              disabled={isLoading}
+            >
+              <Activity className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+              {isLoading ? 'Refreshing…' : 'Refresh data'}
+            </button>
+          </div>
         </div>
-        <button
-          onClick={onRefresh}
-          disabled={isLoading}
-          className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2 transition-colors"
-        >
-          <svg className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-          </svg>
-          <span>{isLoading ? 'Refreshing...' : 'Refresh Data'}</span>
-        </button>
+      </motion.header>
+
+      <div className="overview-metrics-grid">
+        <MetricTile
+          label="Total students"
+          value={analytics?.totalStudents ?? students.length}
+          accent="emerald"
+          icon={<Users className="h-5 w-5" />}
+        />
+        <MetricTile
+          label="Active courses"
+          value={analytics?.totalCourses ?? 0}
+          accent="indigo"
+          icon={<BookOpen className="h-5 w-5" />}
+          delay={0.06}
+        />
+        <MetricTile
+          label="Revenue"
+          value={analytics?.totalRevenue ?? 0}
+          prefix="$"
+          decimals={0}
+          accent="violet"
+          icon={<TrendingUp className="h-5 w-5" />}
+          delay={0.12}
+        />
+        <MetricTile
+          label="Avg rating"
+          value={analytics?.averageRating ?? 0}
+          suffix="/5"
+          decimals={1}
+          accent="sky"
+          icon={<Award className="h-5 w-5" />}
+          delay={0.18}
+        />
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <StatsCard key={index} {...stat} />
-        ))}
-      </div>
+      <section className="overview-panel overview-panel--actions">
+        <div className="overview-panel__head">
+          <div>
+            <h3 className="overview-panel__title">Quick actions</h3>
+            <p className="overview-panel__sub">Jump to common teaching tasks</p>
+          </div>
+        </div>
+        <div className="overview-actions-grid">
+        <ActionTile
+          title="View students"
+          subtitle="Roster & enrollment progress"
+          accent="overview-action-tile--emerald"
+          icon={<Users className="h-5 w-5" />}
+          onClick={() => onTabChange('students')}
+        />
+        <ActionTile
+          title="Live sessions"
+          subtitle="Schedule and host classes"
+          accent="overview-action-tile--indigo"
+          icon={<Video className="h-5 w-5" />}
+          onClick={() => onTabChange('live-sessions')}
+        />
+        <ActionTile
+          title="Assignments"
+          subtitle="Review submissions"
+          accent="overview-action-tile--violet"
+          icon={<BookMarked className="h-5 w-5" />}
+          onClick={() => onTabChange('assignments')}
+        />
+        <ActionTile
+          title="Messages"
+          subtitle="Reach your students"
+          accent="overview-action-tile--amber"
+          icon={<MessageSquare className="h-5 w-5" />}
+          onClick={() => onTabChange('communications')}
+        />
+        </div>
+      </section>
 
-      {/* Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Recent Enrollments</h3>
-          <div className="space-y-3">
-            {Array.isArray(students) && students.length > 0 ? (
-              students.slice(0, 5).map((student) => (
-                <div key={student.id || student._id} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                      <span className="text-blue-600 dark:text-blue-400 text-sm font-medium">
-                        {student.firstName ? student.firstName.charAt(0) : 
-                         student.name ? student.name.charAt(0) : 'U'}
+      <div className="teacher-overview-split">
+        <AdminPanel>
+          <AdminPanelHeader title="Recent enrollments" description="Latest students on your roster" />
+          <div className="overview-feed">
+            {students.length > 0 ? (
+              students.slice(0, 6).map((student) => (
+                <div key={student.id || student._id} className="overview-feed-item">
+                  <div className="overview-feed-item__avatar is-user">{studentInitial(student)}</div>
+                  <div className="overview-feed-item__main">
+                    <div className="overview-feed-item__row">
+                      <span className="overview-feed-item__title">{studentName(student)}</span>
+                    </div>
+                    <p className="overview-feed-item__meta">{student.email}</p>
+                    {student.enrolledCourses?.length ? (
+                      <p className="overview-feed-item__meta">
+                        {student.enrolledCourses.length} course{student.enrolledCourses.length > 1 ? 's' : ''}
+                      </p>
+                    ) : null}
+                  </div>
+                  <time className="overview-feed-item__time">
+                    {student.enrolledDate
+                      ? new Date(student.enrolledDate).toLocaleDateString(undefined, {
+                          month: 'short',
+                          day: 'numeric',
+                        })
+                      : '—'}
+                  </time>
+                </div>
+              ))
+            ) : (
+              <div className="admin-empty">
+                <Users className="admin-empty__icon" />
+                <p className="admin-empty__title">No students yet</p>
+                <p className="admin-empty__description">Enrollments will appear here as students join your courses.</p>
+              </div>
+            )}
+          </div>
+        </AdminPanel>
+
+        <AdminPanel>
+          <AdminPanelHeader title="Upcoming live sessions" description="Scheduled classes on your calendar" />
+          <div className="overview-feed">
+            {scheduledSessions.length > 0 ? (
+              scheduledSessions.slice(0, 5).map((session) => (
+                <div key={session.id} className="overview-feed-item">
+                  <div className="overview-feed-item__avatar is-payment">
+                    <Video className="h-4 w-4" />
+                  </div>
+                  <div className="overview-feed-item__main">
+                    <div className="overview-feed-item__row">
+                      <span className="overview-feed-item__title">{session.title}</span>
+                      <span className={`admin-badge admin-badge--emerald text-[10px] ${getSessionStatusColor(session.status)}`}>
+                        {session.status}
                       </span>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
-                        {student.firstName && student.lastName ? 
-                          `${student.firstName} ${student.lastName}` : 
-                          student.name || 'Unknown User'}
-                      </p>
-                      <p className="text-xs dark:text-white text-gray-500">{student.email}</p>
-                      {student.enrolledCourses && student.enrolledCourses.length > 0 && (
-                        <p className="text-xs  text-blue-600">
-                          {student.enrolledCourses.length} course{student.enrolledCourses.length > 1 ? 's' : ''}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <span className="text-xs dark:text-white text-gray-500">
-                    {student.enrolledDate ? new Date(student.enrolledDate).toLocaleDateString() : 'N/A'}
-                  </span>
-                </div>
-              ))
-            ) : (
-              <div className="text-center py-8 text-gray-500">
-                <Users className="w-12 h-12 mx-auto mb-3 text-gray-300" />
-                <p className="text-sm">No students enrolled yet</p>
-                <p className="text-xs">Students will appear here once they enroll</p>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h3 className="text-lg dark:text-white font-semibold text-gray-900 mb-4">Upcoming Live Sessions</h3>
-          <div className="space-y-3">
-            {Array.isArray(liveSessions) && liveSessions.filter(s => s.status === 'scheduled').length > 0 ? (
-              liveSessions.filter(s => s.status === 'scheduled').slice(0, 3).map((session) => (
-                <div key={session.id} className="p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-medium text-gray-900 dark:text-white">{session.title}</h4>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getSessionStatusColor(session.status)}`}>
-                      {session.status}
-                    </span>
-                  </div>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mb-2">{session.courseName || 'General Session'}</p>
-                  <div className="flex items-center text-xs text-gray-500 dark:text-gray-400">
-                    <Clock className="w-3 h-3 mr-1 text-gray-500 dark:text-gray-400" />
-                    {session.scheduledDate ? 
-                      `${new Date(session.scheduledDate).toLocaleDateString()} at ${new Date(session.scheduledDate).toLocaleTimeString()}` :
-                      'Date not set'
-                    }
+                    <p className="overview-feed-item__meta">{session.courseName || 'General session'}</p>
+                    <p className="overview-feed-item__meta flex items-center gap-1">
+                      <Clock className="h-3 w-3" />
+                      {session.scheduledDate
+                        ? new Date(session.scheduledDate).toLocaleString(undefined, {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                          })
+                        : 'Date not set'}
+                    </p>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
-                <Clock className="w-12 h-12 mx-auto mb-3 text-gray-300 dark:text-gray-500" />
-                <p className="text-sm">No upcoming sessions</p>
-                <p className="text-xs">Schedule live sessions to see them here</p>
+              <div className="admin-empty">
+                <Clock className="admin-empty__icon" />
+                <p className="admin-empty__title">No upcoming sessions</p>
+                <p className="admin-empty__description">Schedule a live session to see it on your dashboard.</p>
+                <button type="button" className="admin-btn admin-btn--primary mt-3" onClick={() => onTabChange('live-sessions')}>
+                  Open live sessions
+                </button>
               </div>
             )}
           </div>
-        </div>
+        </AdminPanel>
       </div>
     </div>
   );

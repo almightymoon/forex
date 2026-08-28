@@ -574,11 +574,12 @@ router.post('/messages/:id/pin', authenticateToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Message not found' });
     }
 
-    // Check if user can pin messages
+    // Check if user can pin messages (moderators or channel admin/moderator)
     const channel = await Channel.findById(message.channelId);
     const userMembership = channel.members.find(m => m.userId.toString() === req.user.id);
-    
-    if (userMembership?.role !== 'admin' && userMembership?.role !== 'moderator') {
+    const isChannelMod = userMembership?.role === 'admin' || userMembership?.role === 'moderator';
+
+    if (!canModerateCommunity(req.user) && !isChannelMod) {
       return res.status(403).json({ success: false, message: 'Cannot pin messages' });
     }
 

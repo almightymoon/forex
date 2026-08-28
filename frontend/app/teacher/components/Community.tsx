@@ -1,27 +1,104 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { motion } from 'framer-motion';
 import useChatSocket from '@/hooks/useChatSocket';
-import { 
-  Hash, 
-  Plus, 
-  Send, 
+import {
+  Hash,
+  Plus,
+  Send,
   Lock,
   Crown,
   Shield,
   X,
   Trash2,
-  MoreVertical,
-  Edit,
-  Check,
+  MessageSquare,
+  Users,
+  Radio,
+  RefreshCw,
+  Sparkles,
+  User,
+  Wifi,
+  WifiOff,
+  Eraser,
+  BarChart3,
+  Pin,
+  Reply,
+  Search,
+  Smile,
+  Paperclip,
+  Copy,
+  AtSign,
 } from 'lucide-react';
 import { showToast } from '@/utils/toast';
 import { isCommunityModerator } from '@/utils/communityPermissions';
+import AdminRowActionsMenu from '../../admin/components/AdminRowActionsMenu';
+import {
+  AdminBadge,
+  AdminButton,
+  AdminEmptyState,
+  AdminPanel,
+  AdminSearchField,
+  AdminStatCard,
+  AdminStatGrid,
+} from '../../admin/components/AdminUI';
+import TeacherStudentDetailsModal, { TeacherStudentDetailsTab } from './TeacherStudentDetailsModal';
+import { Student } from '../types';
+import {
+  QUICK_EMOJIS,
+  getMentionQuery,
+  insertMention,
+  readLastReadMap,
+  renderMessageContent,
+  userReacted,
+  writeLastRead,
+  type MessageReaction,
+} from './communityUtils';
 
-interface Channel { /* ... same as before ... */ _id: string; name: string; description: string; memberCount: number; isPrivate: boolean; isLocked: boolean; createdBy: { _id: string; firstName: string; lastName: string }; createdAt: string; lastMessage?: { content: string; timestamp: string; author: { _id: string; firstName: string; lastName: string } }; }
-interface Message { /* ... same as before ... */ _id: string; content: string; author: { _id: string; firstName: string; lastName: string; role: string }; timestamp?: string; createdAt?: string; updatedAt?: string; channelId: string; isEdited?: boolean; isPinned?: boolean; }
-interface CommunityProps { students: any[]; courses: any[]; }
+interface Channel {
+  _id: string;
+  name: string;
+  description: string;
+  memberCount: number;
+  isPrivate: boolean;
+  isLocked: boolean;
+  createdBy: { _id: string; firstName: string; lastName: string };
+  createdAt: string;
+  lastMessage?: {
+    content: string;
+    timestamp: string;
+    author: { _id: string; firstName: string; lastName: string };
+  };
+}
+
+interface MessageAttachment {
+  url: string;
+  originalName?: string;
+  mimeType?: string;
+}
+
+interface ParentMessage {
+  _id: string;
+  content: string;
+  author: { _id: string; firstName: string; lastName: string; role?: string };
+}
+
+interface Message {
+  _id: string;
+  content: string;
+  author: { _id: string; firstName: string; lastName: string; role: string };
+  timestamp?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  channelId: string;
+  isEdited?: boolean;
+  isPinned?: boolean;
+  reactions?: MessageReaction[];
+  parentMessage?: ParentMessage;
+  attachments?: MessageAttachment[];
+}
+interface CommunityProps { students: Student[]; courses: any[]; }
 
 export default function Community({ students, courses }: CommunityProps) {
   const [activeChannel, setActiveChannel] = useState<string>('');
@@ -36,7 +113,6 @@ export default function Community({ students, courses }: CommunityProps) {
   const [sendingMessage, setSendingMessage] = useState(false);
   const [creatingChannel, setCreatingChannel] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [showMessageMenu, setShowMessageMenu] = useState<string | null>(null);
   const [editingMessage, setEditingMessage] = useState<string | null>(null);
   const [editContent, setEditContent] = useState('');
   const [isUserScrolledUp, setIsUserScrolledUp] = useState(false);
@@ -49,9 +125,29 @@ export default function Community({ students, courses }: CommunityProps) {
   const [deletedMessageIds, setDeletedMessageIds] = useState<Set<string>>(new Set());
   const [deletingMessageIds, setDeletingMessageIds] = useState<Set<string>>(new Set());
   const [useWebSocket, setUseWebSocket] = useState(true);
-  
+  const [channelSearch, setChannelSearch] = useState('');
+  const [memberSearch, setMemberSearch] = useState('');
+  const [showMembersPanel, setShowMembersPanel] = useState(true);
+  const [selectedMember, setSelectedMember] = useState<Student | null>(null);
+  const [studentDetailsTab, setStudentDetailsTab] = useState<TeacherStudentDetailsTab>('overview');
+  const [showStudentModal, setShowStudentModal] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Message | null>(null);
+  const [pinnedMessages, setPinnedMessages] = useState<Message[]>([]);
+  const [showSearchPanel, setShowSearchPanel] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<Message[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [reactionPickerId, setReactionPickerId] = useState<string | null>(null);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  const [pendingImage, setPendingImage] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [unreadByChannel, setUnreadByChannel] = useState<Record<string, number>>({});
+  const [composerCursor, setComposerCursor] = useState(0);
+
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // WebSocket event handler with better deduplication
   const handleWebSocketEvent = (event: any) => {
@@ -72,6 +168,7 @@ export default function Community({ students, courses }: CommunityProps) {
             return prev;
           }
           console.log('Adding new message from WebSocket:', event.data._id);
+          bumpUnread(event.data.channelId);
           return sortMessages([...prev, event.data]);
         });
         break;
@@ -99,7 +196,7 @@ export default function Community({ students, courses }: CommunityProps) {
         // Remove deleted channel
         setChannels(prev => prev.filter(c => c._id !== event.data));
         if (activeChannel === event.data) {
-          setActiveChannel(null);
+          setActiveChannel('');
         }
         break;
     }
@@ -167,6 +264,216 @@ export default function Community({ students, courses }: CommunityProps) {
     return `${Math.floor(diff / 31536000)}y`;
   };
 
+  const filteredChannels = useMemo(() => {
+    const q = channelSearch.trim().toLowerCase();
+    if (!q) return channels;
+    return channels.filter(
+      (c) => c.name.toLowerCase().includes(q) || c.description?.toLowerCase().includes(q)
+    );
+  }, [channels, channelSearch]);
+
+  const filteredMembers = useMemo(() => {
+    const q = memberSearch.trim().toLowerCase();
+    if (!q) return students;
+    return students.filter((s) => {
+      const name = `${s.firstName || ''} ${s.lastName || ''} ${s.name || ''} ${s.email}`.toLowerCase();
+      return name.includes(q);
+    });
+  }, [students, memberSearch]);
+
+  const activeChannelData = useMemo(
+    () => channels.find((c) => c._id === activeChannel),
+    [channels, activeChannel]
+  );
+
+  const messageGroups = useMemo(() => {
+    const groups: { author: Message['author']; messages: Message[] }[] = [];
+    for (const message of messages) {
+      const last = groups[groups.length - 1];
+      if (last && last.author._id === message.author._id) {
+        last.messages.push(message);
+      } else {
+        groups.push({ author: message.author, messages: [message] });
+      }
+    }
+    return groups;
+  }, [messages]);
+
+  const getMemberName = (student: Student) => {
+    if (student.firstName && student.lastName) return `${student.firstName} ${student.lastName}`;
+    return student.name || student.email;
+  };
+
+  const getMemberInitials = (student: Student) => {
+    const first = student.firstName || student.name?.split(' ')[0] || student.email || '?';
+    const last = student.lastName || student.name?.split(' ')[1] || '';
+    if (last) return `${first.charAt(0)}${last.charAt(0)}`.toUpperCase();
+    return first.charAt(0).toUpperCase();
+  };
+
+  const openMemberProfile = (student: Student, tab: TeacherStudentDetailsTab = 'overview') => {
+    setSelectedMember(student);
+    setStudentDetailsTab(tab);
+    setShowStudentModal(true);
+  };
+
+  const roleBadge = (role?: string) => {
+    if (role === 'admin') return { label: 'Admin', tone: 'amber' as const, icon: Crown };
+    if (role === 'teacher') return { label: 'Teacher', tone: 'sky' as const, icon: Shield };
+    return { label: 'Student', tone: 'emerald' as const, icon: User };
+  };
+
+  const mentionSuggestions = useMemo(() => {
+    const query = getMentionQuery(messageInput, composerCursor);
+    if (query === null) return [];
+    return students
+      .filter((s) => {
+        const first = (s.firstName || '').toLowerCase();
+        const last = (s.lastName || '').toLowerCase();
+        const email = (s.email || '').split('@')[0].toLowerCase();
+        return first.startsWith(query) || last.startsWith(query) || email.startsWith(query);
+      })
+      .slice(0, 6);
+  }, [messageInput, composerCursor, students]);
+
+  const markChannelRead = (channelId: string) => {
+    if (!channelId) return;
+    writeLastRead(channelId, new Date().toISOString());
+    setUnreadByChannel((prev) => ({ ...prev, [channelId]: 0 }));
+  };
+
+  const bumpUnread = (channelId: string) => {
+    if (!channelId || channelId === activeChannel) return;
+    setUnreadByChannel((prev) => ({ ...prev, [channelId]: (prev[channelId] || 0) + 1 }));
+  };
+
+  const fetchPinnedMessages = async (channelId: string) => {
+    if (!channelId) return;
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const res = await fetch(`/api/community/channels/${channelId}/pinned`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.success) setPinnedMessages(data.messages || []);
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleToggleReaction = async (messageId: string, emoji: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const res = await fetch(`/api/community/messages/${messageId}/reaction`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emoji }),
+      });
+      if (!res.ok) {
+        showToast('Failed to update reaction', 'error');
+        return;
+      }
+      const data = await res.json();
+      if (data.success && data.message) {
+        setMessages((prev) => prev.map((m) => (m._id === messageId ? data.message : m)));
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to update reaction', 'error');
+    } finally {
+      setReactionPickerId(null);
+    }
+  };
+
+  const handlePinMessage = async (messageId: string) => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const res = await fetch(`/api/community/messages/${messageId}/pin`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        showToast(err.message || 'Failed to pin message', 'error');
+        return;
+      }
+      const data = await res.json();
+      if (data.success) {
+        showToast(data.message.isPinned ? 'Message pinned' : 'Message unpinned', 'success');
+        setMessages((prev) =>
+          prev.map((m) => (m._id === messageId ? { ...m, isPinned: data.message.isPinned } : m))
+        );
+        if (activeChannel) await fetchPinnedMessages(activeChannel);
+      }
+    } catch (e) {
+      console.error(e);
+      showToast('Failed to pin message', 'error');
+    }
+  };
+
+  const handleSearchMessages = async () => {
+    if (!searchQuery.trim()) return;
+    setSearchLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      const params = new URLSearchParams({ q: searchQuery.trim() });
+      if (activeChannel) params.set('channelId', activeChannel);
+      const res = await fetch(`/api/community/search?${params}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        showToast('Search failed', 'error');
+        return;
+      }
+      const data = await res.json();
+      setSearchResults(data.messages || []);
+    } catch (e) {
+      console.error(e);
+      showToast('Search failed', 'error');
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
+  const handleCopyMessage = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      showToast('Copied to clipboard', 'success');
+    } catch {
+      showToast('Could not copy', 'error');
+    }
+  };
+
+  const handleImageSelect = (file: File | null) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showToast('Only image files are supported', 'error');
+      return;
+    }
+    setPendingImage(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const clearPendingImage = () => {
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setPendingImage(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const applyMention = (student: Student) => {
+    const handle = student.firstName || student.email.split('@')[0];
+    const { value, cursor } = insertMention(messageInput, composerCursor, handle);
+    setMessageInput(value);
+    setComposerCursor(cursor);
+    composerRef.current?.focus();
+  };
+
   // --- fetch channels/messages ---
   const fetchChannels = async () => {
     try {
@@ -177,8 +484,19 @@ export default function Community({ students, courses }: CommunityProps) {
       });
       if (!res.ok) return;
       const data = await res.json();
-        if (data.success) {
-          setChannels(data.channels);
+      if (data.success) {
+        setChannels(data.channels);
+        const lastRead = readLastReadMap();
+        setUnreadByChannel((prev) => {
+          const next = { ...prev };
+          data.channels.forEach((c: Channel) => {
+            const ts = c.lastMessage?.timestamp;
+            if (ts && lastRead[c._id] && new Date(ts) > new Date(lastRead[c._id])) {
+              next[c._id] = (next[c._id] || 0) + 1;
+            }
+          });
+          return next;
+        });
         if (!activeChannel && data.channels.length > 0) setActiveChannel(data.channels[0]._id);
       }
     } catch (e) {
@@ -268,18 +586,17 @@ export default function Community({ students, courses }: CommunityProps) {
 
   // --- send message (optimistic) ---
   const handleSendMessage = async () => {
-    if (!messageInput.trim() || !activeChannel || sendingMessage) return;
+    if ((!messageInput.trim() && !pendingImage && !imagePreview) || !activeChannel || sendingMessage) return;
 
     // support commands quickly
-    if (messageInput.startsWith('/')) {
+    if (messageInput.startsWith('/') && !pendingImage) {
       const cmd = messageInput.toLowerCase().trim();
       if (cmd === '/help') {
-        showToast('Available commands: /clear, /help', 'info');
+        showToast('Commands: /clear, /search <query>, /pin (reply to a message first)', 'info');
         setMessageInput('');
         return;
       }
       if (cmd === '/clear') {
-        // permission check
         if (isCommunityModerator(currentUser?.role)) {
           await handlePurgeChannel(activeChannel);
           setMessageInput('');
@@ -289,80 +606,136 @@ export default function Community({ students, courses }: CommunityProps) {
         setMessageInput('');
         return;
       }
+      if (cmd.startsWith('/search ')) {
+        const q = messageInput.slice(8).trim();
+        setSearchQuery(q);
+        setShowSearchPanel(true);
+        setMessageInput('');
+        void (async () => {
+          setSearchLoading(true);
+          try {
+            const token = localStorage.getItem('token');
+            if (!token) return;
+            const params = new URLSearchParams({ q });
+            if (activeChannel) params.set('channelId', activeChannel);
+            const res = await fetch(`/api/community/search?${params}`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+              const data = await res.json();
+              setSearchResults(data.messages || []);
+            }
+          } finally {
+            setSearchLoading(false);
+          }
+        })();
+        return;
+      }
+      if (cmd === '/pin' && replyingTo) {
+        await handlePinMessage(replyingTo._id);
+        setMessageInput('');
+        setReplyingTo(null);
+        return;
+      }
     }
 
     setSendingMessage(true);
     setIsSendingMessage(true);
 
+    const content = messageInput.trim();
+    const parentMessageId = replyingTo?._id;
+    const imageFile = pendingImage;
+    const previewUrl = imagePreview;
+
     const optimisticMessage: Message = {
       _id: `temp-${Date.now()}`,
-      content: messageInput.trim(),
+      content: content || (pendingImage ? '📷' : ''),
       author: {
         _id: currentUser?.id || 'temp',
         firstName: 'You',
         lastName: '',
         role: currentUser?.role || 'user',
       },
-      createdAt: new Date(Date.now() + 1000).toISOString(), // ensures it sorts to bottom
+      createdAt: new Date(Date.now() + 1000).toISOString(),
       timestamp: new Date().toISOString(),
       channelId: activeChannel,
       isEdited: false,
       isPinned: false,
+      ...(replyingTo
+        ? {
+            parentMessage: {
+              _id: replyingTo._id,
+              content: replyingTo.content,
+              author: replyingTo.author,
+            },
+          }
+        : {}),
+      ...(previewUrl ? { attachments: [{ url: previewUrl }] } : {}),
     };
 
-    // add optimistic immediately and sort
-    setMessages(prev => sortMessages([...prev, optimisticMessage]));
+    setMessages((prev) => sortMessages([...prev, optimisticMessage]));
     setMessageInput('');
+    setReplyingTo(null);
+    if (composerRef.current) composerRef.current.style.height = 'auto';
+    clearPendingImage();
 
-    // ensure scroll to bottom
     setTimeout(() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 50);
 
     try {
       const token = localStorage.getItem('token');
       if (!token) return;
-      const res = await fetch(`/api/community/channels/${activeChannel}/messages`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content: optimisticMessage.content }),
-      });
+
+      let res: Response;
+      if (imageFile) {
+        const form = new FormData();
+        if (content) form.append('content', content);
+        if (parentMessageId) form.append('parentMessageId', parentMessageId);
+        form.append('image', imageFile);
+        res = await fetch(`/api/community/channels/${activeChannel}/messages`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+          body: form,
+        });
+      } else {
+        res = await fetch(`/api/community/channels/${activeChannel}/messages`, {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            content,
+            ...(parentMessageId ? { parentMessageId } : {}),
+          }),
+        });
+      }
 
       if (!res.ok) {
-        // remove optimistic
-        setMessages(prev => prev.filter(m => m._id !== optimisticMessage._id));
+        setMessages((prev) => prev.filter((m) => m._id !== optimisticMessage._id));
         showToast('Failed to send message', 'error');
         return;
       }
 
       const data = await res.json();
       if (!data.success) {
-        setMessages(prev => prev.filter(m => m._id !== optimisticMessage._id));
+        setMessages((prev) => prev.filter((m) => m._id !== optimisticMessage._id));
         showToast(data.message || 'Failed to send message', 'error');
         return;
       }
 
-      // Replace optimistic message with real message and sort
-      setMessages(prev =>
-        sortMessages([
-          ...prev.filter(msg => msg._id !== optimisticMessage._id),
-          data.message,
-        ])
+      setMessages((prev) =>
+        sortMessages([...prev.filter((msg) => msg._id !== optimisticMessage._id), data.message])
       );
 
-          // INSTANT refresh to sync with other users immediately (only if WebSocket disabled)
-          if (!useWebSocket) {
-            setTimeout(() => fetchMessages(activeChannel, false), 100);
-          }
+      if (!useWebSocket) {
+        setTimeout(() => fetchMessages(activeChannel, false), 100);
+      }
 
-      // Update channels last message
       await fetchChannels();
+      markChannelRead(activeChannel);
     } catch (e) {
       console.error(e);
-      // remove optimistic on error
-      setMessages(prev => prev.filter(m => m._id !== optimisticMessage._id));
+      setMessages((prev) => prev.filter((m) => m._id !== optimisticMessage._id));
       showToast('Failed to send message', 'error');
     } finally {
       setSendingMessage(false);
-      // delay re-polling conflicts
       setTimeout(() => setIsSendingMessage(false), 10000);
     }
   };
@@ -397,7 +770,6 @@ export default function Community({ students, courses }: CommunityProps) {
   const startEditMessage = (message: Message) => {
     setEditingMessage(message._id);
     setEditContent(message.content);
-    setShowMessageMenu(null);
   };
 
   const handleSaveEdit = async () => {
@@ -442,7 +814,6 @@ export default function Community({ students, courses }: CommunityProps) {
     setMessages(prev => prev.filter(m => m._id !== messageId));
     setDeletedMessageIds(prev => new Set([...prev, messageId]));
     setDeletingMessageIds(prev => new Set([...prev, messageId]));
-    setShowMessageMenu(null);
     
     try {
       const token = localStorage.getItem('token');
@@ -626,10 +997,13 @@ export default function Community({ students, courses }: CommunityProps) {
 
   useEffect(() => {
     if (!activeChannel) return;
-    // Clear deleted messages and deleting state when switching channels
     setDeletedMessageIds(new Set());
     setDeletingMessageIds(new Set());
+    setReplyingTo(null);
+    setReactionPickerId(null);
     fetchMessages(activeChannel, true);
+    fetchPinnedMessages(activeChannel);
+    markChannelRead(activeChannel);
   }, [activeChannel]);
 
   // poll for messages (server is authoritative) - Fallback when WebSocket is disabled
@@ -663,298 +1037,813 @@ export default function Community({ students, courses }: CommunityProps) {
     }
   }, [messages, isUserScrolledUp]);
 
+  useEffect(() => {
+    if (!showChannelCreator) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowChannelCreator(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [showChannelCreator]);
+
   // Prevent hydration mismatch by not rendering until client-side
   if (!isClient) {
     return (
-      <div className="flex h-[calc(100vh-200px)] items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-lg">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
-        </div>
+      <div className="teacher-community-loading">
+        <div className="teacher-community-loading__spinner" />
+        <p>Loading community workspace…</p>
       </div>
     );
   }
 
   if (loading) {
     return (
-      <div className="flex h-[calc(100vh-200px)] items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-lg">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-300">Loading community...</p>
-        </div>
+      <div className="teacher-community-loading">
+        <div className="teacher-community-loading__spinner" />
+        <p>Loading channels and messages…</p>
       </div>
     );
   }
 
-  // --- render ---
   return (
-    <div className="flex h-[calc(100vh-200px)] bg-gray-50 dark:bg-gray-900 rounded-lg overflow-hidden shadow-lg">
-      {/* Sidebar */}
-      <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
-        <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-          <div className="flex items-center justify-between">
-            <h2 className="text-lg font-bold">Trading Community</h2>
-            <button onClick={() => setShowChannelCreator(true)} className="p-2 hover:bg-white/20 rounded-lg">
-              <Plus className="w-5 h-5" />
-            </button>
-          </div>
-          <p className="text-blue-100 text-sm mt-1">Connect • Learn • Grow</p>
-        </div>
-        
-        <div className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Channels ({channels.length})</h3>
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-400">WebSocket</span>
-              <button
-                onClick={() => setUseWebSocket(!useWebSocket)}
-                className={`w-8 h-4 rounded-full transition-colors ${
-                  useWebSocket ? 'bg-green-500' : 'bg-gray-400'
-                }`}
-              >
-                <div className={`w-3 h-3 bg-white rounded-full transition-transform ${
-                  useWebSocket ? 'translate-x-4' : 'translate-x-0.5'
-                }`} />
-              </button>
-            </div>
-          </div>
-          <div className="space-y-1">
-            {channels.map(c => (
-              <div
-                key={c._id}
-                className={`w-full flex items-center space-x-3 px-3 py-2 rounded-lg ${
-                  activeChannel === c._id 
-                    ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-900 dark:text-blue-200' 
-                    : 'hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-700 dark:text-white'
-                }`}
-              >
-                <button
-                  onClick={() => setActiveChannel(c._id)}
-                  className="flex items-center space-x-3 flex-1 min-w-0 text-left"
-                >
-                  {c.isPrivate ? (
-                    <Lock className={`w-4 h-4 ${activeChannel === c._id ? 'text-blue-900 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`} />
-                  ) : (
-                    <Hash className={`w-4 h-4 ${activeChannel === c._id ? 'text-blue-900 dark:text-blue-200' : 'text-gray-700 dark:text-gray-300'}`} />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center space-x-2">
-                      <span className={`font-medium truncate ${activeChannel === c._id ? 'text-blue-900 dark:text-blue-200' : 'text-gray-700 dark:text-white'}`}>#{c.name}</span>
-                    </div>
-                    <p className={`text-xs truncate ${activeChannel === c._id ? 'text-blue-700 dark:text-blue-300' : 'text-gray-500 dark:text-gray-400'}`}>{c.description}</p>
-                  </div>
-                  <span className={`text-xs ${activeChannel === c._id ? 'text-blue-700 dark:text-blue-300' : 'text-gray-400 dark:text-gray-400'}`}>{c.memberCount}</span>
-                </button>
-                <button
-                  onClick={() => handleDeleteChannel(c._id)}
-                  disabled={deletingChannel === c._id}
-                  className={`p-1 rounded disabled:opacity-50 ${
-                    activeChannel === c._id
-                      ? 'hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300'
-                      : 'hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300'
-                  }`}
-                  title="Delete channel"
-                >
-                  {deletingChannel === c._id ? (
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-red-600 dark:border-red-400" />
-                  ) : (
-                    <Trash2 className="w-3 h-3" />
-                  )}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
+    <div className="teacher-community">
+      <div className="teacher-community__stats">
+        <AdminStatGrid>
+        <AdminStatCard label="Channels" value={channels.length} icon={Hash} tone="emerald" />
+        <AdminStatCard label="Community members" value={students.length} icon={Users} tone="indigo" />
+        <AdminStatCard
+          label="Messages in view"
+          value={messages.length}
+          icon={MessageSquare}
+          tone="violet"
+          hint={activeChannelData ? `#${activeChannelData.name}` : undefined}
+        />
+        <AdminStatCard
+          label="Live sync"
+          value={useWebSocket ? 'On' : 'Polling'}
+          icon={useWebSocket ? Wifi : WifiOff}
+          tone={useWebSocket ? 'sky' : 'amber'}
+        />
+        </AdminStatGrid>
       </div>
 
-      {/* Main */}
-      <div className="flex-1 flex flex-col bg-white dark:bg-gray-800">
-        <div className="p-4 border-b">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-gray-900 dark:text-white">
-                {channels.find(x => x._id === activeChannel)?.name ? `#${channels.find(x => x._id === activeChannel)?.name}` : 'Select a channel'}
-              </h3>
-              <p className="text-sm text-gray-500 mt-1">{channels.find(x => x._id === activeChannel)?.description}</p>
+      <AdminPanel className="teacher-community__workspace">
+        <div className="teacher-community__layout">
+          {/* Channel sidebar */}
+          <aside className="teacher-community__sidebar">
+            <div className="teacher-community__sidebar-head">
+              <div className="teacher-community__sidebar-head-mesh" aria-hidden />
+              <div className="relative flex items-start justify-between gap-3">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-emerald-200" />
+                    <h2 className="text-base font-bold text-white">Trading Community</h2>
+                  </div>
+                  <p className="mt-0.5 text-xs text-emerald-100/80">Connect · Learn · Grow</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowChannelCreator(true)}
+                  className="rounded-lg bg-white/15 p-2 text-white transition hover:bg-white/25"
+                  aria-label="Create channel"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
             </div>
-            <div className="flex items-center space-x-2">
-              {hasNewMessages && (
-                <div className="flex items-center space-x-2 text-blue-600">
-                  <div className="w-2 h-2 bg-blue-600 rounded-full animate-pulse"></div>
-                  <span className="text-xs font-medium">New messages</span>
+
+            <div className="teacher-community__sidebar-tools">
+              <AdminSearchField
+                value={channelSearch}
+                onChange={setChannelSearch}
+                placeholder="Search channels…"
+              />
+              <div className="teacher-community__live-toggle">
+                <span className="teacher-community__live-label">
+                  {useWebSocket ? <Wifi className="h-3.5 w-3.5 text-emerald-500" /> : <WifiOff className="h-3.5 w-3.5 text-amber-500" />}
+                  Real-time
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={useWebSocket}
+                  onClick={() => setUseWebSocket(!useWebSocket)}
+                  className={`teacher-community__toggle ${useWebSocket ? 'is-on' : ''}`}
+                >
+                  <span className="teacher-community__toggle-knob" />
+                </button>
+              </div>
+            </div>
+
+            <div className="teacher-community__channel-list">
+              <p className="teacher-community__section-label">Channels ({filteredChannels.length})</p>
+              {filteredChannels.length === 0 ? (
+                <div className="teacher-community__sidebar-empty">
+                  <Hash className="mx-auto mb-2 h-8 w-8 opacity-40" />
+                  <p className="text-sm font-medium">No channels yet</p>
+                  <p className="mt-1 text-xs opacity-70">Create one to start the conversation.</p>
+                  <AdminButton variant="primary" onClick={() => setShowChannelCreator(true)}>
+                    <Plus className="h-4 w-4" />
+                    New channel
+                  </AdminButton>
+                </div>
+              ) : (
+                filteredChannels.map((channel) => {
+                  const isActive = activeChannel === channel._id;
+                  return (
+                    <div
+                      key={channel._id}
+                      className={`teacher-community__channel ${isActive ? 'is-active' : ''}`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => setActiveChannel(channel._id)}
+                        className="teacher-community__channel-btn"
+                      >
+                        <span className="teacher-community__channel-icon">
+                          {channel.isPrivate ? <Lock className="h-4 w-4" /> : <Hash className="h-4 w-4" />}
+                        </span>
+                        <span className="min-w-0 flex-1 text-left">
+                          <span className="block truncate font-semibold">#{channel.name}</span>
+                          {channel.description ? (
+                            <span className="block truncate text-xs opacity-70">{channel.description}</span>
+                          ) : null}
+                        </span>
+                        <span className="text-xs tabular-nums opacity-60">{channel.memberCount}</span>
+                        {(unreadByChannel[channel._id] || 0) > 0 && activeChannel !== channel._id ? (
+                          <span className="teacher-community__unread">{unreadByChannel[channel._id]}</span>
+                        ) : null}
+                      </button>
+                      <AdminRowActionsMenu
+                        variant="icon"
+                        align="right"
+                        label={`Channel actions for ${channel.name}`}
+                        items={[
+                          {
+                            id: 'delete',
+                            label: 'Delete channel',
+                            icon: Trash2,
+                            tone: 'danger',
+                            loading: deletingChannel === channel._id,
+                            onClick: () => void handleDeleteChannel(channel._id),
+                          },
+                        ]}
+                      />
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </aside>
+
+          {/* Chat main */}
+          <section className="teacher-community__chat">
+            <header className="teacher-community__chat-head">
+              <div className="min-w-0">
+                {activeChannelData ? (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="truncate text-base font-bold text-[var(--admin-text)]">
+                        #{activeChannelData.name}
+                      </h3>
+                      {activeChannelData.isPrivate ? (
+                        <AdminBadge tone="amber">
+                          <Lock className="mr-1 inline h-3 w-3" />
+                          Private
+                        </AdminBadge>
+                      ) : (
+                        <AdminBadge tone="emerald">Public</AdminBadge>
+                      )}
+                      {useWebSocket ? (
+                        <span className="teacher-community__pulse">
+                          <Radio className="h-3 w-3" />
+                          Live
+                        </span>
+                      ) : null}
+                    </div>
+                    {activeChannelData.description ? (
+                      <p className="mt-0.5 truncate text-sm text-[var(--admin-muted)]">
+                        {activeChannelData.description}
+                      </p>
+                    ) : null}
+                  </>
+                ) : (
+                  <h3 className="text-base font-bold text-[var(--admin-text)]">Select a channel</h3>
+                )}
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                {hasNewMessages ? (
+                  <AdminBadge tone="sky">New messages</AdminBadge>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setShowMembersPanel((v) => !v)}
+                  className="teacher-community__icon-btn"
+                  title={showMembersPanel ? 'Hide members' : 'Show members'}
+                >
+                  <Users className="h-4 w-4" />
+                </button>
+                {activeChannel && isCommunityModerator(currentUser?.role) ? (
+                  <AdminRowActionsMenu
+                    variant="icon"
+                    align="right"
+                    label="Channel tools"
+                    items={[
+                      {
+                        id: 'purge',
+                        label: 'Clear messages',
+                        icon: Eraser,
+                        tone: 'warning',
+                        onClick: () => void handlePurgeChannel(activeChannel),
+                      },
+                      {
+                        id: 'delete',
+                        label: 'Delete channel',
+                        icon: Trash2,
+                        tone: 'danger',
+                        loading: deletingChannel === activeChannel,
+                        onClick: () => void handleDeleteChannel(activeChannel),
+                      },
+                    ]}
+                  />
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setShowSearchPanel((v) => !v)}
+                  className="teacher-community__icon-btn"
+                  title="Search messages"
+                  disabled={!activeChannel}
+                >
+                  <Search className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => activeChannel && fetchMessages(activeChannel, false)}
+                  className="teacher-community__icon-btn"
+                  title="Refresh messages"
+                  disabled={!activeChannel}
+                >
+                  <RefreshCw className="h-4 w-4" />
+                </button>
+              </div>
+            </header>
+
+            {showSearchPanel && activeChannel ? (
+              <div className="teacher-community__search-bar">
+                <AdminSearchField
+                  value={searchQuery}
+                  onChange={setSearchQuery}
+                  placeholder="Search in channel…"
+                />
+                <AdminButton variant="primary" onClick={() => void handleSearchMessages()} disabled={searchLoading}>
+                  {searchLoading ? 'Searching…' : 'Search'}
+                </AdminButton>
+                <AdminButton variant="ghost" onClick={() => setShowSearchPanel(false)}>
+                  Close
+                </AdminButton>
+              </div>
+            ) : null}
+
+            {searchResults.length > 0 && showSearchPanel ? (
+              <div className="teacher-community__search-results">
+                {searchResults.map((result) => (
+                  <button
+                    key={result._id}
+                    type="button"
+                    className="teacher-community__search-hit"
+                    onClick={() => {
+                      const el = document.getElementById(`msg-${result._id}`);
+                      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }}
+                  >
+                    <span className="font-semibold">{result.author.firstName} {result.author.lastName}</span>
+                    <span className="truncate text-sm text-[var(--admin-muted)]">{result.content}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            {pinnedMessages.length > 0 && activeChannel ? (
+              <div className="teacher-community__pinned">
+                <Pin className="h-4 w-4 shrink-0 text-amber-500" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-bold uppercase tracking-wide text-[var(--admin-muted)]">Pinned</p>
+                  <p className="truncate text-sm text-[var(--admin-text)]">
+                    <strong>{pinnedMessages[0].author.firstName}:</strong> {pinnedMessages[0].content}
+                  </p>
+                </div>
+                {pinnedMessages.length > 1 ? (
+                  <AdminBadge tone="amber">{pinnedMessages.length}</AdminBadge>
+                ) : null}
+              </div>
+            ) : null}
+
+            <div
+              ref={messagesContainerRef}
+              className="teacher-community__messages"
+              onScroll={checkIfUserScrolledUp}
+            >
+              {!activeChannel ? (
+                <AdminEmptyState
+                  icon={Hash}
+                  title="Select a channel"
+                  description="Pick a channel from the sidebar or create a new one to start moderating discussions."
+                    action={
+                    <AdminButton variant="primary" onClick={() => setShowChannelCreator(true)}>
+                      <Plus className="h-4 w-4" />
+                      Create channel
+                    </AdminButton>
+                  }
+                />
+              ) : messages.length === 0 ? (
+                <AdminEmptyState
+                  icon={MessageSquare}
+                  title="No messages yet"
+                  description="Be the first to post in this channel and welcome your students."
+                />
+              ) : (
+                <div className="teacher-community__message-stack">
+                  {messageGroups.map((group) => {
+                    const badge = roleBadge(group.author.role);
+                    const RoleIcon = badge.icon;
+                    const firstMessage = group.messages[0];
+                    return (
+                      <article key={firstMessage._id} className="teacher-community__message-group">
+                        <div className="teacher-community__avatar">
+                          {group.author.firstName?.charAt(0) ?? '?'}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="teacher-community__message-meta">
+                            <span className="font-semibold text-[var(--admin-text)]">
+                              {group.author.firstName} {group.author.lastName}
+                            </span>
+                            <AdminBadge tone={badge.tone}>
+                              <RoleIcon className="mr-1 inline h-3 w-3" />
+                              {badge.label}
+                            </AdminBadge>
+                            <span className="text-xs text-[var(--admin-muted)]">
+                              {formatRelativeTime(firstMessage.timestamp || firstMessage.createdAt)}
+                            </span>
+                          </div>
+                          <div className="teacher-community__bubbles">
+                            {group.messages.map((message) => (
+                              <div key={message._id} id={`msg-${message._id}`} className="teacher-community__bubble-wrap group">
+                                {editingMessage === message._id ? (
+                                  <div className="teacher-community__edit">
+                                    <textarea
+                                      value={editContent}
+                                      onChange={(e) => setEditContent(e.target.value)}
+                                      rows={3}
+                                      className="teacher-community__edit-input"
+                                    />
+                                    <div className="flex justify-end gap-2">
+                                      <AdminButton variant="ghost" onClick={() => { setEditingMessage(null); setEditContent(''); }}>
+                                        Cancel
+                                      </AdminButton>
+                                      <AdminButton variant="primary" onClick={() => void handleSaveEdit()}>Save</AdminButton>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div className="teacher-community__bubble">
+                                      {message.parentMessage ? (
+                                        <div className="teacher-community__reply-quote">
+                                          <Reply className="h-3 w-3 shrink-0" />
+                                          <span className="truncate">
+                                            <strong>{message.parentMessage.author.firstName}</strong>{' '}
+                                            {message.parentMessage.content}
+                                          </span>
+                                        </div>
+                                      ) : null}
+                                      {message.attachments?.map((att, idx) =>
+                                        att.url ? (
+                                          <a key={idx} href={att.url} target="_blank" rel="noreferrer" className="teacher-community__attachment">
+                                            <img src={att.url} alt={att.originalName || 'attachment'} />
+                                          </a>
+                                        ) : null
+                                      )}
+                                      {message.content ? (
+                                        <p>{renderMessageContent(message.content)}</p>
+                                      ) : null}
+                                      {message.isEdited ? (
+                                        <span className="teacher-community__edited">edited</span>
+                                      ) : null}
+                                      {message.isPinned ? (
+                                        <span className="teacher-community__pinned-tag">
+                                          <Pin className="h-3 w-3" /> pinned
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                    {message.reactions && message.reactions.length > 0 ? (
+                                      <div className="teacher-community__reactions">
+                                        {message.reactions.map((reaction) => (
+                                          <button
+                                            key={reaction.emoji}
+                                            type="button"
+                                            className={`teacher-community__reaction ${userReacted(reaction, currentUser?.id) ? 'is-mine' : ''}`}
+                                            onClick={() => void handleToggleReaction(message._id, reaction.emoji)}
+                                          >
+                                            <span>{reaction.emoji}</span>
+                                            <span>{reaction.count}</span>
+                                          </button>
+                                        ))}
+                                      </div>
+                                    ) : null}
+                                    <div className="teacher-community__msg-actions">
+                                      <button
+                                        type="button"
+                                        className="teacher-community__react-btn"
+                                        onClick={() => setReactionPickerId(reactionPickerId === message._id ? null : message._id)}
+                                        title="Add reaction"
+                                      >
+                                        <Smile className="h-4 w-4" />
+                                      </button>
+                                      {reactionPickerId === message._id ? (
+                                        <div className="teacher-community__emoji-picker">
+                                          {QUICK_EMOJIS.map((emoji) => (
+                                            <button
+                                              key={emoji}
+                                              type="button"
+                                              onClick={() => void handleToggleReaction(message._id, emoji)}
+                                            >
+                                              {emoji}
+                                            </button>
+                                          ))}
+                                        </div>
+                                      ) : null}
+                                      <AdminRowActionsMenu
+                                        variant="icon"
+                                        align="right"
+                                        className="teacher-community__msg-menu"
+                                        label="Message actions"
+                                        items={[
+                                          {
+                                            id: 'reply',
+                                            label: 'Reply',
+                                            icon: Reply,
+                                            tone: 'info',
+                                            onClick: () => {
+                                              setReplyingTo(message);
+                                              composerRef.current?.focus();
+                                            },
+                                          },
+                                          {
+                                            id: 'react',
+                                            label: 'Add reaction',
+                                            icon: Smile,
+                                            tone: 'info',
+                                            onClick: () => setReactionPickerId(message._id),
+                                          },
+                                          {
+                                            id: 'copy',
+                                            label: 'Copy text',
+                                            icon: Copy,
+                                            onClick: () => void handleCopyMessage(message.content),
+                                          },
+                                          {
+                                            id: 'pin',
+                                            label: message.isPinned ? 'Unpin message' : 'Pin message',
+                                            icon: Pin,
+                                            tone: 'warning',
+                                            hidden: !isCommunityModerator(currentUser?.role),
+                                            onClick: () => void handlePinMessage(message._id),
+                                          },
+                                          {
+                                            id: 'edit',
+                                            label: 'Edit message',
+                                            tone: 'info',
+                                            hidden: message.author._id !== currentUser?.id,
+                                            onClick: () => startEditMessage(message),
+                                          },
+                                          {
+                                            id: 'delete',
+                                            label: 'Delete message',
+                                            tone: 'danger',
+                                            loading: deletingMessageIds.has(message._id),
+                                            hidden: !(isCommunityModerator(currentUser?.role) || message.author._id === currentUser?.id),
+                                            onClick: () => void handleDeleteMessage(message._id),
+                                          },
+                                        ]}
+                                      />
+                                    </div>
+                                  </>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </article>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
                 </div>
               )}
-              <button
-                onClick={() => activeChannel && fetchMessages(activeChannel, false)}
-                className="p-1 hover:bg-gray-100 rounded transition-colors"
-                title="Refresh messages"
-              >
-                <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                </svg>
-              </button>
-            </div>
-          </div>
-        </div>
-        
-        <div ref={messagesContainerRef} className="flex-1 p-4 overflow-y-auto" onScroll={checkIfUserScrolledUp}>
-          {!activeChannel ? (
-            <div className="text-center py-12">
-              <Hash className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Select a Channel</h3>
-            </div>
-          ) : messages.length === 0 ? (
-            <div className="text-center py-12">
-              <Hash className="w-16 h-16 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 dark:text-white">No messages yet</h3>
-              <p className="text-gray-500 dark:text-gray-400">Be the first to start the conversation!</p>
-            </div>
-          ) : (
-            // Important: normal column order (oldest at top, newest at bottom)
-            <div className="flex flex-col space-y-4">
-              {messages.map(m => (
-                <div key={m._id} className="flex space-x-3 group relative">
-                  <div className="flex-shrink-0">
-                    <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                      {m.author.firstName?.charAt(0) ?? '?'}
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center space-x-2">
-                      <span className="font-medium text-gray-900 dark:text-white">{m.author.firstName} {m.author.lastName}</span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400">{formatRelativeTime(m.timestamp || m.createdAt)}</span>
-                      {m.isEdited && <span className="text-xs text-gray-400 dark:text-gray-500 italic">(edited)</span>}
-                      {m.author.role === 'admin' && <Crown className="w-4 h-4 text-yellow-500 dark:text-yellow-400" />}
-                      {m.author.role === 'teacher' && <Shield className="w-4 h-4 text-blue-500 dark:text-blue-400" />}
-                    </div>
 
-                    {editingMessage === m._id ? (
-                      <div className="mt-2 space-y-2">
-                        <textarea 
-                          value={editContent} 
-                          onChange={(e) => setEditContent(e.target.value)} 
-                          rows={2} 
-                          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent" 
-                        />
-                        <div className="flex items-center justify-end space-x-2">
-                          <button onClick={handleSaveEdit} className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600">Save</button>
-                          <button onClick={() => { setEditingMessage(null); setEditContent(''); }} className="px-3 py-1 bg-gray-500 text-white rounded hover:bg-gray-600 dark:bg-gray-600 dark:hover:bg-gray-700">Cancel</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="text-gray-700 dark:text-white mt-1">{m.content}</p>
-                    )}
-                  </div>
-                  
-                  <div className="flex-shrink-0 flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                    { /* permissions check inline */}
-                    { (isCommunityModerator(currentUser?.role) || m.author._id === currentUser?.id) && (
-                    <div className="relative">
-                        <button onClick={() => setShowMessageMenu(showMessageMenu === m._id ? null : m._id)} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400">
-                          <MoreVertical className="w-4 h-4" />
-                      </button>
-                      
-                        {showMessageMenu === m._id && (
-                          <div className="absolute right-0 top-8 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded shadow z-10 min-w-[120px]">
-                            { m.author._id === currentUser?.id && (
-                              <button onClick={() => startEditMessage(m)} className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-900 dark:text-white">Edit</button>
-                            )}
-                            <button onClick={() => handleDeleteMessage(m._id)} className="w-full px-3 py-2 text-left hover:bg-gray-50 dark:hover:bg-gray-700 text-red-600 dark:text-red-400">Delete</button>
-                        </div>
-                      )}
+              {hasNewMessages && isUserScrolledUp ? (
+                <div className="teacher-community__new-banner">
+                  <button type="button" onClick={scrollToBottom} className="teacher-community__new-btn">
+                    New messages
+                  </button>
+                </div>
+              ) : null}
+            </div>
+
+            {activeChannel ? (
+              <footer className="teacher-community__composer">
+                {replyingTo ? (
+                  <div className="teacher-community__reply-bar">
+                    <Reply className="h-4 w-4 shrink-0 text-emerald-500" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-[var(--admin-muted)]">
+                        Replying to {replyingTo.author.firstName}
+                      </p>
+                      <p className="truncate text-sm">{replyingTo.content}</p>
                     </div>
-                  )}
+                    <button type="button" onClick={() => setReplyingTo(null)} className="teacher-community__icon-btn">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : null}
+                {imagePreview ? (
+                  <div className="teacher-community__image-preview">
+                    <img src={imagePreview} alt="Upload preview" />
+                    <button type="button" onClick={clearPendingImage} className="teacher-community__icon-btn">
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ) : null}
+                <div className="teacher-community__composer-box">
+                  <div className="teacher-community__composer-toolbar" aria-label="Quick reactions">
+                    {QUICK_EMOJIS.slice(0, 6).map((emoji) => (
+                      <button
+                        key={emoji}
+                        type="button"
+                        className="teacher-community__emoji-chip"
+                        onClick={() => setMessageInput((v) => `${v}${emoji}`)}
+                        title={`Insert ${emoji}`}
+                      >
+                        {emoji}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="teacher-community__composer-row">
+                    <button
+                      type="button"
+                      className="teacher-community__composer-action"
+                      onClick={() => fileInputRef.current?.click()}
+                      title="Attach image"
+                    >
+                      <Paperclip className="h-4 w-4" />
+                    </button>
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleImageSelect(e.target.files?.[0] || null)}
+                    />
+                    <div className="teacher-community__composer-input-wrap">
+                      <textarea
+                        ref={composerRef}
+                        value={messageInput}
+                        rows={1}
+                        onChange={(e) => {
+                          setMessageInput(e.target.value);
+                          setComposerCursor(e.target.selectionStart || e.target.value.length);
+                          e.target.style.height = 'auto';
+                          e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
+                        }}
+                        onClick={(e) =>
+                          setComposerCursor((e.target as HTMLTextAreaElement).selectionStart || 0)
+                        }
+                        onKeyDown={(e) => {
+                          if (mentionSuggestions.length > 0) {
+                            if (e.key === 'ArrowDown') {
+                              e.preventDefault();
+                              setMentionIndex((i) => Math.min(i + 1, mentionSuggestions.length - 1));
+                              return;
+                            }
+                            if (e.key === 'ArrowUp') {
+                              e.preventDefault();
+                              setMentionIndex((i) => Math.max(i - 1, 0));
+                              return;
+                            }
+                            if (e.key === 'Tab' || (e.key === 'Enter' && mentionSuggestions.length > 0)) {
+                              e.preventDefault();
+                              applyMention(mentionSuggestions[mentionIndex]);
+                              return;
+                            }
+                          }
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            void handleSendMessage();
+                          }
+                        }}
+                        placeholder={`Message #${activeChannelData?.name || 'channel'}`}
+                        className="teacher-community__composer-input"
+                        disabled={sendingMessage}
+                      />
+                      {mentionSuggestions.length > 0 ? (
+                        <div className="teacher-community__mention-menu">
+                          {mentionSuggestions.map((student, idx) => (
+                            <button
+                              key={student.id || student._id}
+                              type="button"
+                              className={idx === mentionIndex ? 'is-active' : ''}
+                              onClick={() => applyMention(student)}
+                            >
+                              <AtSign className="h-3.5 w-3.5" />
+                              {getMemberName(student)}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                    <button
+                      type="button"
+                      className="teacher-community__composer-send"
+                      onClick={() => void handleSendMessage()}
+                      disabled={(!messageInput.trim() && !pendingImage && !imagePreview) || sendingMessage}
+                      title="Send message"
+                    >
+                      {sendingMessage ? (
+                        <span className="teacher-community-loading__spinner teacher-community-loading__spinner--sm" />
+                      ) : (
+                        <Send className="h-4 w-4" />
+                      )}
+                    </button>
                   </div>
                 </div>
-              ))}
-              <div ref={messagesEndRef} />
-            </div>
-          )}
-          
-          {/* New Messages Indicator */}
-          {hasNewMessages && isUserScrolledUp && (
-            <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-10">
-              <button
-                onClick={scrollToBottom}
-                className="bg-blue-600 text-white px-4 py-2 rounded-full shadow-lg hover:bg-blue-700 transition-colors flex items-center space-x-2 animate-bounce"
-              >
-                <span className="text-sm">New messages</span>
-                <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
-              </button>
-            </div>
-          )}
+                <p className="teacher-community__composer-hint">
+                  <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> new line · <code>@name</code> · <code>/search</code>
+                </p>
+              </footer>
+            ) : null}
+          </section>
+
+          {/* Members panel */}
+          {showMembersPanel ? (
+            <aside className="teacher-community__members is-visible">
+              <div className="teacher-community__members-head">
+                <h4 className="font-bold text-[var(--admin-text)]">Members</h4>
+                <AdminBadge tone="indigo">{filteredMembers.length}</AdminBadge>
+              </div>
+              <div className="teacher-community__members-search">
+                <AdminSearchField
+                  value={memberSearch}
+                  onChange={setMemberSearch}
+                  placeholder="Search students…"
+                />
+              </div>
+              <div className="teacher-community__member-list">
+                {filteredMembers.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-sm text-[var(--admin-muted)]">No members found.</p>
+                ) : (
+                  filteredMembers.map((student) => {
+                    const id = student.id || student._id || student.email;
+                    return (
+                      <div key={id} className="teacher-community__member">
+                        <button
+                          type="button"
+                          onClick={() => openMemberProfile(student, 'overview')}
+                          className="teacher-community__member-btn"
+                        >
+                          <span className="teacher-community__member-avatar">
+                            {student.profileImage || student.avatar ? (
+                              <img src={student.profileImage || student.avatar} alt="" className="h-full w-full object-cover" />
+                            ) : (
+                              getMemberInitials(student)
+                            )}
+                          </span>
+                          <span className="min-w-0 flex-1 text-left">
+                            <span className="block truncate text-sm font-semibold text-[var(--admin-text)]">
+                              {getMemberName(student)}
+                            </span>
+                            <span className="block truncate text-xs text-[var(--admin-muted)]">{student.email}</span>
+                          </span>
+                        </button>
+                        <AdminRowActionsMenu
+                          variant="icon"
+                          align="right"
+                          label={`Actions for ${getMemberName(student)}`}
+                          items={[
+                            {
+                              id: 'view',
+                              label: 'View student',
+                              icon: User,
+                              tone: 'info',
+                              onClick: () => openMemberProfile(student, 'overview'),
+                            },
+                            {
+                              id: 'performance',
+                              label: 'View performance',
+                              icon: BarChart3,
+                              tone: 'info',
+                              onClick: () => openMemberProfile(student, 'performance'),
+                            },
+                          ]}
+                        />
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </aside>
+          ) : null}
         </div>
+      </AdminPanel>
 
-        {/* input */}
-        {activeChannel && (
-          <div className="p-4 border-t border-gray-200 dark:border-gray-700">
-            <div className="flex space-x-3">
-              <input
-                type="text"
-                value={messageInput}
-                onChange={(e) => setMessageInput(e.target.value)}
-                onKeyPress={(e) => { if (e.key === 'Enter') handleSendMessage(); }}
-                placeholder="Type your message..."
-                className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                disabled={sendingMessage}
-              />
-              <button 
-                onClick={handleSendMessage} 
-                disabled={!messageInput.trim() || sendingMessage} 
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {sendingMessage ? <div className="animate-spin h-4 w-4 rounded-full border-b-2 border-white" /> : <Send className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+      {showStudentModal && selectedMember ? (
+        <TeacherStudentDetailsModal
+          student={selectedMember}
+          initialTab={studentDetailsTab}
+          onClose={() => setShowStudentModal(false)}
+        />
+      ) : null}
 
-      {/* Channel modal */}
-      <AnimatePresence>
-        {showChannelCreator && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }} className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Create New Channel</h3>
-                <button onClick={() => setShowChannelCreator(false)} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
-                  <X />
+      {showChannelCreator &&
+        createPortal(
+          <div
+            className="teacher-community-modal"
+            onClick={(e) => e.target === e.currentTarget && setShowChannelCreator(false)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 8 }}
+              className="teacher-community-modal__surface"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="teacher-community-modal__header">
+                <div>
+                  <h3 className="text-lg font-bold text-white">Create channel</h3>
+                  <p className="text-sm text-emerald-100/80">Start a new discussion space for your students.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowChannelCreator(false)}
+                  className="rounded-lg p-2 text-white/80 hover:bg-white/10 hover:text-white"
+                >
+                  <X className="h-5 w-5" />
                 </button>
               </div>
-              <div className="space-y-4">
-                <input 
-                  value={newChannelName} 
-                  onChange={e => setNewChannelName(e.target.value)} 
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" 
-                  placeholder="Channel name" 
-                />
-                <textarea 
-                  value={newChannelDescription} 
-                  onChange={e => setNewChannelDescription(e.target.value)} 
-                  rows={3} 
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400" 
-                  placeholder="Description" 
-                />
-                <div className="flex items-center justify-end space-x-2">
-                  <button 
-                    onClick={() => setShowChannelCreator(false)} 
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={handleCreateChannel} 
-                    disabled={!newChannelName.trim() || creatingChannel} 
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    Create
-                  </button>
-                </div>
+              <div className="teacher-community-modal__body">
+                <label className="teacher-community-modal__field">
+                  <span>Channel name</span>
+                  <input
+                    value={newChannelName}
+                    onChange={(e) => setNewChannelName(e.target.value)}
+                    placeholder="e.g. market-analysis"
+                    className="teacher-community-modal__input"
+                  />
+                </label>
+                <label className="teacher-community-modal__field">
+                  <span>Description</span>
+                  <textarea
+                    value={newChannelDescription}
+                    onChange={(e) => setNewChannelDescription(e.target.value)}
+                    rows={3}
+                    placeholder="What is this channel for?"
+                    className="teacher-community-modal__input"
+                  />
+                </label>
+                <label className="teacher-community-modal__privacy">
+                  <input
+                    type="checkbox"
+                    checked={isPrivateChannel}
+                    onChange={(e) => setIsPrivateChannel(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/30"
+                  />
+                  <span>
+                    <strong>Private channel</strong>
+                    <span className="teacher-community-modal__privacy-hint">
+                      Only invited members can see messages.
+                    </span>
+                  </span>
+                </label>
+              </div>
+              <div className="teacher-community-modal__footer">
+                <AdminButton variant="ghost" onClick={() => setShowChannelCreator(false)}>
+                  Cancel
+                </AdminButton>
+                <AdminButton
+                  variant="primary"
+                  className="teacher-community-modal__submit"
+                  onClick={() => void handleCreateChannel()}
+                  disabled={!newChannelName.trim() || creatingChannel}
+                >
+                  {creatingChannel ? 'Creating…' : 'Create channel'}
+                </AdminButton>
               </div>
             </motion.div>
-          </div>
+          </div>,
+          document.body
         )}
-      </AnimatePresence>
     </div>
   );
 }

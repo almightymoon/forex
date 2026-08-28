@@ -1161,9 +1161,14 @@
   border-color: rgba(99, 102, 241, 0.15);
 }
 
+.dark .overview-attention-item {
+  border-color: rgba(51, 65, 85, 0.65);
+  background: rgba(15, 23, 42, 0.42);
+}
+
 .dark .overview-attention-item:hover {
-  background: rgba(99, 102, 241, 0.1);
-  border-color: rgba(129, 140, 248, 0.2);
+  background: rgba(99, 102, 241, 0.12);
+  border-color: rgba(129, 140, 248, 0.22);
 }
 
 .overview-attention-item__icon {
@@ -1419,6 +1424,20 @@
 .overview-feed-item:hover {
   background: rgba(148, 163, 184, 0.08);
   border-color: rgba(148, 163, 184, 0.15);
+}
+
+.dark .overview-feed-item {
+  border-color: rgba(51, 65, 85, 0.65);
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.dark .overview-feed-item:hover {
+  background: rgba(30, 41, 59, 0.72);
+  border-color: rgba(71, 85, 105, 0.55);
+}
+
+.dark .overview-feed {
+  scrollbar-color: rgba(71, 85, 105, 0.45) transparent;
 }
 
 /* Directory views inherit the same visual language without adding noise. */
@@ -2065,11 +2084,6 @@
   .overview-hero__primary-action, .overview-hero__secondary-action { flex: 1; justify-content: center; }
 }
 
-.dark .overview-feed-item:hover {
-  background: rgba(51, 65, 85, 0.45);
-  border-color: rgba(71, 85, 105, 0.6);
-}
-
 .overview-feed-item__avatar {
   display: flex;
   align-items: center;
@@ -2169,6 +2183,10 @@
   text-align: center;
   font-size: 0.8125rem;
   color: #64748b;
+}
+
+.dark .overview-feed-empty {
+  color: #94a3b8;
 }
 
 .overview-feed-more {

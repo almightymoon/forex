@@ -1,27 +1,38 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Users, 
-  UserPlus, 
-  UserMinus, 
-  BookOpen, 
-  BarChart3, 
-  Search,
-  Eye,
-  Clock,
+import {
+  Users,
+  UserPlus,
+  UserMinus,
+  BookOpen,
+  BarChart3,
+  User,
   Target,
   CheckCircle,
   XCircle,
   RefreshCw,
   Trash2,
-  CheckSquare,
-  Square
+  Loader2,
 } from 'lucide-react';
 import { useToast } from '../../../components/Toast';
 import { Course, Student } from '../types';
 import { buildApiUrl } from '../../../utils/api';
+import AdminRowActionsMenu from '../../admin/components/AdminRowActionsMenu';
+import TeacherStudentDetailsModal, { TeacherStudentDetailsTab } from './TeacherStudentDetailsModal';
+import {
+  AdminBadge,
+  AdminButton,
+  AdminEmptyState,
+  AdminPage,
+  AdminPanel,
+  AdminPanelHeader,
+  AdminSearchField,
+  AdminStatCard,
+  AdminStatGrid,
+  AdminToolbar,
+} from '../../admin/components/AdminUI';
 
 // Extended Student interface for the detailed student management
 interface ExtendedStudent {
@@ -101,7 +112,8 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
   const [selectedStudent, setSelectedStudent] = useState<ExtendedStudent | null>(null);
   const [showEnrollModal, setShowEnrollModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
-  const [showPerformanceModal, setShowPerformanceModal] = useState(false);
+  const [showStudentDetailsModal, setShowStudentDetailsModal] = useState(false);
+  const [studentDetailsTab, setStudentDetailsTab] = useState<TeacherStudentDetailsTab>('overview');
   const [showBlockModal, setShowBlockModal] = useState(false);
   const [showCourseAssignmentModal, setShowCourseAssignmentModal] = useState(false);
   const [enrollmentData, setEnrollmentData] = useState<EnrollmentData>({
@@ -140,6 +152,12 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
   const [bulkRemoveCourseData, setBulkRemoveCourseData] = useState({
     courseId: ''
   });
+
+  const openStudentDetails = (student: ExtendedStudent, tab: TeacherStudentDetailsTab = 'overview') => {
+    setSelectedStudent(student);
+    setStudentDetailsTab(tab);
+    setShowStudentDetailsModal(true);
+  };
 
   // No need for useEffect or data fetching - data comes from props
 
@@ -356,25 +374,16 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
   };
 
   const handleSelectStudent = (studentId: string) => {
-    console.log('Selecting student:', studentId);
-    setSelectedStudents(prev => {
-      const newSelection = prev.includes(studentId) 
-        ? prev.filter(id => id !== studentId)
-        : [...prev, studentId];
-      console.log('New selection:', newSelection);
-      return newSelection;
-    });
+    setSelectedStudents((prev) =>
+      prev.includes(studentId) ? prev.filter((id) => id !== studentId) : [...prev, studentId]
+    );
   };
 
   const handleSelectAllStudents = () => {
-    console.log('Select all clicked. Current selection:', selectedStudents.length, 'Total students:', students.length);
-    if (selectedStudents.length === students.length) {
-      console.log('Deselecting all students');
+    if (selectedStudents.length === filteredStudents.length && filteredStudents.length > 0) {
       setSelectedStudents([]);
     } else {
-      const allStudentIds = students.map(student => student.id || student._id || '');
-      console.log('Selecting all students:', allStudentIds);
-      setSelectedStudents(allStudentIds);
+      setSelectedStudents(filteredStudents.map((student) => student.id || student._id || ''));
     }
   };
 
@@ -613,19 +622,41 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
     return matchesSearch;
   });
 
-  const getProgressColor = (progress: number) => {
-    if (progress >= 80) return 'text-green-600';
-    if (progress >= 60) return 'text-yellow-600';
-    if (progress >= 40) return 'text-orange-600';
-    return 'text-red-600';
+  const stats = useMemo(() => {
+    const totalEnrollments = students.reduce((total, student) => total + (student.totalCourses || 0), 0);
+    const avgProgress =
+      students.length > 0
+        ? Math.round(
+            students.reduce((total, student) => total + (student.progress || student.averageProgress || 0), 0) /
+              students.length
+          )
+        : 0;
+    const avgScore =
+      students.length > 0
+        ? Math.round(students.reduce((total, student) => total + (student.averageScore || 0), 0) / students.length)
+        : 0;
+    return { total: students.length, totalEnrollments, avgProgress, avgScore };
+  }, [students]);
+
+  const getStudentId = (student: ExtendedStudent) => student.id || student._id || '';
+
+  const getDisplayName = (student: ExtendedStudent) =>
+    student.firstName && student.lastName
+      ? `${student.firstName} ${student.lastName}`
+      : student.name || 'Unknown Student';
+
+  const getProgressFillClass = (progress: number) => {
+    if (progress >= 80) return 'teacher-progress__fill--high';
+    if (progress >= 60) return 'teacher-progress__fill--mid';
+    if (progress >= 40) return 'teacher-progress__fill--low';
+    return 'teacher-progress__fill--critical';
   };
 
-  const getScoreColor = (score: number, maxScore: number) => {
-    const percentage = (score / maxScore) * 100;
-    if (percentage >= 80) return 'text-green-600';
-    if (percentage >= 60) return 'text-yellow-600';
-    if (percentage >= 40) return 'text-orange-600';
-    return 'text-red-600';
+  const getProgressColor = (progress: number) => {
+    if (progress >= 80) return 'text-emerald-600 dark:text-emerald-400';
+    if (progress >= 60) return 'text-amber-600 dark:text-amber-400';
+    if (progress >= 40) return 'text-orange-600 dark:text-orange-400';
+    return 'text-rose-600 dark:text-rose-400';
   };
 
   const getUserInitials = (student: ExtendedStudent) => {
@@ -649,425 +680,291 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-      </div>
+      <AdminPage>
+        <div className="flex h-64 items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[var(--admin-accent)]" />
+        </div>
+      </AdminPage>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Student Management</h2>
-          <p className="text-gray-600 dark:text-gray-300">Manage student enrollments and track performance</p>
-        </div>
-        <div className="flex space-x-3">
-          <button
-            onClick={onRefresh}
-            disabled={isLoading}
-            className="flex items-center space-x-2 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
-          <button
-            onClick={() => setShowEnrollModal(true)}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <UserPlus className="w-4 h-4" />
-            <span>Enroll Student</span>
-          </button>
-        </div>
-      </div>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+      <AdminPage>
+        <AdminStatGrid>
+          <AdminStatCard label="Total students" value={stats.total} icon={Users} tone="emerald" />
+          <AdminStatCard label="Active enrollments" value={stats.totalEnrollments} icon={BookOpen} tone="indigo" />
+          <AdminStatCard label="Avg progress" value={`${stats.avgProgress}%`} icon={Target} tone="violet" />
+          <AdminStatCard label="Avg score" value={`${stats.avgScore}%`} icon={BarChart3} tone="amber" />
+        </AdminStatGrid>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900 rounded-lg">
-              <Users className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Total Students</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{students.length}</p>
-            </div>
-          </div>
-        </motion.div>
+        <AdminPanel>
+          <AdminPanelHeader
+            title="All students"
+            description="Search, enroll, and manage your student roster"
+            actions={
+              <>
+                {selectedStudents.length > 0 ? (
+                  <>
+                    <AdminButton variant="ghost" onClick={() => setSelectedStudents([])}>
+                      Clear ({selectedStudents.length})
+                    </AdminButton>
+                    <AdminButton variant="secondary" icon={BookOpen} onClick={() => setShowBulkEnrollModal(true)}>
+                      Bulk enroll
+                    </AdminButton>
+                    <AdminButton variant="warning" icon={UserMinus} onClick={() => setShowBulkRemoveFromCourseModal(true)}>
+                      Remove from course
+                    </AdminButton>
+                    <AdminButton variant="danger" icon={Trash2} onClick={() => setShowBulkDeleteModal(true)}>
+                      Bulk delete
+                    </AdminButton>
+                  </>
+                ) : null}
+                <AdminButton variant="ghost" icon={RefreshCw} onClick={onRefresh} disabled={isLoading}>
+                  Refresh
+                </AdminButton>
+                <AdminButton variant="primary" icon={UserPlus} onClick={() => setShowEnrollModal(true)}>
+                  Enroll student
+                </AdminButton>
+              </>
+            }
+          />
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-green-100 dark:bg-green-900 rounded-lg">
-              <BookOpen className="w-6 h-6 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Active Enrollments</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {students.reduce((total, student) => total + student.totalCourses, 0)}
-              </p>
-            </div>
-          </div>
-        </motion.div>
+          <AdminToolbar>
+            <AdminSearchField
+              value={searchTerm}
+              onChange={setSearchTerm}
+              placeholder="Search students by name or email..."
+            />
+          </AdminToolbar>
 
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900 rounded-lg">
-              <Target className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Avg Progress</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {students.length > 0 
-                  ? Math.round(students.reduce((total, student) => total + (student.progress || student.averageProgress || 0), 0) / students.length)
-                  : 0}%
-              </p>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-orange-100 dark:bg-orange-900 rounded-lg">
-              <BarChart3 className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-300">Avg Score</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                {students.length > 0 
-                  ? Math.round(students.reduce((total, student) => total + (student.averageScore || 0), 0) / students.length)
-                  : 0}%
-              </p>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Search */}
-      <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
-        <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-4">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search students by name or email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Bulk Actions Toolbar */}
-      {selectedStudents.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-blue-800">
-                {selectedStudents.length} student{selectedStudents.length !== 1 ? 's' : ''} selected
-              </span>
-              <button
-                onClick={() => setSelectedStudents([])}
-                className="text-sm text-blue-600 hover:text-blue-800 underline"
-              >
-                Clear selection
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowBulkEnrollModal(true)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2"
-              >
-                <BookOpen className="w-4 h-4" />
-                Bulk Enroll
-              </button>
-              <button
-                onClick={() => setShowBulkRemoveFromCourseModal(true)}
-                className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
-              >
-                <UserMinus className="w-4 h-4" />
-                Remove from Course
-              </button>
-              <button
-                onClick={() => setShowBulkDeleteModal(true)}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
-              >
-                <Trash2 className="w-4 h-4" />
-                Bulk Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-
-
-      {/* Students Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden dark:bg-gray-800 dark:border-gray-700">
-        {filteredStudents.length === 0 && !isLoading ? (
-          <div className="text-center py-12">
-            <Users className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No students found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {searchTerm ? 'Try adjusting your search terms.' : 'Start by enrolling students in your courses.'}
-            </p>
-            {!searchTerm && (
-              <div className="mt-6">
-                <button
-                  onClick={() => setShowEnrollModal(true)}
-                  className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
-                >
-                  <UserPlus className="-ml-1 mr-2 h-5 w-5" />
-                  Enroll Student
-                </button>
-              </div>
-            )}
-          </div>
-        ) : (
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50 dark:bg-gray-800">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  <button
-                    onClick={handleSelectAllStudents}
-                    className="flex items-center justify-center w-4 h-4"
-                  >
-                    {selectedStudents.length === students.length ? (
-                      <CheckSquare className="w-4 h-4 text-blue-600" />
-                    ) : (
-                      <Square className="w-4 h-4 text-gray-400" />
-                    )}
-                  </button>
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white">
-                  Student
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white ">
-                  Enrolled Courses
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white">
-                  Progress
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white">
-                  Performance
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white  ">
-                  Last Active
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider dark:text-white">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200 dark:bg-gray-800 dark:divide-gray-700">
-              {filteredStudents.map((student, index) => (
-                <motion.tr
-                  key={student._id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.05 }}
-                  className="hover:bg-gray-50 focus:outline-none focus:bg-transparent dark:hover:bg-gray-700 dark:focus:bg-transparent"
-                  tabIndex={-1}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <button
-                      onClick={() => handleSelectStudent(student.id || student._id || '')}
-                      className="flex items-center justify-center w-4 h-4"
-                    >
-                      {selectedStudents.includes(student.id || student._id || '') ? (
-                        <CheckSquare className="w-4 h-4 text-blue-600" />
-                      ) : (
-                        <Square className="w-4 h-4 text-gray-400 dark:text-white" />
-                      )}
-                    </button>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        {student.profileImage || student.avatar ? (
-                          <img
-                            className="h-10 w-10 rounded-full"
-                            src={student.profileImage || student.avatar}
-                            alt={`${student.firstName || student.name || 'Student'}`}
-                          />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center text-white font-semibold text-sm dark:text-white">
-                            {getUserInitials(student)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white">
-                          {student.firstName && student.lastName 
-                            ? `${student.firstName} ${student.lastName}`
-                            : student.name || 'Unknown Student'
-                          }
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-white">{student.email}</div>
-                        {student.role && <div className="text-xs text-gray-400 capitalize">{student.role}</div>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">{student.totalCourses}</div>
-                    <div className="text-xs text-gray-500 dark:text-white">courses enrolled</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                        <div
-                          className={`h-2 rounded-full ${getProgressColor(student.progress)}`}
-                          style={{ width: `${student.progress}%` }}
-                        ></div>
-                      </div>
-                      <span className={`text-sm font-medium ${getProgressColor(student.progress)}`}>
-                        {student.progress}%
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900 dark:text-white">{student.averageScore || 'N/A'}</div>
-                    <div className="text-xs text-gray-500 dark:text-white">{student.totalAssignments || 0} assignments</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                    {/* Status column - updated to use correct field names */}
-                    {(student.security?.isLocked || student.isBlocked) ? (
-                      <div className="space-y-1">
-                        <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300">
-                          <XCircle className="w-3 h-3 mr-1" />
-                          Blocked
-                        </div>
-                        {(student.security?.lockReason || student.blockReason) && (
-                          <div className="text-xs text-gray-600 dark:text-gray-300 max-w-xs truncate" title={student.security?.lockReason || student.blockReason}>
-                            {student.security?.lockReason || student.blockReason}
-                          </div>
-                        )}
-                        {(student.security?.lockedUntil || student.blockExpiry) && (
-                          <div className="text-xs text-gray-500 dark:text-white">
-                            Until: {new Date(student.security?.lockedUntil || student.blockExpiry).toLocaleDateString()}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300">
-                        <CheckCircle className="w-3 h-4 mr-1" />
-                        Active
-                      </div>
-                    )}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-white">
-                    {student.lastActive ? new Date(student.lastActive).toLocaleDateString() : 'Never'}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    <div className="flex space-x-2">
-                      <button
-                        onClick={() => {
-                          setSelectedStudent(student);
-                          setShowPerformanceModal(true);
-                        }}
-                        className="text-blue-600 hover:text-blue-900 p-1"
-                        title="View Performance"
-                      >
-                        <Eye className="w-4 h-4" />
-                      </button>
+            <table className="admin-users-table w-full min-w-[960px]">
+              <thead>
+                <tr className="border-b border-slate-200/80 bg-slate-50/40 text-left text-xs font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-800 dark:bg-slate-800/20 dark:text-slate-400">
+                  <th className="w-12 px-5 py-3.5 sm:px-6">
+                    <input
+                      type="checkbox"
+                      checked={filteredStudents.length > 0 && selectedStudents.length === filteredStudents.length}
+                      onChange={handleSelectAllStudents}
+                      className="h-4 w-4 cursor-pointer rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/30"
+                    />
+                  </th>
+                  <th className="px-4 py-3.5">Student</th>
+                  <th className="px-4 py-3.5">Courses</th>
+                  <th className="px-4 py-3.5">Progress</th>
+                  <th className="px-4 py-3.5">Performance</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5">Last active</th>
+                  <th className="px-5 py-3.5 text-right sm:px-6">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                {filteredStudents.length === 0 ? (
+                  <tr>
+                    <td colSpan={8}>
+                      <AdminEmptyState
+                        icon={Users}
+                        title="No students found"
+                        description={
+                          searchTerm
+                            ? 'Try adjusting your search terms.'
+                            : 'Start by enrolling students in your courses.'
+                        }
+                        action={
+                          !searchTerm ? (
+                            <AdminButton variant="primary" icon={UserPlus} onClick={() => setShowEnrollModal(true)}>
+                              Enroll student
+                            </AdminButton>
+                          ) : (
+                            <AdminButton variant="ghost" onClick={() => setSearchTerm('')}>
+                              Clear search
+                            </AdminButton>
+                          )
+                        }
+                      />
+                    </td>
+                  </tr>
+                ) : (
+                  filteredStudents.map((student) => {
+                    const studentId = getStudentId(student);
+                    const isBlocked = Boolean(student.security?.isLocked || student.isBlocked);
+                    const progress = student.progress || student.averageProgress || 0;
 
-                      <button
-                        onClick={() => {
-                          setCourseAssignmentData({ 
-                            studentId: student.id || student._id || '', 
-                            courseId: '', 
-                            progress: 0 
-                          });
-                          setShowCourseAssignmentModal(true);
-                        }}
-                        className="text-green-600 hover:text-green-900 p-1"
-                        title="Assign Course"
+                    return (
+                      <tr
+                        key={studentId}
+                        className={`group transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/40 ${
+                          selectedStudents.includes(studentId) ? 'bg-emerald-50/50 dark:bg-emerald-950/15' : ''
+                        }`}
                       >
-                        <BookOpen className="w-4 h-4" />
-                      </button>
-                      {(student.security?.isLocked || student.isBlocked) ? (
-                        <button
-                          onClick={() => handleUnblockStudent(student.id || student._id || '')}
-                          className="text-green-600 hover:text-green-900 p-1"
-                          title="Unblock Student"
-                        >
-                          <CheckCircle className="w-4 h-4" />
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => {
-                            setBlockData({ 
-                              studentId: student.id || student._id || '', 
-                              reason: '', 
-                              duration: '24h' 
-                            });
-                            setShowBlockModal(true);
-                          }}
-                          className="text-orange-600 hover:text-orange-900 p-1"
-                          title="Block Student"
-                        >
-                          <XCircle className="w-4 h-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => {
-                          setSelectedStudent(student);
-                          setRemovalData({ studentId: student.id || student._id || '', courseId: '' });
-                          setShowRemoveModal(true);
-                        }}
-                        className="text-red-600 hover:text-red-900 p-1"
-                        title="Remove from Course"
-                      >
-                        <UserMinus className="w-4 h-4" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setDeleteData({ 
-                            studentId: student.id || student._id || '', 
-                            deleteFromSystem: false 
-                          });
-                          setShowDeleteModal(true);
-                        }}
-                        className="text-red-800 hover:text-red-900 p-1"
-                        title="Delete Student"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </td>
-                </motion.tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        )}
-      </div>
+                        <td className="px-5 py-4 sm:px-6">
+                          <input
+                            type="checkbox"
+                            checked={selectedStudents.includes(studentId)}
+                            onChange={() => handleSelectStudent(studentId)}
+                            className="h-4 w-4 cursor-pointer rounded border-slate-300 text-emerald-600 focus:ring-emerald-500/30"
+                          />
+                        </td>
+                        <td className="px-4 py-4">
+                          <button
+                            type="button"
+                            onClick={() => openStudentDetails(student, 'overview')}
+                            className="flex min-w-0 items-center gap-3 text-left"
+                          >
+                            <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm">
+                              {student.profileImage || student.avatar ? (
+                                <img
+                                  src={student.profileImage || student.avatar}
+                                  alt=""
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-sm font-semibold text-white">{getUserInitials(student)}</span>
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="truncate font-medium text-slate-900 group-hover:text-emerald-600 dark:text-white dark:group-hover:text-emerald-400">
+                                {getDisplayName(student)}
+                              </p>
+                              <p className="truncate text-sm text-slate-500 dark:text-slate-400">{student.email}</p>
+                            </div>
+                          </button>
+                        </td>
+                        <td className="px-4 py-4">
+                          <p className="text-sm font-semibold text-slate-900 dark:text-white">{student.totalCourses}</p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">enrolled</p>
+                        </td>
+                        <td className="px-4 py-4">
+                          <div className="flex min-w-[7rem] items-center gap-2">
+                            <div className="teacher-progress flex-1">
+                              <div
+                                className={`teacher-progress__fill ${getProgressFillClass(progress)}`}
+                                style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
+                              />
+                            </div>
+                            <span className={`text-xs font-semibold tabular-nums ${getProgressColor(progress)}`}>
+                              {progress}%
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-4">
+                          <p className="text-sm font-medium text-slate-900 dark:text-white">
+                            {student.averageScore != null ? `${student.averageScore}%` : 'N/A'}
+                          </p>
+                          <p className="text-xs text-slate-500 dark:text-slate-400">
+                            {student.totalAssignments || 0} assignments
+                          </p>
+                        </td>
+                        <td className="px-4 py-4">
+                          {isBlocked ? (
+                            <div className="space-y-1">
+                              <AdminBadge tone="rose">
+                                <XCircle className="mr-1 inline h-3 w-3" />
+                                Blocked
+                              </AdminBadge>
+                              {(student.security?.lockReason || student.blockReason) && (
+                                <p
+                                  className="max-w-[10rem] truncate text-xs text-slate-500 dark:text-slate-400"
+                                  title={student.security?.lockReason || student.blockReason}
+                                >
+                                  {student.security?.lockReason || student.blockReason}
+                                </p>
+                              )}
+                            </div>
+                          ) : (
+                            <AdminBadge tone="emerald">
+                              <CheckCircle className="mr-1 inline h-3 w-3" />
+                              Active
+                            </AdminBadge>
+                          )}
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-4 text-sm tabular-nums text-slate-500 dark:text-slate-400">
+                          {student.lastActive ? new Date(student.lastActive).toLocaleDateString() : 'Never'}
+                        </td>
+                        <td className="px-5 py-4 sm:px-6">
+                          <div className="flex items-center justify-end">
+                            <AdminRowActionsMenu
+                              variant="icon"
+                              align="right"
+                              label={`Actions for ${getDisplayName(student)}`}
+                              items={[
+                                {
+                                  id: 'view',
+                                  label: 'View student',
+                                  icon: User,
+                                  tone: 'info',
+                                  onClick: () => openStudentDetails(student, 'overview'),
+                                },
+                                {
+                                  id: 'performance',
+                                  label: 'View performance',
+                                  icon: BarChart3,
+                                  tone: 'info',
+                                  onClick: () => openStudentDetails(student, 'performance'),
+                                },
+                                {
+                                  id: 'assign',
+                                  label: 'Assign course',
+                                  icon: BookOpen,
+                                  tone: 'success',
+                                  onClick: () => {
+                                    setCourseAssignmentData({ studentId, courseId: '', progress: 0 });
+                                    setShowCourseAssignmentModal(true);
+                                  },
+                                },
+                                isBlocked
+                                  ? {
+                                      id: 'unblock',
+                                      label: 'Unblock student',
+                                      icon: CheckCircle,
+                                      tone: 'success',
+                                      onClick: () => void handleUnblockStudent(studentId),
+                                    }
+                                  : {
+                                      id: 'block',
+                                      label: 'Block student',
+                                      icon: XCircle,
+                                      tone: 'warning',
+                                      onClick: () => {
+                                        setBlockData({ studentId, reason: '', duration: '24h' });
+                                        setShowBlockModal(true);
+                                      },
+                                    },
+                                {
+                                  id: 'remove',
+                                  label: 'Remove from course',
+                                  icon: UserMinus,
+                                  tone: 'warning',
+                                  onClick: () => {
+                                    setSelectedStudent(student);
+                                    setRemovalData({ studentId, courseId: '' });
+                                    setShowRemoveModal(true);
+                                  },
+                                },
+                                {
+                                  id: 'delete',
+                                  label: 'Delete student',
+                                  icon: Trash2,
+                                  tone: 'danger',
+                                  onClick: () => {
+                                    setDeleteData({ studentId, deleteFromSystem: false });
+                                    setShowDeleteModal(true);
+                                  },
+                                },
+                              ]}
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </AdminPanel>
+      </AdminPage>
 
       {/* Enroll Student Modal */}
       {showEnrollModal && (
@@ -1197,124 +1094,12 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
         </div>
       )}
 
-      {/* Performance Modal */}
-      {showPerformanceModal && selectedStudent && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Performance Report: {selectedStudent.firstName} {selectedStudent.lastName}
-              </h3>
-              <button
-                onClick={() => setShowPerformanceModal(false)}
-                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-              >
-                <XCircle className="w-6 h-6" />
-              </button>
-            </div>
-
-            {/* Student Overview */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-              <div className="bg-blue-50 dark:bg-blue-900/30 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">{selectedStudent.totalCourses}</div>
-                <div className="text-sm text-blue-600 dark:text-blue-400">Enrolled Courses</div>
-              </div>
-              <div className="bg-green-50 dark:bg-green-900/30 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">{selectedStudent.averageProgress}%</div>
-                <div className="text-sm text-green-600 dark:text-green-400">Average Progress</div>
-              </div>
-              <div className="bg-purple-50 dark:bg-purple-900/30 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">{selectedStudent.totalAssignments}</div>
-                <div className="text-sm text-purple-600 dark:text-purple-400">Total Assignments</div>
-              </div>
-              <div className="bg-orange-50 dark:bg-orange-900/30 p-4 rounded-lg">
-                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">{selectedStudent.averageScore}%</div>
-                <div className="text-sm text-orange-600 dark:text-orange-400">Average Score</div>
-              </div>
-            </div>
-
-            {/* Quick Course Summary */}
-            {selectedStudent.enrolledCourses && selectedStudent.enrolledCourses.length > 0 && (
-              <div className="mb-6">
-                <h4 className="text-lg font-semibold mb-3 text-gray-900 dark:text-white">Enrolled Courses Summary</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                  {selectedStudent.enrolledCourses && selectedStudent.enrolledCourses.map((enrollment, index) => (
-                    <div key={index} className="bg-gray-50 dark:bg-gray-700 p-3 rounded-lg border border-gray-200 dark:border-gray-600">
-                      <div className="font-medium text-gray-900 dark:text-white text-sm mb-1">
-                        {enrollment.courseTitle}
-                      </div>
-                      <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
-                        <span>Progress: {enrollment.progress}%</span>
-                        <span>Enrolled: {new Date(enrollment.enrolledAt).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Course Details */}
-            <div className="space-y-4">
-              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">Course Performance</h4>
-              {selectedStudent.enrolledCourses && selectedStudent.enrolledCourses.map((enrollment, index) => (
-                <div key={index} className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 bg-gray-50 dark:bg-gray-700">
-                  <div className="flex items-center justify-between mb-3">
-                    <h5 className="font-medium text-gray-900 dark:text-white">{enrollment.courseTitle}</h5>
-                    <span className="text-sm text-gray-500 dark:text-gray-400">
-                      Enrolled: {new Date(enrollment.enrolledAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                    <div className="flex items-center space-x-2">
-                      <Target className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Progress:</span>
-                      <span className={`font-medium ${getProgressColor(enrollment.progress)}`}>
-                        {enrollment.progress}%
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Completed:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {enrollment.completedLessons}/{enrollment.totalLessons}
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Clock className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Last Active:</span>
-                      <span className="font-medium text-gray-900 dark:text-white">
-                        {new Date(enrollment.lastAccessed).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Assignment Scores */}
-{enrollment.assignments && enrollment.assignments.length > 0 && (
-  <div className="mt-3">
-    <h6 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Assignment Scores</h6>
-    <div className="space-y-2">
-                        {enrollment.assignments.map((assignment, idx) => (
-                          <div key={idx} className="flex items-center justify-between text-sm">
-                            <span className="text-gray-600 dark:text-gray-400">{assignment.title}</span>
-                            <div className="flex items-center space-x-2">
-                              <span className={`font-medium ${getScoreColor(assignment.score, assignment.maxScore)}`}>
-                                {assignment.score}/{assignment.maxScore}
-                              </span>
-                              <span className="text-gray-400 dark:text-gray-500">
-                                ({Math.round((assignment.score / assignment.maxScore) * 100)}%)
-                              </span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+      {showStudentDetailsModal && selectedStudent && (
+        <TeacherStudentDetailsModal
+          student={selectedStudent}
+          initialTab={studentDetailsTab}
+          onClose={() => setShowStudentDetailsModal(false)}
+        />
       )}
 
       {/* Block Student Modal */}
@@ -1767,6 +1552,6 @@ export default function Students({ students, courses, isLoading, onRefresh }: St
           </div>
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

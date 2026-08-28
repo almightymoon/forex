@@ -1,11 +1,25 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
-import { User, Settings, LogOut, ChevronDown, Bell, Share2, Wallet, ArrowUpRight, Package, CreditCard, Receipt } from 'lucide-react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import {
+  User,
+  Settings,
+  LogOut,
+  ChevronDown,
+  Bell,
+  Share2,
+  Wallet,
+  ArrowUpRight,
+  Package,
+  CreditCard,
+  Receipt,
+  type LucideIcon,
+} from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../../context/LanguageContext';
 import { buildApiUrl } from '../../utils/api';
 import { clearMonthlyFeeAccessLock } from '../../utils/monthlyFeeAccessLock';
+import './profile-menu.css';
 
 interface UserProfileDropdownProps {
   user: {
@@ -21,24 +35,66 @@ interface UserProfileDropdownProps {
   className?: string;
 }
 
-export default function UserProfileDropdown({ 
-  user, 
-  showNotifications = true, 
+function rolePillClass(role: string): string {
+  const r = role.toLowerCase();
+  if (r === 'admin') return 'is-admin';
+  if (r === 'teacher' || r === 'instructor') return 'is-teacher';
+  if (r === 'developer') return 'is-developer';
+  return 'is-student';
+}
+
+function MenuRow({
+  icon: Icon,
+  label,
+  onClick,
+  tone = 'default',
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  tone?: 'default' | 'success' | 'danger' | 'highlight';
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`profile-menu__item ${tone !== 'default' ? `is-${tone}` : ''}`}
+    >
+      <span className="profile-menu__item-icon">
+        <Icon className="h-4 w-4" />
+      </span>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+export default function UserProfileDropdown({
+  user,
+  showNotifications = true,
   showSettings = true,
-  className = ''
+  className = '',
 }: UserProfileDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [subscriptionPackage, setSubscriptionPackage] = useState<string | null>(null);
-  const [hasUpgradeAvailable, setHasUpgradeAvailable] = useState(false);
+  const [, setHasUpgradeAvailable] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { t } = useLanguage();
 
-  // Fetch user's subscription package
+  const close = useCallback(() => setIsOpen(false), []);
+
+  const navigate = useCallback(
+    (path: string) => {
+      close();
+      router.push(path);
+    },
+    [close, router]
+  );
+
   useEffect(() => {
     const fetchSubscriptionAndUpgrade = async () => {
       if (!user || user.role === 'admin' || user.role === 'teacher' || user.role === 'developer' || user.role === 'instructor') {
-        return; // Admin/teacher don't need packages
+        return;
       }
 
       try {
@@ -46,29 +102,26 @@ export default function UserProfileDropdown({
         if (!token) return;
 
         const response = await fetch(buildApiUrl('api/payments/user'), {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
+          headers: { Authorization: `Bearer ${token}` },
         });
 
         if (response.ok) {
           const payments = await response.json();
-          const completedPayment = payments.find((p: any) => 
-            p.type === 'package' && p.status === 'completed'
+          const completedPayment = payments.find(
+            (p: { type?: string; status?: string; package?: { name?: string } }) =>
+              p.type === 'package' && p.status === 'completed'
           );
-
-          if (completedPayment && completedPayment.package?.name) {
+          if (completedPayment?.package?.name) {
             setSubscriptionPackage(completedPayment.package.name);
           }
         }
 
-        // Best-effort: check if an upgrade is available (student only)
         if (user.role === 'student' || !user.role || user.role === '') {
           const upgradeRes = await fetch(buildApiUrl('api/packages/upgrade-options'), {
-            headers: { Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` },
           });
           const upgradeJson = await upgradeRes.json().catch(() => ({}));
-          setHasUpgradeAvailable(Boolean((upgradeJson as any)?.hasUpgrade));
+          setHasUpgradeAvailable(Boolean((upgradeJson as { hasUpgrade?: boolean })?.hasUpgrade));
         } else {
           setHasUpgradeAvailable(false);
         }
@@ -79,245 +132,132 @@ export default function UserProfileDropdown({
     };
 
     if (isOpen && user) {
-      fetchSubscriptionAndUpgrade();
+      void fetchSubscriptionAndUpgrade();
     }
   }, [isOpen, user]);
 
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
+    if (!isOpen) return;
+
+    const onPointerDown = (event: MouseEvent) => {
+      if (!dropdownRef.current?.contains(event.target as Node)) {
+        close();
       }
     };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  // Listen for language changes
-  useEffect(() => {
-    const handleLanguageChange = () => {
-      // Force re-render when language changes
-      setIsOpen(false);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') close();
     };
-    
-    window.addEventListener('languageChanged', handleLanguageChange);
-    
+
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
     return () => {
-      window.removeEventListener('languageChanged', handleLanguageChange);
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
     };
-  }, []);
+  }, [isOpen, close]);
+
+  useEffect(() => {
+    const handleLanguageChange = () => close();
+    window.addEventListener('languageChanged', handleLanguageChange);
+    return () => window.removeEventListener('languageChanged', handleLanguageChange);
+  }, [close]);
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     clearMonthlyFeeAccessLock();
-
     router.push('/login');
   };
 
-  const handleProfileClick = () => {
-    // Navigate to profile page
-    router.push('/profile');
-  };
+  if (!user) return null;
 
-  const handleSettingsClick = () => {
-    // Navigate to settings page
-    router.push('/settings');
-  };
+  const displayName = `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.email;
+  const initial = user.firstName?.charAt(0) || user.lastName?.charAt(0) || user.email?.charAt(0) || 'U';
+  const isStudent = user.role === 'student' || !user.role || user.role === '';
+  const balance = user.balance !== undefined ? user.balance : 0;
 
-  const handleReferralsClick = () => {
-    // Navigate to referrals page
-    setIsOpen(false);
-    router.push('/referrals');
-  };
-
-  if (!user) {
-    return null;
-  }
+  const renderAvatar = () =>
+    user.profileImage ? (
+      <img src={user.profileImage} alt="" />
+    ) : (
+      <span>{initial.toUpperCase()}</span>
+    );
 
   return (
-    <div className={`relative ${className}`} ref={dropdownRef}>
-              {/* Profile Button */}
-        <button
-          onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center space-x-1.5 sm:space-x-3 p-1.5 sm:p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors duration-200 relative shrink-0"
-        >
-          {/* Profile Avatar */}
-          <div className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-            {user.profileImage ? (
-              <img 
-                src={user.profileImage} 
-                alt="Profile" 
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-full object-cover"
-              />
-            ) : (
-              <span className="text-white font-semibold text-base sm:text-lg">
-                {user.firstName?.charAt(0) || user.lastName?.charAt(0) || 'U'}
-              </span>
-            )}
-          </div>
-          
-
-        
-        {/* User Info */}
-        <div className="text-left hidden sm:block">
-          <p className="text-sm font-medium text-gray-900 dark:text-white">
-            {user.firstName} {user.lastName}
-          </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
-            {user.role}
-          </p>
+    <div className={`profile-menu ${className}`} ref={dropdownRef}>
+      <button
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        className={`profile-menu__trigger ${isOpen ? 'is-open' : ''}`}
+        aria-haspopup="menu"
+        aria-expanded={isOpen}
+      >
+        <div className="profile-menu__avatar">{renderAvatar()}</div>
+        <div className="profile-menu__identity">
+          <p className="profile-menu__name">{displayName}</p>
+          <p className="profile-menu__role">{user.role}</p>
         </div>
-        
-        {/* Chevron Icon */}
-        <ChevronDown 
-          className={`hidden sm:inline w-4 h-4 text-gray-400 dark:text-gray-500 transition-transform duration-200 ${
-            isOpen ? 'rotate-180' : ''
-          }`}
-        />
+        <ChevronDown className="profile-menu__chevron" aria-hidden />
       </button>
 
-      {/* Dropdown Menu */}
-      {isOpen && (
-        <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-2 z-50">
-          {/* User Header */}
-          <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700">
-            <p className="text-sm font-medium text-gray-900 dark:text-white">
-              {user.firstName} {user.lastName}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">{user.email}</p>
-            <p className="text-xs text-gray-400 dark:text-gray-500 capitalize mt-1">
-              {user.role} {t('account')}
-            </p>
-            {/* Balance Display - Always show */}
-            <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-700">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center space-x-2">
-                  <Wallet className="w-4 h-4 text-green-600 dark:text-green-400" />
-                  <span className="text-xs text-gray-600 dark:text-gray-400">Balance:</span>
-                </div>
-                <span className="text-sm font-bold text-gray-900 dark:text-white">
-                  ${((user.balance !== undefined ? user.balance : 0)).toFixed(2)} USDT
-                </span>
+      {isOpen ? (
+        <div className="profile-menu__panel" role="menu">
+          <div className="profile-menu__header">
+            <div className="profile-menu__header-mesh" aria-hidden />
+            <div className="profile-menu__header-main">
+              <div className="profile-menu__avatar profile-menu__header-avatar">{renderAvatar()}</div>
+              <div className="profile-menu__header-text">
+                <p className="profile-menu__header-name">{displayName}</p>
+                <p className="profile-menu__header-email">{user.email}</p>
+                <span className={`profile-menu__role-pill ${rolePillClass(user.role)}`}>{user.role}</span>
               </div>
             </div>
           </div>
 
-          {/* Menu Items */}
-          <div className="py-1">
-            {/* My Package - Only for students with active subscription */}
-            {(user.role === 'student' || !user.role || user.role === '') && subscriptionPackage && (
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  router.push('/subscription');
-                }}
-                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
-              >
-                <Package className="w-4 h-4 mr-3 text-blue-600 dark:text-blue-400" />
-                <span>My Package</span>
-              </button>
-            )}
+          <div className="profile-menu__balance">
+            <span className="profile-menu__balance-label">
+              <Wallet className="h-4 w-4 text-emerald-500" />
+              Available balance
+            </span>
+            <span className="profile-menu__balance-value">${balance.toFixed(2)} USDT</span>
+          </div>
 
-            {/* Profile */}
-            <button
-              onClick={handleProfileClick}
-              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
-            >
-                              <User className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
-                {t('profile')}
-            </button>
+          <div className="profile-menu__section">
+            {isStudent && subscriptionPackage ? (
+              <MenuRow
+                icon={Package}
+                label="My Package"
+                tone="highlight"
+                onClick={() => navigate('/subscription')}
+              />
+            ) : null}
 
-            {/* Settings */}
-            {showSettings && (
-              <button
-                onClick={handleSettingsClick}
-                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
-              >
-                <Settings className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
-                {t('settings')}
-              </button>
-            )}
+            <MenuRow icon={User} label={t('profile')} onClick={() => navigate('/profile')} />
 
-            {/* Notifications */}
-            {showNotifications && (
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  router.push('/notifications');
-                }}
-                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
-              >
-                <Bell className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
-                <span>{t('notifications')}</span>
-              </button>
-            )}
+            {showSettings ? (
+              <MenuRow icon={Settings} label={t('settings')} onClick={() => navigate('/settings')} />
+            ) : null}
 
-            {/* Referrals */}
-            <button
-              onClick={handleReferralsClick}
-              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
-            >
-              <Share2 className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
-              <span>Referrals</span>
-            </button>
+            {showNotifications ? (
+              <MenuRow icon={Bell} label={t('notifications')} onClick={() => navigate('/notifications')} />
+            ) : null}
 
-            {/* Monthly Fee */}
-            {(user.role === 'student' || !user.role || user.role === '') && (
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  router.push('/monthly-fee');
-                }}
-                className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
-              >
-                <CreditCard className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
-                <span>Monthly Fee</span>
-              </button>
-            )}
+            <MenuRow icon={Share2} label="Referrals" onClick={() => navigate('/referrals')} />
 
-            <button
-              onClick={() => {
-                setIsOpen(false);
-                router.push('/receipts');
-              }}
-              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
-            >
-              <Receipt className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
-              <span>Receipts</span>
-            </button>
+            {isStudent ? (
+              <MenuRow icon={CreditCard} label="Monthly fee" onClick={() => navigate('/monthly-fee')} />
+            ) : null}
 
-            {/* Upgrade happens inside "My Package" page */}
+            <MenuRow icon={Receipt} label="Receipts" onClick={() => navigate('/receipts')} />
 
-            {/* Withdrawal - Navigate to withdrawals page */}
-            <button
-              onClick={() => {
-                setIsOpen(false);
-                router.push('/withdrawals');
-              }}
-              className="w-full flex items-center px-4 py-2 text-sm text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors duration-150"
-            >
-              <ArrowUpRight className="w-4 h-4 mr-3" />
-              <span>Withdraw</span>
-            </button>
+            <MenuRow icon={ArrowUpRight} label="Withdraw" tone="success" onClick={() => navigate('/withdrawals')} />
+          </div>
 
-            {/* Divider */}
-            <div className="border-t border-gray-100 dark:border-gray-700 my-1"></div>
-
-            {/* Logout */}
-            <button
-              onClick={handleLogout}
-              className="w-full flex items-center px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors duration-150"
-            >
-                              <LogOut className="w-4 h-4 mr-3" />
-                {t('logout')}
-            </button>
+          <div className="profile-menu__section profile-menu__section--footer">
+            <MenuRow icon={LogOut} label={t('logout')} tone="danger" onClick={handleLogout} />
           </div>
         </div>
-      )}
-
+      ) : null}
     </div>
   );
 }
-
