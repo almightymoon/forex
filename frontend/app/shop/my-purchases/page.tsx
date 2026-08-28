@@ -8,6 +8,7 @@ import {
   fetchMyProductPurchases,
   getProductImageUrl,
   type ProductPurchase,
+} from '../../../lib/publicProducts';
 import ReceiptDownloadButton from '../../../components/ReceiptDownloadButton';
 
 export default function MyPurchasesPage() {
