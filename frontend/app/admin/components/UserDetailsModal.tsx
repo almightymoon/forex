@@ -18,6 +18,7 @@ import { User } from './types';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
 import ReceiptActions from '../../../components/ReceiptActions';
+import AdminRowActionsMenu from './AdminRowActionsMenu';
 
 interface UserDetailsModalProps {
   user: User;
@@ -849,13 +850,12 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
   };
 
   return createPortal(
-    <div className="user-detail-modal fixed inset-0 z-[100] overflow-y-auto">
-      <div className="flex min-h-full items-center justify-center p-3 sm:p-4">
+    <div className="user-detail-modal fixed inset-0 z-[100] flex items-start justify-center overflow-hidden p-3 sm:items-center sm:p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.97, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.22 }}
-        className="user-detail-modal__surface flex max-h-[min(92vh,calc(100vh-2rem))] w-full max-w-[min(72rem,96vw)] flex-col overflow-hidden"
+        className="user-detail-modal__surface flex max-h-[min(92dvh,calc(100dvh-1.5rem))] w-full max-w-[min(72rem,96vw)] min-h-0 flex-col"
       >
         {/* Header */}
         <div className="user-detail-modal__header relative shrink-0 overflow-hidden px-5 py-4 sm:px-6">
@@ -905,38 +905,33 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
 
         {!loading && details ? (
           <>
-            <div className="user-detail-modal__toolbar">
-              <div className="user-detail-modal__toolbar-group">
-                <button type="button" onClick={() => openBalanceModal('credit')} className="user-detail-modal__action user-detail-modal__action--primary">
-                  <Plus className="h-4 w-4" />
-                  Credit
-                </button>
-                <button type="button" onClick={() => openBalanceModal('debit')} className="user-detail-modal__action">
-                  <Minus className="h-4 w-4" />
-                  Debit
-                </button>
-                <button type="button" onClick={() => openBalanceModal('bonus')} className="user-detail-modal__action">
-                  <Gift className="h-4 w-4" />
-                  Bonus
-                </button>
-                <button type="button" onClick={openGrantPackageModal} className="user-detail-modal__action">
-                  <Package className="h-4 w-4" />
-                  Grant
-                </button>
-                <button type="button" onClick={openRevokePackageModal} className="user-detail-modal__action user-detail-modal__action--danger">
-                  <X className="h-4 w-4" />
-                  Revoke
-                </button>
-              </div>
-              {canImposeMonthlyFee ? (
-                <button type="button" onClick={openImposeMonthlyFeeModal} className="user-detail-modal__action user-detail-modal__action--warn">
-                  <Receipt className="h-4 w-4" />
-                  Impose fee
-                </button>
-              ) : null}
+            <div className="user-detail-modal__toolbar shrink-0">
+              <button type="button" onClick={() => openBalanceModal('credit')} className="user-detail-modal__action user-detail-modal__action--primary">
+                <Plus className="h-4 w-4" />
+                Credit
+              </button>
+              <AdminRowActionsMenu
+                variant="icon"
+                label="Wallet and package actions"
+                align="right"
+                items={[
+                  { id: 'debit', label: 'Debit', icon: Minus, onClick: () => openBalanceModal('debit') },
+                  { id: 'bonus', label: 'Bonus', icon: Gift, onClick: () => openBalanceModal('bonus') },
+                  { id: 'grant', label: 'Grant package', icon: Package, onClick: () => openGrantPackageModal },
+                  { id: 'revoke', label: 'Revoke package', icon: X, onClick: openRevokePackageModal, tone: 'danger' },
+                  {
+                    id: 'impose-fee',
+                    label: 'Impose monthly fee',
+                    icon: Receipt,
+                    onClick: openImposeMonthlyFeeModal,
+                    tone: 'warning',
+                    hidden: !canImposeMonthlyFee,
+                  },
+                ]}
+              />
             </div>
 
-            <div className="user-detail-modal__tabs-wrap">
+            <div className="user-detail-modal__tabs-wrap shrink-0">
               <div className="udm-tabs__list" role="tablist" aria-label="User detail sections">
                 {[
                   { id: 'overview', label: 'Overview', icon: Activity },
@@ -1763,7 +1758,6 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
           ) : null}
         </div>
       </motion.div>
-      </div>
 
       {/* Email unreachable reason modal */}
       {showUnreachableModal && (
