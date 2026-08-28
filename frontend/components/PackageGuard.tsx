@@ -44,6 +44,11 @@ function isShopPath(pathname: string | null): boolean {
   return pathname === '/shop' || pathname.startsWith('/shop/');
 }
 
+function isReceiptsPath(pathname: string | null): boolean {
+  if (!pathname) return false;
+  return pathname === '/receipts' || pathname.startsWith('/receipts/');
+}
+
 function isPaymentFlowPath(pathname: string | null): boolean {
   if (!pathname) return false;
   return (
@@ -127,7 +132,7 @@ export default function PackageGuard({ children }: PackageGuardProps) {
           if (data.code === 'PACKAGE_REQUIRED') {
             clearMonthlyFeeAccessLock();
             // Allow shop browsing and payment submission without an active package.
-            if (!isPaymentFlowPath(pathname) && !isShopPath(pathname)) {
+            if (!isPaymentFlowPath(pathname) && !isShopPath(pathname) && !isReceiptsPath(pathname)) {
               router.replace('/select-package');
             }
             setHasAccess(true);

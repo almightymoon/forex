@@ -212,6 +212,8 @@ export default function EmailServices() {
   const [sheetSearch, setSheetSearch] = useState('');
   const [sheetLoading, setSheetLoading] = useState(false);
   const [trustpilotReviewUrl, setTrustpilotReviewUrl] = useState(DEFAULT_TRUSTPILOT_URL);
+  const [trustpilotAfsBccEmail, setTrustpilotAfsBccEmail] = useState('');
+  const [trustpilotAfs, setTrustpilotAfs] = useState(false);
 
   const loadUsers = useCallback(async () => {
     try {
@@ -245,6 +247,7 @@ export default function EmailServices() {
       const data = await res.json();
       const url = String(data?.general?.trustpilotReviewUrl || '').trim();
       if (url) setTrustpilotReviewUrl(url);
+      setTrustpilotAfsBccEmail(String(data?.general?.trustpilotAfsBccEmail || '').trim());
     } catch (error) {
       console.error(error);
     }
@@ -256,6 +259,7 @@ export default function EmailServices() {
     setHtml(buildTrustpilotReviewHtml(url));
     setEditorMode('visual');
     setTrackButtons(false);
+    setTrustpilotAfs(true);
     if (audience === 'all') setAudience('student');
     setTab('compose');
     showToast('Trustpilot review email ready — pick recipients and send', 'success');
@@ -404,6 +408,7 @@ export default function EmailServices() {
     trackButtons,
     buttons: trackButtons ? buttons.filter((button) => button.label.trim()) : undefined,
     confirmationMessage: trackButtons ? confirmationMessage.trim() : undefined,
+    trustpilotAfs,
   });
 
   const prepareHtmlForSend = () => {
@@ -441,6 +446,13 @@ export default function EmailServices() {
     }
     if (trackButtons && buttons.filter((button) => button.label.trim()).length === 0) {
       showToast('Add at least one button label to record clicks', 'error');
+      return;
+    }
+    if (trustpilotAfs && !trustpilotAfsBccEmail) {
+      showToast(
+        'Add the Trustpilot AFS BCC email in Admin → Settings first, or reviews will stay organic',
+        'error'
+      );
       return;
     }
     if (!window.confirm(`Send this email to about ${recipientEstimate} recipient(s)?`)) return;
@@ -651,6 +663,15 @@ export default function EmailServices() {
                   <p className="mt-1 truncate text-xs text-emerald-700 dark:text-emerald-300">
                     Link: {trustpilotReviewUrl || DEFAULT_TRUSTPILOT_URL}
                   </p>
+                  {trustpilotAfsBccEmail ? (
+                    <p className="mt-1 truncate text-xs text-emerald-700 dark:text-emerald-300">
+                      BCC: {trustpilotAfsBccEmail}
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                      No Trustpilot BCC yet — add the AFS address in Settings or invites stay organic.
+                    </p>
+                  )}
                 </div>
               </div>
               <button
@@ -662,6 +683,22 @@ export default function EmailServices() {
                 Use review template
               </button>
             </div>
+            <label className="mt-4 flex items-start gap-3 rounded-xl border border-emerald-100 bg-white/70 px-4 py-3 dark:border-emerald-900 dark:bg-gray-900/40">
+              <input
+                type="checkbox"
+                checked={trustpilotAfs}
+                onChange={(e) => setTrustpilotAfs(e.target.checked)}
+                className="mt-1 h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
+              />
+              <span>
+                <span className="block text-sm font-medium text-gray-900 dark:text-white">
+                  BCC Trustpilot (count as invited)
+                </span>
+                <span className="mt-0.5 block text-xs text-gray-600 dark:text-gray-400">
+                  Trustpilot only treats these as invited reviews if we BCC their unique AFS address. Turn this on for review requests. Test emails are not BCC&apos;d.
+                </span>
+              </span>
+            </label>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">

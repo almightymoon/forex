@@ -8,7 +8,7 @@ import {
   fetchMyProductPurchases,
   getProductImageUrl,
   type ProductPurchase,
-} from '../../../lib/publicProducts';
+import ReceiptDownloadButton from '../../../components/ReceiptDownloadButton';
 
 export default function MyPurchasesPage() {
   const router = useRouter();
@@ -133,6 +133,14 @@ export default function MyPurchasesPage() {
                           <Download className="h-3.5 w-3.5" aria-hidden />
                           Download
                         </a>
+                      ) : null}
+                      {purchase.paymentId ? (
+                        <ReceiptDownloadButton
+                          endpoint={`api/payments/${purchase.paymentId}/receipt`}
+                          filename="Forex-Navigators-receipt.pdf"
+                          label="Receipt"
+                          className="shop-store__link-btn"
+                        />
                       ) : null}
                     </div>
                   </div>

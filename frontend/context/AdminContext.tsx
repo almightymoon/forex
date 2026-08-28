@@ -47,6 +47,7 @@ const getDefaultSettings = () => ({
     telegramInviteEnabled: true,
     telegramInviteUrl: '',
     trustpilotReviewUrl: 'https://www.trustpilot.com/evaluate/thefxnavigators.com',
+    trustpilotAfsBccEmail: '',
   },
   security: {
     twoFactorAuth: false,

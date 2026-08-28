@@ -16,6 +16,7 @@ import { defaultFeePeriod, feeMonthString } from './imposeMonthlyFeeDateUtils';
 import { User } from './types';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
+import ReceiptDownloadButton from '../../../components/ReceiptDownloadButton';
 
 interface UserDetailsModalProps {
   user: User;
@@ -76,7 +77,7 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
   const [details, setDetails] = useState<UserDetails | null>(null);
   const [currentUser, setCurrentUser] = useState(user);
   const [activeTab, setActiveTab] = useState<
-    'overview' | 'payments' | 'monthly_fee' | 'withdrawals' | 'referrals' | 'transactions' | 'email'
+    'overview' | 'payments' | 'receipts' | 'monthly_fee' | 'withdrawals' | 'referrals' | 'transactions' | 'email'
   >('overview');
   const [showBalanceModal, setShowBalanceModal] = useState(false);
   const [balanceAction, setBalanceAction] = useState<'credit' | 'debit' | 'bonus'>('credit');
@@ -121,10 +122,56 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
   const [lifetimeEarnedInput, setLifetimeEarnedInput] = useState('');
   const [lifetimeEarnedReason, setLifetimeEarnedReason] = useState('');
   const [isSavingLifetimeEarned, setIsSavingLifetimeEarned] = useState(false);
+  const [receipts, setReceipts] = useState<{
+    join?: {
+      title: string;
+      issuedAt: string;
+      receiptNumber: string;
+      packageName?: string | null;
+    };
+    payments?: Array<{
+      id: string;
+      kind: string;
+      title: string;
+      amount: number;
+      currency: string;
+      issuedAt: string;
+      receiptNumber: string;
+    }>;
+  } | null>(null);
+  const [receiptsLoading, setReceiptsLoading] = useState(false);
 
   useEffect(() => {
     fetchUserDetails();
   }, [user._id]);
+
+  const fetchReceipts = async () => {
+    setReceiptsLoading(true);
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(buildApiUrl(`api/admin/users/${user._id}/receipts`), {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        showToast(json.error || 'Failed to load receipts', 'error');
+        setReceipts(null);
+        return;
+      }
+      setReceipts(json);
+    } catch {
+      showToast('Failed to load receipts', 'error');
+      setReceipts(null);
+    } finally {
+      setReceiptsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'receipts') {
+      void fetchReceipts();
+    }
+  }, [activeTab, user._id]);
 
   const previewReferralStatsRecalc = async () => {
     try {
@@ -1179,6 +1226,12 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                     <div>
                       <p className="text-xs text-gray-500 dark:text-gray-400">Joined</p>
                       <p className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(user.createdAt)}</p>
+                      <ReceiptDownloadButton
+                        endpoint={`api/admin/users/${user._id}/receipts/join`}
+                        filename="Forex-Navigators-join-receipt.pdf"
+                        label="Join receipt"
+                        className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400 hover:underline disabled:opacity-50"
+                      />
                     </div>
                   </div>
                   <div className="flex items-center space-x-3">
@@ -1205,6 +1258,7 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                     { id: 'overview', label: 'Overview', icon: Activity },
                     { id: 'transactions', label: 'Transactions', icon: History },
                     { id: 'payments', label: 'Payments', icon: CreditCard },
+                    { id: 'receipts', label: 'Receipts', icon: Receipt },
                     { id: 'monthly_fee', label: 'Monthly fee', icon: CalendarClock },
                     { id: 'withdrawals', label: 'Withdrawals', icon: ArrowUpRight },
                     { id: 'referrals', label: 'Referrals', icon: Users },
@@ -1290,6 +1344,7 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Method</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Status</th>
                         <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Date</th>
+                        <th className="text-left py-3 px-4 text-sm font-semibold text-gray-900 dark:text-white">Receipt</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1304,6 +1359,19 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                             </span>
                           </td>
                           <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{formatDate(payment.createdAt)}</td>
+                          <td className="py-3 px-4">
+                            {payment.status === 'completed' ? (
+                              <ReceiptDownloadButton
+                                endpoint={`api/admin/users/${user._id}/receipts/${payment._id}`}
+                                filename="Forex-Navigators-receipt.pdf"
+                                iconOnly
+                                title="Download receipt"
+                                className="p-1.5 rounded-lg text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 disabled:opacity-50"
+                              />
+                            ) : (
+                              <span className="text-xs text-gray-400">—</span>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -1312,6 +1380,106 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                     <div className="text-center py-12 text-gray-500 dark:text-gray-400">
                       No payments found
                     </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'receipts' && (
+                <div className="space-y-5">
+                  {receiptsLoading ? (
+                    <div className="flex items-center justify-center py-16 text-gray-500 dark:text-gray-400">
+                      <Loader2 className="w-8 h-8 animate-spin mr-2" />
+                      Loading receipts…
+                    </div>
+                  ) : (
+                    <>
+                      <div className="rounded-xl border border-gray-200 dark:border-gray-700 p-4 bg-gray-50 dark:bg-gray-800/50">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">Join / membership</p>
+                            <p className="text-sm font-semibold text-gray-900 dark:text-white mt-1">
+                              {receipts?.join?.title || 'Membership receipt'}
+                            </p>
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                              Joined {formatDate(receipts?.join?.issuedAt || user.createdAt)}
+                              {receipts?.join?.packageName ? ` · ${receipts.join.packageName}` : ''}
+                            </p>
+                            {receipts?.join?.receiptNumber ? (
+                              <p className="text-xs font-mono text-gray-400 mt-1">{receipts.join.receiptNumber}</p>
+                            ) : null}
+                          </div>
+                          <ReceiptDownloadButton
+                            endpoint={`api/admin/users/${user._id}/receipts/join`}
+                            filename="Forex-Navigators-join-receipt.pdf"
+                            label="Download"
+                          />
+                        </div>
+                      </div>
+
+                      {(['package', 'monthly_fee'] as const).map((kind) => {
+                        const items = (receipts?.payments || []).filter((p) => p.kind === kind);
+                        const label = kind === 'package' ? 'Package receipts' : 'Monthly fee receipts';
+                        return (
+                          <div key={kind}>
+                            <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">{label}</h5>
+                            {items.length === 0 ? (
+                              <p className="text-sm text-gray-500 dark:text-gray-400 py-3">None yet.</p>
+                            ) : (
+                              <div className="divide-y divide-gray-100 dark:divide-gray-700 rounded-xl border border-gray-200 dark:border-gray-700">
+                                {items.map((row) => (
+                                  <div key={row.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                                    <div>
+                                      <p className="text-sm font-medium text-gray-900 dark:text-white">{row.title}</p>
+                                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        {formatDate(row.issuedAt)} · ${Number(row.amount || 0).toFixed(2)} {row.currency}
+                                      </p>
+                                    </div>
+                                    <ReceiptDownloadButton
+                                      endpoint={`api/admin/users/${user._id}/receipts/${row.id}`}
+                                      filename={`Forex-Navigators-${row.receiptNumber}.pdf`}
+                                      iconOnly
+                                      title="Download PDF"
+                                      className="p-1.5 rounded-lg text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 disabled:opacity-50"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {(() => {
+                        const others = (receipts?.payments || []).filter(
+                          (p) => p.kind !== 'package' && p.kind !== 'monthly_fee'
+                        );
+                        if (!others.length) return null;
+                        return (
+                          <div>
+                            <h5 className="text-sm font-semibold text-gray-900 dark:text-white mb-2">Other payments</h5>
+                            <div className="divide-y divide-gray-100 dark:divide-gray-700 rounded-xl border border-gray-200 dark:border-gray-700">
+                              {others.map((row) => (
+                                <div key={row.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-900 dark:text-white">{row.title}</p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                      {formatDate(row.issuedAt)} · ${Number(row.amount || 0).toFixed(2)} {row.currency}
+                                    </p>
+                                  </div>
+                                  <ReceiptDownloadButton
+                                    endpoint={`api/admin/users/${user._id}/receipts/${row.id}`}
+                                    filename={`Forex-Navigators-${row.receiptNumber}.pdf`}
+                                    iconOnly
+                                    title="Download PDF"
+                                    className="p-1.5 rounded-lg text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 disabled:opacity-50"
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
                   )}
                 </div>
               )}

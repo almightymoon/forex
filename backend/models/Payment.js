@@ -146,6 +146,12 @@ const paymentSchema = new mongoose.Schema({
   subscriptionId: String,
   invoiceUrl: String,
   receiptUrl: String,
+  receiptNumber: {
+    type: String,
+    trim: true,
+    unique: true,
+    sparse: true
+  },
   // Binance wallet payment details
   binanceWallet: {
     walletAddress: String,

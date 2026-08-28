@@ -113,6 +113,7 @@ export interface AdminSettings {
     telegramInviteEnabled: boolean;
     telegramInviteUrl: string;
     trustpilotReviewUrl: string;
+    trustpilotAfsBccEmail: string;
   };
   security: {
     twoFactorAuth: boolean;

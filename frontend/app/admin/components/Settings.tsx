@@ -98,6 +98,7 @@ export default function Settings({
       telegramInviteEnabled: true,
       telegramInviteUrl: '',
       trustpilotReviewUrl: 'https://www.trustpilot.com/evaluate/thefxnavigators.com',
+      trustpilotAfsBccEmail: '',
     },
     security: {
       twoFactorAuth: false,
@@ -323,7 +324,7 @@ export default function Settings({
                 <div>
                   <p className="font-medium text-gray-900 dark:text-white">Trustpilot reviews</p>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
-                    Used when admins ask members for a review from Email services
+                    Review page link plus Trustpilot&apos;s BCC so Email services invites count as invited, not organic
                   </p>
                 </div>
               </div>
@@ -343,6 +344,21 @@ export default function Settings({
                 />
                 <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                   Members open this link to leave a public review on Trustpilot.
+                </p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Trustpilot AFS BCC email
+                </label>
+                <input
+                  type="email"
+                  value={safeSettings.general.trustpilotAfsBccEmail || ''}
+                  onChange={(e) => onSettingsChange('general', 'trustpilotAfsBccEmail', e.target.value.trim())}
+                  placeholder="your-unique-id@invite.trustpilot.com"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                />
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Required for invited reviews. In Trustpilot Business go to Get reviews → Invitation methods → Automatic Feedback Service (AFS), copy the unique email, and paste it here. Without this BCC, review requests stay organic.
                 </p>
               </div>
             </div>

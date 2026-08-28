@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Loader2, Copy, CheckCircle, AlertCircle, RefreshCw, Unlock, CalendarRange } from 'lucide-react';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
+import ReceiptDownloadButton from '../../../components/ReceiptDownloadButton';
 
 export interface HistoryEntry {
   paymentId: string;
@@ -437,6 +438,15 @@ export default function MonthlyFeeHistoryPanel({ userId, onConfirmed, embedded, 
                       </td>
                       <td className="py-3 px-3">
                         <div className="flex flex-wrap gap-1">
+                          {row.paymentId && row.status === 'completed' && (
+                            <ReceiptDownloadButton
+                              endpoint={`api/admin/users/${userId}/receipts/${row.paymentId}`}
+                              filename="Forex-Navigators-monthly-fee-receipt.pdf"
+                              iconOnly
+                              title="Download receipt"
+                              className="p-1.5 rounded-lg text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20 disabled:opacity-50"
+                            />
+                          )}
                           {row.paymentId && (
                             <button
                               type="button"

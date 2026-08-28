@@ -150,6 +150,59 @@ router.get('/monthly-fee', authenticateToken, async (req, res) => {
   }
 });
 
+const receiptService = require('../services/receiptService');
+
+// @route   GET /api/payments/receipts
+// @desc    List downloadable receipts for the current user (join + completed payments)
+// @access  Private — keep before GET /:id
+router.get('/receipts', authenticateToken, async (req, res) => {
+  try {
+    const payload = await receiptService.listReceiptsForUser(req.user._id);
+    if (!payload) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(payload);
+  } catch (error) {
+    console.error('List receipts error:', error);
+    res.status(500).json({ error: 'Failed to load receipts' });
+  }
+});
+
+// @route   GET /api/payments/receipts/join
+// @desc    Download membership / join PDF receipt
+// @access  Private
+router.get('/receipts/join', authenticateToken, async (req, res) => {
+  try {
+    const buffer = await receiptService.generateJoinReceiptPdf(req.user);
+    const filename = receiptService.receiptFilename(receiptService.joinReceiptNumber(req.user));
+    return receiptService.sendPdf(res, buffer, filename);
+  } catch (error) {
+    console.error('Join receipt error:', error);
+    res.status(500).json({ error: 'Failed to generate join receipt' });
+  }
+});
+
+// @route   GET /api/payments/:id/receipt
+// @desc    Download PDF receipt for a completed payment (id or transactionId)
+// @access  Private (owner or admin)
+router.get('/:id/receipt', authenticateToken, async (req, res) => {
+  try {
+    const payment = await receiptService.findCompletedPaymentByRef(req.params.id);
+    if (!payment) {
+      return res.status(404).json({ error: 'Receipt not available. Payment must be completed.' });
+    }
+    if (!receiptService.canAccessPayment(req.user, payment)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    const buffer = await receiptService.generatePaymentReceiptPdf(payment);
+    const filename = receiptService.receiptFilename(receiptService.receiptNumberForPayment(payment));
+    return receiptService.sendPdf(res, buffer, filename);
+  } catch (error) {
+    console.error('Payment receipt error:', error);
+    res.status(500).json({ error: 'Failed to generate receipt' });
+  }
+});
+
 // @route   GET /api/payments/methods
 // @desc    Get available payment methods
 // @access  Public — must be before GET /:id
@@ -1828,6 +1881,19 @@ router.post('/admin/confirm', [
     // Send notification and email to user
     const notificationService = require('../services/notificationService');
     try {
+      let emailAttachments;
+      try {
+        const receiptBuffer = await receiptService.generatePaymentReceiptPdf(payment, user);
+        const receiptName = receiptService.receiptFilename(receiptService.receiptNumberForPayment(payment));
+        emailAttachments = [{
+          filename: receiptName,
+          content: receiptBuffer,
+          contentType: 'application/pdf'
+        }];
+      } catch (receiptError) {
+        console.error('[Payment Confirm] Failed to attach receipt PDF:', receiptError);
+      }
+
       // Send payment confirmed email using notificationService (which uses templates)
       await notificationService.sendNotificationToUser(user._id, 'payment_confirmed', {
         amount: payment.finalAmount,
@@ -1836,7 +1902,9 @@ router.post('/admin/confirm', [
         packageName: payment.type === 'monthly_fee' ? 'Monthly Fee' : (payment.package?.name || 'Premium Package'),
         transactionId: payment.transactionId || payment._id.toString(),
         date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-        paymentId: payment._id
+        paymentId: payment._id,
+        receiptUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/receipts`,
+        emailAttachments
       });
 
       // Also send account verified email

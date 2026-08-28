@@ -56,6 +56,14 @@ const settingsSchema = new mongoose.Schema({
     trim: true,
     maxlength: [500, 'Trustpilot review URL cannot exceed 500 characters']
   },
+  /** Unique Trustpilot Automatic Feedback Service (AFS) address — BCC so invites count as invited, not organic. */
+  trustpilotAfsBccEmail: {
+    type: String,
+    default: '',
+    trim: true,
+    lowercase: true,
+    maxlength: [200, 'Trustpilot AFS BCC email cannot exceed 200 characters']
+  },
 
   // Security Settings
   security: {

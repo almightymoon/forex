@@ -10,6 +10,7 @@ import {
 import { Payment } from './types';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
+import ReceiptDownloadButton from '../../../components/ReceiptDownloadButton';
 
 interface Withdrawal {
   _id: string;
@@ -934,13 +935,22 @@ export default function PaymentManagement({
                           </button>
                         )}
                         {payment.status === 'completed' && (
-                          <button 
+                          <>
+                            <ReceiptDownloadButton
+                              endpoint={`api/payments/${payment._id}/receipt`}
+                              filename="Forex-Navigators-receipt.pdf"
+                              iconOnly
+                              title="Download receipt"
+                              className="p-2 text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 rounded-lg transition-colors disabled:opacity-50"
+                            />
+                            <button 
                             onClick={() => onPaymentStatusUpdate(payment._id, 'refunded')}
                             className="p-2 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                             title="Refund"
                           >
                             <X className="w-4 h-4" />
                           </button>
+                          </>
                         )}
                         <button
                           type="button"
@@ -1310,6 +1320,14 @@ export default function PaymentManagement({
               )}
 
               <div className="flex space-x-3">
+                {selectedPayment.status === 'completed' && (
+                  <ReceiptDownloadButton
+                    endpoint={`api/payments/${selectedPayment._id}/receipt`}
+                    filename="Forex-Navigators-receipt.pdf"
+                    label="Download receipt"
+                    className="flex-1 inline-flex justify-center items-center gap-2 px-4 py-2 border border-violet-300 dark:border-violet-600 text-violet-800 dark:text-violet-200 rounded-xl hover:bg-violet-50 dark:hover:bg-violet-900/20 disabled:opacity-50"
+                  />
+                )}
                 <button
                   onClick={() => setShowPaymentModal(false)}
                   className="flex-1 px-4 py-2 text-gray-700 dark:text-gray-300 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-600 transition-colors font-medium"

@@ -537,6 +537,63 @@ router.get('/users/:id/payments', async (req, res) => {
   }
 });
 
+const receiptService = require('../services/receiptService');
+
+// @route   GET /api/admin/users/:id/receipts
+// @desc    List join + completed-payment receipts for a user
+// @access  Private (Admin)
+router.get('/users/:id/receipts', async (req, res) => {
+  try {
+    const payload = await receiptService.listReceiptsForUser(req.params.id);
+    if (!payload) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    res.json(payload);
+  } catch (error) {
+    console.error('Admin list receipts error:', error);
+    res.status(500).json({ error: 'Failed to load receipts' });
+  }
+});
+
+// @route   GET /api/admin/users/:id/receipts/join
+// @desc    Download membership / join PDF for a user
+// @access  Private (Admin)
+router.get('/users/:id/receipts/join', async (req, res) => {
+  try {
+    const member = await User.findById(req.params.id).select('firstName lastName email createdAt selectedPackage');
+    if (!member) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    const buffer = await receiptService.generateJoinReceiptPdf(member);
+    const filename = receiptService.receiptFilename(receiptService.joinReceiptNumber(member));
+    return receiptService.sendPdf(res, buffer, filename);
+  } catch (error) {
+    console.error('Admin join receipt error:', error);
+    res.status(500).json({ error: 'Failed to generate join receipt' });
+  }
+});
+
+// @route   GET /api/admin/users/:id/receipts/:paymentId
+// @desc    Download a completed payment PDF for a user
+// @access  Private (Admin)
+router.get('/users/:id/receipts/:paymentId', async (req, res) => {
+  try {
+    const payment = await receiptService.findCompletedPaymentByRef(req.params.paymentId);
+    const ownerId = payment.user && typeof payment.user === 'object' && payment.user._id != null
+    ? payment.user._id
+    : payment.user;
+    if (!payment || String(ownerId) !== String(req.params.id)) {
+      return res.status(404).json({ error: 'Receipt not available. Payment must be completed.' });
+    }
+    const buffer = await receiptService.generatePaymentReceiptPdf(payment);
+    const filename = receiptService.receiptFilename(receiptService.receiptNumberForPayment(payment));
+    return receiptService.sendPdf(res, buffer, filename);
+  } catch (error) {
+    console.error('Admin payment receipt error:', error);
+    res.status(500).json({ error: 'Failed to generate receipt' });
+  }
+});
+
 // @route   GET /api/admin/users/:id/withdrawals
 // @desc    Get user's withdrawal history (admin only)
 // @access  Private (Admin)
@@ -3134,6 +3191,7 @@ router.get('/settings', async (req, res) => {
         telegramInviteUrl: (settings.telegramInviteUrl || '').trim(),
         trustpilotReviewUrl: (settings.trustpilotReviewUrl || '').trim() ||
           'https://www.trustpilot.com/evaluate/thefxnavigators.com',
+        trustpilotAfsBccEmail: (settings.trustpilotAfsBccEmail || '').trim(),
       },
       security: settings.security,
       notifications: settings.notifications,

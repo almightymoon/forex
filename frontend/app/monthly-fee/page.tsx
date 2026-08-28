@@ -7,6 +7,7 @@ import { buildApiUrl } from '@/utils/api';
 import { hasMonthlyFeeAccessLock } from '@/utils/monthlyFeeAccessLock';
 import DarkModeToggle from '../../components/DarkModeToggle';
 import CoolLoader from '../../components/CoolLoader';
+import ReceiptDownloadButton from '../../components/ReceiptDownloadButton';
 import {
   CalendarClock,
   Wallet,
@@ -537,6 +538,15 @@ export default function MonthlyFeePage() {
                       <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                         {formatUsd(row.amount)} {row.currency || 'USD'}
                       </p>
+                      {row.status === 'completed' && row.paymentId ? (
+                        <div className="mt-2">
+                          <ReceiptDownloadButton
+                            endpoint={`api/payments/${row.paymentId}/receipt`}
+                            filename="Forex-Navigators-monthly-fee-receipt.pdf"
+                            label="Receipt"
+                          />
+                        </div>
+                      ) : null}
                     </div>
                   ))
                 )}

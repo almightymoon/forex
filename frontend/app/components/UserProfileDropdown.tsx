@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { User, Settings, LogOut, ChevronDown, Bell, Share2, Wallet, ArrowUpRight, Package, CreditCard } from 'lucide-react';
+import { User, Settings, LogOut, ChevronDown, Bell, Share2, Wallet, ArrowUpRight, Package, CreditCard, Receipt } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useLanguage } from '../../context/LanguageContext';
 import { buildApiUrl } from '../../utils/api';
@@ -276,6 +276,17 @@ export default function UserProfileDropdown({
                 <span>Monthly Fee</span>
               </button>
             )}
+
+            <button
+              onClick={() => {
+                setIsOpen(false);
+                router.push('/receipts');
+              }}
+              className="w-full flex items-center px-4 py-2 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors duration-150"
+            >
+              <Receipt className="w-4 h-4 mr-3 text-gray-400 dark:text-gray-500" />
+              <span>Receipts</span>
+            </button>
 
             {/* Upgrade happens inside "My Package" page */}
 

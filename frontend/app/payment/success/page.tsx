@@ -2,18 +2,52 @@
 
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { CheckCircle, XCircle, ArrowRight, Home } from 'lucide-react';
+import { CheckCircle, ArrowRight, Home } from 'lucide-react';
 import Link from 'next/link';
+import { buildApiUrl } from '@/utils/api';
+import ReceiptDownloadButton from '../../../components/ReceiptDownloadButton';
 
 const PaymentSuccessPage: React.FC = () => {
   const searchParams = useSearchParams();
   const [transactionId, setTransactionId] = useState<string>('');
+  const [paymentId, setPaymentId] = useState<string>('');
 
   useEffect(() => {
-    const id = searchParams.get('transactionId');
+    const id = searchParams.get('transactionId') || searchParams.get('paymentId') || '';
     if (id) {
       setTransactionId(id);
     }
+
+    const token = localStorage.getItem('token');
+    if (!token) return;
+
+    let alive = true;
+    (async () => {
+      try {
+        const res = await fetch(buildApiUrl('api/payments/user'), {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const payments = await res.json();
+        const match = Array.isArray(payments)
+          ? payments.find((p: { _id?: string; transactionId?: string; status?: string }) => {
+              if (p.status !== 'completed') return false;
+              if (!id) return false;
+              return String(p.transactionId) === id || String(p._id) === id;
+            })
+          : null;
+        if (alive && match?._id) {
+          setPaymentId(String(match._id));
+          if (match.transactionId) setTransactionId(String(match.transactionId));
+        }
+      } catch {
+        // ignore — download still works from /receipts
+      }
+    })();
+
+    return () => {
+      alive = false;
+    };
   }, [searchParams]);
 
   return (
@@ -27,7 +61,7 @@ const PaymentSuccessPage: React.FC = () => {
             Payment Successful!
           </h2>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            Your payment has been processed successfully.
+            Your payment has been processed successfully. A PDF receipt is ready to download.
           </p>
           {transactionId && (
             <p className="mt-2 text-xs text-gray-500 dark:text-gray-500">
@@ -56,6 +90,22 @@ const PaymentSuccessPage: React.FC = () => {
                 Processed
               </span>
             </div>
+
+            {paymentId ? (
+              <ReceiptDownloadButton
+                endpoint={`api/payments/${paymentId}/receipt`}
+                filename="Forex-Navigators-receipt.pdf"
+                label="Download receipt"
+                className="w-full inline-flex justify-center items-center gap-2 px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+              />
+            ) : (
+              <Link
+                href="/receipts"
+                className="w-full inline-flex justify-center items-center px-4 py-2 rounded-md border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
+              >
+                View receipts
+              </Link>
+            )}
           </div>
         </div>
 
@@ -79,7 +129,7 @@ const PaymentSuccessPage: React.FC = () => {
 
         <div className="text-center">
           <p className="text-xs text-gray-500 dark:text-gray-500">
-            A confirmation email has been sent to your registered email address.
+            A confirmation email with your receipt has been sent to your registered email address.
           </p>
         </div>
       </div>
@@ -88,5 +138,3 @@ const PaymentSuccessPage: React.FC = () => {
 };
 
 export default PaymentSuccessPage;
-
-

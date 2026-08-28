@@ -104,6 +104,32 @@ function getPublicAppUrl() {
   return String(process.env.FRONTEND_URL || process.env.PUBLIC_APP_URL || 'https://thefxnavigators.com').replace(/\/$/, '');
 }
 
+function getTrustpilotAfsBcc(settings) {
+  return String(settings?.trustpilotAfsBccEmail || process.env.TRUSTPILOT_AFS_BCC_EMAIL || '')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Trustpilot AFS structured-data snippet (must stay in an HTML comment).
+ * @see https://help.trustpilot.com/s/article/How-to-use-Automatic-Feedback-Service-AFS
+ */
+function appendTrustpilotAfsSnippet(html, { recipientName, recipientEmail, referenceId } = {}) {
+  const payload = {
+    recipientName: String(recipientName || '').trim() || 'Member',
+    recipientEmail: String(recipientEmail || '').trim().toLowerCase(),
+    referenceId: String(referenceId || '').trim()
+  };
+  if (!payload.recipientEmail) return String(html || '');
+  const snippet = `<!-- <script type="application/json+trustpilot">${JSON.stringify(payload)}</script> -->`;
+  const source = String(html || '');
+  if (/json\+trustpilot/i.test(source)) return source;
+  if (/<\/body>/i.test(source)) {
+    return source.replace(/<\/body>/i, `${snippet}\n</body>`);
+  }
+  return `${source}\n${snippet}`;
+}
+
 function normalizeButtonLabel(value) {
   return String(value || '')
     .replace(/<[^>]+>/g, ' ')
@@ -251,6 +277,8 @@ module.exports = {
   normalizeEmailHtml,
   wrapHtmlEmail,
   getPublicAppUrl,
+  getTrustpilotAfsBcc,
+  appendTrustpilotAfsSnippet,
   buttonMarkup,
   injectActionButtons,
   rewireHtmlButtons,

@@ -126,7 +126,7 @@ class NotificationService {
    * @param {string} options.bulkNotificationId - Bulk notification ID if applicable
    * @returns {Promise<boolean>} - Success status
    */
-  async sendEmail({ to, subject, html, text, userId, type, bulkNotificationId }) {
+  async sendEmail({ to, subject, html, text, userId, type, bulkNotificationId, attachments, bcc }) {
     let trackingRecord = null;
     
     try {
@@ -174,6 +174,7 @@ class NotificationService {
         const safeSubject = stripTemplatePlaceholders(subject);
         console.log('\n📧 MOCK EMAIL SENT:');
         console.log('To:', to);
+        if (bcc) console.log('Bcc:', bcc);
         console.log('Subject:', safeSubject);
         console.log('From:', `${emailConfig.fromName} <${emailConfig.fromEmail}>`);
         console.log('Content:', safeText);
@@ -225,6 +226,17 @@ class NotificationService {
         html: safeHtml,
         text: safeText
       };
+
+      const bccAddress = Array.isArray(bcc)
+        ? bcc.map((e) => String(e || '').trim()).filter(Boolean).join(', ')
+        : String(bcc || '').trim();
+      if (bccAddress) {
+        mailOptions.bcc = bccAddress;
+      }
+
+      if (Array.isArray(attachments) && attachments.length) {
+        mailOptions.attachments = attachments;
+      }
 
       console.log('[Email] Attempting to send email via SMTP...');
       const info = await transporter.sendMail(mailOptions);
@@ -356,9 +368,11 @@ class NotificationService {
         return results;
       }
 
+      const { emailAttachments, ...templateData } = data || {};
+
       // Generate notification content
       console.log(`[Notification] Generating content for type: ${type}`);
-      const content = this.generateNotificationContent(type, data, user);
+      const content = this.generateNotificationContent(type, templateData, user);
       console.log(`[Notification] Content generated - Subject: ${content.subject}`);
       console.log(`[Notification] HTML length: ${content.html?.length || 0} chars`);
       console.log(`[Notification] Text length: ${content.text?.length || 0} chars`);
@@ -383,7 +397,8 @@ class NotificationService {
           text: content.text,
           userId: user._id.toString(),
           type: type,
-          bulkNotificationId: bulkNotificationId
+          bulkNotificationId: bulkNotificationId,
+          attachments: emailAttachments
         });
         console.log(`[Notification] Email send result: ${results.email}`);
       } else {
@@ -404,7 +419,7 @@ class NotificationService {
           userId: user._id.toString(),
           title: content.pushTitle,
           body: content.pushBody,
-          data: { type, ...data }
+          data: { type, ...templateData }
         });
       }
 
@@ -611,6 +626,7 @@ class NotificationService {
           transactionId: data.transactionId || data.paymentId?.toString() || 'N/A',
           date: data.date || new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
           loginUrl: `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`,
+          receiptUrl: data.receiptUrl || `${process.env.FRONTEND_URL || 'http://localhost:3000'}/receipts`,
           companyName: 'Forex Navigators'
         });
         

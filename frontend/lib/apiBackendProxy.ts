@@ -119,14 +119,32 @@ export async function proxyToBackendApi(
     body
   });
 
-  const responseBody = await response.text();
+  const contentType = (response.headers.get('content-type') || '').toLowerCase();
+  const isBinary =
+    contentType.includes('application/pdf') ||
+    contentType.includes('application/octet-stream') ||
+    contentType.includes('application/zip') ||
+    contentType.includes('application/gzip') ||
+    contentType.includes('application/x-gzip') ||
+    contentType.includes('image/') ||
+    contentType.includes('audio/') ||
+    contentType.includes('video/');
 
-  if (!response.ok) {
+  const responseBody = isBinary ? await response.arrayBuffer() : await response.text();
+
+  if (!response.ok && !isBinary) {
     console.error(`Backend error (${response.status}):`, {
       url: backendUrl,
       method,
       status: response.status,
-      body: responseBody.substring(0, 500)
+      body: typeof responseBody === 'string' ? responseBody.substring(0, 500) : '[binary]'
+    });
+  } else if (!response.ok) {
+    console.error(`Backend error (${response.status}):`, {
+      url: backendUrl,
+      method,
+      status: response.status,
+      body: '[binary]'
     });
   }
 

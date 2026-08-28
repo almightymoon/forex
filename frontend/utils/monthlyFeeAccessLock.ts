@@ -29,6 +29,7 @@ export function hasMonthlyFeeAccessLock(): boolean {
 export function isMonthlyFeeStudentExemptPath(pathname: string | null): boolean {
   if (!pathname) return false;
   if (pathname === '/monthly-fee' || pathname.startsWith('/monthly-fee/')) return true;
+  if (pathname === '/receipts' || pathname.startsWith('/receipts/')) return true;
   if (pathname === '/payment' || pathname.startsWith('/payment/')) return true;
   if (pathname === '/payment-pending' || pathname.startsWith('/payment-pending/')) return true;
   return false;

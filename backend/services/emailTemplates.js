@@ -587,7 +587,7 @@ class EmailTemplateService {
         category: 'payments',
         description: 'Email sent when payment is confirmed by admin',
         channels: ['email'],
-        variables: ['userName', 'amount', 'currency', 'packageName', 'transactionId', 'date', 'loginUrl', 'companyName'],
+        variables: ['userName', 'amount', 'currency', 'packageName', 'transactionId', 'date', 'loginUrl', 'receiptUrl', 'companyName'],
         html: `
           <!DOCTYPE html>
           <html lang="en">
@@ -643,7 +643,14 @@ class EmailTemplateService {
                   <span class="checkmark">✓</span> Your account has been activated
                 </p>
                 
+                <p style="text-align: center; color: #333; font-size: 14px; margin: 20px 0 8px;">
+                  Your official receipt is attached to this email. You can also download it anytime from your account.
+                </p>
+                
                 <div style="text-align: center; margin: 30px 0;">
+                  <a href="{{receiptUrl}}" class="cta-button">Download receipt</a>
+                </div>
+                <div style="text-align: center; margin: 0 0 30px;">
                   <a href="{{loginUrl}}" class="cta-button">🚀 Access Dashboard</a>
                 </div>
                 
@@ -659,7 +666,7 @@ class EmailTemplateService {
           </body>
           </html>
         `,
-        text: `Payment Confirmed!\n\nHello {{userName}},\n\nYour payment has been confirmed by our admin team. Your account is now activated!\n\nAmount: {{currency}} {{amount}}\nPackage: {{packageName}}\nTransaction ID: {{transactionId}}\nDate: {{date}}\n\nYour account has been activated and you have full access to all premium features.\n\nAccess your dashboard: {{loginUrl}}\n\nBest regards,\nThe {{companyName}} Team`
+        text: `Payment Confirmed!\n\nHello {{userName}},\n\nYour payment has been confirmed by our admin team. Your account is now activated!\n\nAmount: {{currency}} {{amount}}\nPackage: {{packageName}}\nTransaction ID: {{transactionId}}\nDate: {{date}}\n\nYour official receipt is attached to this email.\nDownload receipts: {{receiptUrl}}\nAccess your dashboard: {{loginUrl}}\n\nBest regards,\nThe {{companyName}} Team`
       },
 
       payment_pending: {

@@ -22,7 +22,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { buildApiUrl } from '@/utils/api';
 import DarkModeToggle from '../../components/DarkModeToggle';
-import PackagePerksDisplay from '../components/PackagePerksDisplay';
+import ReceiptDownloadButton from '../../components/ReceiptDownloadButton';
 
 const packages = [
   { 
@@ -97,6 +97,7 @@ export default function SubscriptionPage() {
   const [subscriptionPackage, setSubscriptionPackage] = useState<string | null>(null);
   const [subscriptionPrice, setSubscriptionPrice] = useState<number | null>(null);
   const [subscriptionDate, setSubscriptionDate] = useState<string | null>(null);
+  const [packagePaymentId, setPackagePaymentId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -124,6 +125,7 @@ export default function SubscriptionPage() {
             setSubscriptionPackage(completedPayment.package.name);
             setSubscriptionPrice(completedPayment.package.price || completedPayment.finalAmount);
             setSubscriptionDate(completedPayment.confirmedAt || completedPayment.createdAt);
+            setPackagePaymentId(completedPayment._id || null);
           }
         }
       } catch (error) {
@@ -229,6 +231,17 @@ export default function SubscriptionPage() {
                       </div>
                     )}
                   </div>
+
+                  {packagePaymentId ? (
+                    <div className="mb-8">
+                      <ReceiptDownloadButton
+                        endpoint={`api/payments/${packagePaymentId}/receipt`}
+                        filename="Forex-Navigators-package-receipt.pdf"
+                        label="Download package receipt"
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-sm font-medium text-gray-800 dark:text-gray-100 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50"
+                      />
+                    </div>
+                  ) : null}
 
                   {/* Features */}
                   <div className="mb-8">

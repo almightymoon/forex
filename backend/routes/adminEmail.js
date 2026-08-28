@@ -3,7 +3,8 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const EmailTemplate = require('../models/EmailTemplate');
 const notificationService = require('../services/notificationService');
-const { applyVariables, stripHtml, wrapHtmlEmail, normalizeEmailHtml } = require('../services/htmlEmail');
+const { applyVariables, stripHtml, wrapHtmlEmail, normalizeEmailHtml, getTrustpilotAfsBcc, appendTrustpilotAfsSnippet } = require('../services/htmlEmail');
+const Settings = require('../models/Settings');
 const {
   sanitizeButtons,
   renderTrackedHtml,
@@ -191,7 +192,7 @@ router.post(
         return res.status(400).json({ error: 'Validation failed', details: errors.array() });
       }
 
-      const { subject, text, audience = 'all', userIds, emails, variables, trackButtons, buttons, confirmationMessage } = req.body;
+      const { subject, text, audience = 'all', userIds, emails, variables, trackButtons, buttons, confirmationMessage, trustpilotAfs } = req.body;
       const html = normalizeEmailHtml(req.body.html);
       const recipients = await resolveRecipients({ audience, userIds, emails });
 
@@ -200,6 +201,19 @@ router.post(
           error: 'No recipients',
           message: 'No matching users or valid email addresses were found',
         });
+      }
+
+      let afsBcc = '';
+      if (trustpilotAfs) {
+        const settings = await Settings.getSettings();
+        afsBcc = getTrustpilotAfsBcc(settings);
+        if (!afsBcc) {
+          return res.status(400).json({
+            error: 'Trustpilot BCC is not configured',
+            message:
+              'Trustpilot needs a BCC to the unique Automatic Feedback Service address, or reviews stay organic. Add it in Admin → Settings → Trustpilot reviews.',
+          });
+        }
       }
 
       const safeButtons = trackButtons ? sanitizeButtons(buttons) : [];
@@ -226,10 +240,18 @@ router.post(
         });
         const renderedSubject = applyVariables(subject, vars);
         const token = recipientsByEmail.get(String(recipient.email).toLowerCase())?.token;
-        const renderedHtml =
+        let renderedHtml =
           token && safeButtons.length
             ? renderTrackedHtml({ html, subject: renderedSubject, vars, token, buttons: safeButtons })
             : wrapHtmlEmail(applyVariables(html, vars), renderedSubject);
+        if (afsBcc) {
+          const recipientName = `${recipient.user?.firstName || ''} ${recipient.user?.lastName || ''}`.trim() || vars.userName;
+          renderedHtml = appendTrustpilotAfsSnippet(renderedHtml, {
+            recipientName,
+            recipientEmail: recipient.email,
+            referenceId: recipient.user?._id ? `user-${recipient.user._id}` : `email-${recipient.email}`,
+          });
+        }
         const renderedText = applyVariables(text || stripHtml(html), vars);
 
         try {
@@ -240,6 +262,7 @@ router.post(
             text: renderedText,
             userId: recipient.user?._id?.toString(),
             type: 'bulk',
+            bcc: afsBcc || undefined,
           });
           results.push({ email: recipient.email, success, error: success ? null : 'Failed to send' });
         } catch (error) {
