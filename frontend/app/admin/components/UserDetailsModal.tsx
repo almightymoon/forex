@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
 import { 
   X, User as UserIcon, Mail, Phone, MapPin, Calendar, 
@@ -172,6 +173,14 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
       void fetchReceipts();
     }
   }, [activeTab, user._id]);
+
+  useEffect(() => {
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, []);
 
   const previewReferralStatsRecalc = async () => {
     try {
@@ -839,13 +848,14 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
     }
   };
 
-  return (
-    <div className="user-detail-modal fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
+  return createPortal(
+    <div className="user-detail-modal fixed inset-0 z-[100] overflow-y-auto">
+      <div className="flex min-h-full items-center justify-center p-3 sm:p-4">
       <motion.div
         initial={{ opacity: 0, scale: 0.97, y: 8 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ duration: 0.22 }}
-        className="user-detail-modal__surface flex max-h-[92vh] w-full max-w-[min(72rem,96vw)] flex-col overflow-hidden"
+        className="user-detail-modal__surface flex max-h-[min(92vh,calc(100vh-2rem))] w-full max-w-[min(72rem,96vw)] flex-col overflow-hidden"
       >
         {/* Header */}
         <div className="user-detail-modal__header relative shrink-0 overflow-hidden px-5 py-4 sm:px-6">
@@ -1753,6 +1763,7 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
           ) : null}
         </div>
       </motion.div>
+      </div>
 
       {/* Email unreachable reason modal */}
       {showUnreachableModal && (
@@ -2396,6 +2407,7 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
           </motion.div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }

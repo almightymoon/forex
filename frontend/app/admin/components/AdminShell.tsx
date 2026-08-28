@@ -178,12 +178,8 @@ export default function AdminShell({
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div
-          className={`flex h-[4.25rem] items-center border-b border-[var(--admin-border)] px-3 ${
-            collapsed ? 'justify-center' : 'justify-between gap-2'
-          }`}
-        >
-          <div className={`admin-sidebar__brand ${collapsed ? 'justify-center' : ''}`}>
+        <div className="relative flex h-[4.25rem] shrink-0 items-center border-b border-[var(--admin-border)] px-3">
+          <div className={`admin-sidebar__brand w-full ${collapsed ? 'justify-center' : 'pr-9 lg:pr-0'}`}>
             <div className="admin-sidebar__logo">
               <Shield className="h-[1.125rem] w-[1.125rem]" />
             </div>
@@ -194,14 +190,16 @@ export default function AdminShell({
               </div>
             ) : null}
           </div>
-          <button
-            type="button"
-            onClick={() => setSidebarOpen(false)}
-            className="admin-icon-btn lg:hidden"
-            aria-label="Close menu"
-          >
-            <X className="h-5 w-5" />
-          </button>
+          {!collapsed ? (
+            <button
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              className="admin-icon-btn absolute right-2 top-1/2 z-10 -translate-y-1/2 lg:hidden"
+              aria-label="Close menu"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          ) : null}
         </div>
 
         <nav className="admin-sidebar-nav flex-1 overflow-y-auto px-2 py-3">
