@@ -7,7 +7,7 @@ import { ArrowLeft, Calendar, CreditCard, Package, Receipt } from 'lucide-react'
 import { buildApiUrl } from '@/utils/api';
 import DarkModeToggle from '../../components/DarkModeToggle';
 import CoolLoader from '../../components/CoolLoader';
-import ReceiptDownloadButton from '../../components/ReceiptDownloadButton';
+import ReceiptActions from '../../components/ReceiptActions';
 
 type JoinReceipt = {
   kind: 'join';
@@ -145,10 +145,11 @@ export default function ReceiptsPage() {
                 </p>
                 <p className="text-xs font-mono text-gray-500 mt-1">{join.receiptNumber}</p>
               </div>
-              <ReceiptDownloadButton
+              <ReceiptActions
                 endpoint="api/payments/receipts/join"
                 filename={`Forex-Navigators-${join.receiptNumber}.pdf`}
                 label="Download"
+                previewTitle="Membership receipt"
               />
             </div>
           </section>
@@ -213,12 +214,12 @@ function ReceiptGroup({
                 </p>
                 <p className="text-xs font-mono text-gray-400 mt-0.5">{row.receiptNumber}</p>
               </div>
-              <ReceiptDownloadButton
+              <ReceiptActions
                 endpoint={`api/payments/${row.id}/receipt`}
                 filename={`Forex-Navigators-${row.receiptNumber}.pdf`}
                 iconOnly
-                title="Download PDF"
-                className="p-2 rounded-lg text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 disabled:opacity-50"
+                title="receipt"
+                previewTitle={row.title}
               />
             </div>
           ))}

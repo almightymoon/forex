@@ -1,33 +1,228 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Users, DollarSign, CreditCard, Target, TrendingUp } from 'lucide-react';
-import { Analytics, RecentActivityItem } from './types';
+import CountUp from 'react-countup';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  BarElement,
+  Filler,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Line, Bar } from 'react-chartjs-2';
+import {
+  Users,
+  DollarSign,
+  CreditCard,
+  Target,
+  TrendingUp,
+  ArrowUpRight,
+  UserCheck,
+  AlertCircle,
+  Clock,
+  Tag,
+  ChevronRight,
+  Activity,
+  Zap,
+  ArrowRight,
+  CheckCircle2,
+} from 'lucide-react';
+import { Analytics, Payment, RecentActivityItem, User } from './types';
+import type { AdminTabId } from '../config/nav';
+
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Filler, Tooltip, Legend);
+
+/* ─── helpers ─── */
 
 function formatRelativeTime(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  if (diffMins < 1) return 'Just now';
-  if (diffMins < 60) return `${diffMins} minute${diffMins === 1 ? '' : 's'} ago`;
-  if (diffHours < 24) return `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
-  if (diffDays < 7) return `${diffDays} day${diffDays === 1 ? '' : 's'} ago`;
-  return date.toLocaleDateString();
+  const diffMs = Date.now() - new Date(dateStr).getTime();
+  const m = Math.floor(diffMs / 60000);
+  const h = Math.floor(diffMs / 3600000);
+  const d = Math.floor(diffMs / 86400000);
+  if (m < 1) return 'Just now';
+  if (m < 60) return `${m}m ago`;
+  if (h < 24) return `${h}h ago`;
+  if (d < 7) return `${d}d ago`;
+  return new Date(dateStr).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
+
+function greeting(): string {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good morning';
+  if (h < 17) return 'Good afternoon';
+  return 'Good evening';
+}
+
+function formatDelta(value: number): { label: string; tone: 'up' | 'down' | 'flat' } {
+  if (!value) return { label: 'Flat vs last month', tone: 'flat' };
+  return { label: `${value > 0 ? '+' : ''}${value}% vs last month`, tone: value > 0 ? 'up' : 'down' };
+}
+
+function computeRevenueGrowth(months: Array<{ revenue: number }>): number {
+  if (!months?.length) return 0;
+  const cur = months[months.length - 1]?.revenue ?? 0;
+  const prev = months[months.length - 2]?.revenue ?? 0;
+  if (prev <= 0) return cur > 0 ? 100 : 0;
+  return Math.round(((cur - prev) / prev) * 100);
+}
+
+function initials(name?: string): string {
+  const p = (name || '?').trim().split(/\s+/).filter(Boolean);
+  if (p.length >= 2) return `${p[0][0]}${p[1][0]}`.toUpperCase();
+  return (p[0]?.[0] || '?').toUpperCase();
+}
+
+function useIsDark(): boolean {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const sync = () => setDark(root.classList.contains('dark'));
+    sync();
+    const obs = new MutationObserver(sync);
+    obs.observe(root, { attributes: true, attributeFilter: ['class'] });
+    return () => obs.disconnect();
+  }, []);
+  return dark;
+}
+
+function chartColors(dark: boolean) {
+  return {
+    grid: dark ? 'rgba(148,163,184,0.08)' : 'rgba(148,163,184,0.25)',
+    tick: dark ? '#94a3b8' : '#64748b',
+    tooltipBg: dark ? '#0f172a' : '#fff',
+    tooltipBorder: dark ? '#334155' : '#e2e8f0',
+    tooltipText: dark ? '#f1f5f9' : '#0f172a',
+    revenueLine: '#818cf8',
+    revenueFill: dark ? 'rgba(129,140,248,0.18)' : 'rgba(99,102,241,0.12)',
+    usersBar: dark ? 'rgba(52,211,153,0.75)' : 'rgba(16,185,129,0.7)',
+  };
+}
+
+/* ─── sub-components ─── */
+
+function DeltaBadge({ delta }: { delta: ReturnType<typeof formatDelta> }) {
+  const cls =
+    delta.tone === 'up'
+      ? 'overview-delta overview-delta--up'
+      : delta.tone === 'down'
+        ? 'overview-delta overview-delta--down'
+        : 'overview-delta overview-delta--flat';
+  return <span className={cls}>{delta.label}</span>;
+}
+
+type MetricProps = {
+  label: string;
+  value: number;
+  prefix?: string;
+  suffix?: string;
+  decimals?: number;
+  delta: ReturnType<typeof formatDelta>;
+  accent: 'indigo' | 'emerald' | 'violet' | 'sky';
+  icon: React.ReactNode;
+  delay?: number;
+};
+
+function MetricTile({ label, value, prefix = '', suffix = '', decimals = 0, delta, accent, icon, delay = 0 }: MetricProps) {
+  return (
+    <motion.article
+      initial={{ opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay }}
+      className={`overview-metric overview-metric--${accent}`}
+    >
+      <div className="overview-metric__glow" aria-hidden />
+      <div className="overview-metric__top">
+        <div className="overview-metric__icon">{icon}</div>
+        <DeltaBadge delta={delta} />
+      </div>
+      <p className="overview-metric__label">{label}</p>
+      <p className="overview-metric__value">
+        {prefix}
+        <CountUp end={value} duration={1.4} decimals={decimals} separator="," />
+        {suffix}
+      </p>
+    </motion.article>
+  );
+}
+
+type ActionTileProps = {
+  title: string;
+  subtitle: string;
+  accent: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+};
+
+function ActionTile({ title, subtitle, accent, icon, onClick }: ActionTileProps) {
+  return (
+    <button type="button" onClick={onClick} className={`overview-action-tile ${accent}`}>
+      <div className="overview-action-tile__icon">{icon}</div>
+      <div className="overview-action-tile__body">
+        <span className="overview-action-tile__title">{title}</span>
+        <span className="overview-action-tile__sub">{subtitle}</span>
+      </div>
+      <ArrowUpRight className="overview-action-tile__arrow" />
+    </button>
+  );
+}
+
+type ActivityFilter = 'all' | 'signups' | 'payments';
+
+function ActivityItem({ item }: { item: RecentActivityItem }) {
+  const signup = item.type === 'user_registration';
+  return (
+    <div className="overview-feed-item">
+      <div className={`overview-feed-item__avatar ${signup ? 'is-user' : 'is-payment'}`}>
+        {signup ? initials(item.userName) : <DollarSign className="h-4 w-4" />}
+      </div>
+      <div className="overview-feed-item__main">
+        <div className="overview-feed-item__row">
+          <span className="overview-feed-item__title">{signup ? item.userName : `${item.packageName || 'Payment'}`}</span>
+          {signup && item.role ? <span className={`overview-role-pill is-${item.role}`}>{item.role}</span> : null}
+          {!signup ? (
+            <span className="overview-feed-item__amount">${Number(item.amount || 0).toLocaleString()}</span>
+          ) : null}
+        </div>
+        <p className="overview-feed-item__meta">
+          {signup ? (item.email || 'New registration') : `Completed · ${item.userName || 'Unknown'}`}
+        </p>
+      </div>
+      <time className="overview-feed-item__time">{formatRelativeTime(item.createdAt)}</time>
+    </div>
+  );
+}
+
+/* ─── main ─── */
 
 interface OverviewProps {
   analytics: Analytics;
-  onTabChange: (tab: string) => void;
-  userCount?: number; // Optional override for real-time user count
+  onTabChange: (tab: AdminTabId) => void;
+  userCount?: number;
+  payments?: Payment[];
+  users?: User[];
+  platformName?: string;
+  adminName?: string;
 }
 
-export default function Overview({ analytics, onTabChange, userCount }: OverviewProps) {
-  // Ensure analytics object exists with default values
-  const safeAnalytics = analytics || {
+export default function Overview({
+  analytics,
+  onTabChange,
+  userCount,
+  payments = [],
+  users = [],
+  platformName = 'Forex Navigators',
+  adminName = 'Admin',
+}: OverviewProps) {
+  const isDark = useIsDark();
+  const colors = chartColors(isDark);
+  const [activityFilter, setActivityFilter] = useState<ActivityFilter>('all');
+
+  const data = analytics || {
     totalUsers: 0,
     totalRevenue: 0,
     monthlyGrowth: 0,
@@ -38,151 +233,344 @@ export default function Overview({ analytics, onTabChange, userCount }: Overview
     monthlyRevenue: [],
     monthlyUserGrowth: [],
     paymentMethodStats: [],
-    recentActivity: []
-  };
-  const recentActivity: RecentActivityItem[] = safeAnalytics.recentActivity || [];
-  
-  // Use userCount prop if provided, otherwise use analytics.totalUsers
-  const displayUserCount = userCount !== undefined ? userCount : safeAnalytics.totalUsers;
-
-  // Helper function to safely format numbers
-  const formatNumber = (value: any): string => {
-    if (value === null || value === undefined || isNaN(value)) {
-      return '0';
-    }
-    return Number(value).toLocaleString();
+    recentActivity: [],
   };
 
-  const formatCurrency = (value: any): string => {
-    if (value === null || value === undefined || isNaN(value)) {
-      return '$0';
-    }
-    return `$${Number(value).toLocaleString()}`;
+  const totalUsers = userCount ?? data.totalUsers;
+  const revenueGrowth = computeRevenueGrowth(data.monthlyRevenue || []);
+  const recentActivity = data.recentActivity || [];
+
+  const attention = useMemo(() => {
+    const pendingPayments = payments.filter((p) => p.status === 'pending' || p.status === 'processing');
+    const pendingStudents = users.filter((u) => u.role === 'student' && !u.isVerified);
+    const lockedUsers = users.filter((u) => u.security?.isLocked);
+    return { pendingPayments, pendingStudents, lockedUsers };
+  }, [payments, users]);
+
+  const filteredActivity = useMemo(() => {
+    if (activityFilter === 'signups') return recentActivity.filter((a) => a.type === 'user_registration');
+    if (activityFilter === 'payments') return recentActivity.filter((a) => a.type === 'payment_received');
+    return recentActivity;
+  }, [recentActivity, activityFilter]);
+
+  const monthLabels = (data.monthlyRevenue || []).map((m) => m.month);
+  const revenueValues = (data.monthlyRevenue || []).map((m) => m.revenue);
+  const userValues = (data.monthlyUserGrowth || []).map((m) => m.users);
+
+  const revenueChart = {
+    labels: monthLabels,
+    datasets: [
+      {
+        label: 'Revenue',
+        data: revenueValues,
+        borderColor: colors.revenueLine,
+        backgroundColor: colors.revenueFill,
+        borderWidth: 2.5,
+        fill: true,
+        tension: 0.42,
+        pointRadius: 0,
+        pointHoverRadius: 5,
+        pointHoverBackgroundColor: colors.revenueLine,
+      },
+    ],
   };
+
+  const usersChart = {
+    labels: monthLabels,
+    datasets: [
+      {
+        label: 'Signups',
+        data: userValues,
+        backgroundColor: colors.usersBar,
+        borderRadius: 6,
+        borderSkipped: false as const,
+      },
+    ],
+  };
+
+  const baseChartOpts = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index' as const, intersect: false },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: colors.tooltipBg,
+        titleColor: colors.tooltipText,
+        bodyColor: colors.tooltipText,
+        borderColor: colors.tooltipBorder,
+        borderWidth: 1,
+        padding: 10,
+        displayColors: false,
+      },
+    },
+    scales: {
+      x: {
+        grid: { display: false },
+        ticks: { color: colors.tick, font: { size: 11 } },
+        border: { display: false },
+      },
+      y: {
+        grid: { color: colors.grid },
+        ticks: { color: colors.tick, font: { size: 11 }, maxTicksLimit: 5 },
+        border: { display: false },
+      },
+    },
+  };
+
+  const todayStr = new Date().toLocaleDateString(undefined, {
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+  });
 
   return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6 mb-4">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <div className="bg-white rounded-2xl dark:bg-gray-800 p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 dark:text-white text-sm font-medium">Total Users</p>
-              <p className="text-3xl font-bold dark:text-white text-gray-900">{formatNumber(displayUserCount)}</p>
-              <p className="text-green-600 text-sm font-medium ">+{formatNumber(safeAnalytics.monthlyGrowth)}% this month</p>
+    <div className="overview-command">
+      {/* Hero */}
+      <motion.header
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="overview-hero"
+      >
+        <div className="overview-hero__mesh" aria-hidden />
+        <div className="overview-hero__content">
+          <div>
+            <p className="overview-hero__eyebrow">{platformName}</p>
+            <h2 className="overview-hero__title">
+              {greeting()}, {adminName}
+            </h2>
+            <p className="overview-hero__date">{todayStr}</p>
+          </div>
+          <div className="overview-hero__pills">
+            <div className="overview-hero__pill">
+              <Activity className="h-4 w-4 text-indigo-400" />
+              <span>
+                <strong>{data.paymentsThisMonth}</strong> payments this month
+              </span>
             </div>
-            <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-              <Users className="w-8 h-8 text-white" />
+            <div className="overview-hero__pill">
+              <UserCheck className="h-4 w-4 text-emerald-400" />
+              <span>
+                <strong>{data.activeUsers}</strong> active users
+              </span>
+            </div>
+            <div className="overview-hero__pill">
+              <Tag className="h-4 w-4 text-violet-400" />
+              <span>
+                <strong>{data.activePromoCodes}</strong> live promos
+              </span>
             </div>
           </div>
-        </div>
-        
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 dark:text-white text-sm font-medium">Total Revenue</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white">{formatCurrency(safeAnalytics.totalRevenue)}</p>
-              <p className="text-green-600 dark:text-green-400 text-sm font-medium">+12.5% this month</p>
-            </div>
-            <div className="w-16 h-16 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
-              <DollarSign className="w-8 h-8 text-white" />
-            </div>
+          <div className="overview-hero__actions">
+            <button type="button" className="overview-hero__primary-action" onClick={() => onTabChange('payments')}>
+              Review payments <ArrowRight className="h-4 w-4" />
+            </button>
+            <button type="button" className="overview-hero__secondary-action" onClick={() => onTabChange('analytics')}>
+              <CheckCircle2 className="h-4 w-4" /> Platform health
+            </button>
           </div>
         </div>
-        
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-500 dark:text-white text-sm font-medium">Total Payments</p>
-              <p className="text-3xl font-bold text-gray-900 dark:text-white">{formatNumber(safeAnalytics.totalPayments)}</p>
-              <p className="text-blue-600 dark:text-blue-400 text-sm font-medium">{formatNumber(safeAnalytics.paymentsThisMonth)} this month</p>
-            </div>
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
-              <CreditCard className="w-8 h-8 text-white" />
-            </div>
-          </div>
-        </div>
+      </motion.header>
+
+      {/* Metrics */}
+      <div className="overview-metrics-grid">
+        <MetricTile
+          label="Total users"
+          value={totalUsers}
+          delta={formatDelta(data.monthlyGrowth)}
+          accent="indigo"
+          icon={<Users className="h-5 w-5" />}
+          delay={0}
+        />
+        <MetricTile
+          label="Total revenue"
+          value={data.totalRevenue}
+          prefix="$"
+          delta={formatDelta(revenueGrowth)}
+          accent="emerald"
+          icon={<DollarSign className="h-5 w-5" />}
+          delay={0.06}
+        />
+        <MetricTile
+          label="Total payments"
+          value={data.totalPayments}
+          delta={{
+            label: `${data.paymentsThisMonth} recorded this month`,
+            tone: data.paymentsThisMonth ? 'up' : 'flat',
+          }}
+          accent="violet"
+          icon={<CreditCard className="h-5 w-5" />}
+          delay={0.12}
+        />
+        <MetricTile
+          label="Active users"
+          value={data.activeUsers}
+          delta={{
+            label: 'Logged in within 30 days',
+            tone: 'flat',
+          }}
+          accent="sky"
+          icon={<Zap className="h-5 w-5" />}
+          delay={0.18}
+        />
       </div>
 
-      {/* Quick Actions */}
-      <div className="bg-white rounded-2xl dark:bg-gray-800 p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Quick Actions</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <button 
-            onClick={() => onTabChange('users')}
-            className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-700 rounded-xl hover:border-blue-300 dark:hover:border-blue-600 transition-all duration-200 text-left"
-          >
-            <Users className="w-8 h-8 text-blue-600 dark:text-blue-400 mb-2" />
-            <p className="font-semibold text-blue-900 dark:text-blue-100">Manage Users</p>
-            <p className="text-blue-600 dark:text-blue-400 text-sm">Add, edit, delete users</p>
-          </button>
-          
-          <button 
-            onClick={() => onTabChange('payments')}
-            className="p-4 bg-gradient-to-r from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-700 rounded-xl hover:border-green-300 dark:hover:border-green-600 transition-all duration-200 text-left"
-          >
-            <DollarSign className="w-8 h-8 text-green-600 dark:text-green-400 mb-2" />
-            <p className="font-semibold text-green-900 dark:text-green-100">View Payments</p>
-            <p className="text-green-600 dark:text-green-400 text-sm">Transaction monitoring</p>
-          </button>
-          
-          <button 
-            onClick={() => onTabChange('promocodes')}
-            className="p-4 bg-gradient-to-r from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border border-purple-200 dark:border-purple-700 rounded-xl hover:border-purple-300 dark:hover:border-purple-600 transition-all duration-200 text-left"
-          >
-            <Target className="w-8 h-8 text-purple-600 dark:text-purple-400 mb-2" />
-            <p className="font-semibold text-purple-900 dark:text-purple-100">Promo Codes</p>
-            <p className="text-purple-600 dark:text-purple-400 text-sm">Manage discounts</p>
-          </button>
-          
-          <button 
-            onClick={() => onTabChange('analytics')}
-            className="p-4 bg-gradient-to-r from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 border border-orange-200 dark:border-orange-700 rounded-xl hover:border-orange-300 dark:hover:border-orange-600 transition-all duration-200 text-left"
-          >
-            <TrendingUp className="w-8 h-8 text-orange-600 dark:text-orange-400 mb-2" />
-            <p className="font-semibold text-orange-900 dark:text-orange-100">Analytics</p>
-            <p className="text-orange-600 dark:text-orange-400 text-sm">Platform insights</p>
-          </button>
-        </div>
-      </div>
+      {/* Charts + attention bento */}
+      <div className="overview-bento">
+        <section className="overview-panel overview-panel--chart">
+          <div className="overview-panel__head">
+            <div>
+              <h3 className="overview-panel__title">Revenue trend</h3>
+              <p className="overview-panel__sub">Last 6 months · completed payments</p>
+            </div>
+            <button type="button" className="overview-link-btn" onClick={() => onTabChange('analytics')}>
+              Full analytics <ChevronRight className="h-4 w-4" />
+            </button>
+          </div>
+          <div className="overview-chart overview-chart--lg">
+            <Line data={revenueChart} options={baseChartOpts} />
+          </div>
+        </section>
 
-      {/* Recent Activity */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl  p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Recent Activity</h3>
-        <div className="space-y-4">
-          {recentActivity.length === 0 ? (
-            <p className="text-gray-500 dark:text-gray-400 text-sm py-4">No recent activity</p>
-          ) : (
-            recentActivity.map((item) => (
-              item.type === 'user_registration' ? (
-                <div key={`user-${item._id}`} className="flex items-center space-x-4 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl border border-blue-200 dark:border-blue-700">
-                  <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                    <Users className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-900 dark:text-white font-medium">New User Registration</p>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm truncate">{item.userName || 'Unknown'} registered as a {item.role || 'student'}</p>
-                  </div>
-                  <span className="text-gray-500 dark:text-gray-400 text-sm flex-shrink-0">{formatRelativeTime(item.createdAt)}</span>
-                </div>
-              ) : (
-                <div key={`payment-${item._id}`} className="flex items-center space-x-4 p-4 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-xl border border-green-200 dark:border-green-700">
-                  <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center">
-                    <DollarSign className="w-5 h-5 text-white" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-900 dark:text-white font-medium">Payment Received</p>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm truncate">
-                      ${typeof item.amount === 'number' ? item.amount.toFixed(0) : '0'} {item.packageName || 'signup'} payment completed{item.userName ? ` (${item.userName})` : ''}
-                    </p>
-                  </div>
-                  <span className="text-gray-500 dark:text-gray-400 text-sm flex-shrink-0">{formatRelativeTime(item.createdAt)}</span>
-                </div>
-              )
-            ))
-          )}
-        </div>
+        <section className="overview-panel overview-panel--attention">
+          <div className="overview-panel__head">
+            <div>
+              <h3 className="overview-panel__title">Needs attention</h3>
+              <p className="overview-panel__sub">Items that may need your review</p>
+            </div>
+          </div>
+          <div className="overview-attention-list">
+            <button type="button" className="overview-attention-item" onClick={() => onTabChange('payments')}>
+              <div className="overview-attention-item__icon is-amber">
+                <Clock className="h-4 w-4" />
+              </div>
+              <div className="overview-attention-item__text">
+                <span>Pending payments</span>
+                <small>Awaiting confirmation or proof</small>
+              </div>
+              <span className="overview-attention-item__count">{attention.pendingPayments.length}</span>
+            </button>
+            <button type="button" className="overview-attention-item" onClick={() => onTabChange('users')}>
+              <div className="overview-attention-item__icon is-indigo">
+                <Users className="h-4 w-4" />
+              </div>
+              <div className="overview-attention-item__text">
+                <span>Unverified students</span>
+                <small>No approved package yet</small>
+              </div>
+              <span className="overview-attention-item__count">{attention.pendingStudents.length}</span>
+            </button>
+            <button type="button" className="overview-attention-item" onClick={() => onTabChange('users')}>
+              <div className="overview-attention-item__icon is-rose">
+                <AlertCircle className="h-4 w-4" />
+              </div>
+              <div className="overview-attention-item__text">
+                <span>Locked accounts</span>
+                <small>Failed login lockouts</small>
+              </div>
+              <span className="overview-attention-item__count">{attention.lockedUsers.length}</span>
+            </button>
+          </div>
+        </section>
+
+        <section className="overview-panel overview-panel--chart-sm">
+          <div className="overview-panel__head">
+            <div>
+              <h3 className="overview-panel__title">New signups</h3>
+              <p className="overview-panel__sub">Monthly registrations</p>
+            </div>
+          </div>
+          <div className="overview-chart overview-chart--sm">
+            <Bar
+              data={usersChart}
+              options={{
+                ...baseChartOpts,
+                scales: {
+                  ...baseChartOpts.scales,
+                  y: { ...baseChartOpts.scales.y, beginAtZero: true },
+                },
+              }}
+            />
+          </div>
+        </section>
+
+        {/* Quick actions bento */}
+        <section className="overview-panel overview-panel--actions">
+          <div className="overview-panel__head">
+            <div>
+              <h3 className="overview-panel__title">Quick actions</h3>
+              <p className="overview-panel__sub">Frequent admin workflows</p>
+            </div>
+          </div>
+          <div className="overview-actions-grid">
+            <ActionTile
+              title="Users"
+              subtitle="Manage accounts"
+              accent="overview-action-tile--indigo"
+              icon={<Users className="h-5 w-5" />}
+              onClick={() => onTabChange('users')}
+            />
+            <ActionTile
+              title="Payments"
+              subtitle="Review transactions"
+              accent="overview-action-tile--emerald"
+              icon={<DollarSign className="h-5 w-5" />}
+              onClick={() => onTabChange('payments')}
+            />
+            <ActionTile
+              title="Promos"
+              subtitle="Discount codes"
+              accent="overview-action-tile--violet"
+              icon={<Target className="h-5 w-5" />}
+              onClick={() => onTabChange('promocodes')}
+            />
+            <ActionTile
+              title="Analytics"
+              subtitle="Deep reports"
+              accent="overview-action-tile--amber"
+              icon={<TrendingUp className="h-5 w-5" />}
+              onClick={() => onTabChange('analytics')}
+            />
+          </div>
+        </section>
+
+        {/* Activity feed */}
+        <section className="overview-panel overview-panel--feed">
+          <div className="overview-panel__head overview-panel__head--stack">
+            <div>
+              <h3 className="overview-panel__title">Live feed</h3>
+              <p className="overview-panel__sub">Registrations and completed payments</p>
+            </div>
+            <div className="overview-segmented" role="tablist" aria-label="Activity filter">
+              {(['all', 'signups', 'payments'] as const).map((key) => (
+                <button
+                  key={key}
+                  type="button"
+                  role="tab"
+                  aria-selected={activityFilter === key}
+                  className={activityFilter === key ? 'is-active' : ''}
+                  onClick={() => setActivityFilter(key)}
+                >
+                  {key === 'all' ? 'All' : key === 'signups' ? 'Signups' : 'Payments'}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="overview-feed">
+            {filteredActivity.length === 0 ? (
+              <div className="overview-feed-empty">
+                <Activity className="mb-3 h-9 w-9 opacity-30" />
+                <p>No activity in this view</p>
+              </div>
+            ) : (
+              filteredActivity.slice(0, 8).map((item) => <ActivityItem key={`${item.type}-${item._id}`} item={item} />)
+            )}
+          </div>
+          <button type="button" className="overview-feed-more" onClick={() => onTabChange('logs')}>
+            Open activity logs <ChevronRight className="h-4 w-4" />
+          </button>
+        </section>
       </div>
-    </motion.div>
+    </div>
   );
 }

@@ -1,10 +1,18 @@
 import { buildApiUrl } from './api';
 import { showToast } from './toast';
 
+export type AuthenticatedFile = {
+  blob: Blob;
+  filename: string;
+};
+
 /**
- * Download an authenticated API file (PDF receipts, etc.) via blob + object URL.
+ * Fetch an authenticated API file (PDF receipts, etc.) as a blob.
  */
-export async function downloadAuthenticatedFile(endpoint: string, fallbackFilename: string): Promise<void> {
+export async function fetchAuthenticatedFile(
+  endpoint: string,
+  fallbackFilename: string
+): Promise<AuthenticatedFile> {
   const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
   if (!token) {
     throw new Error('Not signed in');
@@ -23,6 +31,15 @@ export async function downloadAuthenticatedFile(endpoint: string, fallbackFilena
   const disposition = res.headers.get('content-disposition') || '';
   const match = /filename="?([^"]+)"?/i.exec(disposition);
   const filename = match?.[1] || fallbackFilename;
+
+  return { blob, filename };
+}
+
+/**
+ * Download an authenticated API file (PDF receipts, etc.) via blob + object URL.
+ */
+export async function downloadAuthenticatedFile(endpoint: string, fallbackFilename: string): Promise<void> {
+  const { blob, filename } = await fetchAuthenticatedFile(endpoint, fallbackFilename);
 
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

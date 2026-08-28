@@ -22,6 +22,10 @@ const nextConfig = {
   },
 
   async headers() {
+    const staticAssetCache = process.env.NODE_ENV === 'production'
+      ? 'public, max-age=31536000, immutable'
+      : 'no-cache, no-store, max-age=0, must-revalidate';
+
     return [
       {
         // HTML / app routes — never long-cache, or refresh after deploy 404s on old chunks
@@ -46,12 +50,13 @@ const nextConfig = {
         ],
       },
       {
-        // Fingerprinted Next assets — safe to cache forever (must come after /:path*)
+        // Fingerprinted production assets are safe to cache forever. Development chunks
+        // keep stable paths, so they must never be immutable or the browser serves stale UI.
         source: '/_next/static/:path*',
         headers: [
           {
             key: 'Cache-Control',
-            value: 'public, max-age=31536000, immutable',
+            value: staticAssetCache,
           },
         ],
       },

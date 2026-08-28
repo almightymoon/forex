@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import { 
   Users, BookOpen, Target, FileText, Award, BarChart3, 
@@ -9,7 +10,7 @@ import {
   Calendar, MessageSquare, Search, CreditCard, Globe, 
   Lock, Bell, Smartphone, Server, Database, Key, Zap,
   Save, RotateCcw, Palette, Monitor, Languages, MapPin,
-  RefreshCw, AlertCircle, Share2, ChevronLeft, ChevronRight,
+  RefreshCw, AlertCircle, Share2,
   LineChart,
   Users2,
   ShoppingBag,
@@ -46,24 +47,23 @@ import {
   User, Payment, Analytics as AnalyticsType, PromoCode, 
   AdminSettings, UserForm, PromoForm 
 } from './types';
-import UserProfileDropdown from '../../components/UserProfileDropdown';
-import DarkModeToggle from '../../../components/DarkModeToggle';
 import CoolLoader from '../../../components/CoolLoader';
-import NotificationDropdown from '../../dashboard/components/NotificationDropdown';
-import DeveloperRoleNav from '../../../components/DeveloperRoleNav';
+import AdminShell from './AdminShell';
+import { isAdminTabId, type AdminTabId } from '../config/nav';
 
 export default function AdminDashboard() {
   console.log('AdminDashboard - Component rendering...');
   
-  const [activeTab, setActiveTab] = useState('overview');
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const tabFromUrl = searchParams.get('tab');
+  const initialTab: AdminTabId = isAdminTabId(tabFromUrl) ? tabFromUrl : 'overview';
+
+  const [activeTab, setActiveTab] = useState<AdminTabId>(initialTab);
   const [settingsLoading, setSettingsLoading] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [testingEmailConfig, setTestingEmailConfig] = useState(false);
-  const [showNotifications, setShowNotifications] = useState(false);
-  const tabsScrollRef = useRef<HTMLDivElement | null>(null);
-  const [canScrollTabsLeft, setCanScrollTabsLeft] = useState(false);
-  const [canScrollTabsRight, setCanScrollTabsRight] = useState(false);
   const { settings: globalSettings, refreshSettings } = useSettings();
   const { showToast } = useToast();
   const { data, loading, refreshing, refreshData } = useAdmin();
@@ -159,29 +159,23 @@ export default function AdminDashboard() {
     }
   }, [contextSettings]);
 
-  // Tabs scroller helpers
-  const updateTabsScrollState = () => {
-    const el = tabsScrollRef.current;
-    if (!el) return;
-    const maxScrollLeft = el.scrollWidth - el.clientWidth;
-    setCanScrollTabsLeft(el.scrollLeft > 1);
-    setCanScrollTabsRight(el.scrollLeft < maxScrollLeft - 1);
-  };
-
-  const scrollTabsBy = (delta: number) => {
-    const el = tabsScrollRef.current;
-    if (!el) return;
-    el.scrollBy({ left: delta, behavior: 'smooth' });
-    // State will update on scroll event, but also trigger after a short delay for reliability.
-    window.setTimeout(updateTabsScrollState, 200);
-  };
+  const handleTabChange = useCallback(
+    (tab: AdminTabId) => {
+      setActiveTab(tab);
+      const nextUrl = tab === 'overview' ? '/admin' : `/admin?tab=${encodeURIComponent(tab)}`;
+      router.replace(nextUrl, { scroll: false });
+    },
+    [router]
+  );
 
   useEffect(() => {
-    updateTabsScrollState();
-    const handleResize = () => updateTabsScrollState();
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
+    const next = searchParams.get('tab');
+    if (isAdminTabId(next)) {
+      setActiveTab(next);
+    } else if (!next) {
+      setActiveTab('overview');
+    }
+  }, [searchParams]);
   
   // Use local settings for the UI
   const settings = localSettings;
@@ -954,155 +948,25 @@ export default function AdminDashboard() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Header */}
-      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-2 py-2 sm:gap-3 md:py-3">
-            <div className="flex min-h-[3.25rem] w-full min-w-0 items-center justify-between gap-2 sm:min-h-[3.5rem] md:min-h-[4rem]">
-              <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-4 md:max-w-[min(100%,28rem)]">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-red-500 to-red-600 sm:h-12 sm:w-12 sm:rounded-2xl md:h-14 md:w-14">
-                  <Shield className="h-5 w-5 text-white sm:h-6 sm:w-6 md:h-8 md:w-8" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h1 className="truncate text-base font-bold leading-tight sm:text-xl md:text-2xl bg-gradient-to-r from-red-600 to-red-700 bg-clip-text text-transparent">
-                    Admin Panel
-                  </h1>
-                  <p className="mt-0.5 hidden truncate text-xs text-gray-500 dark:text-gray-400 sm:block sm:text-sm">
-                    {(globalSettings?.platformName || settings?.general?.platformName || 'LMS Platform')} Management
-                  </p>
-                </div>
-              </div>
-
-              <div className="hidden min-w-0 flex-1 justify-center px-2 md:flex">
-                <DeveloperRoleNav />
-              </div>
-
-              <div className="flex shrink-0 flex-nowrap items-center justify-end gap-0.5 sm:gap-2 md:gap-3 md:pl-2">
-                <DarkModeToggle size="sm" />
-                <button
-                  onClick={handleRefreshData}
-                  disabled={refreshing}
-                  className="p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed sm:p-3"
-                  title="Refresh data"
-                >
-                  <RefreshCw className={`h-[1.125rem] w-[1.125rem] sm:h-5 sm:w-5 ${refreshing ? 'animate-spin' : ''}`} />
-                </button>
-                <div className="relative shrink-0">
-                  <button
-                    onClick={() => setShowNotifications(!showNotifications)}
-                    className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 sm:p-3"
-                  >
-                    <Bell className="h-[1.125rem] w-[1.125rem] sm:h-5 sm:w-5" />
-                    {Number(data.notificationCount || 0) > 0 && (
-                      <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white sm:h-5 sm:w-5 sm:text-xs">
-                        {Number(data.notificationCount || 0) > 99 ? '99+' : Number(data.notificationCount || 0)}
-                      </span>
-                    )}
-                  </button>
-
-                  <NotificationDropdown
-                    isOpen={showNotifications}
-                    onClose={() => setShowNotifications(false)}
-                    onRefresh={refreshData}
-                  />
-                </div>
-                <button
-                  onClick={() => setActiveTab('settings')}
-                  className="hidden p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 sm:inline-flex"
-                  title="Settings"
-                >
-                  <SettingsIcon className="w-5 h-5" />
-                </button>
-                <div className="border-l border-gray-200 dark:border-gray-700 pl-1.5 sm:pl-4">
-                  <UserProfileDropdown user={user} />
-                </div>
-              </div>
-            </div>
-
-            <div className="w-full min-w-0 md:hidden">
-              <DeveloperRoleNav />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="admin-container">
-        {/* Navigation Tabs */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-2 border border-gray-200 dark:border-gray-700 shadow-lg mb-6 mt-4 sm:mb-8 sm:mt-6 md:mt-10">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => scrollTabsBy(-320)}
-              disabled={!canScrollTabsLeft}
-              className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Scroll tabs left"
-              aria-label="Scroll tabs left"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-
-            <div
-              ref={tabsScrollRef}
-              onScroll={updateTabsScrollState}
-              className="flex-1 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-            >
-              <nav className="flex space-x-1">
-                {[
-                  { id: 'overview', label: 'Overview', icon: BarChart3 },
-                  { id: 'users', label: 'Users', icon: Users },
-                  { id: 'payments', label: 'Payments', icon: DollarSign },
-                  { id: 'monthly-fee', label: 'Monthly Fee', icon: CreditCard },
-                  { id: 'commissions', label: 'Commissions', icon: Share2 },
-                  { id: 'rank-rewards', label: 'Rank Rewards', icon: Award },
-                  { id: 'packages', label: 'Packages', icon: CreditCard },
-                  { id: 'products', label: 'Shop Products', icon: ShoppingBag },
-                  { id: 'library', label: 'Library', icon: Library },
-                  { id: 'campaigns', label: 'App Campaigns', icon: Megaphone },
-                  { id: 'analytics', label: 'Analytics', icon: TrendingUp },
-                  { id: 'promocodes', label: 'Promo Codes', icon: Target },
-                  { id: 'notifications', label: 'Email', icon: Mail },
-                  { id: 'forms', label: 'Forms', icon: ClipboardList },
-                  { id: 'logs', label: 'Logs', icon: FileText },
-                  { id: 'landing-progress', label: 'Landing progress', icon: LineChart },
-                  { id: 'landing-joiners', label: 'Landing joiners', icon: Users2 },
-                  { id: 'settings', label: 'Settings', icon: SettingsIcon }
-                ].map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center space-x-1.5 px-2.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap sm:space-x-2 sm:px-4 sm:py-3 sm:text-sm ${
-                        activeTab === tab.id
-                          ? 'bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg'
-                          : 'text-gray-600 dark:text-gray-300 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4" />
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => scrollTabsBy(320)}
-              disabled={!canScrollTabsRight}
-              className="p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Scroll tabs right"
-              aria-label="Scroll tabs right"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Tab Content */}
+    <AdminShell
+      activeTab={activeTab}
+      onTabChange={handleTabChange}
+      platformName={globalSettings?.platformName || settings?.general?.platformName || 'Forex Navigators'}
+      user={user}
+      notificationCount={Number(data.notificationCount || 0)}
+      refreshing={refreshing}
+      onRefresh={handleRefreshData}
+    >
         {activeTab === 'overview' && (
-          <Overview analytics={analytics} onTabChange={setActiveTab} userCount={localUsers.length} />
+          <Overview
+            analytics={analytics}
+            onTabChange={handleTabChange}
+            userCount={localUsers.length}
+            payments={payments}
+            users={localUsers}
+            platformName={globalSettings?.platformName || settings?.general?.platformName || 'Forex Navigators'}
+            adminName={user?.firstName || 'Admin'}
+          />
         )}
 
         {activeTab === 'users' && (
@@ -1210,8 +1074,7 @@ export default function AdminDashboard() {
             onRestoreStoredFullBackup={handleRestoreStoredFullBackup}
             onDeleteStoredFullBackup={handleDeleteStoredFullBackup}
           />
-                )}
-      </div>
-    </div>
+        )}
+    </AdminShell>
   );
 }

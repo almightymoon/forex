@@ -16,7 +16,7 @@ import { defaultFeePeriod, feeMonthString } from './imposeMonthlyFeeDateUtils';
 import { User } from './types';
 import { buildApiUrl } from '../../../utils/api';
 import { showToast } from '../../../utils/toast';
-import ReceiptDownloadButton from '../../../components/ReceiptDownloadButton';
+import ReceiptActions from '../../../components/ReceiptActions';
 
 interface UserDetailsModalProps {
   user: User;
@@ -840,236 +840,226 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <div className="user-detail-modal fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4">
       <motion.div
-        initial={{ opacity: 0, scale: 0.95 }}
-        animate={{ opacity: 1, scale: 1 }}
-        className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-6xl max-h-[90vh] overflow-hidden flex flex-col"
+        initial={{ opacity: 0, scale: 0.97, y: 8 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        transition={{ duration: 0.22 }}
+        className="user-detail-modal__surface flex max-h-[92vh] w-full max-w-[min(72rem,96vw)] flex-col overflow-hidden"
       >
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between bg-gradient-to-r from-blue-600 to-purple-600">
-          <div className="flex items-center space-x-4">
-            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center">
-              {user.profileImage ? (
-                <img src={user.profileImage} alt="Profile" className="w-16 h-16 rounded-full object-cover" />
-              ) : (
-                <span className="text-2xl font-bold text-blue-600">{(user.firstName || user.email || 'U').charAt(0).toUpperCase()}</span>
-              )}
+        <div className="user-detail-modal__header relative shrink-0 overflow-hidden px-5 py-4 sm:px-6">
+          <div className="user-detail-modal__header-mesh" aria-hidden />
+          <div className="relative flex items-start justify-between gap-4">
+            <div className="flex min-w-0 items-center gap-3.5">
+              <div className="user-detail-modal__avatar-ring">
+                {user.profileImage ? (
+                  <img src={user.profileImage} alt="" className="h-14 w-14 rounded-full object-cover" />
+                ) : (
+                  <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 text-xl font-bold text-white">
+                    {(user.firstName || user.email || 'U').charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="truncate text-lg font-bold text-white sm:text-xl">
+                    {user.firstName} {user.lastName}
+                  </h3>
+                  <span className={`udm-role-pill is-${user.role}`}>{user.role}</span>
+                  <span className={`udm-status-pill ${user.isActive ? 'is-active' : 'is-inactive'}`}>
+                    {user.isActive ? 'Active' : 'Inactive'}
+                  </span>
+                  {user.isVerified ? (
+                    <span className="udm-status-pill is-verified">Verified</span>
+                  ) : (
+                    <span className="udm-status-pill is-pending">Unverified</span>
+                  )}
+                </div>
+                <p className="mt-0.5 truncate text-sm text-indigo-100/85">{user.email}</p>
+                {(currentUser as { userId?: string }).userId ? (
+                  <p className="mt-1 font-mono text-[11px] text-indigo-200/60">{(currentUser as { userId?: string }).userId}</p>
+                ) : null}
+              </div>
             </div>
-            <div>
-              <h3 className="text-2xl font-bold text-white">
-                {user.firstName} {user.lastName}
-              </h3>
-              <p className="text-blue-100">{user.email}</p>
-            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="shrink-0 rounded-xl p-2 text-white/80 transition hover:bg-white/10 hover:text-white"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
           </div>
-          <button 
-            onClick={onClose}
-            className="p-2 text-white hover:bg-white/20 rounded-lg transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
         </div>
 
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-6">
+        {!loading && details ? (
+          <>
+            <div className="user-detail-modal__toolbar">
+              <div className="user-detail-modal__toolbar-group">
+                <button type="button" onClick={() => openBalanceModal('credit')} className="user-detail-modal__action user-detail-modal__action--primary">
+                  <Plus className="h-4 w-4" />
+                  Credit
+                </button>
+                <button type="button" onClick={() => openBalanceModal('debit')} className="user-detail-modal__action">
+                  <Minus className="h-4 w-4" />
+                  Debit
+                </button>
+                <button type="button" onClick={() => openBalanceModal('bonus')} className="user-detail-modal__action">
+                  <Gift className="h-4 w-4" />
+                  Bonus
+                </button>
+                <button type="button" onClick={openGrantPackageModal} className="user-detail-modal__action">
+                  <Package className="h-4 w-4" />
+                  Grant
+                </button>
+                <button type="button" onClick={openRevokePackageModal} className="user-detail-modal__action user-detail-modal__action--danger">
+                  <X className="h-4 w-4" />
+                  Revoke
+                </button>
+              </div>
+              {canImposeMonthlyFee ? (
+                <button type="button" onClick={openImposeMonthlyFeeModal} className="user-detail-modal__action user-detail-modal__action--warn">
+                  <Receipt className="h-4 w-4" />
+                  Impose fee
+                </button>
+              ) : null}
+            </div>
+
+            <div className="user-detail-modal__tabs-wrap">
+              <div className="udm-tabs__list" role="tablist" aria-label="User detail sections">
+                {[
+                  { id: 'overview', label: 'Overview', icon: Activity },
+                  { id: 'transactions', label: 'Transactions', icon: History },
+                  { id: 'payments', label: 'Payments', icon: CreditCard },
+                  { id: 'receipts', label: 'Receipts', icon: Receipt },
+                  { id: 'monthly_fee', label: 'Monthly fee', icon: CalendarClock },
+                  { id: 'withdrawals', label: 'Withdrawals', icon: ArrowUpRight },
+                  { id: 'referrals', label: 'Referrals', icon: Users },
+                  { id: 'email', label: 'Email', icon: Mail },
+                ].map((tab) => {
+                  const Icon = tab.icon;
+                  return (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={activeTab === tab.id}
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className={`udm-tabs__btn ${activeTab === tab.id ? 'is-active' : ''}`}
+                    >
+                      <Icon className="h-3.5 w-3.5" />
+                      <span>{tab.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </>
+        ) : null}
+
+        <div className="user-detail-modal__body">
           {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
-              <span className="ml-3 text-gray-600 dark:text-gray-300">Loading user details...</span>
+            <div className="user-detail-modal__loading">
+              <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
+              <span>Loading user details…</span>
             </div>
           ) : details ? (
             <>
-              {/* Balance Actions */}
-              <div className="flex flex-wrap gap-3 mb-6">
-                <button
-                  onClick={() => openBalanceModal('credit')}
-                  className="min-w-[220px] flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all duration-200 font-semibold"
-                >
-                  <Plus className="w-5 h-5" />
-                  Credit Balance
-                </button>
-                <button
-                  onClick={() => openBalanceModal('debit')}
-                  className="min-w-[220px] flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 font-semibold"
-                >
-                  <Minus className="w-5 h-5" />
-                  Debit Balance
-                </button>
-                <button
-                  onClick={() => openBalanceModal('bonus')}
-                  className="min-w-[220px] flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all duration-200 font-semibold"
-                >
-                  <Gift className="w-5 h-5" />
-                  Send Bonus
-                </button>
-                <button
-                  type="button"
-                  onClick={openGrantPackageModal}
-                  className="min-w-[220px] flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-xl hover:from-blue-700 hover:to-indigo-800 transition-all duration-200 font-semibold"
-                >
-                  <Package className="w-5 h-5" />
-                  Grant Package
-                </button>
-                <button
-                  type="button"
-                  onClick={openRevokePackageModal}
-                  className="min-w-[220px] flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-rose-600 to-red-700 text-white rounded-xl hover:from-rose-700 hover:to-red-800 transition-all duration-200 font-semibold"
-                >
-                  <X className="w-5 h-5" />
-                  Revoke Package
-                </button>
-              </div>
-
-              {canImposeMonthlyFee && (
-                <div className="mb-6">
-                  <button
-                    type="button"
-                    onClick={openImposeMonthlyFeeModal}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-amber-600 to-orange-600 text-white rounded-xl hover:from-amber-700 hover:to-orange-700 transition-all duration-200 font-semibold border border-amber-500/30"
-                  >
-                    <Receipt className="w-5 h-5" />
-                    Impose monthly fee (pending payment)
-                  </button>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2 text-center">
-                    Creates the same pending USDT monthly-fee record as when the student starts payment — for custom
-                    charges or corrections. Optional: block the app until it is paid.
-                  </p>
-                </div>
-              )}
-
-              {/* Stats row 1 — same card size as before */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 mb-4">
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-4 border border-blue-200 dark:border-blue-800">
-                  <div className="flex items-center justify-between mb-2">
-                    <DollarSign className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-                    <span className="text-xs font-medium text-blue-600 dark:text-blue-400">BALANCE</span>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    ${(() => {
-                      if (details.transactions && details.transactions.length > 0) {
-                        return details.transactions[0].balanceAfter.toFixed(2);
-                      }
-                      return ((currentUser as any).balance || 0).toFixed(2);
-                    })()}
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Available USDT</p>
-                </div>
-
-                <div className="relative bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/20 dark:to-emerald-800/20 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800">
-                  <div className="flex items-center justify-between mb-2 pr-8">
-                    <TrendingUp className="w-8 h-8 text-emerald-600 dark:text-emerald-400" />
-                    <div className="flex items-center gap-1 flex-wrap justify-end">
-                      {(currentUser as { lifetimeEarnedIsOverride?: boolean }).lifetimeEarnedIsOverride ? (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-200/80 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200">
-                          Admin set
-                        </span>
-                      ) : null}
-                      <span className="text-xs font-medium text-emerald-700 dark:text-emerald-400">LIFETIME EARNED</span>
+              {activeTab === 'overview' && (
+                <div className="user-detail-modal__overview">
+                  <div className="udm-metrics-panel">
+                    <div className="udm-metric udm-metric--inline udm-metric--blue">
+                      <div className="udm-metric__icon"><DollarSign className="h-4 w-4" /></div>
+                      <div className="udm-metric__body">
+                        <p className="udm-metric__label">Balance</p>
+                        <p className="udm-metric__value">
+                          ${(() => {
+                            if (details.transactions && details.transactions.length > 0) {
+                              return details.transactions[0].balanceAfter.toFixed(2);
+                            }
+                            return ((currentUser as any).balance || 0).toFixed(2);
+                          })()}
+                        </p>
+                        <p className="udm-metric__hint">Available USDT</p>
+                      </div>
                     </div>
-                  </div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    ${Number((currentUser as any).lifetimeEarned || 0).toFixed(2)}
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                    Rank progress (withdrawals do not reduce this)
-                  </p>
-                  {(currentUser as { lifetimeEarnedIsOverride?: boolean }).lifetimeEarnedIsOverride &&
-                  (currentUser as { lifetimeEarnedComputed?: number }).lifetimeEarnedComputed != null ? (
-                    <p className="text-[11px] text-gray-500 mt-0.5">
-                      Transaction total: $
-                      {Number((currentUser as { lifetimeEarnedComputed?: number }).lifetimeEarnedComputed || 0).toFixed(
-                        2
-                      )}
-                    </p>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={openLifetimeEarnedModal}
-                    className="absolute top-3 right-3 p-1.5 rounded-lg text-emerald-700 dark:text-emerald-300 hover:bg-emerald-200/60 dark:hover:bg-emerald-900/40"
-                    title="Edit lifetime earned"
-                  >
-                    <Pencil className="w-4 h-4" />
+
+                    <div className="udm-metric udm-metric--inline udm-metric--emerald relative">
+                  <button type="button" onClick={openLifetimeEarnedModal} className="udm-metric__edit" title="Edit lifetime earned">
+                    <Pencil className="h-3.5 w-3.5" />
                   </button>
+                  <div className="udm-metric__icon"><TrendingUp className="h-4 w-4" /></div>
+                  <div className="udm-metric__body">
+                    <div className="flex items-center gap-1.5">
+                      <p className="udm-metric__label">Lifetime earned</p>
+                      {(currentUser as { lifetimeEarnedIsOverride?: boolean }).lifetimeEarnedIsOverride ? (
+                        <span className="udm-mini-badge">Admin set</span>
+                      ) : null}
+                    </div>
+                    <p className="udm-metric__value">${Number((currentUser as any).lifetimeEarned || 0).toFixed(2)}</p>
+                    <p className="udm-metric__hint">Rank progress</p>
+                  </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-xl p-4 border border-indigo-200 dark:border-indigo-800">
-                  <div className="flex items-center justify-between mb-2">
-                    <Sparkles className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-xs font-medium text-indigo-700 dark:text-indigo-400">RANK</span>
-                  </div>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">
-                    {(currentUser as any).rankRewards?.current?.name || '—'}
-                  </p>
-                  {(currentUser as any).rankRewards?.next?.threshold ? (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
-                      Next: {(currentUser as any).rankRewards?.next?.name} @ $
-                      {Number((currentUser as any).rankRewards?.next?.threshold || 0).toFixed(0)}
+                <div className="udm-metric udm-metric--inline udm-metric--indigo">
+                  <div className="udm-metric__icon"><Sparkles className="h-4 w-4" /></div>
+                  <div className="udm-metric__body">
+                    <p className="udm-metric__label">Rank</p>
+                    <p className="udm-metric__value udm-metric__value--sm">
+                      {(currentUser as any).rankRewards?.current?.name || '—'}
                     </p>
-                  ) : (
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">No next rank</p>
-                  )}
+                    <p className="udm-metric__hint">
+                      {(currentUser as any).rankRewards?.next?.threshold
+                        ? `Next: ${(currentUser as any).rankRewards?.next?.name}`
+                        : 'No next rank'}
+                    </p>
+                  </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-sky-50 to-sky-100 dark:from-sky-900/20 dark:to-sky-800/20 rounded-xl p-4 border border-sky-200 dark:border-sky-800">
-                  <div className="flex items-center justify-between mb-2">
-                    <Target className="w-8 h-8 text-sky-600 dark:text-sky-400" />
-                    <span className="text-xs font-medium text-sky-700 dark:text-sky-400">BUSINESS VOLUME</span>
+                <div className="udm-metric udm-metric--inline udm-metric--sky">
+                  <div className="udm-metric__icon"><Target className="h-4 w-4" /></div>
+                  <div className="udm-metric__body">
+                    <p className="udm-metric__label">Business volume</p>
+                    <p className="udm-metric__value">${Number((currentUser as any).directBusinessVolumeUsd || 0).toFixed(2)}</p>
+                    <p className="udm-metric__hint">Direct referrals</p>
                   </div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
-                    ${Number((currentUser as any).directBusinessVolumeUsd || 0).toFixed(2)}
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Direct referrals (packages)</p>
                 </div>
 
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-4 border border-purple-200 dark:border-purple-800">
-                  <div className="flex items-center justify-between mb-2">
-                    <Users className="w-8 h-8 text-purple-600 dark:text-purple-400" />
-                    <span className="text-xs font-medium text-purple-600 dark:text-purple-400">REFERRALS</span>
+                <div className="udm-metric udm-metric--inline udm-metric--violet">
+                  <div className="udm-metric__icon"><Users className="h-4 w-4" /></div>
+                  <div className="udm-metric__body">
+                    <p className="udm-metric__label">Referrals</p>
+                    <p className="udm-metric__value">{details.completedReferrals}</p>
+                    <p className="udm-metric__hint">Active referrals</p>
                   </div>
-                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{details.completedReferrals}</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Active Referrals</p>
                 </div>
-              </div>
-
-              {/* Stats row 2 — package + monthly fee, equal width like row 1 cards */}
-              <div
-                className={`grid gap-4 mb-6 ${
-                  monthlyFeeStatus && (monthlyFeeStatus as any).found !== false
-                    ? 'grid-cols-1 md:grid-cols-2'
-                    : 'grid-cols-1'
-                }`}
-              >
-                <div className="bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/20 dark:to-orange-800/20 rounded-xl p-4 border border-orange-200 dark:border-orange-800 flex flex-col min-h-[120px]">
-                  <div className="flex items-center justify-between mb-2">
-                    <Package className="w-8 h-8 text-orange-600 dark:text-orange-400" />
-                    <span className="text-xs font-medium text-orange-600 dark:text-orange-400">PACKAGE</span>
                   </div>
-                  <p className="text-lg font-bold text-gray-900 dark:text-white">{details.package?.name || 'None'}</p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+
+              {/* Package + monthly fee */}
+              <div className={`user-detail-modal__status-grid mb-5 ${monthlyFeeStatus && (monthlyFeeStatus as any).found !== false ? 'is-two-col' : ''}`}>
+                <div className="udm-status-card">
+                  <div className="udm-status-card__head">
+                    <div className="udm-status-card__icon is-package"><Package className="h-4 w-4" /></div>
+                    <span className="udm-status-card__title">Package</span>
+                  </div>
+                  <p className="udm-status-card__value">{details.package?.name || 'None'}</p>
+                  <p className="udm-status-card__hint">
                     {details.package ? `$${details.package.price}` : 'No active package'}
                   </p>
                 </div>
 
                 {monthlyFeeStatus && (monthlyFeeStatus as any).found !== false && (
-                  <div className="bg-gradient-to-br from-amber-50 to-orange-100 dark:from-amber-900/20 dark:to-orange-800/20 rounded-xl p-4 border border-amber-200 dark:border-amber-800 flex flex-col min-h-[120px]">
-                    <div className="flex items-center justify-between mb-2">
-                      <CreditCard className="w-8 h-8 text-amber-600 dark:text-amber-400" />
-                      <span className="text-xs font-medium text-amber-700 dark:text-amber-400">MONTHLY FEE</span>
-                    </div>
-                    <div className="flex justify-end mb-2 -mt-1">
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('monthly_fee')}
-                        className="text-[10px] sm:text-xs font-semibold text-amber-800 dark:text-amber-300 hover:underline inline-flex items-center gap-0.5"
-                        title="Payment history and actions"
-                      >
-                        <CalendarClock className="w-3.5 h-3.5 shrink-0" />
-                        <span className="hidden sm:inline">History &amp; actions</span>
-                        <span className="sm:hidden">History</span>
+                  <div className="udm-status-card">
+                    <div className="udm-status-card__head">
+                      <div className="udm-status-card__icon is-fee"><CreditCard className="h-4 w-4" /></div>
+                      <span className="udm-status-card__title">Monthly fee</span>
+                      <button type="button" onClick={() => setActiveTab('monthly_fee')} className="udm-status-card__link">
+                        <CalendarClock className="h-3.5 w-3.5" />
+                        History
                       </button>
                     </div>
-                    <div className="flex-1 min-h-0 overflow-y-auto max-h-[200px] pr-1">
+                    <div className="udm-status-card__content">
                       {(() => {
                         const m = monthlyFeeStatus as Record<string, any>;
                         if (m.reason === 'staff_exempt') {
@@ -1169,171 +1159,108 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                 )}
               </div>
 
-              {/* User Info */}
-              <div className="bg-gray-50 dark:bg-gray-700/50 rounded-xl p-6 mb-6">
-                <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">User Information</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div className="flex items-center space-x-3">
-                    <Mail className="w-5 h-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Email</p>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-gray-900 dark:text-white">{user.email || 'N/A'}</p>
+              <div className="udm-info-strip">
+                  <div className="udm-info-strip__item">
+                    <div className="udm-info-cell__icon"><Mail className="h-4 w-4" /></div>
+                    <div className="udm-info-cell__body">
+                      <p className="udm-info-cell__label">Email</p>
+                      <p className="udm-info-cell__value">{user.email || 'N/A'}</p>
+                      <div className="udm-info-cell__actions">
                         {(currentUser as any).emailUnreachable ? (
                           <>
-                            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400">
-                              <MailX className="w-3.5 h-3.5" /> Unreachable
-                            </span>
-                            <button
-                              onClick={() => handleEmailUnreachable(false)}
-                              disabled={isUpdatingUnreachable}
-                              className="text-xs px-2 py-1 rounded border border-green-600 text-green-600 dark:border-green-400 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 disabled:opacity-50"
-                            >
-                              {isUpdatingUnreachable ? 'Updating...' : 'Mark reachable'}
+                            <span className="udm-mini-badge is-warn"><MailX className="h-3 w-3" /> Unreachable</span>
+                            <button type="button" onClick={() => handleEmailUnreachable(false)} disabled={isUpdatingUnreachable} className="udm-text-btn is-success">
+                              {isUpdatingUnreachable ? 'Updating…' : 'Mark reachable'}
                             </button>
                           </>
                         ) : (
-                          <button
-                            onClick={() => setShowUnreachableModal(true)}
-                            disabled={isUpdatingUnreachable}
-                            className="text-xs px-2 py-1 rounded border border-amber-600 text-amber-600 dark:border-amber-400 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 disabled:opacity-50"
-                          >
+                          <button type="button" onClick={() => setShowUnreachableModal(true)} disabled={isUpdatingUnreachable} className="udm-text-btn">
                             Mark unreachable
                           </button>
                         )}
                       </div>
-                      {(currentUser as any).emailUnreachableReason && (
-                        <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">Reason: {(currentUser as any).emailUnreachableReason}</p>
-                      )}
+                      {(currentUser as any).emailUnreachableReason ? (
+                        <p className="udm-info-cell__note">{(currentUser as any).emailUnreachableReason}</p>
+                      ) : null}
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <Phone className="w-5 h-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Phone</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{user.phone || 'N/A'}</p>
+                  <div className="udm-info-strip__item">
+                    <div className="udm-info-cell__icon"><Phone className="h-4 w-4" /></div>
+                    <div className="udm-info-cell__body">
+                      <p className="udm-info-cell__label">Phone</p>
+                      <p className="udm-info-cell__value">{user.phone || 'N/A'}</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <MapPin className="w-5 h-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Country</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{user.country || 'N/A'}</p>
+                  <div className="udm-info-strip__item">
+                    <div className="udm-info-cell__icon"><MapPin className="h-4 w-4" /></div>
+                    <div className="udm-info-cell__body">
+                      <p className="udm-info-cell__label">Country</p>
+                      <p className="udm-info-cell__value">{user.country || 'N/A'}</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <Calendar className="w-5 h-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Joined</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{formatDate(user.createdAt)}</p>
-                      <ReceiptDownloadButton
+                  <div className="udm-info-strip__item">
+                    <div className="udm-info-cell__icon"><Calendar className="h-4 w-4" /></div>
+                    <div className="udm-info-cell__body">
+                      <p className="udm-info-cell__label">Joined</p>
+                      <p className="udm-info-cell__value">{formatDate(user.createdAt)}</p>
+                      <ReceiptActions
                         endpoint={`api/admin/users/${user._id}/receipts/join`}
                         filename="Forex-Navigators-join-receipt.pdf"
                         label="Join receipt"
-                        className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-violet-600 dark:text-violet-400 hover:underline disabled:opacity-50"
+                        previewTitle="Join / membership receipt"
+                        className="udm-text-btn mt-1"
                       />
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <Shield className="w-5 h-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Role</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white capitalize">{user.role}</p>
+                  <div className="udm-info-strip__item">
+                    <div className="udm-info-cell__icon"><Shield className="h-4 w-4" /></div>
+                    <div className="udm-info-cell__body">
+                      <p className="udm-info-cell__label">Role</p>
+                      <p className="udm-info-cell__value capitalize">{user.role}</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-3">
-                    <Activity className="w-5 h-5 text-gray-400" />
-                    <div>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">{user.isActive ? 'Active' : 'Inactive'}</p>
+                  <div className="udm-info-strip__item">
+                    <div className="udm-info-cell__icon"><Activity className="h-4 w-4" /></div>
+                    <div className="udm-info-cell__body">
+                      <p className="udm-info-cell__label">Account status</p>
+                      <p className="udm-info-cell__value">{user.isActive ? 'Active' : 'Inactive'}</p>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Tabs */}
-              <div className="border-b border-gray-200 dark:border-gray-700 mb-6">
-                <div className="flex space-x-1 overflow-x-auto">
-                  {[
-                    { id: 'overview', label: 'Overview', icon: Activity },
-                    { id: 'transactions', label: 'Transactions', icon: History },
-                    { id: 'payments', label: 'Payments', icon: CreditCard },
-                    { id: 'receipts', label: 'Receipts', icon: Receipt },
-                    { id: 'monthly_fee', label: 'Monthly fee', icon: CalendarClock },
-                    { id: 'withdrawals', label: 'Withdrawals', icon: ArrowUpRight },
-                    { id: 'referrals', label: 'Referrals', icon: Users },
-                    { id: 'email', label: 'Email', icon: Mail }
-                  ].map((tab) => {
-                    const Icon = tab.icon;
-                    return (
-                      <button
-                        key={tab.id}
-                        onClick={() => setActiveTab(tab.id as any)}
-                        className={`flex items-center space-x-2 px-4 py-3 font-medium transition-colors border-b-2 ${
-                          activeTab === tab.id
-                            ? 'border-blue-600 text-blue-600 dark:text-blue-400'
-                            : 'border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        <span>{tab.label}</span>
-                      </button>
-                    );
-                  })}
+              <div className="udm-activity-panel">
+                <h5 className="udm-activity-panel__title">
+                  <History className="h-4 w-4" />
+                  Recent transactions
+                </h5>
+                <div className="udm-activity-list">
+                  {details.transactions.slice(0, 8).map((transaction) => (
+                    <div key={transaction._id} className="udm-activity-row">
+                      <div className={`udm-activity-row__icon ${transaction.amount > 0 ? 'is-credit' : 'is-debit'}`}>
+                        {getTransactionIcon(transaction.type)}
+                      </div>
+                      <div className="udm-activity-row__main">
+                        <p className="udm-activity-row__title">{transaction.type.replace('_', ' ')}</p>
+                        <p className="udm-activity-row__meta">{transaction.description}</p>
+                        <p className="udm-activity-row__time">{formatDate(transaction.createdAt)}</p>
+                      </div>
+                      <div className="udm-activity-row__amount">
+                        <p className={transaction.amount > 0 ? 'is-credit' : 'is-debit'}>
+                          {transaction.amount > 0 ? '+' : ''}${Math.abs(transaction.amount).toFixed(2)}
+                        </p>
+                        <p className="udm-activity-row__balance">Bal ${transaction.balanceAfter.toFixed(2)}</p>
+                      </div>
+                    </div>
+                  ))}
+                  {details.transactions.length === 0 ? (
+                    <p className="udm-activity-empty">No recent activity</p>
+                  ) : null}
                 </div>
               </div>
-
-              {/* Tab Content */}
-              {activeTab === 'overview' && (
-                <div className="space-y-6">
-                  <div>
-                    <h5 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center">
-                      <Activity className="w-5 h-5 mr-2 text-blue-600 dark:text-blue-400" />
-                      Recent Activity
-                    </h5>
-                    <div className="space-y-3">
-                      {details.transactions.slice(0, 8).map((transaction) => (
-                        <div key={transaction._id} className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700/50 rounded-lg border border-gray-200 dark:border-gray-600">
-                          <div className="flex items-center space-x-3">
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                              transaction.amount > 0 
-                                ? 'bg-green-100 dark:bg-green-900/20' 
-                                : 'bg-red-100 dark:bg-red-900/20'
-                            }`}>
-                              {getTransactionIcon(transaction.type)}
-                            </div>
-                            <div>
-                              <p className="font-medium text-gray-900 dark:text-white capitalize">
-                                {transaction.type.replace('_', ' ')}
-                              </p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">{transaction.description}</p>
-                              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{formatDate(transaction.createdAt)}</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className={`text-lg font-bold ${
-                              transaction.amount > 0 
-                                ? 'text-green-600 dark:text-green-400' 
-                                : 'text-red-600 dark:text-red-400'
-                            }`}>
-                              {transaction.amount > 0 ? '+' : ''} ${Math.abs(transaction.amount).toFixed(2)}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                              Balance: ${transaction.balanceAfter.toFixed(2)}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                      {details.transactions.length === 0 && (
-                        <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-                          No recent activity
-                        </div>
-                      )}
-                    </div>
-                  </div>
                 </div>
               )}
 
+              {/* Tab Content */}
               {activeTab === 'payments' && (
                 <div className="overflow-x-auto">
                   <table className="w-full">
@@ -1361,12 +1288,12 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                           <td className="py-3 px-4 text-sm text-gray-600 dark:text-gray-400">{formatDate(payment.createdAt)}</td>
                           <td className="py-3 px-4">
                             {payment.status === 'completed' ? (
-                              <ReceiptDownloadButton
+                              <ReceiptActions
                                 endpoint={`api/admin/users/${user._id}/receipts/${payment._id}`}
                                 filename="Forex-Navigators-receipt.pdf"
                                 iconOnly
-                                title="Download receipt"
-                                className="p-1.5 rounded-lg text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 disabled:opacity-50"
+                                title="receipt"
+                                previewTitle={`${payment.type} receipt`}
                               />
                             ) : (
                               <span className="text-xs text-gray-400">—</span>
@@ -1408,10 +1335,11 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                               <p className="text-xs font-mono text-gray-400 mt-1">{receipts.join.receiptNumber}</p>
                             ) : null}
                           </div>
-                          <ReceiptDownloadButton
+                          <ReceiptActions
                             endpoint={`api/admin/users/${user._id}/receipts/join`}
                             filename="Forex-Navigators-join-receipt.pdf"
                             label="Download"
+                            previewTitle="Join / membership receipt"
                           />
                         </div>
                       </div>
@@ -1434,12 +1362,12 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                                         {formatDate(row.issuedAt)} · ${Number(row.amount || 0).toFixed(2)} {row.currency}
                                       </p>
                                     </div>
-                                    <ReceiptDownloadButton
+                                    <ReceiptActions
                                       endpoint={`api/admin/users/${user._id}/receipts/${row.id}`}
                                       filename={`Forex-Navigators-${row.receiptNumber}.pdf`}
                                       iconOnly
-                                      title="Download PDF"
-                                      className="p-1.5 rounded-lg text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 disabled:opacity-50"
+                                      title="receipt"
+                                      previewTitle={row.title}
                                     />
                                   </div>
                                 ))}
@@ -1466,12 +1394,12 @@ export default function UserDetailsModal({ user, onClose }: UserDetailsModalProp
                                       {formatDate(row.issuedAt)} · ${Number(row.amount || 0).toFixed(2)} {row.currency}
                                     </p>
                                   </div>
-                                  <ReceiptDownloadButton
+                                  <ReceiptActions
                                     endpoint={`api/admin/users/${user._id}/receipts/${row.id}`}
                                     filename={`Forex-Navigators-${row.receiptNumber}.pdf`}
                                     iconOnly
-                                    title="Download PDF"
-                                    className="p-1.5 rounded-lg text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-900/20 disabled:opacity-50"
+                                    title="receipt"
+                                    previewTitle={row.title}
                                   />
                                 </div>
                               ))}
