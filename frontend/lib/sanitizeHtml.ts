@@ -103,7 +103,7 @@ const SANITIZE_OPTIONS: sanitizeHtmlLib.IOptions = {
         const { href: _drop, ...rest } = attribs;
         return { tagName, attribs: rest };
       }
-      const next = { ...attribs, href };
+      const next: Record<string, string> = { ...attribs, href };
       if (next.target === '_blank') {
         next.rel = 'noopener noreferrer';
       } else {

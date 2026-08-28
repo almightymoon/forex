@@ -22,6 +22,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { buildApiUrl } from '@/utils/api';
 import DarkModeToggle from '../../components/DarkModeToggle';
+import PackagePerksDisplay from '../components/PackagePerksDisplay';
 import ReceiptDownloadButton from '../../components/ReceiptDownloadButton';
 
 const packages = [
