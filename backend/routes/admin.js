@@ -297,6 +297,78 @@ router.get('/users', async (req, res) => {
   }
 });
 
+function csvEscape(value) {
+  const str = value == null ? '' : String(value);
+  if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
+  return str;
+}
+
+// @route   GET /api/admin/users/emails
+// @desc    List all user emails (admin only)
+// @access  Private (Admin)
+router.get('/users/emails', async (_req, res) => {
+  try {
+    const users = await User.find({})
+      .select('firstName lastName email role createdAt isActive userId')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    res.json({
+      users: users.map((u) => ({
+        _id: u._id,
+        firstName: u.firstName || '',
+        lastName: u.lastName || '',
+        email: u.email || '',
+        role: u.role || 'student',
+        userId: u.userId || '',
+        isActive: u.isActive !== false,
+        createdAt: u.createdAt,
+      })),
+      total: users.length,
+    });
+  } catch (error) {
+    console.error('Get user emails error:', error);
+    res.status(500).json({ error: 'Failed to fetch user emails' });
+  }
+});
+
+// @route   GET /api/admin/users/emails/export
+// @desc    Export all user emails as CSV (admin only)
+// @access  Private (Admin)
+router.get('/users/emails/export', async (_req, res) => {
+  try {
+    const users = await User.find({})
+      .select('firstName lastName email role createdAt isActive userId')
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const headers = ['First Name', 'Last Name', 'Email', 'Role', 'User ID', 'Status', 'Joined'];
+    const rows = users.map((u) =>
+      [
+        u.firstName || '',
+        u.lastName || '',
+        u.email || '',
+        u.role || 'student',
+        u.userId || '',
+        u.isActive === false ? 'inactive' : 'active',
+        u.createdAt ? new Date(u.createdAt).toISOString().split('T')[0] : '',
+      ]
+        .map(csvEscape)
+        .join(',')
+    );
+
+    const csv = [headers.map(csvEscape).join(','), ...rows].join('\n');
+    const filename = `user-emails-${new Date().toISOString().split('T')[0]}.csv`;
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(`\uFEFF${csv}`);
+  } catch (error) {
+    console.error('Export user emails error:', error);
+    res.status(500).json({ error: 'Failed to export user emails' });
+  }
+});
+
 // @route   GET /api/admin/users/:id
 // @desc    Get user by ID (admin only)
 // @access  Private (Admin)

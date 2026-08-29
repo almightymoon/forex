@@ -2,19 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { 
-  Share2, 
-  Copy, 
-  Users, 
-  DollarSign, 
+import {
+  Copy,
+  Users,
+  DollarSign,
   TrendingUp,
   Award,
-  ChevronRight,
-  ExternalLink,
-  CheckCircle,
   ArrowLeft,
   ShieldCheck,
-  ShieldOff
+  ShieldOff,
+  GitBranch,
+  LayoutList,
+  Sparkles,
+  Wallet,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -26,8 +26,9 @@ import { useSettings } from '../../context/SettingsContext';
 import { useDashboard } from '../../context/DashboardContext';
 import ReferralBadge from '../components/ReferralBadge';
 import RankRewardsProgress from '../dashboard/components/RankRewardsProgress';
-// @ts-ignore - react-d3-tree types
-import Tree from 'react-d3-tree';
+import ReferralTreeView from './components/ReferralTreeView';
+import ReferralListView from './components/ReferralListView';
+import './referrals.css';
 
 interface ReferralRank {
   current: { name: string; icon: string; color: string; description: string; minReferrals: number; minDirects?: number };
@@ -286,956 +287,334 @@ export default function ReferralsPage() {
     return flat;
   })();
 
-  // Render tree as list view (optionally filtered, flat)
-  const renderTreeList = (nodes: any[], level: number = 1, flatFiltered?: boolean): JSX.Element[] => {
-    const list = flatFiltered ? nodes : (nodes || []);
-    if (!list.length) return [];
-
-    return list.map((node, idx) => {
-      const userName = node.user?.name || `${node.firstName || ''} ${node.lastName || ''}`.trim() || 'Unknown';
-      const userEmail = node.user?.email || node.email || '';
-      const userId = node.user?.id || node._id?.toString() || `n-${idx}`;
-      const joinedAt = node.user?.joinedAt || node.createdAt || new Date();
-      const nodeLevel = node.level || level;
-      const verified = node.verified === true || node.user?.verified === true;
-
-      return (
-        <div key={userId} className={flatFiltered ? 'mt-3' : 'ml-8 mt-4'}>
-          <div className="flex items-center space-x-3 p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
-            <div className="flex-1">
-              <div className="flex items-center flex-wrap gap-2">
-                <span className="px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-xs font-semibold rounded">
-                  Level {nodeLevel}
-                </span>
-                {verified ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-200 text-xs font-semibold rounded">
-                    <ShieldCheck className="w-3 h-3" /> Verified
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 text-xs font-semibold rounded">
-                    <ShieldOff className="w-3 h-3" /> Unverified
-                  </span>
-                )}
-                <span className="text-gray-900 dark:text-white">
-                  {userName}
-                </span>
-              </div>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                {userEmail}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
-                Joined: {new Date(joinedAt).toLocaleDateString()}
-              </p>
-              {(node.childrenCount !== undefined || node.totalDescendants !== undefined) && !flatFiltered && (
-                <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">
-                  {node.childrenCount || 0} direct • {node.totalDescendants || 0} total
-                </p>
-              )}
-            </div>
-          </div>
-          {!flatFiltered && node.children?.length > 0 && (
-            <div className="ml-4 border-l-2 border-gray-300 dark:border-gray-600">
-              {renderTreeList(node.children, level + 1)}
-            </div>
-          )}
-        </div>
-      );
-    });
-  };
-
-  // Transform tree data to react-d3-tree format (all children included for complete tree)
-  const transformToD3Tree = (node: any): any => {
-    if (!node) return null;
-    
-    const children = node.children || [];
-    const allChildren = children.map((child: any) => transformToD3Tree(child)).filter(Boolean);
-    
-    // Handle both data structures
-    const userName = node.user?.name || `${node.firstName || ''} ${node.lastName || ''}`.trim() || 'Unknown';
-    const userEmail = node.user?.email || node.email || '';
-    const userReferralCode = node.user?.referralCode || node.referralCode || '';
-    const userJoinedAt = node.user?.joinedAt || node.createdAt || new Date();
-    const nodeLevel = node.level || 1;
-    
-    return {
-      name: `${userName} (Level ${nodeLevel})`,
-      attributes: {
-        level: nodeLevel,
-        email: userEmail,
-        referralCode: userReferralCode,
-        joinedAt: userJoinedAt
-      },
-      children: allChildren.length > 0 ? allChildren : undefined
-    };
-  };
-
-  // Calculate node positions for binary tree layout with better spacing
-  const calculateNodePositions = (node: any, x: number, y: number, level: number, spacing: { x: number, y: number }): any => {
-    if (!node) return null;
-
-    const positions: any = {
-      node,
-      x,
-      y,
-      level
-    };
-
-    const childY = y + spacing.y;
-    // Increase horizontal spacing based on level to prevent overlap
-    // Use exponential spacing: base spacing * 2^level
-    const baseSpacing = spacing.x;
-    // Reduced multiplier to bring nodes closer together
-    const levelMultiplier = Math.pow(1.5, level); // Reduced from 2.2 to 1.5 for tighter spacing
-    const childSpacing = (baseSpacing * levelMultiplier) / 2;
-    
-    if (node.left) {
-      positions.left = calculateNodePositions(
-        node.left,
-        x - childSpacing,
-        childY,
-        level + 1,
-        spacing
-      );
-    }
-    
-    if (node.right) {
-      positions.right = calculateNodePositions(
-        node.right,
-        x + childSpacing,
-        childY,
-        level + 1,
-        spacing
-      );
-    }
-
-    return positions;
-  };
-
-  // Render binary tree with SVG connections
-  const renderBinaryTree = (rootNode: any, startX: number = 500, startY: number = 50, levelSpacing: number = 120, nodeSpacing: number = 250): JSX.Element => {
-    if (!rootNode) {
-      return (
-        <div className="text-center py-12">
-          <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">
-            No referrals yet. Start sharing your referral code!
-          </p>
-        </div>
-      );
-    }
-
-    const positions = calculateNodePositions(
-      rootNode,
-      startX,
-      startY,
-      0,
-      { x: nodeSpacing, y: levelSpacing }
-    );
-
-    if (!positions) {
-      console.error('Failed to calculate positions for rootNode:', rootNode);
-      return (
-        <div className="text-center py-12">
-          <p className="text-gray-600 dark:text-gray-400">
-            Error calculating tree positions. Please check the console.
-          </p>
-        </div>
-      );
-    }
-
-    const nodes: any[] = [];
-    const lines: any[] = [];
-
-    const collectNodesAndLines = (pos: any) => {
-      if (!pos) return;
-
-      nodes.push(pos);
-
-      if (pos.left) {
-        lines.push({
-          x1: pos.x,
-          y1: pos.y + 70, // Bottom of parent node
-          x2: pos.left.x,
-          y2: pos.left.y, // Top of child node
-        });
-        collectNodesAndLines(pos.left);
-      }
-
-      if (pos.right) {
-        lines.push({
-          x1: pos.x,
-          y1: pos.y + 70, // Bottom of parent node
-          x2: pos.right.x,
-          y2: pos.right.y, // Top of child node
-        });
-        collectNodesAndLines(pos.right);
-      }
-    };
-
-    collectNodesAndLines(positions);
-    
-    console.log('Collected nodes:', nodes.length);
-    console.log('Collected lines:', lines.length);
-    console.log('Nodes:', nodes);
-
-    if (nodes.length === 0) {
-      return (
-        <div className="text-center py-12">
-          <p className="text-gray-600 dark:text-gray-400">
-            No nodes to display. Tree structure might be empty.
-          </p>
-        </div>
-      );
-    }
-
-    // Calculate SVG dimensions with proper padding
-    const nodeWidth = 180; // Width of each node
-    const padding = 200; // Extra padding on each side
-    const minX = Math.min(...nodes.map(n => n.x - nodeWidth/2), 0) - padding;
-    const maxX = Math.max(...nodes.map(n => n.x + nodeWidth/2), 1000) + padding;
-    const maxY = Math.max(...nodes.map(n => n.y + 100), 600);
-    const svgWidth = Math.max(1200, maxX - minX);
-    const svgHeight = Math.max(800, maxY + 200);
-    
-    // Calculate offset to center the tree
-    const offsetX = Math.abs(minX);
-
-    return (
-      <div className="overflow-auto bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 rounded-lg p-8" style={{ minHeight: '600px' }}>
-        <svg width={svgWidth} height={svgHeight} className="relative" style={{ marginLeft: `${offsetX}px` }}>
-          {/* Draw connecting lines */}
-          {lines.map((line, idx) => (
-            <line
-              key={`line-${idx}`}
-              x1={line.x1}
-              y1={line.y1}
-              x2={line.x2}
-              y2={line.y2}
-              stroke="#94a3b8"
-              strokeWidth="2.5"
-              className="dark:stroke-gray-600"
-              markerEnd="url(#arrowhead)"
-            />
-          ))}
-          
-          {/* Arrow marker for lines */}
-          <defs>
-            <marker
-              id="arrowhead"
-              markerWidth="10"
-              markerHeight="10"
-              refX="5"
-              refY="3"
-              orient="auto"
-            >
-              <polygon
-                points="0 0, 10 3, 0 6"
-                fill="#94a3b8"
-                className="dark:fill-gray-600"
-              />
-            </marker>
-          </defs>
-          
-          {/* Draw nodes */}
-          {nodes.map((pos, idx) => (
-            <g key={`node-${idx}`} transform={`translate(${pos.x}, ${pos.y})`}>
-              {/* Node background with shadow effect */}
-              <rect
-                x="-90"
-                y="0"
-                width="180"
-                height="70"
-                rx="10"
-                fill="white"
-                className="dark:fill-gray-800 dark:stroke-blue-500"
-                stroke="#3b82f6"
-                strokeWidth="2.5"
-                filter="url(#shadow)"
-              />
-              
-              {/* Shadow filter */}
-              <defs>
-                <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-                  <feDropShadow dx="0" dy="2" stdDeviation="3" floodOpacity="0.2"/>
-                </filter>
-              </defs>
-              
-              {/* Level badge */}
-              <rect
-                x="-85"
-                y="8"
-                width="55"
-                height="20"
-                rx="5"
-                fill="#3b82f6"
-                className="dark:fill-blue-600"
-              />
-              <text
-                x="-57.5"
-                y="21"
-                textAnchor="middle"
-                fill="white"
-                fontSize="11"
-                className="font-normal"
-                fontFamily="system-ui, -apple-system, sans-serif"
-              >
-                Level {pos.node.level}
-              </text>
-              
-              {/* Name */}
-              <text
-                x="0"
-                y="42"
-                textAnchor="middle"
-                fill="#1f2937"
-                className="dark:fill-white font-normal"
-                fontSize="13"
-                fontFamily="system-ui, -apple-system, sans-serif"
-              >
-                {pos.node.user.name.length > 18 
-                  ? pos.node.user.name.substring(0, 18) + '...' 
-                  : pos.node.user.name}
-              </text>
-              
-              {/* Email */}
-              <text
-                x="0"
-                y="58"
-                textAnchor="middle"
-                fill="#6b7280"
-                className="dark:fill-gray-400 font-normal"
-                fontSize="10"
-              >
-                {pos.node.user.email.length > 22 
-                  ? pos.node.user.email.substring(0, 22) + '...' 
-                  : pos.node.user.email}
-              </text>
-              
-              {/* Show remaining children count if > 2 */}
-              {pos.node.remainingCount > 0 && (
-                <circle
-                  cx="75"
-                  cy="15"
-                  r="12"
-                  fill="#ef4444"
-                  className="dark:fill-red-500"
-                />
-              )}
-              {pos.node.remainingCount > 0 && (
-                <text
-                  x="75"
-                  y="19"
-                  textAnchor="middle"
-                  fill="white"
-                  fontSize="10"
-                  className="font-normal"
-                  fontFamily="system-ui, -apple-system, sans-serif"
-                >
-                  +{pos.node.remainingCount}
-                </text>
-              )}
-            </g>
-          ))}
-        </svg>
-      </div>
-    );
+  const treeStats = {
+    direct: tree?.tree?.length ?? stats?.level1Count ?? 0,
+    total: stats?.totalReferrals ?? filteredReferralList.length,
+    verified: stats?.verifiedReferrals ?? filteredReferralList.filter((n) => n.verified).length,
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="referrals-page ref-loading">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+          <div className="ref-loading__spinner mx-auto mb-4" />
+          <p style={{ color: 'var(--ref-muted)' }}>Loading referral program...</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Header — aligned with dashboard: single row, no overflow on small screens */}
-      <header className="sticky top-0 z-50 border-b border-gray-200/50 bg-white/90 shadow-lg backdrop-blur-xl dark:border-gray-700/50 dark:bg-gray-900/90">
-        <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
-          <div className="flex min-h-[3.5rem] w-full flex-row flex-nowrap items-center justify-between gap-2 py-2 sm:min-h-[3.75rem] sm:gap-3 md:min-h-[5rem] md:gap-6 md:py-3">
-            <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3 md:gap-4">
-              <button
-                type="button"
-                onClick={handleBack}
-                className="shrink-0 rounded-lg p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-700"
-                title="Back"
-                aria-label="Back"
-              >
-                <ArrowLeft className="h-5 w-5 text-gray-700 dark:text-gray-200" />
-              </button>
-              <div
-                className="group flex min-w-0 flex-1 cursor-pointer items-center gap-2 sm:gap-4 md:max-w-[min(100%,28rem)]"
-                onClick={() => router.push('/dashboard')}
-                role="button"
-                tabIndex={0}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' || e.key === ' ') {
-                    e.preventDefault();
-                    router.push('/dashboard');
-                  }
-                }}
-                aria-label={`${settings.platformName} — Dashboard`}
-              >
-                <div className="relative shrink-0">
-                  <img
-                    src="/all-07.svg"
-                    alt=""
-                    className="h-10 w-10 object-contain transition-transform duration-200 group-hover:scale-105 dark:invert sm:h-12 sm:w-12 md:h-14 md:w-14"
-                  />
-                  <div className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-500/20 to-purple-500/20 opacity-0 transition-opacity duration-200 group-hover:opacity-100" />
-                </div>
-                <div className="hidden min-w-0 flex-1 md:block">
-                  <h1 className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-base font-bold leading-tight text-transparent transition-all duration-200 group-hover:from-blue-700 group-hover:to-purple-700 sm:text-xl md:text-2xl">
-                    {settings.platformName}
-                  </h1>
-                  <p className="mt-0.5 line-clamp-2 text-xs text-gray-500 transition-colors duration-200 group-hover:text-gray-600 dark:text-gray-400 dark:group-hover:text-gray-300 sm:text-sm sm:line-clamp-none">
-                    Referral Program
-                  </p>
-                </div>
-              </div>
-            </div>
+  const tabItems = [
+    { id: 'overview' as const, label: 'Overview', icon: Sparkles },
+    { id: 'tree' as const, label: 'Network Tree', icon: GitBranch },
+    { id: 'earnings' as const, label: 'Earnings', icon: Wallet },
+  ];
 
-            <div className="flex shrink-0 flex-nowrap items-center justify-end gap-1 sm:gap-2 md:gap-3 md:pl-2">
-              <DarkModeToggle size="sm" />
-              {user?.role === 'student' && <ReferralBadge />}
-              <div className="ml-0.5 border-l border-gray-200 pl-2 dark:border-gray-700 sm:ml-0 sm:pl-4">
-                <UserProfileDropdown user={user} />
+  return (
+    <div className="referrals-page">
+      <header className="referrals-page__header">
+        <div className="ref-page-header">
+          <div className="ref-page-header__start">
+            <button
+              type="button"
+              onClick={handleBack}
+              className="ref-page-header__back"
+              title="Back"
+              aria-label="Back"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              className="ref-page-header__brand"
+              onClick={() => router.push('/dashboard')}
+              aria-label={`${settings.platformName} — Dashboard`}
+            >
+              <img src="/all-07.svg" alt="" />
+              <span className="ref-page-header__brand-text">
+                <strong>{settings.platformName}</strong>
+                <small>Referral Program</small>
+              </span>
+            </button>
+            <p className="ref-page-header__mobile-title">Referrals</p>
+          </div>
+
+          <div className="ref-page-header__actions">
+            <DarkModeToggle size="sm" />
+            {user?.role === 'student' && (
+              <div className="ref-page-header__badge">
+                <ReferralBadge />
               </div>
+            )}
+            <div className="ref-page-header__profile">
+              <UserProfileDropdown user={user} />
             </div>
           </div>
         </div>
       </header>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Back Button */}
-        <div className="mb-6">
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="inline-flex items-center text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors group"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2 group-hover:-translate-x-1 transition-transform" />
-            <span className="font-medium">Back to Dashboard</span>
-          </button>
-        </div>
+      <main className="referrals-page__main">
+        <button
+          type="button"
+          onClick={() => router.push('/dashboard')}
+          className="ref-back-link"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          Back to Dashboard
+        </button>
 
-        {/* Tabs */}
-        <div className="mb-6 border-b border-gray-200 dark:border-gray-700">
-          <nav className="-mx-1 flex gap-4 overflow-x-auto pb-px sm:gap-8 [scrollbar-width:thin]">
-            {['overview', 'tree', 'earnings'].map((tab) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab as any)}
-                className={`shrink-0 py-4 px-1 border-b-2 font-medium text-sm capitalize ${
-                  activeTab === tab
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </nav>
-        </div>
+        <nav className="ref-tabs" aria-label="Referral sections">
+          {tabItems.map(({ id, label, icon: Icon }) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => setActiveTab(id)}
+              className={`ref-tabs__btn${activeTab === id ? ' is-active' : ''}`}
+              aria-label={label}
+            >
+              <Icon size={16} aria-hidden />
+              <span className="ref-tabs__label">{label}</span>
+            </button>
+          ))}
+        </nav>
 
-        {/* Overview Tab */}
         {activeTab === 'overview' && (
           <div className="space-y-6">
-            {/* Referral Code Card */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
+            <motion.section
+              initial={{ opacity: 0, y: 16 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
+              className="ref-hero"
             >
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                <Share2 className="w-5 h-5 mr-2 text-blue-600" />
-                Your Referral Code
-              </h2>
-              {referralCode ? (
-                <>
-                  <div className="flex items-center space-x-3">
-                    <code className="flex-1 px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-lg font-mono text-gray-900 dark:text-white">
-                      {referralCode}
-                    </code>
-                    <button
-                      onClick={copyReferralLink}
-                      className="px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                    >
-                      <Copy className="w-4 h-4" />
-                      <span>Copy Link</span>
-                    </button>
-                  </div>
-                  {referralUrl && (
-                    <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mb-1">Your Referral Link:</p>
-                      <code className="text-sm text-blue-700 dark:text-blue-300 break-all">{referralUrl}</code>
-                    </div>
-                  )}
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-3">
-                    Share your referral link to earn commissions when people sign up and purchase packages!
+              <div className="ref-hero__aurora" aria-hidden />
+              <div className="ref-hero__inner">
+                <div>
+                  <p className="ref-hero__eyebrow">
+                    <Sparkles size={12} />
+                    Grow your network
                   </p>
-                </>
-              ) : (
-                <div className="text-center py-8">
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    {loading ? 'Generating your referral code...' : 'No referral code found. Please refresh the page.'}
+                  <h2 className="ref-hero__title">Share. Refer. Earn commissions.</h2>
+                  <p className="ref-hero__subtitle">
+                    Invite traders with your personal link. When they purchase a package, they join your verified network and you earn on every level.
                   </p>
-                  {!loading && (
-                    <button
-                      onClick={fetchReferralData}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                    >
-                      Retry
+                </div>
+                <div className="ref-hero__code-box">
+                  {referralCode ? (
+                    <>
+                      <div className="ref-hero__code-row">
+                        <code className="ref-hero__code">{referralCode}</code>
+                        <button type="button" className="ref-hero__copy-btn" onClick={copyReferralLink}>
+                          <Copy size={15} />
+                          Copy link
+                        </button>
+                      </div>
+                      {referralUrl && <p className="ref-hero__link">{referralUrl}</p>}
+                    </>
+                  ) : (
+                    <button type="button" className="ref-hero__copy-btn" onClick={fetchReferralData}>
+                      Generate referral code
                     </button>
                   )}
                 </div>
-              )}
+              </div>
+            </motion.section>
+
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}>
+              <RankRewardsProgress hideRefresh />
             </motion.div>
 
-            {/* Rank Rewards (direct referrals only) */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
-            >
-              <RankRewardsProgress />
-            </motion.div>
-
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Total Referrals</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                      {stats?.totalReferrals || 0}
-                    </p>
-                  </div>
-                  <Users className="w-8 h-8 text-blue-600" />
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.15 }}
-                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Verified</p>
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
-                      {stats?.verifiedReferrals ?? 0}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-500">Purchased a package</p>
-                  </div>
-                  <ShieldCheck className="w-8 h-8 text-green-600" />
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Unverified</p>
-                    <p className="text-2xl font-bold text-amber-600 dark:text-amber-400 mt-1">
-                      {stats?.unverifiedReferrals ?? 0}
-                    </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-500">No package yet</p>
-                  </div>
-                  <ShieldOff className="w-8 h-8 text-amber-600" />
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 }}
-                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Total Earnings</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                      ${(stats?.totalEarnings || 0).toFixed(2)}
-                    </p>
-                  </div>
-                  <DollarSign className="w-8 h-8 text-green-600" />
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Pending Earnings</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                      ${(stats?.pendingEarnings || 0).toFixed(2)}
-                    </p>
-                  </div>
-                  <TrendingUp className="w-8 h-8 text-yellow-600" />
-                </div>
-              </motion.div>
-
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
-                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Level 1</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                      {stats?.level1Count || 0}
-                    </p>
-                  </div>
-                  <Award className="w-8 h-8 text-purple-600" />
-                </div>
-              </motion.div>
+            <div className="ref-stat-grid">
+              {[
+                { label: 'Total Referrals', value: stats?.totalReferrals || 0, icon: Users, tone: 'blue' },
+                { label: 'Verified', value: stats?.verifiedReferrals ?? 0, hint: 'Purchased a package', icon: ShieldCheck, tone: 'green' },
+                { label: 'Unverified', value: stats?.unverifiedReferrals ?? 0, hint: 'No package yet', icon: ShieldOff, tone: 'amber' },
+                { label: 'Total Earnings', value: `$${(stats?.totalEarnings || 0).toFixed(2)}`, icon: DollarSign, tone: 'green' },
+                { label: 'Pending', value: `$${(stats?.pendingEarnings || 0).toFixed(2)}`, icon: TrendingUp, tone: 'amber' },
+                { label: 'Direct (L1)', value: stats?.level1Count || 0, icon: Award, tone: 'violet' },
+              ].map((item, i) => (
+                <motion.div
+                  key={item.label}
+                  initial={{ opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.08 + i * 0.04 }}
+                  className={`ref-stat-card ref-stat-card--${item.tone}`}
+                >
+                  <p className="ref-stat-card__label">{item.label}</p>
+                  <p className="ref-stat-card__value">{item.value}</p>
+                  {'hint' in item && item.hint && <p className="ref-stat-card__hint">{item.hint}</p>}
+                  <item.icon className="ref-stat-card__icon" style={{ color: 'var(--ref-accent)' }} />
+                </motion.div>
+              ))}
             </div>
-
           </div>
         )}
 
-        {/* Tree Tab */}
         {activeTab === 'tree' && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Your Referral Tree
-              </h2>
-              <div className="flex flex-wrap items-center gap-3">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="ref-panel">
+            <div className="ref-panel__head">
+              <h2 className="ref-panel__title">Your Referral Network</h2>
+              <div className="ref-panel__head-actions">
                 {treeView === 'list' && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">Show:</span>
-                    <div className="flex bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                      {(['all', 'verified', 'unverified'] as const).map((f) => (
-                        <button
-                          key={f}
-                          onClick={() => setReferralFilter(f)}
-                          className={`px-3 py-1.5 rounded-md text-sm font-medium capitalize transition-colors ${
-                            referralFilter === f
-                              ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                              : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                          }`}
-                        >
-                          {f === 'all' ? 'All' : f === 'verified' ? 'Verified' : 'Unverified'}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="ref-segment">
+                    {(['all', 'verified', 'unverified'] as const).map((f) => (
+                      <button
+                        key={f}
+                        type="button"
+                        onClick={() => setReferralFilter(f)}
+                        className={`ref-segment__btn${referralFilter === f ? ' is-active' : ''}`}
+                      >
+                        {f === 'all' ? 'All' : f === 'verified' ? 'Verified' : 'Pending'}
+                      </button>
+                    ))}
                   </div>
                 )}
-                <div className="flex items-center space-x-2 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                <div className="ref-segment">
                   <button
+                    type="button"
                     onClick={() => setTreeView('list')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      treeView === 'list'
-                        ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                    }`}
+                    className={`ref-segment__btn${treeView === 'list' ? ' is-active' : ''}`}
                   >
-                    List View
+                    <LayoutList size={14} className="inline mr-1" />
+                    List
                   </button>
                   <button
+                    type="button"
                     onClick={() => setTreeView('tree')}
-                    className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                      treeView === 'tree'
-                        ? 'bg-white dark:bg-gray-600 text-blue-600 dark:text-blue-400 shadow-sm'
-                        : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-                    }`}
+                    className={`ref-segment__btn${treeView === 'tree' ? ' is-active' : ''}`}
                   >
-                    Tree View
+                    <GitBranch size={14} className="inline mr-1" />
+                    Tree
                   </button>
                 </div>
               </div>
             </div>
-            
-            {tree && Array.isArray(tree.tree) && tree.tree.length > 0 ? (
-              <div className="mt-4">
-                {treeView === 'list' ? (
-                  <div>
-                    {filteredReferralList.length > 0 ? (
-                      <>
-                        <p className="text-sm text-gray-600 dark:text-gray-400 mb-3">
-                          Showing {filteredReferralList.length} referral{filteredReferralList.length !== 1 ? 's' : ''}
-                          {referralFilter !== 'all' && ` (${referralFilter})`}
-                        </p>
-                        {renderTreeList(filteredReferralList, 1, true)}
-                      </>
-                    ) : (
-                      <div className="text-center py-12">
-                        <Users className="w-14 h-14 text-gray-400 mx-auto mb-3" />
-                        <p className="text-gray-600 dark:text-gray-400">
-                          No {referralFilter} referrals yet.
-                        </p>
-                        <p className="text-sm text-gray-500 dark:text-gray-500 mt-1">
-                          Try &quot;All&quot; to see everyone, or refer more people who purchase packages for &quot;Verified&quot;.
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    {/* Root node */}
-                    <div className="text-center mb-12">
-                      <div className="inline-block">
-                        <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-1 shadow-xl">
-                          <div className="bg-white dark:bg-gray-800 rounded-lg px-6 py-4">
-                            <div className="flex items-center justify-center space-x-3 mb-2">
-                              <span className="px-3 py-1 bg-gradient-to-r from-blue-500 to-purple-600 text-white text-xs font-bold rounded-full">
-                                ROOT
-                              </span>
-                              <span className="text-lg text-gray-900 dark:text-white">
-                                {(tree.user as { name?: string; firstName?: string; lastName?: string })?.name || (`${(tree.user as any)?.firstName ?? ''} ${(tree.user as any)?.lastName ?? ''}`.trim()) || 'You'}
-                              </span>
-                            </div>
-                            <p className="text-xs text-gray-600 dark:text-gray-400 font-mono">
-                              {tree.user?.referralCode || 'N/A'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    
-                    {/* D3 Tree */}
-                    {(() => {
-                      let d3TreeData;
-                      if (tree.tree.length === 1) {
-                        d3TreeData = transformToD3Tree(tree.tree[0]);
-                      } else {
-                        const children = tree.tree.map(node => transformToD3Tree(node)).filter(Boolean);
-                        d3TreeData = {
-                          name: `${tree.user?.name || 'You'} (You)`,
-                          attributes: {
-                            level: 0,
-                            email: '',
-                            referralCode: tree.user?.referralCode || ''
-                          },
-                          children: children.length > 0 ? children : undefined
-                        };
-                      }
-                      
-                      if (!d3TreeData) {
-                        return <div className="text-center py-12 text-gray-600 dark:text-gray-400">Error transforming tree data.</div>;
-                      }
-                      
-                      return (
-                        <div className="referral-tree-wrapper w-full h-[600px] bg-gradient-to-br from-white via-gray-50 to-blue-50 rounded-lg overflow-hidden border border-gray-200 shadow-inner">
-                          <style dangerouslySetInnerHTML={{ __html: `
-                            .referral-tree-wrapper text,
-                            .referral-tree-wrapper .rd3t-label__title {
-                              font-weight: 400 !important;
-                              font-size: 16px !important;
-                              fill: #1f2937 !important;
-                            }
-                            .referral-tree-wrapper text.rd3t-label__attributes {
-                              font-size: 13px !important;
-                              fill: #4b5563 !important;
-                            }
-                            .referral-tree-wrapper .rd3t-link {
-                              stroke: #94a3b8 !important;
-                            }
-                          `}} />
-                          <Tree
-                            data={d3TreeData}
-                            orientation="vertical"
-                            pathFunc="straight"
-                            separation={{ siblings: 1.5, nonSiblings: 2 }}
-                            translate={{ x: 400, y: 50 }}
-                            nodeSize={{ x: 220, y: 160 }}
-                            styles={{
-                              nodes: {
-                                node: {
-                                  circle: { fill: '#3b82f6', stroke: '#1e40af', strokeWidth: 2 },
-                                  name: { fill: '#1f2937', fontSize: '13px', fontFamily: 'system-ui', fontWeight: 400 },
-                                  attributes: { fill: '#6b7280', fontSize: '11px' }
-                                },
-                                leafNode: {
-                                  circle: { fill: '#10b981', stroke: '#059669', strokeWidth: 2 }
-                                }
-                              },
-                              links: { stroke: '#94a3b8', strokeWidth: 2, fill: 'none' }
-                            }}
-                            renderCustomNodeElement={(rd3tProps) => {
-                              const { nodeDatum, toggleNode } = rd3tProps;
-                              return (
-                                <g>
-                                  <circle r={15} fill={nodeDatum.children ? '#3b82f6' : '#10b981'} stroke={nodeDatum.children ? '#1e40af' : '#059669'} strokeWidth={2} onClick={toggleNode} style={{ cursor: 'pointer' }} />
-                                  <text x={20} y={6} fill="#1f2937" fontFamily="system-ui" style={{ fontWeight: 400, fontSize: '16px' }}>{nodeDatum.name}</text>
-                                  {nodeDatum.attributes?.email && <text x={20} y={26} fill="#4b5563" style={{ fontSize: '13px' }}>{nodeDatum.attributes.email}</text>}
-                                </g>
-                              );
-                            }}
-                          />
-                        </div>
-                      );
-                    })()}
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="text-center py-12">
-                <Users className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                {loading ? (
-                  <>
-                    <p className="text-gray-600 dark:text-gray-400 mb-2">Loading referral tree...</p>
-                    <div className="w-8 h-8 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mt-4"></div>
-                  </>
-                ) : (
-                  <>
-                    <p className="text-gray-600 dark:text-gray-400 mb-2">
-                      {tree && tree.tree && tree.tree.length === 0 
-                        ? 'No referrals in tree structure.' 
-                        : tree 
-                          ? 'Tree data loaded but empty.' 
-                          : 'Failed to load referral tree.'} 
-                    </p>
-                    {stats && stats.totalReferrals > 0 && (
-                      <p className="text-sm text-gray-500 dark:text-gray-500 mt-2 mb-4">
-                        You have {stats.totalReferrals} total referrals. Click refresh to reload the tree.
-                      </p>
-                    )}
-                    <button
-                      onClick={() => {
-                        setLoading(true);
-                        fetchReferralData();
-                      }}
-                      className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
-                    >
-                      Refresh Tree
-                    </button>
-                    {/* {tree && (
-                      <div className="mt-4 text-xs text-gray-400 dark:text-gray-500">
-                        Debug: Tree exists: {tree ? 'Yes' : 'No'}, 
-                        Tree array: {tree?.tree ? (Array.isArray(tree.tree) ? `Yes (${tree.tree.length} items)` : 'Not an array') : 'No tree property'}
-                      </div>
-                    )} */}
-                  </>
-                )}
-              </div>
-            )}
-          </motion.div>
-        )}
 
-        {/* Earnings Tab */}
-        {activeTab === 'earnings' && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
-          >
-            {/* Earnings Summary */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-                Earnings Summary
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Total Earned</p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400 mt-1">
-                    ${(earnings?.totalEarnings || 0).toFixed(2)}
-                  </p>
-                </div>
-                <div className="p-4 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Pending</p>
-                  <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mt-1">
-                    ${(earnings?.pendingEarnings || 0).toFixed(2)}
-                  </p>
-                </div>
-                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Total Commissions</p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-                    {earnings?.commissions?.length || 0}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Commissions List */}
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                Commission History
-              </h3>
-              {earnings && earnings.commissions && earnings.commissions.length > 0 ? (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
-                      <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Purchaser</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Level</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Purchase Amount</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Commission</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {earnings.commissions.map((commission) => (
-                        <tr key={commission._id}>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                            {new Date(commission.createdAt).toLocaleDateString()}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                            {commission.purchaser.firstName} {commission.purchaser.lastName}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                            Level {commission.level}
-                          </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 dark:text-white">
-                            ${commission.purchaseAmount.toFixed(2)}
-                          </td>
-                          <td className="px-4 py-3 text-sm font-semibold text-green-600 dark:text-green-400">
-                            ${commission.commissionAmount.toFixed(2)} ({commission.commissionRate}%)
-                          </td>
-                          <td className="px-4 py-3 text-sm">
-                            <span className={`px-2 py-1 rounded-full text-xs ${
-                              commission.status === 'paid'
-                                ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                            }`}>
-                              {commission.status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+            <div className="ref-panel__body">
+              {tree && Array.isArray(tree.tree) && tree.tree.length > 0 ? (
+                treeView === 'list' ? (
+                  <ReferralListView nodes={tree.tree} filter={referralFilter} />
+                ) : (
+                  <ReferralTreeView
+                    rootName={
+                      (tree.user as { name?: string })?.name ||
+                      user?.firstName
+                        ? `${user?.firstName || ''} ${user?.lastName || ''}`.trim()
+                        : 'You'
+                    }
+                    rootCode={tree.user?.referralCode || referralCode}
+                    nodes={tree.tree}
+                    stats={treeStats}
+                  />
+                )
               ) : (
-                <div className="text-center py-12">
-                  <DollarSign className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 dark:text-gray-400">
-                    No commissions yet. Start referring users to earn!
+                <div className="ref-empty">
+                  <Users className="ref-empty__icon" />
+                  <p className="ref-empty__title">
+                    {tree?.tree?.length === 0 ? 'No referrals yet' : 'Could not load network'}
                   </p>
+                  <p className="ref-empty__text">
+                    Share your referral link to start building your team tree.
+                  </p>
+                  {stats && stats.totalReferrals > 0 && (
+                    <p className="ref-empty__text mt-2">
+                      You have {stats.totalReferrals} referrals in stats — try refreshing.
+                    </p>
+                  )}
+                  <button
+                    type="button"
+                    className="ref-empty__btn"
+                    onClick={() => {
+                      setLoading(true);
+                      fetchReferralData();
+                    }}
+                  >
+                    Refresh network
+                  </button>
                 </div>
               )}
             </div>
           </motion.div>
         )}
-      </div>
+
+        {activeTab === 'earnings' && (
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
+            <div className="ref-panel">
+              <div className="ref-panel__head">
+                <h2 className="ref-panel__title">Earnings Summary</h2>
+              </div>
+              <div className="ref-panel__body">
+                <div className="ref-earnings-grid">
+                  <div className="ref-earnings-card ref-earnings-card--green">
+                    <p className="ref-stat-card__label">Total earned</p>
+                    <p className="ref-stat-card__value" style={{ color: 'var(--ref-emerald)' }}>
+                      ${(earnings?.totalEarnings || 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="ref-earnings-card ref-earnings-card--amber">
+                    <p className="ref-stat-card__label">Pending</p>
+                    <p className="ref-stat-card__value" style={{ color: 'var(--ref-amber)' }}>
+                      ${(earnings?.pendingEarnings || 0).toFixed(2)}
+                    </p>
+                  </div>
+                  <div className="ref-earnings-card ref-earnings-card--blue">
+                    <p className="ref-stat-card__label">Commissions</p>
+                    <p className="ref-stat-card__value" style={{ color: 'var(--ref-accent)' }}>
+                      {earnings?.commissions?.length || 0}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="ref-panel">
+              <div className="ref-panel__head">
+                <h2 className="ref-panel__title">Commission History</h2>
+              </div>
+              <div className="ref-panel__body">
+                {earnings?.commissions?.length ? (
+                  <div className="ref-table-wrap">
+                    <table className="ref-table">
+                      <thead>
+                        <tr>
+                          <th>Date</th>
+                          <th>Purchaser</th>
+                          <th>Level</th>
+                          <th>Purchase</th>
+                          <th>Commission</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {earnings.commissions.map((commission) => (
+                          <tr key={commission._id}>
+                            <td>{new Date(commission.createdAt).toLocaleDateString()}</td>
+                            <td>{commission.purchaser.firstName} {commission.purchaser.lastName}</td>
+                            <td>L{commission.level}</td>
+                            <td>${commission.purchaseAmount.toFixed(2)}</td>
+                            <td style={{ color: 'var(--ref-emerald)', fontWeight: 600 }}>
+                              ${commission.commissionAmount.toFixed(2)} ({commission.commissionRate}%)
+                            </td>
+                            <td>
+                              <span className={`ref-node__badge ${commission.status === 'paid' ? 'ref-node__badge--verified' : ''}`} style={commission.status !== 'paid' ? { background: 'rgba(217,119,6,0.12)', color: 'var(--ref-amber)' } : undefined}>
+                                {commission.status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="ref-empty">
+                    <DollarSign className="ref-empty__icon" />
+                    <p className="ref-empty__title">No commissions yet</p>
+                    <p className="ref-empty__text">Refer users who purchase packages to start earning.</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </main>
 
       {/* Footer */}
       <footer className="bg-gradient-to-br from-gray-100 via-blue-50 to-indigo-50 dark:bg-gray-800 text-gray-900 dark:text-white py-16 relative">

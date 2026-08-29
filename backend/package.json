@@ -11,7 +11,10 @@
     "install:all": "npm install && cd frontend && npm install",
     "backup": "bash ./scripts/backup-all.sh",
     "restore": "bash ./scripts/restore-all.sh",
-    "seed:monthly-fee-test-users": "node ./scripts/seed-monthly-fee-test-users.js"
+    "seed:monthly-fee-test-users": "node ./scripts/seed-monthly-fee-test-users.js",
+    "seed:courses": "node ./scripts/seed-courses.js",
+    "seed:student-dashboard": "node ./scripts/seed-student-dashboard.js",
+    "seed:referral-tree": "node ./scripts/seed-referral-tree.js"
   },
   "keywords": [
     "trading",

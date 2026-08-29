@@ -43,6 +43,7 @@ import { getDashboardRoute, getUserRole } from '../../../utils/dashboardUtils';
 import { useVideoProgress } from '../../../hooks/useVideoProgress';
 import NewVideoPlayer from '../../../components/NewVideoPlayer';
 import TextContent from '../../../components/TextContent';
+import CourseDetailView from './CourseDetailView';
 
 // Video Player Component
 const VideoPlayer = ({ 
@@ -676,25 +677,6 @@ export default function CourseDetail() {
   const [certificateEligible, setCertificateEligible] = useState(false);
   const { settings, loading: settingsLoading } = useSettings();
 
-  // Prevent hydration mismatch by showing loading state
-  if (settingsLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  useEffect(() => {
-    if (courseId) {
-      fetchCourseDetails();
-      fetchCourseProgress();
-    }
-  }, [courseId]);
-
   const fetchCourseProgress = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -848,6 +830,24 @@ export default function CourseDetail() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (courseId) {
+      fetchCourseDetails();
+      fetchCourseProgress();
+    }
+  }, [courseId]);
+
+  if (settingsLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Helper function to check if content is unlocked (removed locking mechanism)
   const isContentUnlocked = (content: Content, index: number): boolean => {
@@ -1153,10 +1153,10 @@ export default function CourseDetail() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+      <div className="course-detail min-h-screen flex items-center justify-center bg-[#f7f9fa] dark:bg-[#0f1117]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 dark:border-blue-400 mx-auto"></div>
-          <p className="text-gray-700 dark:text-gray-300 text-xl mt-4 font-medium">Loading course...</p>
+          <div className="mx-auto mb-4 h-14 w-14 animate-spin rounded-full border-4 border-indigo-200 border-t-[#5624d0]" />
+          <p className="text-lg font-semibold text-slate-700 dark:text-slate-300">Loading course...</p>
         </div>
       </div>
     );
@@ -1164,479 +1164,35 @@ export default function CourseDetail() {
 
   if (!course) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+      <div className="course-detail min-h-screen flex items-center justify-center bg-[#f7f9fa] dark:bg-[#0f1117]">
         <div className="text-center">
-          <p className="text-gray-700 dark:text-gray-300 text-xl">Course not found</p>
+          <p className="text-xl font-semibold text-slate-700 dark:text-slate-300">Course not found</p>
+          <button
+            type="button"
+            onClick={() => router.push('/dashboard')}
+            className="mt-4 rounded bg-[#5624d0] px-4 py-2 text-sm font-bold text-white hover:bg-[#401b9c]"
+          >
+            Back to dashboard
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <>
-      <style jsx>{`
-        .slider::-webkit-slider-thumb {
-          appearance: none;
-          height: 16px;
-          width: 16px;
-          border-radius: 50%;
-          background: #3b82f6;
-          cursor: pointer;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-        
-        .slider::-moz-range-thumb {
-          height: 16px;
-          width: 16px;
-          border-radius: 50%;
-          background: #3b82f6;
-          cursor: pointer;
-          border: none;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-      `}</style>
-      <div className="min-h-screen min-w-0 overflow-x-hidden bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Header — single row, no horizontal overflow on small screens */}
-      <header className="sticky top-0 z-50 border-b border-gray-200 bg-white/80 shadow-sm backdrop-blur-md dark:border-gray-700 dark:bg-gray-900/80">
-        <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
-          <div className="flex min-h-[3.25rem] w-full flex-nowrap items-center justify-between gap-2 py-2 sm:min-h-16 sm:gap-3 sm:py-0">
-            <button
-              type="button"
-              onClick={() => {
-                const userRole = getUserRole();
-                const dashboardRoute = getDashboardRoute(userRole || 'student');
-                router.push(dashboardRoute);
-              }}
-              className="flex min-w-0 max-w-[min(100%,14rem)] shrink items-center gap-2 rounded-lg text-left text-sm text-gray-600 transition-colors hover:bg-gray-100 hover:text-blue-600 dark:text-gray-300 dark:hover:bg-gray-800 dark:hover:text-blue-400 sm:max-w-none sm:text-base"
-              aria-label="Back to Dashboard"
-            >
-              <ArrowLeft className="h-5 w-5 shrink-0" />
-              <span className="truncate sm:whitespace-normal">Back to Dashboard</span>
-            </button>
-            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <DarkModeToggle size="sm" />
-              <h1 className="text-base font-semibold text-gray-900 dark:text-white sm:text-lg md:text-xl">
-                <span className="sm:hidden">Course</span>
-                <span className="hidden sm:inline">Course Details</span>
-              </h1>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="mx-auto min-w-0 max-w-7xl px-3 py-6 pb-16 sm:px-6 sm:py-8 sm:pb-20 lg:px-8">
-        <div className="grid min-w-0 grid-cols-1 gap-6 lg:grid-cols-3 lg:gap-8">
-          {/* Main Content */}
-          <div className="min-w-0 space-y-6 lg:col-span-2">
-            {/* Course Header */}
-            <motion.div 
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800 sm:p-6"
-            >
-              <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 sm:h-16 sm:w-16">
-                  <BookOpen className="h-7 w-7 text-white sm:h-8 sm:w-8" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h1 className="break-words text-2xl font-bold leading-tight text-gray-900 dark:text-white sm:text-3xl">
-                    {course.title}
-                  </h1>
-                  <p className="mt-1 text-gray-600 dark:text-gray-300">
-                    by {course.teacher?.firstName || 'Unknown'} {course.teacher?.lastName || 'Teacher'}
-                  </p>
-                </div>
-              </div>
-              
-              <p className="mb-6 break-words text-base leading-relaxed text-gray-700 dark:text-gray-300 sm:text-lg whitespace-pre-wrap">
-                {course.description}
-              </p>
-              
-              <div className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-4">
-                <div className="min-w-0 text-center">
-                  <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center mx-auto mb-2">
-                    <Play className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">Videos</p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{typeof course.totalVideos === 'number' ? course.totalVideos : 0}</p>
-                </div>
-                <div className="min-w-0 text-center">
-                  <div className="w-12 h-12 bg-green-100 dark:bg-green-900/30 rounded-xl flex items-center justify-center mx-auto mb-2">
-                    <Clock className="w-6 h-6 text-green-600 dark:text-green-400" />
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">Duration</p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{typeof course.totalDuration === 'number' ? Math.round(course.totalDuration / 60) : 0} min</p>
-                </div>
-                <div className="min-w-0 text-center">
-                  <div className="w-12 h-12 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl flex items-center justify-center mx-auto mb-2">
-                    <Star className="w-6 h-6 text-yellow-600 dark:text-yellow-400" />
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">Rating</p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{typeof course.rating === 'number' ? course.rating : 0}/5</p>
-                </div>
-                <div className="min-w-0 text-center">
-                  <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center mx-auto mb-2">
-                    <User className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-                  </div>
-                  <p className="text-sm text-gray-600 dark:text-gray-300">Students</p>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white">{typeof course.totalStudents === 'number' ? course.totalStudents : 0}</p>
-                </div>
-              </div>
-              
-            </motion.div>
-
-            {/* Content Player */}
-            {selectedContent && (
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800 sm:p-6"
-              >
-                {renderContent(selectedContent)}
-                {/* Previous / Next module navigation */}
-                {(() => {
-                  const contentList = course?.content || course?.videos || [];
-                  const currentIndex = contentList.findIndex((c: Content) => c._id === selectedContent?._id);
-                  const hasPrev = currentIndex > 0;
-                  const hasNext = currentIndex >= 0 && currentIndex < contentList.length - 1;
-                  const prevContent = hasPrev ? contentList[currentIndex - 1] : null;
-                  const nextContent = hasNext ? contentList[currentIndex + 1] : null;
-                  if (contentList.length <= 1) return null;
-                  return (
-                    <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-600 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
-                      <button
-                        type="button"
-                        onClick={() => prevContent && setSelectedContent(prevContent)}
-                        disabled={!hasPrev}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium hover:border-blue-500 hover:text-blue-600 dark:hover:text-blue-400 dark:hover:border-blue-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:text-gray-700 dark:disabled:hover:border-gray-600 dark:disabled:hover:text-gray-300"
-                      >
-                        <ChevronLeft className="w-5 h-5 shrink-0" />
-                        <span>Previous module</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => nextContent && setSelectedContent(nextContent)}
-                        disabled={!hasNext}
-                        className="inline-flex items-center justify-center gap-2 px-4 py-3 rounded-xl border-2 border-blue-500 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 font-medium hover:bg-blue-500/20 dark:hover:bg-blue-500/30 transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:border-gray-200 disabled:bg-transparent disabled:text-gray-500 dark:disabled:border-gray-600 dark:disabled:text-gray-400"
-                      >
-                        <span>Next module</span>
-                        <ChevronRight className="w-5 h-5 shrink-0" />
-                      </button>
-                    </div>
-                  );
-                })()}
-              </motion.div>
-            )}
-          </div>
-
-          {/* Sidebar */}
-          <div className="min-w-0 space-y-6">
-            {/* Enrollment Card */}
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.3 }}
-              className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800 sm:p-6"
-            >
-              <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                  {course.currency} {course.price}
-                </h3>
-                <p className="text-gray-600 dark:text-gray-300">One-time payment</p>
-              </div>
-
-              {isEnrolled ? (
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mx-auto mb-3">
-                      <CheckCircle className="w-8 h-8 text-green-600 dark:text-green-400" />
-                    </div>
-                    <p className="text-green-600 dark:text-green-400 font-semibold">Enrolled!</p>
-                    <p className="text-gray-600 dark:text-gray-300 text-sm">Your progress: {courseProgress}%</p>
-                  </div>
-                  <button className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl">
-                    Continue Learning
-                  </button>
-                </div>
-              ) : (
-                <button 
-                  onClick={handleEnroll}
-                  className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold text-lg"
-                >
-                  Enroll Now
-                </button>
-              )}
-
-              <div className="mt-6 pt-6 border-t border-gray-200 dark:border-gray-600">
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-3">This course includes:</h4>
-                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 dark:text-green-400" />
-                    <span>{typeof course.totalVideos === 'number' ? course.totalVideos : 0} video lessons</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 dark:text-green-400" />
-                    <span>Lifetime access</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 dark:text-green-400" />
-                    <span>Certificate of completion</span>
-                  </li>
-                  <li className="flex items-center space-x-2">
-                    <CheckCircle className="w-4 h-4 text-green-500 dark:text-green-400" />
-                    <span>Mobile and TV access</span>
-                  </li>
-                </ul>
-              </div>
-            </motion.div>
-
-            {/* Course Progress */}
-            {isEnrolled && (
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.35 }}
-                className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800 sm:p-6"
-              >
-                <div className="flex items-center space-x-2 mb-4">
-                  <BarChart3 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  <h3 className="font-semibold text-gray-900 dark:text-white">Course Progress</h3>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
-                      {courseProgress}%
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Complete</p>
-                  </div>
-                  
-                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
-                    <div 
-                      className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 ease-out"
-                      style={{ width: `${courseProgress}%` }}
-                    />
-                  </div>
-                  
-                  <div className="text-center">
-                    {course?.certificate?.isAvailable ? (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Complete {course.certificate.minProgress}% to earn your certificate
-                      </p>
-                    ) : (
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Certificate not available for this course
-                      </p>
-                    )}
-                  </div>
-                  
-                  {course?.certificate?.isAvailable && certificateEligible && (
-                    <div className="mt-4 rounded-lg border border-green-200 bg-green-50 p-3 dark:border-green-700 dark:bg-green-900/20">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <Award className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
-                          <span className="text-sm font-medium text-green-800 dark:text-green-200">
-                            Certificate Ready!
-                          </span>
-                        </div>
-                        <button 
-                          type="button"
-                          onClick={() => window.open('/dashboard?tab=certificates', '_blank')}
-                          className="shrink-0 rounded bg-green-600 px-3 py-1 text-xs text-white transition-colors hover:bg-green-700"
-                        >
-                          View
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                  
-                  {course?.certificate?.isAvailable && courseProgress >= course.certificate.minProgress && !certificateEligible && (
-                    <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
-                      <div className="flex items-center space-x-2">
-                        <Award className="w-4 h-4 text-yellow-600 dark:text-yellow-400" />
-                        <span className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
-                          Certificate Processing...
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {/* Course Content - Sidebar */}
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.38 }}
-              className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800"
-            >
-              <div className="flex items-center space-x-2 mb-4">
-                <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                <h3 className="font-semibold text-gray-900 dark:text-white">Course Content</h3>
-              </div>
-              <div className="space-y-2">
-                {/* Course Content Items */}
-                {(course.content || course.videos || []).map((item, index) => {
-                  const { isCompleted } = getContentCompletionStatus(item);
-                  
-                  return (
-                    <div
-                      key={item._id}
-                      onClick={() => handleContentSelect(item)}
-                      className={`p-3 rounded-lg border transition-all duration-200 cursor-pointer ${
-                        selectedContent?._id === item._id
-                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                          : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                          isCompleted 
-                            ? 'bg-green-100 dark:bg-green-900/30' 
-                            : 'bg-blue-100 dark:bg-blue-900/30'
-                        }`}>
-                          {isCompleted ? (
-                            <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
-                          ) : (
-                            <span className="text-xs font-medium text-blue-600 dark:text-blue-400">{index + 1}</span>
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="font-medium text-sm text-gray-900 dark:text-white truncate">
-                            {item.title}
-                          </h4>
-                          <div className="flex items-center space-x-2 mt-0.5">
-                            <span className={`px-1.5 py-0.5 rounded text-xs ${getContentTypeStyle(item.type)}`}>
-                              {item.type}
-                            </span>
-                            {item.type === 'video' && item.duration && (
-                              <span className="text-xs text-gray-500 dark:text-gray-400">
-                                {formatDuration(item.duration)}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-                
-                {/* Course Assignments */}
-                {assignments.length > 0 && (
-                  <>
-                    <div className="pt-3 mt-2 border-t border-gray-200 dark:border-gray-600">
-                      <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">Assignments</p>
-                    </div>
-                    {assignments.map((assignment, index) => (
-                      <div
-                        key={assignment._id}
-                        onClick={() => handleContentSelect({
-                          _id: assignment._id,
-                          title: assignment.title,
-                          description: assignment.description,
-                          type: 'assignment',
-                          order: assignment.order || index + 1000,
-                          isPreview: false,
-                          views: 0,
-                          assignmentType: assignment.assignmentType,
-                          maxPoints: assignment.maxPoints
-                        })}
-                        className={`p-3 rounded-lg border cursor-pointer transition-all duration-200 ${
-                          selectedContent?._id === assignment._id
-                            ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
-                            : 'border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-gray-50 dark:hover:bg-gray-700/50'
-                        }`}
-                      >
-                        <div className="flex items-center space-x-3">
-                          <div className="w-8 h-8 bg-orange-100 dark:bg-orange-900/30 rounded-lg flex items-center justify-center flex-shrink-0">
-                            <FileText className="w-4 h-4 text-orange-600 dark:text-orange-400" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <h4 className="font-medium text-sm text-gray-900 dark:text-white truncate">{assignment.title}</h4>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">{assignment.maxPoints || 'N/A'} pts</span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </>
-                )}
-              </div>
-            </motion.div>
-
-            {/* Course Info */}
-            <motion.div 
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 }}
-              className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800 sm:p-6"
-            >
-              <h3 className="mb-4 font-semibold text-gray-900 dark:text-white">Course Information</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between gap-3">
-                  <span className="shrink-0 text-gray-600 dark:text-gray-300">Category:</span>
-                  <span className="min-w-0 break-words text-right font-medium capitalize text-gray-900 dark:text-white">{course.category}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="shrink-0 text-gray-600 dark:text-gray-300">Level:</span>
-                  <span className="min-w-0 break-words text-right font-medium capitalize text-gray-900 dark:text-white">{course.level}</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="shrink-0 text-gray-600 dark:text-gray-300">Language:</span>
-                  <span className="min-w-0 break-words text-right font-medium text-gray-900 dark:text-white">English</span>
-                </div>
-                <div className="flex justify-between gap-3">
-                  <span className="shrink-0 text-gray-600 dark:text-gray-300">Rating:</span>
-                  <span className="min-w-0 max-w-[65%] break-words text-right font-medium text-gray-900 dark:text-white sm:max-w-[70%]">
-                    {typeof course.rating === 'number' ? course.rating : 0}/5 ({typeof course.totalRatings === 'number' ? course.totalRatings : 0} ratings)
-                  </span>
-                </div>
-              </div>
-            </motion.div>
-
-            {/* Requirements */}
-            {course.requirements && course.requirements.length > 0 && (
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.5 }}
-                className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800 sm:p-6"
-              >
-                <h3 className="mb-4 font-semibold text-gray-900 dark:text-white">Requirements</h3>
-                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                  {course.requirements.map((req, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <div className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-blue-500 dark:bg-blue-400"></div>
-                      <span className="min-w-0 break-words">{req}</span>
-                    </li>
-                  ))}
-                </ul>
-              </motion.div>
-            )}
-
-            {/* Learning Outcomes */}
-            {course.learningOutcomes && course.learningOutcomes.length > 0 && (
-              <motion.div 
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: 0.6 }}
-                className="overflow-hidden rounded-2xl border border-gray-200 bg-white p-4 shadow-lg dark:border-gray-700 dark:bg-gray-800 sm:p-6"
-              >
-                <h3 className="mb-4 font-semibold text-gray-900 dark:text-white">{"What you'll learn"}</h3>
-                <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-300">
-                  {course.learningOutcomes.map((outcome, index) => (
-                    <li key={index} className="flex items-start gap-2">
-                      <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-green-500 dark:text-green-400" />
-                      <span className="min-w-0 break-words">{outcome}</span>
-                    </li>
-                  ))}
-                </ul>
-              </motion.div>
-            )}
-          </div>
-        </div>
-      </div>
-      </div>
-    </>
+    <CourseDetailView
+      course={course}
+      selectedContent={selectedContent}
+      onSelectContent={handleContentSelect}
+      isEnrolled={isEnrolled}
+      courseProgress={courseProgress}
+      certificateEligible={certificateEligible}
+      assignments={assignments}
+      getContentCompletionStatus={getContentCompletionStatus}
+      getContentTypeStyle={getContentTypeStyle}
+      formatDuration={formatDuration}
+      renderLesson={renderContent}
+      onEnroll={handleEnroll}
+    />
   );
 }

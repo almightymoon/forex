@@ -27,34 +27,13 @@ import {
 import { useToast } from '../../../components/Toast';
 import { useLanguage } from '../../../context/LanguageContext';
 import { buildApiUrl } from '../../../utils/api';
-import dynamic from 'next/dynamic';
-
-// Dynamically import ReactQuill to avoid SSR issues (react-quill-new: React 18+ compatible)
-const ReactQuill = dynamic(() => import('react-quill-new'), { ssr: false });
-import 'react-quill-new/dist/quill.snow.css';
-
-// Custom styles for ReactQuill
-const quillStyles = `
-  .ql-editor {
-    min-height: 200px;
-    font-size: 14px;
-    line-height: 1.6;
-  }
-  .ql-toolbar {
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    border-color: #d1d5db;
-  }
-  .ql-container {
-    border-bottom-left-radius: 8px;
-    border-bottom-right-radius: 8px;
-    border-color: #d1d5db;
-  }
-  .ql-editor.ql-blank::before {
-    color: #9ca3af;
-    font-style: italic;
-  }
-`;
+import AssignmentSubmissionEditor, {
+  countWords,
+  countCharacters,
+  htmlToPlainText,
+  AssignmentSubmitPortal,
+} from './AssignmentSubmissionEditor';
+import './student-assignments.css';
 
 interface Assignment {
   _id: string;
@@ -118,13 +97,24 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
   const [selectedFilter, setSelectedFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
   const [showSubmitModal, setShowSubmitModal] = useState(false);
+  const [showAttachPanel, setShowAttachPanel] = useState(false);
   const [showAssignmentModal, setShowAssignmentModal] = useState(false);
+  const [detailTab, setDetailTab] = useState<'overview' | 'submission' | 'feedback'>('overview');
   const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [submissionForm, setSubmissionForm] = useState({
     textContent: '',
     files: [] as File[]
   });
   const hasFetchedRef = useRef(false);
+
+  useEffect(() => {
+    if (!showSubmitModal) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [showSubmitModal]);
 
   // Rich text editor state
   const [isRichTextMode, setIsRichTextMode] = useState(false);
@@ -301,7 +291,8 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
     if (!selectedAssignment) return;
 
     // Validate that submission has content
-    if (!submissionForm.textContent.trim() && submissionForm.files.length === 0) {
+    const plainText = htmlToPlainText(submissionForm.textContent);
+    if (!plainText && submissionForm.files.length === 0) {
       showToast('Please provide an answer or attach files before submitting', 'error');
       return;
     }
@@ -338,7 +329,7 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
         console.log(`${key}:`, value);
       });
 
-      const response = await fetch(buildApiUrl('api/assignments/${selectedAssignment._id}/submit'), {
+      const response = await fetch(buildApiUrl(`api/assignments/${selectedAssignment._id}/submit`), {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`
@@ -408,13 +399,51 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
     
     setSelectedAssignment(assignment);
     setSubmissionForm({ textContent: '', files: [] });
+    setShowAttachPanel(false);
     setShowSubmitModal(true);
   };
 
   const openAssignmentModal = (assignment: Assignment) => {
     setSelectedAssignment(assignment);
+    setDetailTab('overview');
     setShowAssignmentModal(true);
   };
+
+  const getDisplayStatus = (assignment: Assignment): string => {
+    if (assignment.grade !== undefined && assignment.grade !== null) return 'graded';
+    if (assignment.submission) return 'submitted';
+    if (assignment.isOverdue || (assignment.daysUntilDue !== undefined && assignment.daysUntilDue < 0)) return 'overdue';
+    if (assignment.daysUntilDue === 0) return 'due-today';
+    if (assignment.daysUntilDue !== undefined && assignment.daysUntilDue <= 3) return 'due-soon';
+    return assignment.status || 'pending';
+  };
+
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'graded': return 'Graded';
+      case 'submitted': return 'Submitted';
+      case 'overdue': return 'Overdue';
+      case 'due-today': return 'Due Today';
+      case 'due-soon': return 'Due Soon';
+      default: return 'To Do';
+    }
+  };
+
+  const getGradeClass = (grade: number) => {
+    if (grade >= 90) return 'assignments-grade--a';
+    if (grade >= 80) return 'assignments-grade--b';
+    if (grade >= 70) return 'assignments-grade--c';
+    return 'assignments-grade--f';
+  };
+
+  const FILTER_CHIPS = [
+    { id: 'all', label: 'All' },
+    { id: 'pending', label: 'To Do' },
+    { id: 'due-soon', label: 'Due Soon' },
+    { id: 'submitted', label: 'Submitted' },
+    { id: 'graded', label: 'Graded' },
+    { id: 'overdue', label: 'Overdue' },
+  ] as const;
 
   const filteredAssignments = assignments.filter(assignment => {
     const matchesSearch = 
@@ -443,772 +472,566 @@ export default function StudentAssignments({ userId }: StudentAssignmentsProps) 
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400"></div>
+      <div className="assignments-page flex items-center justify-center min-h-[16rem]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="animate-spin rounded-full h-10 w-10 border-2 border-blue-600 border-t-transparent" />
+          <p className="text-sm text-slate-500">Loading assignments…</p>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white">My Assignments</h2>
-          <p className="text-gray-600 dark:text-gray-300">Track your progress and submit assignments</p>
-        </div>
-        <div className="flex space-x-3">
-          <button
-            onClick={() => fetchAssignments(false)}
-            disabled={isRefreshing}
-            className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>Refresh</span>
-          </button>
-          <button
-            onClick={() => fetchAssignments(false)}
-            disabled={isRefreshing}
-            className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
-            title="Check for new grades and feedback"
-          >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            <span>Check Grades</span>
-          </button>
-        </div>
-      </div>
+    <div className="assignments-page">
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-blue-100 dark:bg-blue-900/20 rounded-lg">
-              <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Total Assignments</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.total}</p>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-              <CheckCircle className="w-6 h-6 text-green-600 dark:text-green-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Completed</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.completed}</p>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-orange-100 dark:bg-orange-900/20 rounded-lg">
-              <Clock className="w-6 h-6 text-orange-600 dark:text-orange-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Submitted</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.submitted}</p>
-            </div>
-          </div>
-        </motion.div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700"
-        >
-          <div className="flex items-center space-x-3">
-            <div className="p-2 bg-purple-100 dark:bg-purple-900/20 rounded-lg">
-              <BarChart3 className="w-6 h-6 text-purple-600 dark:text-purple-400" />
-            </div>
-            <div>
-              <p className="text-sm text-gray-600 dark:text-gray-400">Avg Grade</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.averageGrade}%</p>
-            </div>
-          </div>
-        </motion.div>
-      </div>
-
-      {/* Filters and Search */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-        <div className="flex flex-col md:flex-row space-y-3 md:space-y-0 md:space-x-4">
-          <div className="flex-1">
-            <div className="relative">
-              <FileText className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 dark:text-gray-500 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Search assignments by title, description, or course..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-              />
-            </div>
-          </div>
-          <div className="flex space-x-3">
-            <select
-              value={selectedFilter}
-              onChange={(e) => setSelectedFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-            >
-              <option value="all">All Status</option>
-              <option value="pending">Pending</option>
-              <option value="submitted">Submitted</option>
-              <option value="graded">Graded</option>
-              <option value="overdue">Overdue</option>
-              <option value="due-soon">Due Soon</option>
-              <option value="due-today">Due Today</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* Assignments List */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
-        {filteredAssignments.length === 0 ? (
-          <div className="text-center py-12">
-            <FileText className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-500" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">No assignments found</h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {searchTerm || selectedFilter !== 'all' 
-                ? 'Try adjusting your search terms or filters.' 
-                : 'Complete course modules to unlock assignments and test your knowledge.'}
-            </p>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Assignment
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Course
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Due Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Grade
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredAssignments.map((assignment, index) => (
-                  <motion.tr
-                    key={assignment._id}
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                    className="hover:bg-gray-50"
-                  >
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
-                            <FileText className="h-6 w-6 text-white" />
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900 cursor-pointer hover:text-blue-600" 
-                               onClick={() => openAssignmentModal(assignment)}>
-                            {assignment.title}
-                          </div>
-                          <div className="text-sm text-gray-500 max-w-xs truncate">{assignment.description}</div>
-                          <div className="flex items-center space-x-2 mt-1">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(assignment.difficulty)}`}>
-                              {assignment.difficulty}
-                            </span>
-                            <span className="text-xs text-gray-500">
-                              {assignment.maxPoints} pts
-                            </span>
-                            {assignment.estimatedTime && (
-                              <span className="text-xs text-gray-500">
-                                ~{assignment.estimatedTime} min
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {assignment.courseTitle || 'Unknown Course'}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span>{new Date(assignment.dueDate).toLocaleDateString()}</span>
-                      </div>
-                      {assignment.daysUntilDue !== undefined && (
-                        <div className={`text-xs ${
-                          assignment.daysUntilDue < 0 ? 'text-red-600' :
-                          assignment.daysUntilDue === 0 ? 'text-orange-600' :
-                          assignment.daysUntilDue <= 3 ? 'text-yellow-600' : 'text-gray-500'
-                        }`}>
-                          {assignment.daysUntilDue < 0 ? `${Math.abs(assignment.daysUntilDue)} days overdue` :
-                           assignment.daysUntilDue === 0 ? 'Due today' :
-                           assignment.daysUntilDue <= 3 ? `${assignment.daysUntilDue} days left` :
-                           `${assignment.daysUntilDue} days left`}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                        !assignment.submission ? 'bg-yellow-100 text-yellow-800' :
-                        assignment.grade !== undefined ? 'bg-green-100 text-green-800' :
-                        assignment.submission ? 'bg-blue-100 text-blue-800' :
-                        'bg-gray-100 text-gray-800'
-                      }`}>
-                        <span className="ml-1">
-                          {!assignment.submission ? 'Pending' :
-                           assignment.grade !== undefined ? 'Graded' :
-                           assignment.submission ? 'Submitted' :
-                           'Unknown'}
-                        </span>
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      {assignment.grade !== undefined && assignment.grade !== null ? (
-                        <div className="flex items-center space-x-2">
-                          <span className={`font-medium ${
-                            assignment.grade >= 90 ? 'text-green-600' :
-                            assignment.grade >= 80 ? 'text-blue-600' :
-                            assignment.grade >= 70 ? 'text-yellow-600' :
-                            'text-red-600'
-                          }`}>
-                            {assignment.grade}%
-                          </span>
-                          {assignment.grade >= (assignment.passingScore || 60) && (
-                            <CheckCircle className="w-4 h-4 text-green-600" />
-                          )}
-                        </div>
-                      ) : assignment.submission ? (
-                        <span className="text-blue-600">Pending Grade</span>
-                      ) : (
-                        <span className="text-gray-400">-</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button
-                          onClick={() => openAssignmentModal(assignment)}
-                          className="text-blue-600 hover:text-blue-900 p-1"
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        {(() => {
-                          console.log(`Assignment ${assignment._id} submission check:`, {
-                            hasSubmission: !!assignment.submission,
-                            submission: assignment.submission,
-                            hasTextContent: assignment.submission?.textContent,
-                            hasFiles: assignment.submission?.files?.length > 0,
-                            grade: assignment.grade
-                          });
-                          
-                          // Consider any submission as final; disable submit button
-                          const hasSubmission = !!assignment.submission;
-                          
-                          return (
-                            <button
-                              onClick={() => openSubmitModal(assignment)}
-                              className={`p-1 ${hasSubmission ? 'text-gray-400 cursor-not-allowed' : 'text-green-600 hover:text-green-900'}`}
-                              title={hasSubmission ? 'Already Submitted' : 'Submit Assignment'}
-                              disabled={hasSubmission}
-                            >
-                              {hasSubmission ? <CheckCircle className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
-                            </button>
-                          );
-                        })()}
-                      </div>
-                    </td>
-                  </motion.tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Submit Assignment Modal */}
-      {showSubmitModal && selectedAssignment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-lg font-semibold">Submit Assignment: {selectedAssignment.title}</h3>
+      {/* Hero */}
+      <section className="assignments-hero">
+        <div className="assignments-hero__glow" aria-hidden />
+        <div className="assignments-hero__inner">
+          <div>
+            <p className="assignments-hero__eyebrow">Coursework</p>
+            <h2 className="assignments-hero__title">My Assignments</h2>
+            <p className="assignments-hero__sub">Track deadlines, submit work, and review grades</p>
+            <div className="assignments-hero__actions" style={{ marginTop: '0.85rem' }}>
               <button
-                onClick={() => setShowSubmitModal(false)}
-                className="text-gray-400 hover:text-gray-600"
+                type="button"
+                onClick={() => fetchAssignments(false)}
+                disabled={isRefreshing}
+                className="assignments-btn assignments-btn--ghost"
               >
-                <XCircle className="w-6 h-6" />
+                <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={() => fetchAssignments(false)}
+                disabled={isRefreshing}
+                className="assignments-btn assignments-btn--primary"
+                title="Check for new grades and feedback"
+              >
+                <Award className="w-4 h-4" />
+                Check Grades
               </button>
             </div>
+          </div>
+          <div className="assignments-hero__stats">
+            <div className="assignments-hero__stat">
+              <span className="assignments-hero__stat-val">{stats.total}</span>
+              <span className="assignments-hero__stat-lbl">Total</span>
+            </div>
+            <div className="assignments-hero__stat">
+              <span className="assignments-hero__stat-val">{stats.completed}</span>
+              <span className="assignments-hero__stat-lbl">Graded</span>
+            </div>
+            <div className="assignments-hero__stat">
+              <span className="assignments-hero__stat-val">{stats.submitted}</span>
+              <span className="assignments-hero__stat-lbl">Submitted</span>
+            </div>
+            <div className="assignments-hero__stat">
+              <span className="assignments-hero__stat-val">{stats.averageGrade}%</span>
+              <span className="assignments-hero__stat-lbl">Avg</span>
+            </div>
+          </div>
+        </div>
+      </section>
 
-            <div className="space-y-6">
-              {/* Assignment Details */}
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium text-gray-900 mb-2">Assignment Details</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <span className="text-gray-600">Course:</span>
-                    <span className="ml-2 font-medium">{selectedAssignment.courseTitle}</span>
+      {/* Toolbar */}
+      <div className="assignments-toolbar">
+        <div className="assignments-search">
+          <FileText className="assignments-search__icon" />
+          <input
+            type="text"
+            className="assignments-search__input"
+            placeholder="Search by title, course, or description…"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+        </div>
+        <div className="assignments-filters">
+          {FILTER_CHIPS.map((chip) => (
+            <button
+              key={chip.id}
+              type="button"
+              className={`assignments-filter-chip${selectedFilter === chip.id ? ' is-active' : ''}`}
+              onClick={() => setSelectedFilter(chip.id)}
+            >
+              {chip.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Assignment cards */}
+      {filteredAssignments.length === 0 ? (
+        <div className="assignments-empty">
+          <FileText className="assignments-empty__icon" />
+          <h3 className="assignments-empty__title">No assignments found</h3>
+          <p className="assignments-empty__hint">
+            {searchTerm || selectedFilter !== 'all'
+              ? 'Try adjusting your search or filter.'
+              : 'Complete course modules to unlock assignments.'}
+          </p>
+        </div>
+      ) : (
+        <div className="assignments-list">
+          {filteredAssignments.map((assignment, index) => {
+            const status = getDisplayStatus(assignment);
+            const hasSubmission = !!assignment.submission;
+            const dueClass =
+              status === 'overdue' ? 'assignments-card__due--urgent'
+              : status === 'due-today' || status === 'due-soon' ? 'assignments-card__due--soon'
+              : 'assignments-card__due--ok';
+
+            return (
+              <motion.article
+                key={assignment._id}
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.04 }}
+                className="assignments-card"
+                onClick={() => openAssignmentModal(assignment)}
+              >
+                <div className={`assignments-card__accent assignments-card__accent--${status}`} />
+                <div className="assignments-card__body">
+                  <div className="assignments-card__top">
+                    <h3 className="assignments-card__title">{assignment.title}</h3>
+                    <span className={`assignments-badge assignments-badge--${status}`}>
+                      {getStatusIcon(status)}
+                      {getStatusLabel(status)}
+                    </span>
                   </div>
-                  <div>
-                    <span className="text-gray-600">Due Date:</span>
-                    <span className="ml-2 font-medium">{new Date(selectedAssignment.dueDate).toLocaleDateString()}</span>
+                  <div className="assignments-card__course">
+                    <BookOpen className="w-3.5 h-3.5" />
+                    {assignment.courseTitle || 'Unknown Course'}
                   </div>
-                  <div>
-                    <span className="text-gray-600">Max Points:</span>
-                    <span className="ml-2 font-medium">{selectedAssignment.maxPoints}</span>
-                  </div>
-                  <div>
-                    <span className="text-gray-600">Type:</span>
-                    <span className="ml-2 font-medium capitalize">{selectedAssignment.assignmentType}</span>
+                  <div className="assignments-card__meta">
+                    <span className={dueClass}>
+                      <Calendar className="w-3.5 h-3.5 inline mr-1 -mt-0.5" />
+                      Due {new Date(assignment.dueDate).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      {assignment.daysUntilDue !== undefined && status !== 'graded' && status !== 'submitted' && (
+                        <span className="ml-1">
+                          · {assignment.daysUntilDue < 0
+                            ? `${Math.abs(assignment.daysUntilDue)}d overdue`
+                            : assignment.daysUntilDue === 0
+                            ? 'today'
+                            : `${assignment.daysUntilDue}d left`}
+                        </span>
+                      )}
+                    </span>
+                    <span>{assignment.maxPoints} pts</span>
+                    <span className={`assignments-badge assignments-badge--diff-${assignment.difficulty}`}>
+                      {assignment.difficulty}
+                    </span>
+                    {assignment.estimatedTime ? <span>~{assignment.estimatedTime} min</span> : null}
                   </div>
                 </div>
-              </div>
-
-              {/* Instructions */}
-              {selectedAssignment.instructions && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Instructions</label>
-                  <div className="bg-blue-50 p-4 rounded-lg text-sm text-gray-700">
-                    {selectedAssignment.instructions}
-                  </div>
-                </div>
-              )}
-
-              {/* Text Submission */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Your Answer/Response * <span className="text-red-500">(Required)</span>
-                </label>
-                <div className="border border-gray-300 rounded-lg focus-within:ring-2 focus-within:ring-blue-500 focus-within:border-transparent">
-                  <ReactQuill
-                    value={submissionForm.textContent}
-                    onChange={(content) => setSubmissionForm({ ...submissionForm, textContent: content })}
-                    placeholder="Type your answer, analysis, or response here..."
-                    modules={{
-                      toolbar: [
-                        [{ 'header': [1, 2, 3, false] }],
-                        ['bold', 'italic', 'underline', 'strike'],
-                        [{ 'list': 'ordered'}, { 'list': 'bullet' }],
-                        [{ 'color': [] }, { 'background': [] }],
-                        [{ 'align': [] }],
-                        ['link', 'image'],
-                        ['clean']
-                      ]
-                    }}
-                    className="min-h-[200px]"
-                  />
-                </div>
-                <div className="mt-2 flex justify-between items-center text-sm text-gray-500">
-                  <span>Use the toolbar above to format your text. You can add headers, lists, links, and more.</span>
-                  <div className="flex space-x-4">
-                    <span>Words: {submissionForm.textContent.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length}</span>
-                    <span>Characters: {submissionForm.textContent.replace(/<[^>]*>/g, '').length}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Preview Button */}
-              {submissionForm.textContent && (
-                <div>
+                <div className="assignments-card__actions" onClick={(e) => e.stopPropagation()}>
+                  {assignment.grade !== undefined && assignment.grade !== null ? (
+                    <span className={`assignments-grade ${getGradeClass(assignment.grade)}`}>
+                      {assignment.grade}%
+                    </span>
+                  ) : assignment.submission ? (
+                    <span className="text-sm font-medium text-blue-600 dark:text-blue-400">Pending grade</span>
+                  ) : null}
                   <button
                     type="button"
-                    onClick={() => {
-                      const previewWindow = window.open('', '_blank');
-                      if (previewWindow) {
-                        previewWindow.document.write(`
-                          <html>
-                            <head>
-                              <title>Submission Preview</title>
-                              <style>
-                                body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
-                                h1, h2, h3 { color: #1f2937; }
-                                .preview-content { max-width: 800px; margin: 0 auto; }
-                              </style>
-                            </head>
-                            <body>
-                              <div class="preview-content">
-                                <h2>Submission Preview</h2>
-                                <hr style="margin: 20px 0;">
-                                ${submissionForm.textContent}
-                              </div>
-                            </body>
-                          </html>
-                        `);
-                        previewWindow.document.close();
-                      }
-                    }}
-                    className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+                    className="assignments-card-btn assignments-card-btn--view"
+                    onClick={() => openAssignmentModal(assignment)}
                   >
-                    Preview Submission
+                    <Eye className="w-3.5 h-3.5" />
+                    View
                   </button>
+                  {hasSubmission ? (
+                    <span className="assignments-card-btn assignments-card-btn--done">
+                      <CheckCircle className="w-3.5 h-3.5" />
+                      Submitted
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      className="assignments-card-btn assignments-card-btn--submit"
+                      onClick={() => openSubmitModal(assignment)}
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      Submit
+                    </button>
+                  )}
                 </div>
-              )}
+              </motion.article>
+            );
+          })}
+        </div>
+      )}
 
-              {/* File Upload */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Attachments (Optional)
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <Upload className="mx-auto h-12 w-12 text-gray-400" />
-                  <div className="mt-4">
-                    <label htmlFor="file-upload" className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
-                      Choose Files
-                    </label>
-                    <input
-                      id="file-upload"
-                      type="file"
-                      multiple
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
+      {/* Full-screen submit workspace (ported to body so it covers the shell) */}
+      {showSubmitModal && selectedAssignment && (
+        <AssignmentSubmitPortal>
+          <div className="assignments-submit-overlay" role="dialog" aria-modal="true">
+            <header className="assignments-submit-header">
+              <div className="min-w-0">
+                <h2 className="assignments-submit-header__title">{selectedAssignment.title}</h2>
+                <p className="assignments-submit-header__meta">
+                  {selectedAssignment.courseTitle} · Due{' '}
+                  {new Date(selectedAssignment.dueDate).toLocaleDateString(undefined, {
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric',
+                  })}{' '}
+                  · {selectedAssignment.maxPoints} pts
+                </p>
+              </div>
+              <button
+                type="button"
+                className="assignments-modal__close"
+                onClick={() => setShowSubmitModal(false)}
+                aria-label="Close"
+              >
+                <XCircle className="w-5 h-5" />
+              </button>
+            </header>
+
+            <div className="assignments-submit-layout">
+              <aside className="assignments-submit-sidebar">
+                <div className="assignments-submit-tip">
+                  <Edit3 className="w-4 h-4 shrink-0 mt-0.5" />
+                  <span>
+                    Use the <strong>formatting toolbar</strong> above the text box for bold, lists, headings, and links. Your work saves when you submit.
+                  </span>
+                </div>
+
+                <div className="assignments-meta-grid" style={{ marginBottom: '1rem' }}>
+                  <div className="assignments-meta-item">
+                    <div className="assignments-meta-item__label">Type</div>
+                    <div className="assignments-meta-item__value capitalize">{selectedAssignment.assignmentType}</div>
                   </div>
-                  <p className="mt-2 text-sm text-gray-500">
-                    Upload documents, images, or other files related to your submission
-                  </p>
+                  <div className="assignments-meta-item">
+                    <div className="assignments-meta-item__label">Difficulty</div>
+                    <div className="assignments-meta-item__value capitalize">{selectedAssignment.difficulty}</div>
+                  </div>
+                </div>
+
+                {selectedAssignment.instructions ? (
+                  <>
+                    <p className="assignments-section-title">Instructions</p>
+                    <div className="assignments-instructions">{selectedAssignment.instructions}</div>
+                  </>
+                ) : (
+                  <>
+                    <p className="assignments-section-title">Description</p>
+                    <p className="assignments-prose">{selectedAssignment.description}</p>
+                  </>
+                )}
+              </aside>
+
+              <div className="assignments-submit-main">
+                <div className="assignments-submit-editor-wrap">
+                  <div className="assignments-submit-editor-label">
+                    <span>Your response <span style={{ color: '#dc2626' }}>*</span></span>
+                    <small>
+                      {countWords(submissionForm.textContent)} words · {countCharacters(submissionForm.textContent)} chars
+                    </small>
+                  </div>
+                  <AssignmentSubmissionEditor
+                    value={submissionForm.textContent}
+                    onChange={(html) => setSubmissionForm({ ...submissionForm, textContent: html })}
+                    placeholder="Write your answer here. Use the toolbar to format text."
+                  />
                 </div>
               </div>
+            </div>
 
-              {/* File List */}
-              {submissionForm.files.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Selected Files</label>
-                  <div className="space-y-2">
-                    {submissionForm.files.map((file, index) => (
-                      <div key={index} className="flex items-center justify-between bg-gray-50 p-3 rounded-lg">
-                        <div className="flex items-center space-x-2">
-                          <FileText className="w-4 h-4 text-gray-500" />
-                          <span className="text-sm text-gray-700">{file.name}</span>
-                          <span className="text-xs text-gray-500">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
+            {showAttachPanel && (
+              <div className="assignments-submit-attach-panel">
+                <label className="assignments-form-label">Attachments (optional)</label>
+                <div className="assignments-dropzone">
+                  <Upload className="mx-auto w-10 h-10 text-slate-400 mb-2" />
+                  <label htmlFor="assignment-file-upload" className="assignments-modal-btn assignments-modal-btn--primary cursor-pointer">
+                    Choose files
+                  </label>
+                  <input id="assignment-file-upload" type="file" multiple onChange={handleFileUpload} className="hidden" />
+                  <p className="assignments-form-hint">PDF, images, or documents related to your submission</p>
+                </div>
+                {submissionForm.files.length > 0 && (
+                  <div className="space-y-2 mt-3">
+                    {submissionForm.files.map((file, idx) => (
+                      <div key={idx} className="assignments-file-item">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                          <span className="text-sm truncate">{file.name}</span>
+                          <span className="text-xs text-slate-500 shrink-0">
+                            ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                          </span>
                         </div>
-                        <button
-                          onClick={() => removeFile(index)}
-                          className="text-red-600 hover:text-red-800"
-                        >
+                        <button type="button" onClick={() => removeFile(idx)} className="text-red-500 hover:text-red-700">
                           <XCircle className="w-4 h-4" />
                         </button>
                       </div>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
+            )}
 
-              {/* Submit Button */}
-              <div className="flex space-x-3 pt-4">
+            <footer className="assignments-submit-footer">
+              <div className="assignments-submit-footer__left">
                 <button
+                  type="button"
+                  className="assignments-submit-attach-toggle"
+                  onClick={() => setShowAttachPanel((v) => !v)}
+                >
+                  <Upload className="w-4 h-4" />
+                  Attachments
+                  {submissionForm.files.length > 0 ? ` (${submissionForm.files.length})` : ''}
+                </button>
+                <span className="text-xs text-slate-500">
+                  {countWords(submissionForm.textContent)} words
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="assignments-modal-btn assignments-modal-btn--secondary"
                   onClick={() => setShowSubmitModal(false)}
-                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
+                  className="assignments-modal-btn assignments-modal-btn--primary"
                   onClick={handleSubmitAssignment}
-                  disabled={(!submissionForm.textContent.trim() && submissionForm.files.length === 0) || isSubmitting}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center space-x-2"
+                  disabled={
+                    (!htmlToPlainText(submissionForm.textContent) && submissionForm.files.length === 0) || isSubmitting
+                  }
                 >
                   {isSubmitting ? (
                     <>
                       <RefreshCw className="w-4 h-4 animate-spin" />
-                      <span>Submitting...</span>
+                      Submitting…
                     </>
                   ) : (
-                    <span>Submit Assignment</span>
+                    <>
+                      <Upload className="w-4 h-4" />
+                      Submit assignment
+                    </>
                   )}
                 </button>
               </div>
-            </div>
+            </footer>
           </div>
-        </div>
+        </AssignmentSubmitPortal>
       )}
 
-      {/* Assignment Details Modal */}
+      {/* Detail slide-over with tabs */}
       {showAssignmentModal && selectedAssignment && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="text-xl font-semibold">{selectedAssignment.title}</h3>
-              <button
-                onClick={() => setShowAssignmentModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <XCircle className="w-6 h-6" />
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              {/* Assignment Overview */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-blue-50 p-4 rounded-lg">
-                  <div className="text-sm text-blue-600 font-medium">Course</div>
-                  <div className="text-lg font-semibold text-blue-900">{selectedAssignment.courseTitle}</div>
-                </div>
-                <div className="bg-green-50 p-4 rounded-lg">
-                  <div className="text-sm text-green-600 font-medium">Due Date</div>
-                  <div className="text-lg font-semibold text-green-900">
-                    {new Date(selectedAssignment.dueDate).toLocaleDateString()}
-                  </div>
-                </div>
-                <div className="bg-purple-50 p-4 rounded-lg">
-                  <div className="text-sm text-purple-600 font-medium">Max Points</div>
-                  <div className="text-lg font-semibold text-purple-900">{selectedAssignment.maxPoints}</div>
-                </div>
-              </div>
-
-              {/* Description */}
+        <div className="assignments-modal-overlay" onClick={() => setShowAssignmentModal(false)}>
+          <div className="assignments-modal" onClick={(e) => e.stopPropagation()}>
+            <header className="assignments-modal__header">
               <div>
-                <h4 className="font-medium text-gray-900 mb-2">Description</h4>
-                <p className="text-gray-700">{selectedAssignment.description}</p>
+                <p className="assignments-modal__breadcrumb">{selectedAssignment.courseTitle}</p>
+                <h3 className="assignments-modal__title">{selectedAssignment.title}</h3>
               </div>
-
-              {/* Instructions */}
-              {selectedAssignment.instructions && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Instructions</h4>
-                  <div className="bg-yellow-50 p-4 rounded-lg text-gray-700">
-                    {selectedAssignment.instructions}
+              <button type="button" className="assignments-modal__close" onClick={() => setShowAssignmentModal(false)} aria-label="Close">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </header>
+            <nav className="assignments-modal__tabs">
+              {(['overview', 'submission', 'feedback'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  className={`assignments-modal__tab${detailTab === tab ? ' is-active' : ''}`}
+                  onClick={() => setDetailTab(tab)}
+                >
+                  {tab === 'overview' ? 'Overview' : tab === 'submission' ? 'Submission' : 'Feedback'}
+                </button>
+              ))}
+            </nav>
+            <div className="assignments-modal__body">
+              {detailTab === 'overview' && (
+                <>
+                  <div className="assignments-meta-grid">
+                    <div className="assignments-meta-item">
+                      <div className="assignments-meta-item__label">Due date</div>
+                      <div className="assignments-meta-item__value">
+                        {new Date(selectedAssignment.dueDate).toLocaleDateString(undefined, {
+                          weekday: 'short',
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </div>
+                    </div>
+                    <div className="assignments-meta-item">
+                      <div className="assignments-meta-item__label">Points</div>
+                      <div className="assignments-meta-item__value">{selectedAssignment.maxPoints}</div>
+                    </div>
+                    <div className="assignments-meta-item">
+                      <div className="assignments-meta-item__label">Type</div>
+                      <div className="assignments-meta-item__value capitalize">{selectedAssignment.assignmentType}</div>
+                    </div>
+                    <div className="assignments-meta-item">
+                      <div className="assignments-meta-item__label">Difficulty</div>
+                      <div className="assignments-meta-item__value capitalize">{selectedAssignment.difficulty}</div>
+                    </div>
+                    <div className="assignments-meta-item">
+                      <div className="assignments-meta-item__label">Est. time</div>
+                      <div className="assignments-meta-item__value">
+                        {selectedAssignment.estimatedTime ? `${selectedAssignment.estimatedTime} min` : 'N/A'}
+                      </div>
+                    </div>
+                    <div className="assignments-meta-item">
+                      <div className="assignments-meta-item__label">Late policy</div>
+                      <div className="assignments-meta-item__value">
+                        {selectedAssignment.allowLateSubmission
+                          ? `Allowed (−${selectedAssignment.latePenalty}%)`
+                          : 'Not allowed'}
+                      </div>
+                    </div>
                   </div>
-                </div>
+                  <p className="assignments-section-title">Description</p>
+                  <p className="assignments-prose" style={{ marginBottom: '1.25rem' }}>{selectedAssignment.description}</p>
+                  {selectedAssignment.instructions && (
+                    <>
+                      <p className="assignments-section-title">Instructions</p>
+                      <div className="assignments-instructions">{selectedAssignment.instructions}</div>
+                    </>
+                  )}
+                </>
               )}
 
-              {/* Assignment Details */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Assignment Details</h4>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Type:</span>
-                      <span className="font-medium capitalize">{selectedAssignment.assignmentType}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Difficulty:</span>
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${getDifficultyColor(selectedAssignment.difficulty)}`}>
-                        {selectedAssignment.difficulty}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Estimated Time:</span>
-                      <span className="font-medium">{selectedAssignment.estimatedTime || 'N/A'} minutes</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-600">Late Submissions:</span>
-                      <span className="font-medium">
-                        {selectedAssignment.allowLateSubmission ? 'Allowed' : 'Not Allowed'}
-                      </span>
-                    </div>
-                    {selectedAssignment.allowLateSubmission && (
-                      <div className="flex justify-between">
-                        <span className="text-gray-600">Late Penalty:</span>
-                        <span className="font-medium">{selectedAssignment.latePenalty}%</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Your Submission</h4>
+              {detailTab === 'submission' && (
+                <>
                   {selectedAssignment.submission ? (
                     <div className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div className="bg-green-50 p-3 rounded-lg">
-                          <div className="text-sm text-green-600 font-medium">Status</div>
-                          <div className="text-green-900 capitalize">{selectedAssignment.submission.status}</div>
+                      <div className="assignments-meta-grid">
+                        <div className="assignments-meta-item">
+                          <div className="assignments-meta-item__label">Status</div>
+                          <div className="assignments-meta-item__value capitalize">{selectedAssignment.submission.status}</div>
                         </div>
-                        <div className="bg-blue-50 p-3 rounded-lg">
-                          <div className="text-sm text-blue-600 font-medium">Submitted</div>
-                          <div className="text-blue-900">
+                        <div className="assignments-meta-item">
+                          <div className="assignments-meta-item__label">Submitted</div>
+                          <div className="assignments-meta-item__value" style={{ fontSize: '0.8125rem' }}>
                             {new Date(selectedAssignment.submission.submittedAt).toLocaleString()}
                           </div>
                         </div>
                         {selectedAssignment.grade !== undefined && (
-                          <div className="bg-purple-50 p-3 rounded-lg">
-                            <div className="text-sm text-purple-600 font-medium">Grade</div>
-                            <div className="text-purple-900">{selectedAssignment.grade}%</div>
+                          <div className="assignments-meta-item">
+                            <div className="assignments-meta-item__label">Grade</div>
+                            <div className={`assignments-meta-item__value ${getGradeClass(selectedAssignment.grade)}`}>
+                              {selectedAssignment.grade}%
+                            </div>
                           </div>
                         )}
                       </div>
-                      
-                      {/* Submission Content */}
                       {selectedAssignment.submission.textContent && (
-                        <div>
-                          <h5 className="font-medium text-gray-900 mb-2">Your Answer</h5>
-                          <div className="bg-white border border-gray-200 rounded-lg p-4 max-h-64 overflow-y-auto">
-                            <div className="prose prose-sm max-w-none" 
-                                 dangerouslySetInnerHTML={{ __html: selectedAssignment.submission.textContent }} />
-                          </div>
-                          <div className="mt-2 text-sm text-gray-500 text-right">
-                            <span>Words: {selectedAssignment.submission.textContent.replace(/<[^>]*>/g, '').trim().split(/\s+/).filter(word => word.length > 0).length}</span>
-                            <span className="ml-4">Characters: {selectedAssignment.submission.textContent.replace(/<[^>]*>/g, '').length}</span>
-                          </div>
-                        </div>
+                        <>
+                          <p className="assignments-section-title">Your answer</p>
+                          <div
+                            className="assignments-submission-box prose prose-sm max-w-none dark:prose-invert"
+                            dangerouslySetInnerHTML={{ __html: selectedAssignment.submission.textContent }}
+                          />
+                        </>
                       )}
-                      
-                      {/* Submission Files */}
                       {selectedAssignment.submission.files && selectedAssignment.submission.files.length > 0 && (
-                        <div>
-                          <h5 className="font-medium text-gray-900 mb-2">Attached Files</h5>
+                        <>
+                          <p className="assignments-section-title">Attachments</p>
                           <div className="space-y-2">
-                            {selectedAssignment.submission.files.map((file, index) => (
-                              <div key={index} className="flex items-center space-x-3 bg-gray-50 p-3 rounded-lg">
-                                <FileText className="w-5 h-5 text-blue-600" />
-                                <div className="flex-1">
-                                  <div className="font-medium text-gray-900">{file.title}</div>
-                                  <div className="text-sm text-gray-500">
-                                    {file.fileType} • {(file.fileSize / 1024).toFixed(1)} KB
+                            {selectedAssignment.submission.files.map((file, idx) => (
+                              <div key={idx} className="assignments-file-item">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <FileText className="w-4 h-4 text-blue-500 shrink-0" />
+                                  <div className="min-w-0">
+                                    <div className="text-sm font-medium truncate">{file.title}</div>
+                                    <div className="text-xs text-slate-500">
+                                      {file.fileType} · {(file.fileSize / 1024).toFixed(1)} KB
+                                    </div>
                                   </div>
                                 </div>
                                 <a
                                   href={file.fileUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                  className="text-sm font-semibold text-blue-600 hover:text-blue-800 shrink-0"
                                 >
-                                  View
+                                  Open
                                 </a>
                               </div>
                             ))}
                           </div>
-                        </div>
+                        </>
                       )}
                     </div>
                   ) : (
-                    <div className="bg-gray-50 p-4 rounded-lg text-center">
-                      <Clock className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                      <p className="text-gray-600">No submission yet</p>
+                    <div className="assignments-no-submission">
+                      <Clock className="w-10 h-10 text-slate-400 mx-auto mb-3" />
+                      <p className="font-semibold text-slate-700 dark:text-slate-200 mb-1">No submission yet</p>
+                      <p className="text-sm text-slate-500 mb-4">Complete and submit before the due date</p>
                       <button
+                        type="button"
+                        className="assignments-modal-btn assignments-modal-btn--primary"
                         onClick={() => {
                           setShowAssignmentModal(false);
                           openSubmitModal(selectedAssignment);
                         }}
-                        className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                       >
-                        Submit Now
+                        <Upload className="w-4 h-4" />
+                        Submit now
                       </button>
                     </div>
                   )}
-                </div>
-              </div>
-
-              {/* Feedback */}
-              {selectedAssignment.feedback && (
-                <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Feedback</h4>
-                  <div className="bg-blue-50 p-4 rounded-lg text-gray-700">
-                    {selectedAssignment.feedback}
-                  </div>
-                </div>
+                </>
               )}
 
-                                    {/* Action Buttons */}
-                      <div className="flex space-x-3 pt-4 border-t border-gray-200">
-                        {!selectedAssignment.submission && (
-                          <button
-                            onClick={() => {
-                              setShowAssignmentModal(false);
-                              openSubmitModal(selectedAssignment);
-                            }}
-                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                          >
-                            Submit Assignment
-                          </button>
-                        )}
-                        {selectedAssignment.submission && (
-                          <button
-                            onClick={() => {
-                              const submissionWindow = window.open('', '_blank');
-                              if (submissionWindow) {
-                                submissionWindow.document.write(`
-                                  <html>
-                                    <head>
-                                      <title>Full Submission - ${selectedAssignment.title}</title>
-                                      <style>
-                                        body { font-family: Arial, sans-serif; padding: 20px; line-height: 1.6; }
-                                        h1, h2, h3 { color: #1f2937; }
-                                        .submission-content { max-width: 800px; margin: 0 auto; }
-                                        .submission-header { background: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 20px; }
-                                        .submission-body { background: white; padding: 20px; border: 1px solid #e5e7eb; border-radius: 8px; }
-                                        .file-attachments { margin-top: 20px; }
-                                        .file-item { background: #f9fafb; padding: 10px; border-radius: 4px; margin: 10px 0; }
-                                      </style>
-                                    </head>
-                                    <body>
-                                      <div class="submission-content">
-                                        <div class="submission-header">
-                                          <h1>${selectedAssignment.title}</h1>
-                                          <p><strong>Course:</strong> ${selectedAssignment.courseTitle}</p>
-                                          <p><strong>Submitted:</strong> ${new Date(selectedAssignment.submission.submittedAt).toLocaleString()}</p>
-                                          <p><strong>Status:</strong> ${selectedAssignment.submission.status}</p>
-                                          ${selectedAssignment.grade !== undefined ? `<p><strong>Grade:</strong> ${selectedAssignment.grade}%</p>` : ''}
-                                        </div>
-                                        <div class="submission-body">
-                                          <h2>Your Answer</h2>
-                                          ${selectedAssignment.submission.textContent || '<p><em>No text content submitted</em></p>'}
-                                        </div>
-                                        ${selectedAssignment.submission.files && selectedAssignment.submission.files.length > 0 ? `
-                                          <div class="file-attachments">
-                                            <h2>Attached Files</h2>
-                                            ${selectedAssignment.submission.files.map(file => `
-                                              <div class="file-item">
-                                                <strong>${file.title}</strong><br>
-                                                <small>${file.fileType} • ${(file.fileSize / 1024).toFixed(1)} KB</small>
-                                              </div>
-                                            `).join('')}
-                                          </div>
-                                        ` : ''}
-                                        ${selectedAssignment.feedback ? `
-                                          <div class="submission-body" style="margin-top: 20px;">
-                                            <h2>Feedback</h2>
-                                            <p>${selectedAssignment.feedback}</p>
-                                          </div>
-                                        ` : ''}
-                                      </div>
-                                    </body>
-                                  </html>
-                                `);
-                                submissionWindow.document.close();
-                              }
-                            }}
-                            className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                          >
-                            View Full Submission
-                          </button>
-                        )}
-                        <button
-                          onClick={() => setShowAssignmentModal(false)}
-                          className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                        >
-                          Close
-                        </button>
-                      </div>
+              {detailTab === 'feedback' && (
+                <>
+                  {selectedAssignment.feedback ? (
+                    <div className="assignments-feedback">{selectedAssignment.feedback}</div>
+                  ) : selectedAssignment.grade !== undefined ? (
+                    <p className="assignments-prose text-slate-500">No written feedback yet. Check back after grading.</p>
+                  ) : (
+                    <div className="assignments-no-submission">
+                      <Star className="w-10 h-10 text-slate-400 mx-auto mb-3" />
+                      <p className="font-semibold text-slate-700 dark:text-slate-200">Feedback not available</p>
+                      <p className="text-sm text-slate-500 mt-1">Instructor feedback appears here after grading</p>
+                    </div>
+                  )}
+                </>
+              )}
             </div>
+            <footer className="assignments-modal__footer">
+              {!selectedAssignment.submission && (
+                <button
+                  type="button"
+                  className="assignments-modal-btn assignments-modal-btn--primary"
+                  onClick={() => {
+                    setShowAssignmentModal(false);
+                    openSubmitModal(selectedAssignment);
+                  }}
+                >
+                  <Upload className="w-4 h-4" />
+                  Submit assignment
+                </button>
+              )}
+              {selectedAssignment.submission && selectedAssignment.submission.textContent && (
+                <button
+                  type="button"
+                  className="assignments-modal-btn assignments-modal-btn--success"
+                  onClick={() => {
+                    const w = window.open('', '_blank');
+                    if (w) {
+                      w.document.write(`<!DOCTYPE html><html><head><title>${selectedAssignment.title}</title></head><body style="font-family:system-ui;padding:2rem;max-width:720px;margin:0 auto">${selectedAssignment.submission!.textContent}</body></html>`);
+                      w.document.close();
+                    }
+                  }}
+                >
+                  <Eye className="w-4 h-4" />
+                  Full view
+                </button>
+              )}
+              <button type="button" className="assignments-modal-btn assignments-modal-btn--secondary" onClick={() => setShowAssignmentModal(false)}>
+                Close
+              </button>
+            </footer>
           </div>
         </div>
       )}

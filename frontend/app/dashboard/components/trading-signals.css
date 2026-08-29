@@ -1,0 +1,296 @@
+.trading-signals {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.trading-signals__view-toggle {
+  display: inline-flex;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border-radius: 0.85rem;
+  border: 1px solid var(--admin-border);
+  background: rgba(248, 250, 252, 0.8);
+}
+
+.dark .trading-signals__view-toggle {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.trading-signals__view-toggle button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 0.7rem;
+  padding: 0.45rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--admin-muted);
+  transition: background 160ms ease, color 160ms ease;
+}
+
+.trading-signals__view-toggle button.is-active {
+  background: var(--admin-surface);
+  color: var(--admin-text);
+  box-shadow: var(--admin-shadow-soft);
+}
+
+.trading-signals__cards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1.15rem 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .trading-signals__cards {
+    padding: 1.1rem 1.4rem 1.4rem;
+  }
+}
+
+.trading-signals__card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.1rem;
+  border: 1px solid var(--admin-border);
+  background: linear-gradient(165deg, var(--admin-surface) 0%, rgba(248, 250, 252, 0.92) 100%);
+  padding: 1.1rem 1.15rem;
+  box-shadow: var(--admin-shadow-soft);
+}
+
+.dark .trading-signals__card {
+  background: linear-gradient(165deg, rgba(17, 24, 39, 0.95) 0%, rgba(15, 23, 42, 0.88) 100%);
+}
+
+.trading-signals__card::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: #64748b;
+}
+
+.trading-signals__card--emerald::before {
+  background: linear-gradient(180deg, #10b981, #059669);
+}
+
+.trading-signals__card--rose::before {
+  background: linear-gradient(180deg, #f43f5e, #e11d48);
+}
+
+.trading-signals__card--amber::before {
+  background: linear-gradient(180deg, #f59e0b, #d97706);
+}
+
+.trading-signals__card-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.65rem;
+}
+
+.trading-signals__symbol-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.trading-signals__symbol {
+  font-size: 1.15rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  color: var(--admin-text);
+}
+
+.trading-signals__meta {
+  margin-top: 0.25rem;
+  font-size: 0.75rem;
+  color: var(--admin-muted);
+}
+
+.trading-signals__change {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  border-radius: 999px;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.trading-signals__change.is-up {
+  color: #047857;
+  background: rgba(16, 185, 129, 0.12);
+}
+
+.trading-signals__change.is-down {
+  color: #be123c;
+  background: rgba(244, 63, 94, 0.12);
+}
+
+.dark .trading-signals__change.is-up {
+  color: #6ee7b7;
+}
+
+.dark .trading-signals__change.is-down {
+  color: #fda4af;
+}
+
+.trading-signals__desc {
+  margin-bottom: 0.85rem;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--admin-muted);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.trading-signals__quotes,
+.trading-signals__levels {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .trading-signals__quotes {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .trading-signals__levels {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .trading-signals__levels {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+.trading-signals__quotes > div,
+.trading-signals__levels > div {
+  border-radius: 0.8rem;
+  border: 1px solid var(--admin-border);
+  background: rgba(255, 255, 255, 0.7);
+  padding: 0.55rem 0.65rem;
+}
+
+.dark .trading-signals__quotes > div,
+.dark .trading-signals__levels > div {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.trading-signals__quotes span,
+.trading-signals__levels span {
+  display: block;
+  font-size: 0.625rem;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+}
+
+.trading-signals__quotes strong,
+.trading-signals__levels strong {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--admin-text);
+}
+
+.trading-signals__levels .is-target {
+  color: #059669;
+}
+
+.trading-signals__levels .is-stop {
+  color: #e11d48;
+}
+
+.dark .trading-signals__levels .is-target {
+  color: #34d399;
+}
+
+.dark .trading-signals__levels .is-stop {
+  color: #fb7185;
+}
+
+.trading-signals__card-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.35rem;
+}
+
+.trading-signals__comments {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: var(--admin-muted);
+}
+
+.trading-signals__table-wrap {
+  overflow-x: auto;
+}
+
+.trading-signals__table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+}
+
+.trading-signals__table th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--admin-muted);
+  background: rgba(248, 250, 252, 0.8);
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.dark .trading-signals__table th {
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.trading-signals__table td {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--admin-border);
+  font-size: 0.8125rem;
+  color: var(--admin-text);
+  vertical-align: middle;
+}
+
+.trading-signals__table tbody tr:hover {
+  background: rgba(99, 102, 241, 0.04);
+}
+
+.trading-signals__table-symbol {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.trading-signals__table-symbol strong {
+  font-weight: 700;
+}
+
+.trading-signals__table-symbol span {
+  font-size: 0.7rem;
+  color: var(--admin-muted);
+  text-transform: capitalize;
+}

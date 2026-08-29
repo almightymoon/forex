@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import { buildApiUrl } from '@/utils/api';
 import { hasMonthlyFeeAccessLock } from '@/utils/monthlyFeeAccessLock';
 import DarkModeToggle from '../../components/DarkModeToggle';
@@ -20,8 +21,9 @@ import {
   AlertCircle,
   RefreshCw,
   ExternalLink,
-  Shield
+  Shield,
 } from 'lucide-react';
+import './monthly-fee.css';
 
 type Policy = Record<string, unknown> & {
   found?: boolean;
@@ -38,7 +40,6 @@ type Policy = Record<string, unknown> & {
   dueForMonth?: string;
   daysOverdue?: number;
   isAccessBlocked?: boolean;
-  /** Admin-imposed pending fee with platform hold — same as auth middleware. */
   adminImposedAccessBlock?: boolean;
 };
 
@@ -96,6 +97,12 @@ function formatUsd(n: number | null | undefined) {
   return `$${Number(n).toFixed(2)}`;
 }
 
+function historyStatusClass(status: string) {
+  if (status === 'completed') return 'mfee-history__status--completed';
+  if (status === 'pending') return 'mfee-history__status--pending';
+  return 'mfee-history__status--other';
+}
+
 export default function MonthlyFeePage() {
   const router = useRouter();
   const { settings } = useSettings();
@@ -123,7 +130,7 @@ export default function MonthlyFeePage() {
 
   const loadSummary = useCallback(async () => {
     const res = await fetch(buildApiUrl('api/payments/monthly-fee'), {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     });
     const data = (await res.json().catch(() => ({}))) as SummaryResponse & { error?: string; message?: string };
     if (!res.ok) {
@@ -159,9 +166,6 @@ export default function MonthlyFeePage() {
       setPendingPayment(data.pendingPayment || null);
       setCycleSummary(data.cycleSummary ?? null);
       setPendingRows(Array.isArray(data.pendingRows) ? data.pendingRows : []);
-
-      // Do not redirect when the current cycle is already paid (or not applicable). Students should
-      // stay on this page to see history, receipts, and status instead of being bounced to the dashboard.
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load monthly fee screen');
     } finally {
@@ -196,8 +200,8 @@ export default function MonthlyFeePage() {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          'Content-Type': 'application/json',
+        },
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -209,7 +213,7 @@ export default function MonthlyFeePage() {
           return;
         }
         setError(
-          (data as { message?: string }).message || (data as { error?: string }).error || 'Could not start payment'
+          (data as { message?: string }).message || (data as { error?: string }).error || 'Could not start payment',
         );
         return;
       }
@@ -234,7 +238,7 @@ export default function MonthlyFeePage() {
     return <CoolLoader message="Loading monthly fee…" />;
   }
 
-  const pendingSubmitted = !!(pendingPayment?.paymentScreenshotUrl);
+  const pendingSubmitted = !!pendingPayment?.paymentScreenshotUrl;
 
   const obligationResolved: CycleSummary['obligation'] =
     cycleSummary?.obligation ??
@@ -264,7 +268,7 @@ export default function MonthlyFeePage() {
       ? new Intl.DateTimeFormat('en-US', {
           month: 'long',
           year: 'numeric',
-          timeZone: 'UTC'
+          timeZone: 'UTC',
         }).format(new Date(String(policy.dueForMonth)))
       : 'Current cycle (UTC)');
 
@@ -289,141 +293,146 @@ export default function MonthlyFeePage() {
       obligationResolved === 'not_applicable');
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-violet-50/40 to-slate-100 dark:from-gray-950 dark:via-gray-900 dark:to-gray-950">
-      <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/80 backdrop-blur-md dark:border-gray-800 dark:bg-gray-950/80">
-        <div className="mx-auto flex max-w-4xl items-center justify-between gap-4 px-4 py-3 sm:px-8">
+    <div className="mfee-page">
+      <header className="mfee-page__header">
+        <div className="mfee-page__header-inner">
           <Link
             href={mayLeaveToDashboard ? '/dashboard' : '/monthly-fee'}
-            className="flex min-w-0 items-center gap-3 rounded-xl transition-opacity hover:opacity-90"
+            className="mfee-page__brand"
             aria-label={mayLeaveToDashboard ? 'Back to dashboard' : 'Monthly fee home'}
           >
-            <img
-              src="/all-07.svg"
-              alt={`${settings.platformName} logo`}
-              className="h-9 w-auto object-contain dark:invert sm:h-10"
-            />
-            <span className="hidden truncate text-sm font-semibold text-gray-700 dark:text-gray-200 sm:inline">
-              {settings.platformName}
-            </span>
+            <img src="/all-07.svg" alt={`${settings.platformName} logo`} />
+            <span>{settings.platformName}</span>
           </Link>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="mfee-page__header-actions">
             <DarkModeToggle size="sm" />
             <UserProfileDropdown user={profileUser} />
           </div>
         </div>
       </header>
 
-      <div className="mx-auto max-w-4xl p-4 sm:p-8">
-        <header className="mb-8">
-          <div>
-            <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">
-              Billing
-            </p>
-            <h1 className="text-3xl font-bold tracking-tight text-gray-900 dark:text-white sm:text-4xl">Monthly fee</h1>
-            <p className="mt-2 max-w-xl text-sm text-gray-600 dark:text-gray-400">
-              Same secure flow as your package payment: USDT (TRC20), transaction hash, your details, and a screenshot for
-              admin review.
-            </p>
-          </div>
-        </header>
+      <main className="mfee-page__main">
+        <motion.header
+          className="mfee-intro"
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35 }}
+        >
+          <p className="mfee-intro__eyebrow">Billing</p>
+          <h1 className="mfee-intro__title">Monthly fee</h1>
+          <p className="mfee-intro__desc">
+            Same secure flow as your package payment: USDT (TRC20), transaction hash, your details, and a screenshot for
+            admin review.
+          </p>
+        </motion.header>
 
         {policy?.adminImposedAccessBlock && (
-          <div className="mb-6 p-4 rounded-2xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/35 text-sm text-amber-950 dark:text-amber-100">
-            <p className="font-semibold">Administrator billing hold</p>
-            <p className="mt-1">
+          <motion.div
+            className="mfee-alert mfee-alert--amber"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+          >
+            <p className="mfee-alert__title">Administrator billing hold</p>
+            <p>
               Your account can use this page and the payment portal until this fee is completed. The rest of the
               platform stays locked.
             </p>
-          </div>
+          </motion.div>
         )}
 
         {(policy?.reason === 'staff_exempt' ||
           (policy?.monthlyFeeEnabled === false && !policy?.adminImposedAccessBlock)) && (
-          <div className="mb-6 p-4 rounded-2xl bg-slate-100 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 text-sm text-slate-800 dark:text-slate-200">
+          <motion.div
+            className="mfee-alert mfee-alert--muted"
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.05 }}
+          >
             {policy?.reason === 'staff_exempt' ? (
               <p>Staff and instructor accounts are not charged a student monthly fee.</p>
             ) : (
               <p>Your current package does not require a recurring monthly fee.</p>
             )}
             {mayLeaveToDashboard && (
-              <Link
-                href="/dashboard"
-                className="inline-block mt-3 text-violet-600 dark:text-violet-400 font-medium hover:underline"
-              >
+              <Link href="/dashboard" className="mfee-alert__link">
                 Back to dashboard
               </Link>
             )}
-          </div>
+          </motion.div>
         )}
 
         {error && (
-          <div className="mb-6 p-4 rounded-2xl bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <p className="text-sm text-red-800 dark:text-red-200">{error}</p>
-            <button
-              type="button"
-              onClick={() => refresh()}
-              className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-sm font-medium shrink-0"
-            >
+          <div className="mfee-alert mfee-alert--error">
+            <p>{error}</p>
+            <button type="button" onClick={() => refresh()} className="mfee-btn-retry">
               <RefreshCw className="w-4 h-4" />
               Retry
             </button>
           </div>
         )}
 
-        <div className="grid gap-6 lg:grid-cols-5">
-          <div className="lg:col-span-3 space-y-6">
-            {/* Current cycle */}
-            <section className="rounded-3xl bg-white dark:bg-gray-900 shadow-xl shadow-slate-200/50 dark:shadow-none border border-slate-200/80 dark:border-gray-800 overflow-hidden">
-              <div className="px-6 py-5 border-b border-slate-100 dark:border-gray-800 bg-gradient-to-r from-violet-600 to-indigo-600 text-white">
-                <div className="flex items-center gap-2 text-violet-100 text-sm font-medium">
-                  <CalendarClock className="w-4 h-4" />
-                  Fee for calendar month (UTC)
+        <div className="mfee-grid">
+          <div className="mfee-col-main">
+            <motion.section
+              className="mfee-cycle"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.08 }}
+            >
+              <div className="mfee-cycle__hero">
+                <div className="mfee-cycle__hero-inner">
+                  <div className="mfee-cycle__hero-label">
+                    <CalendarClock className="w-4 h-4" />
+                    Fee for calendar month (UTC)
+                  </div>
+                  <h2 className="mfee-cycle__hero-title">{dueLabel}</h2>
+                  <p className="mfee-cycle__hero-desc">
+                    This is the month your payment counts toward — aligned with platform access rules.
+                  </p>
                 </div>
-                <h2 className="mt-1 text-2xl font-bold">{dueLabel}</h2>
-                <p className="mt-1 text-sm text-violet-100/90">
-                  This is the month your payment counts toward — aligned with platform access rules.
-                </p>
               </div>
-              <div className="p-6 space-y-4">
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 dark:bg-gray-800 px-3 py-1 text-sm font-semibold text-slate-800 dark:text-gray-100">
-                    <Wallet className="w-4 h-4 text-violet-600 dark:text-violet-400" />
-                    {formatUsd(amountDisplay)} <span className="font-normal text-slate-500 dark:text-gray-400">/ month</span>
+
+              <div className="mfee-cycle__body">
+                <div className="mfee-cycle__meta">
+                  <span className="mfee-amount-pill">
+                    <Wallet className="w-4 h-4" style={{ color: 'var(--mfee-accent)' }} />
+                    {formatUsd(amountDisplay)} <span>/ month</span>
                   </span>
                   {policy?.packageName && (
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
-                      Package: <span className="font-medium text-gray-900 dark:text-gray-200">{policy.packageName}</span>
+                    <span className="mfee-package-label">
+                      Package: <strong>{policy.packageName}</strong>
                     </span>
                   )}
                 </div>
 
-                <div className="flex flex-wrap gap-2">
+                <div className="mfee-chips">
                   {showWaived && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-900 dark:text-emerald-200 px-3 py-1 text-xs font-semibold">
+                    <span className="mfee-chip mfee-chip--emerald">
                       <Shield className="w-3.5 h-3.5" />
                       Free period or waived — no payment due for this cycle
                     </span>
                   )}
                   {inGrace && !showWaived && obligationResolved !== 'paid' && obligationResolved !== 'not_applicable' && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 px-3 py-1 text-xs font-semibold">
+                    <span className="mfee-chip mfee-chip--amber">
                       <Clock className="w-3.5 h-3.5" />
                       Grace period (day 1–{graceDays} UTC): access continues; pay anytime
                     </span>
                   )}
                   {blocked && daysOver > 0 && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 dark:bg-red-900/40 text-red-900 dark:text-red-200 px-3 py-1 text-xs font-semibold">
+                    <span className="mfee-chip mfee-chip--red">
                       <AlertCircle className="w-3.5 h-3.5" />
                       Past grace — pay to restore access
                     </span>
                   )}
                   {obligationResolved === 'awaiting_admin' && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-100 dark:bg-blue-900/40 text-blue-900 dark:text-blue-100 px-3 py-1 text-xs font-semibold">
+                    <span className="mfee-chip mfee-chip--blue">
                       <Clock className="w-3.5 h-3.5" />
                       Proof submitted — waiting for admin
                     </span>
                   )}
                   {obligationResolved === 'paid' && (
-                    <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 dark:bg-green-900/40 text-green-900 dark:text-green-100 px-3 py-1 text-xs font-semibold">
+                    <span className="mfee-chip mfee-chip--green">
                       <CheckCircle className="w-3.5 h-3.5" />
                       This cycle is paid
                     </span>
@@ -431,26 +440,26 @@ export default function MonthlyFeePage() {
                 </div>
 
                 {obligationResolved === 'paid' && (
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="mfee-cycle__note">
                     You are up to date for this billing cycle. You can still review your history on the right. When the
                     next fee is due, a pay option will appear here again.
                   </p>
                 )}
 
                 {!showWaived && obligationResolved !== 'paid' && obligationResolved !== 'not_applicable' && (
-                  <div className="rounded-2xl border border-violet-200/80 dark:border-violet-800/50 bg-violet-50/60 dark:bg-violet-950/25 p-5">
-                    <h3 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                      <ExternalLink className="w-4 h-4 text-violet-600" />
+                  <div className="mfee-portal">
+                    <h3 className="mfee-portal__title">
+                      <ExternalLink className="w-4 h-4" />
                       Payment portal
                     </h3>
                     {pendingSubmitted ? (
-                      <p className="text-sm text-gray-700 dark:text-gray-300">
-                        Your screenshot is on file. An admin will confirm your USDT payment; you will get access again right
-                        after approval.
+                      <p className="mfee-portal__text">
+                        Your screenshot is on file. An admin will confirm your USDT payment; you will get access again
+                        right after approval.
                       </p>
                     ) : pendingPayment?._id ? (
-                      <div className="space-y-3">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                      <div className="mfee-portal__actions">
+                        <p className="mfee-portal__text">
                           You already have an open payment. Continue to the portal to send USDT and submit your hash,
                           details, and proof.
                         </p>
@@ -459,25 +468,25 @@ export default function MonthlyFeePage() {
                           onClick={() =>
                             goToPayment(
                               String(pendingPayment._id),
-                              pendingPayment.finalAmount ?? pendingPayment.amount ?? amountDisplay
+                              pendingPayment.finalAmount ?? pendingPayment.amount ?? amountDisplay,
                             )
                           }
-                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-violet-500/25 transition-all"
+                          className="mfee-btn-primary"
                         >
                           Open payment portal
                           <ArrowRight className="w-4 h-4" />
                         </button>
                       </div>
                     ) : (
-                      <div className="space-y-3">
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                      <div className="mfee-portal__actions">
+                        <p className="mfee-portal__text">
                           Create a secure payment record, then go straight to the same portal you used for signup.
                         </p>
                         <button
                           type="button"
                           onClick={() => ensurePendingAndPay()}
                           disabled={creating}
-                          className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 text-white font-semibold shadow-lg shadow-violet-500/25 transition-all disabled:opacity-60"
+                          className="mfee-btn-primary"
                         >
                           {creating ? 'Opening portal…' : 'Pay & open portal'}
                           {!creating && <ArrowRight className="w-4 h-4" />}
@@ -487,47 +496,44 @@ export default function MonthlyFeePage() {
                   </div>
                 )}
               </div>
-            </section>
+            </motion.section>
 
-            {/* Pending month rows (from records) */}
             {pendingRows.length > 0 && (
-              <section>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-amber-500" />
+              <motion.section
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.12 }}
+              >
+                <h2 className="mfee-pending-section__title">
+                  <Clock className="w-5 h-5" />
                   Pending payment records
                 </h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                <p className="mfee-pending-section__desc">
                   Each row is a monthly-fee payment that is not completed yet. Use the portal to finish or track status.
                 </p>
-                <ul className="space-y-3">
+                <ul className="mfee-pending-list">
                   {pendingRows.map((row) => {
                     const hasProof = !!row.paymentScreenshotUrl;
                     const isActive = pendingPayment && String(pendingPayment._id) === String(row.paymentId);
                     return (
                       <li
                         key={String(row.paymentId)}
-                        className={`rounded-2xl border p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${
-                          isActive
-                            ? 'border-violet-300 dark:border-violet-700 bg-violet-50/50 dark:bg-violet-950/20'
-                            : 'border-amber-200 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-950/15'
-                        }`}
+                        className={`mfee-pending-item ${isActive ? 'mfee-pending-item--active' : 'mfee-pending-item--default'}`}
                       >
                         <div>
-                          <p className="font-semibold text-gray-900 dark:text-white">{row.feeForMonthLabel}</p>
-                          <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+                          <p className="mfee-pending-item__title">{row.feeForMonthLabel}</p>
+                          <p className="mfee-pending-item__meta">
                             {formatUsd(row.amount)} {row.currency || 'USD'}
-                            {isActive && (
-                              <span className="ml-2 text-violet-600 dark:text-violet-400 font-medium">· Current open payment</span>
-                            )}
+                            {isActive && <span className="is-active">· Current open payment</span>}
                           </p>
-                          <p className="text-xs mt-1 text-amber-800 dark:text-amber-200/90">
+                          <p className="mfee-pending-item__status">
                             {hasProof ? 'Submitted — awaiting admin confirmation' : 'Action needed — open portal to submit proof'}
                           </p>
                         </div>
                         <button
                           type="button"
                           onClick={() => goToPayment(String(row.paymentId), row.amount ?? amountDisplay)}
-                          className="shrink-0 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold hover:opacity-90"
+                          className="mfee-btn-secondary"
                         >
                           Open portal
                           <ExternalLink className="w-4 h-4" />
@@ -536,52 +542,48 @@ export default function MonthlyFeePage() {
                     );
                   })}
                 </ul>
-              </section>
+              </motion.section>
             )}
           </div>
 
-          {/* History sidebar */}
-          <aside className="lg:col-span-2 space-y-4">
-            <div className="rounded-3xl bg-white/90 dark:bg-gray-900/90 backdrop-blur border border-slate-200 dark:border-gray-800 p-5 shadow-lg">
-              <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-1 flex items-center gap-2">
-                <CalendarClock className="w-4 h-4 text-violet-500" />
+          <aside className="mfee-col-aside">
+            <motion.div
+              className="mfee-history"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 }}
+            >
+              <h2 className="mfee-history__title">
+                <CalendarClock className="w-4 h-4" />
                 Full history
               </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+              <p className="mfee-history__desc">
                 All monthly fee records, newest first. &quot;Fee for month&quot; uses UTC calendar months.
               </p>
-              <div className="max-h-[420px] overflow-y-auto rounded-xl border border-gray-200 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-800">
+              <div className="mfee-history__list">
                 {entries.length === 0 ? (
-                  <p className="p-6 text-center text-sm text-gray-500 dark:text-gray-400">No monthly fee payments yet.</p>
+                  <p className="mfee-history__empty">No monthly fee payments yet.</p>
                 ) : (
                   entries.map((row) => (
-                    <div key={String(row.paymentId)} className="p-3.5 hover:bg-slate-50 dark:hover:bg-gray-800/50">
-                      <div className="flex items-start justify-between gap-2">
+                    <div key={String(row.paymentId)} className="mfee-history__row">
+                      <div className="mfee-history__row-head">
                         <div>
-                          <p className="font-medium text-gray-900 dark:text-white text-sm">{row.feeForMonthLabel}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                          <p className="mfee-history__row-title">{row.feeForMonthLabel}</p>
+                          <p className="mfee-history__row-date">
                             {new Date(row.createdAt).toLocaleDateString(undefined, {
-                              dateStyle: 'medium'
+                              dateStyle: 'medium',
                             })}
                           </p>
                         </div>
-                        <span
-                          className={`shrink-0 text-[10px] uppercase font-bold tracking-wide px-2 py-0.5 rounded-md ${
-                            row.status === 'completed'
-                              ? 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300'
-                              : row.status === 'pending'
-                              ? 'bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200'
-                              : 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300'
-                          }`}
-                        >
+                        <span className={`mfee-history__status ${historyStatusClass(row.status)}`}>
                           {row.status}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                      <p className="mfee-history__amount">
                         {formatUsd(row.amount)} {row.currency || 'USD'}
                       </p>
                       {row.status === 'completed' && row.paymentId ? (
-                        <div className="mt-2">
+                        <div className="mfee-history__receipt">
                           <ReceiptDownloadButton
                             endpoint={`api/payments/${row.paymentId}/receipt`}
                             filename="Forex-Navigators-monthly-fee-receipt.pdf"
@@ -593,20 +595,18 @@ export default function MonthlyFeePage() {
                   ))
                 )}
               </div>
-            </div>
+            </motion.div>
 
             {mayLeaveToDashboard && (
-              <p className="text-xs text-gray-500 dark:text-gray-400 px-1">
-                <Link href="/dashboard" className="text-violet-600 dark:text-violet-400 hover:underline font-medium">
-                  Back to dashboard
-                </Link>
+              <p className="mfee-footer-note">
+                <Link href="/dashboard">Back to dashboard</Link>
                 {' — '}
                 full access returns after your fee is confirmed.
               </p>
             )}
           </aside>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

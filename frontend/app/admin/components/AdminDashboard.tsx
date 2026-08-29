@@ -27,6 +27,7 @@ import { apiRequest } from '../../../utils/api';
 import { getDashboardRoute, getUserRole } from '../../../utils/dashboardUtils';
 import Overview from './Overview';
 import UserManagement from './UserManagement';
+import UserEmailDirectory from './UserEmailDirectory';
 import PaymentManagement from './PaymentManagement';
 import CommissionManagement from './CommissionManagement';
 import ProductManagement from './ProductManagement';
@@ -978,6 +979,10 @@ export default function AdminDashboard() {
             onUserToggleStatus={handleUserToggleStatus}
             onUserUnblock={handleUserUnblock}
           />
+        )}
+
+        {activeTab === 'user-emails' && (
+          <UserEmailDirectory />
         )}
 
         {activeTab === 'payments' && (

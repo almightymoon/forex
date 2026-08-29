@@ -61,6 +61,16 @@ export default function CoolLoader({
 
   const colors = getVariantColors();
 
+  // Fixed positions avoid SSR/client float drift from Math.cos/sin.
+  const particlePositions = [
+    { left: '90%', top: '50%' },
+    { left: '70%', top: '84.64%' },
+    { left: '30%', top: '84.64%' },
+    { left: '10%', top: '50%' },
+    { left: '30%', top: '15.36%' },
+    { left: '70%', top: '15.36%' },
+  ] as const;
+
   return (
     <div className="fixed inset-0 w-full h-full overflow-hidden bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center z-50">
       <div className="text-center px-4 py-8 max-w-md mx-auto">
@@ -147,13 +157,13 @@ export default function CoolLoader({
             />
             
             {/* Floating particles */}
-            {[...Array(6)].map((_, i) => (
+            {particlePositions.map((pos, i) => (
               <motion.div
                 key={i}
                 className={`absolute w-2 h-2 bg-gradient-to-r ${colors.secondary} rounded-full`}
                 style={{
-                  left: `${50 + 40 * Math.cos(i * 60 * Math.PI / 180)}%`,
-                  top: `${50 + 40 * Math.sin(i * 60 * Math.PI / 180)}%`,
+                  left: pos.left,
+                  top: pos.top,
                 }}
                 animate={{
                   scale: [0, 1, 0],

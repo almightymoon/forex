@@ -1,0 +1,952 @@
+/* Student rank rewards — referral milestone ladder */
+
+.student-rank-rewards {
+  --admin-bg: #f8fafc;
+  --admin-surface: #ffffff;
+  --admin-border: rgba(15, 23, 42, 0.08);
+  --admin-text: #0f172a;
+  --admin-muted: #64748b;
+  --admin-radius-lg: 1rem;
+  --admin-radius-xl: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.dark .student-rank-rewards {
+  --admin-bg: #0f172a;
+  --admin-surface: rgba(17, 24, 39, 0.92);
+  --admin-border: rgba(148, 163, 184, 0.12);
+  --admin-text: #f8fafc;
+  --admin-muted: #94a3b8;
+}
+
+/* Milestones panel — self-contained, borderless premium container */
+.student-rank-rewards .admin-panel {
+  overflow: hidden;
+  border-radius: var(--admin-radius-xl);
+  border: none;
+  background: var(--admin-surface);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.03),
+    0 16px 44px -24px rgba(15, 23, 42, 0.14);
+}
+
+.dark .student-rank-rewards .admin-panel {
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 20px 48px -24px rgba(0, 0, 0, 0.5);
+}
+
+.student-rank-rewards .admin-panel__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  border-bottom: none;
+  padding: 1.15rem 1.25rem 0.35rem;
+}
+
+@media (min-width: 640px) {
+  .student-rank-rewards .admin-panel__header {
+    padding: 1.25rem 1.5rem 0.4rem;
+  }
+}
+
+.student-rank-rewards .admin-panel__title {
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--admin-text);
+}
+
+.student-rank-rewards .admin-panel__description {
+  margin-top: 0.2rem;
+  font-size: 0.8125rem;
+  color: var(--admin-muted);
+}
+
+.student-rank-rewards .admin-panel__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.student-rank-rewards__hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--admin-radius-lg);
+  border: none;
+  background: linear-gradient(128deg, #1a1208 0%, #422006 38%, #78350f 100%);
+  padding: 1.35rem 1.25rem;
+  color: #fffbeb;
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.08) inset,
+    0 24px 56px -28px rgba(120, 53, 15, 0.55);
+}
+
+.student-rank-rewards__hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 50% 80% at 8% 0%, rgba(251, 191, 36, 0.35), transparent 55%),
+    radial-gradient(ellipse 40% 60% at 92% 20%, rgba(245, 158, 11, 0.25), transparent 50%);
+}
+
+.student-rank-rewards__hero-inner {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.student-rank-rewards__hero h2 {
+  font-size: 1.35rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.student-rank-rewards__hero p {
+  margin-top: 0.3rem;
+  font-size: 0.875rem;
+  color: rgba(254, 243, 199, 0.78);
+  max-width: 34rem;
+}
+
+.student-rank-rewards__stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+}
+
+.student-rank-rewards__stat {
+  min-width: 5.5rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: 0.65rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12) inset;
+  text-align: center;
+}
+
+.student-rank-rewards__stat strong {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.student-rank-rewards__stat span {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(254, 243, 199, 0.62);
+}
+
+.student-rank-rewards__progress-panel {
+  position: relative;
+  margin-top: 1.15rem;
+  padding: 1rem 1.1rem;
+  border-radius: 0.85rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: none;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.06) inset;
+}
+
+.student-rank-rewards__progress-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+}
+
+.student-rank-rewards__progress-head strong {
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.student-rank-rewards__progress-head span {
+  font-size: 0.8125rem;
+  color: rgba(254, 243, 199, 0.72);
+}
+
+.student-rank-rewards__track {
+  position: relative;
+  height: 0.55rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.student-rank-rewards__track-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #f59e0b, #fbbf24, #fde68a);
+  transition: width 480ms ease;
+}
+
+.student-rank-rewards__track-labels {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.45rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: rgba(254, 243, 199, 0.55);
+}
+
+.student-rank-rewards__next-card {
+  margin-top: 0.85rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.85rem;
+  border-radius: 0.65rem;
+  background: rgba(255, 255, 255, 0.08);
+  border: none;
+}
+
+.student-rank-rewards__next-card p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: rgba(254, 243, 199, 0.85);
+}
+
+.student-rank-rewards__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: auto;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: #fffbeb;
+  background: rgba(255, 255, 255, 0.16);
+  border: none;
+  text-decoration: none;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.student-rank-rewards__cta:hover {
+  background: rgba(255, 255, 255, 0.24);
+  transform: translateY(-1px);
+  color: #fffbeb;
+}
+
+.student-rank-rewards__toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 1.15rem 0.85rem;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+@media (min-width: 768px) {
+  .student-rank-rewards__toolbar {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+.student-rank-rewards__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.student-rank-rewards__filter {
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  border: none;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--admin-muted);
+  background: rgba(15, 23, 42, 0.05);
+  transition: color 160ms ease, background 160ms ease, box-shadow 160ms ease;
+}
+
+.dark .student-rank-rewards__filter {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.student-rank-rewards__filter.is-active {
+  color: #92400e;
+  background: rgba(251, 191, 36, 0.18);
+  box-shadow: 0 4px 14px -8px rgba(180, 83, 9, 0.45);
+}
+
+.dark .student-rank-rewards__filter.is-active {
+  color: #fcd34d;
+  background: rgba(251, 191, 36, 0.12);
+}
+
+.student-rank-rewards__ladder {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0 1.15rem 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .student-rank-rewards__ladder {
+    padding: 0 1.4rem 1.4rem;
+  }
+}
+
+.student-rank-rewards__tier {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 1rem 1.15rem;
+  border-radius: 1.1rem;
+  border: none;
+  background: var(--admin-surface);
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 10px 32px -16px rgba(15, 23, 42, 0.14);
+  transition: box-shadow 220ms ease, transform 220ms ease;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  overflow: hidden;
+}
+
+.student-rank-rewards__tier:hover {
+  box-shadow:
+    0 2px 4px rgba(15, 23, 42, 0.05),
+    0 16px 40px -14px rgba(15, 23, 42, 0.18);
+  transform: translateY(-2px);
+}
+
+.student-rank-rewards__tier:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 3px rgba(251, 191, 36, 0.28),
+    0 10px 32px -16px rgba(15, 23, 42, 0.14);
+}
+
+.dark .student-rank-rewards__tier {
+  background: rgba(17, 24, 39, 0.92);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 12px 36px -18px rgba(0, 0, 0, 0.55);
+}
+
+.student-rank-rewards__tier::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 100%;
+  max-width: 5rem;
+  border-radius: 1.1rem 0 0 1.1rem;
+  background: linear-gradient(90deg, rgba(148, 163, 184, 0.14), transparent 85%);
+  pointer-events: none;
+}
+
+.student-rank-rewards__tier--bronze::before {
+  background: linear-gradient(90deg, rgba(217, 119, 6, 0.16), transparent 82%);
+}
+
+.student-rank-rewards__tier--silver::before {
+  background: linear-gradient(90deg, rgba(100, 116, 139, 0.16), transparent 82%);
+}
+
+.student-rank-rewards__tier--gold::before {
+  background: linear-gradient(90deg, rgba(251, 191, 36, 0.18), transparent 82%);
+}
+
+.student-rank-rewards__tier--unlocked {
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 14px 36px -14px rgba(180, 83, 9, 0.22);
+}
+
+.student-rank-rewards__tier--fulfilled {
+  box-shadow:
+    0 1px 2px rgba(15, 23, 42, 0.04),
+    0 14px 36px -14px rgba(16, 185, 129, 0.2);
+}
+
+.student-rank-rewards__tier--current {
+  box-shadow:
+    0 0 0 1px rgba(251, 191, 36, 0.22),
+    0 16px 40px -14px rgba(180, 83, 9, 0.28);
+}
+
+.student-rank-rewards__tier-icon {
+  position: relative;
+  z-index: 1;
+  flex-shrink: 0;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1rem;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--admin-bg);
+  box-shadow: 0 6px 16px -8px rgba(15, 23, 42, 0.28);
+}
+
+.student-rank-rewards__tier-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.student-rank-rewards__tier-icon--bronze {
+  background: linear-gradient(145deg, #fef3c7, #fde68a);
+  color: #92400e;
+}
+
+.student-rank-rewards__tier-icon--silver {
+  background: linear-gradient(145deg, #f1f5f9, #cbd5e1);
+  color: #475569;
+}
+
+.student-rank-rewards__tier-icon--gold {
+  background: linear-gradient(145deg, #fef08a, #facc15);
+  color: #854d0e;
+}
+
+.student-rank-rewards__tier-body {
+  min-width: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.student-rank-rewards__tier-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.student-rank-rewards__tier-title h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+.student-rank-rewards__threshold {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.22rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.06);
+  border: none;
+  color: var(--admin-muted);
+}
+
+.dark .student-rank-rewards__threshold {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.student-rank-rewards__tier-desc {
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+  color: var(--admin-muted);
+  line-height: 1.45;
+}
+
+.student-rank-rewards__tier-value {
+  margin-top: 0.35rem;
+  font-size: 0.8125rem;
+  color: var(--admin-text);
+}
+
+.student-rank-rewards__tier-value strong {
+  font-weight: 600;
+}
+
+.student-rank-rewards__tier-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.45rem;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 1;
+}
+
+.student-rank-rewards__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.student-rank-rewards__status--locked {
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--admin-muted);
+}
+
+.student-rank-rewards__status--unlocked {
+  background: rgba(180, 83, 9, 0.12);
+  color: #b45309;
+}
+
+.dark .student-rank-rewards__status--unlocked {
+  color: #fbbf24;
+}
+
+.student-rank-rewards__status--fulfilled {
+  background: rgba(16, 185, 129, 0.12);
+  color: #059669;
+}
+
+.student-rank-rewards__need {
+  font-size: 0.75rem;
+  color: var(--admin-muted);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.student-rank-rewards__need strong {
+  color: var(--admin-text);
+}
+
+.student-rank-rewards__open-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--admin-muted);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.student-rank-rewards__tier:hover .student-rank-rewards__open-hint {
+  opacity: 1;
+}
+
+/* Detail modal */
+.student-rank-rewards-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.student-rank-rewards-modal__panel {
+  --tier-accent: #64748b;
+  --tier-accent-soft: rgba(100, 116, 139, 0.1);
+  --tier-accent-border: rgba(100, 116, 139, 0.28);
+  --tier-btn-bg: #334155;
+  --tier-btn-text: #f8fafc;
+  --tier-progress: linear-gradient(90deg, #475569, #94a3b8);
+  --tier-reward-label: #475569;
+  --modal-surface: #ffffff;
+  --modal-bg: #f8fafc;
+  --modal-border: rgba(15, 23, 42, 0.1);
+  --modal-text: #0f172a;
+  --modal-muted: #64748b;
+
+  width: min(100%, 40rem);
+  max-height: 94vh;
+  overflow-y: auto;
+  /* Solid colors — modal is portaled to body, so --admin-* vars are unavailable */
+  background: var(--modal-surface);
+  border-radius: 0.85rem;
+  border: 1px solid var(--modal-border);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.25);
+  color: var(--modal-text);
+}
+
+.dark .student-rank-rewards-modal__panel {
+  --modal-surface: #111827;
+  --modal-bg: #0b1120;
+  --modal-border: rgba(148, 163, 184, 0.16);
+  --modal-text: #f8fafc;
+  --modal-muted: #94a3b8;
+}
+
+.student-rank-rewards-modal__panel--bronze {
+  --tier-accent: #b45309;
+  --tier-accent-soft: rgba(180, 83, 9, 0.1);
+  --tier-accent-border: rgba(180, 83, 9, 0.28);
+  --tier-btn-bg: #92400e;
+  --tier-btn-text: #fffbeb;
+  --tier-progress: linear-gradient(90deg, #92400e, #d97706);
+  --tier-reward-label: #92400e;
+}
+
+.student-rank-rewards-modal__panel--silver {
+  --tier-accent: #64748b;
+  --tier-accent-soft: rgba(100, 116, 139, 0.12);
+  --tier-accent-border: rgba(100, 116, 139, 0.32);
+  --tier-btn-bg: #475569;
+  --tier-btn-text: #f8fafc;
+  --tier-progress: linear-gradient(90deg, #475569, #94a3b8);
+  --tier-reward-label: #475569;
+}
+
+.student-rank-rewards-modal__panel--gold {
+  --tier-accent: #a16207;
+  --tier-accent-soft: rgba(161, 98, 7, 0.1);
+  --tier-accent-border: rgba(161, 98, 7, 0.28);
+  --tier-btn-bg: #854d0e;
+  --tier-btn-text: #fefce8;
+  --tier-progress: linear-gradient(90deg, #854d0e, #ca8a04);
+  --tier-reward-label: #854d0e;
+}
+
+.dark .student-rank-rewards-modal__panel--bronze {
+  --tier-reward-label: #fcd34d;
+}
+
+.dark .student-rank-rewards-modal__panel--gold {
+  --tier-reward-label: #fde047;
+}
+
+.student-rank-rewards-modal__close {
+  position: absolute;
+  top: 0.85rem;
+  right: 0.85rem;
+  z-index: 2;
+  padding: 0.35rem;
+  border-radius: 0.45rem;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(15, 23, 42, 0.35);
+  flex-shrink: 0;
+}
+
+.student-rank-rewards-modal__close:hover {
+  background: rgba(15, 23, 42, 0.55);
+  color: #fff;
+}
+
+.student-rank-rewards-modal__body {
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: var(--modal-surface);
+}
+
+.student-rank-rewards-modal__preview {
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.85rem 0.85rem 0 0;
+  padding: 1.35rem 1.25rem 1.15rem;
+  min-height: 9rem;
+  display: flex;
+  align-items: flex-end;
+  background: linear-gradient(135deg, #334155, #475569);
+}
+
+.student-rank-rewards-modal__preview::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 80% at 15% 0%, rgba(255, 255, 255, 0.14), transparent 55%),
+    radial-gradient(ellipse 50% 60% at 90% 20%, rgba(255, 255, 255, 0.08), transparent 50%);
+}
+
+.student-rank-rewards-modal__preview--bronze {
+  background: linear-gradient(135deg, #7c2d12 0%, #92400e 45%, #b45309 100%);
+}
+
+.student-rank-rewards-modal__preview--silver {
+  background: linear-gradient(135deg, #1e293b 0%, #334155 45%, #64748b 100%);
+}
+
+.student-rank-rewards-modal__preview--gold {
+  background: linear-gradient(135deg, #713f12 0%, #a16207 45%, #ca8a04 100%);
+}
+
+.student-rank-rewards-modal__preview-inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+  padding-right: 2rem;
+}
+
+.student-rank-rewards-modal__preview-media {
+  flex-shrink: 0;
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  overflow: hidden;
+}
+
+.student-rank-rewards-modal__preview-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.student-rank-rewards-modal__preview-media svg {
+  color: #fef3c7;
+}
+
+.student-rank-rewards-modal__preview-copy h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fffbeb !important;
+}
+
+.student-rank-rewards-modal__preview-copy p {
+  margin-top: 0.2rem;
+  font-size: 0.8125rem;
+  color: rgba(254, 243, 199, 0.82) !important;
+}
+
+.student-rank-rewards-modal__facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.student-rank-rewards-modal__fact {
+  padding: 0.65rem 0.75rem;
+  border-radius: 0.55rem;
+  border: 1px solid var(--modal-border);
+  background: var(--modal-bg);
+}
+
+.student-rank-rewards-modal__fact span {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--modal-muted);
+}
+
+.student-rank-rewards-modal__fact strong {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--modal-text);
+}
+
+.student-rank-rewards-modal__desc {
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--modal-text);
+}
+
+.student-rank-rewards-modal__reward-box {
+  padding: 0.85rem 1rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--tier-accent-border);
+  background: var(--tier-accent-soft);
+}
+
+.student-rank-rewards-modal__reward-box strong {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--tier-reward-label);
+  margin-bottom: 0.25rem;
+}
+
+.student-rank-rewards-modal__reward-box p {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: var(--modal-text);
+}
+
+.student-rank-rewards-modal__progress {
+  padding: 0.85rem 1rem;
+  border-radius: 0.65rem;
+  border: 1px solid var(--modal-border);
+  background: var(--modal-bg);
+}
+
+.student-rank-rewards-modal__progress-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.55rem;
+  font-size: 0.8125rem;
+  color: var(--modal-muted);
+}
+
+.student-rank-rewards-modal__progress-head strong {
+  color: var(--tier-accent);
+}
+
+.student-rank-rewards-modal__progress-track {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--modal-border);
+  overflow: hidden;
+}
+
+.student-rank-rewards-modal__progress-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--tier-progress);
+  transition: width 480ms ease;
+}
+
+.student-rank-rewards-modal__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-top: 0.25rem;
+}
+
+.student-rank-rewards-modal__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.55rem 0.85rem;
+  border-radius: 0.5rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 160ms ease, transform 160ms ease, border-color 160ms ease;
+}
+
+.student-rank-rewards-modal__btn--primary {
+  color: var(--tier-btn-text);
+  background: var(--tier-btn-bg);
+}
+
+.student-rank-rewards-modal__btn--primary:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.student-rank-rewards-modal__btn--ghost {
+  color: var(--modal-muted);
+  border: 1px solid var(--modal-border);
+  background: var(--modal-surface);
+}
+
+.student-rank-rewards-modal__btn--ghost:hover {
+  border-color: var(--modal-border);
+  color: var(--modal-text);
+  background: var(--modal-bg);
+}
+
+.student-rank-rewards__invite-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.85rem;
+  border: none;
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(124, 58, 237, 0.06));
+  box-shadow: 0 8px 24px -18px rgba(180, 83, 9, 0.35);
+}
+
+.student-rank-rewards__invite-banner svg {
+  flex-shrink: 0;
+  color: #b45309;
+}
+
+.student-rank-rewards__invite-banner p {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--admin-text);
+  line-height: 1.45;
+}
+
+.student-rank-rewards__invite-banner strong {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.15rem;
+}
+
+.student-rank-rewards__invite-banner .student-rank-rewards__cta {
+  margin-left: 0;
+  color: #fffbeb;
+  background: linear-gradient(135deg, #92400e, #b45309);
+  box-shadow: 0 8px 20px -10px rgba(146, 64, 14, 0.65);
+}
+
+.student-rank-rewards__invite-banner .student-rank-rewards__cta:hover {
+  background: linear-gradient(135deg, #78350f, #92400e);
+  color: #fffbeb;
+}
+
+.student-rank-rewards__skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.student-rank-rewards__skeleton-block {
+  border-radius: var(--admin-radius-lg);
+  border: 1px solid var(--admin-border);
+  background: var(--admin-surface);
+  padding: 1.25rem;
+}
+
+.student-rank-rewards__skeleton-line {
+  height: 0.75rem;
+  border-radius: 0.35rem;
+  background: linear-gradient(90deg, var(--admin-border) 25%, transparent 50%, var(--admin-border) 75%);
+  background-size: 200% 100%;
+  animation: student-rank-rewards-shimmer 1.2s infinite;
+}
+
+@keyframes student-rank-rewards-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (max-width: 767px) {
+  .student-rank-rewards__tier {
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+  }
+
+  .student-rank-rewards__tier-meta {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+}

@@ -308,6 +308,18 @@ mongoose.connection.once('open', async () => {
   } catch (e) {
     console.error('Library seed error:', e);
   }
+  try {
+    const { ensureCourseDefaults } = require('./services/courseSeed');
+    await ensureCourseDefaults();
+  } catch (e) {
+    console.error('Course seed error:', e);
+  }
+  try {
+    const { ensureStudentDashboardDefaults } = require('./services/studentDashboardSeed');
+    await ensureStudentDashboardDefaults();
+  } catch (e) {
+    console.error('Student dashboard seed error:', e);
+  }
 });
 
 // Maintenance mode: run first for all /api so only admin (and optionally teacher) can access during maintenance

@@ -1,14 +1,17 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import StudentShell from './components/StudentShell';
+import StudentOverview from './components/StudentOverview';
+import { AdminPage } from '../admin/components/AdminUI';
+import { isStudentTabId, type StudentTabId } from './config/nav';
 import { motion } from 'framer-motion';
 import { useSettings } from '../../context/SettingsContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { useToast } from '../../components/Toast';
 import { useMaintenanceMode } from '../../hooks/useMaintenanceMode';
 import { useSessionTimeout } from '../../hooks/useSessionTimeout';
-import { env } from '../../lib/env';
 import { buildApiUrl } from '../../utils/api';
 import { useDashboard } from '../../context/DashboardContext';
 import DarkModeToggle from '../../components/DarkModeToggle';
@@ -16,10 +19,13 @@ import CoolLoader from '../../components/CoolLoader';
 import { isDevelopment } from '../../lib/env';
 import MaintenancePage from '../../components/MaintenancePage';
 import { usePackageSubscription } from '../../hooks/usePackageSubscription';
+import BrowseCourses from './components/BrowseCourses';
+import MyCourses from './components/MyCourses';
 import StudentAssignments from './components/StudentAssignments';
+import StudentCertificates from './components/StudentCertificates';
+import StudentTradingSignals from './components/StudentTradingSignals';
 import NotificationDropdown from './components/NotificationDropdown';
 import Community from './components/Community';
-import StudentCertificateAssignments from './components/StudentCertificateAssignments';
 import UserProfileDropdown from '../components/UserProfileDropdown';
 import ErrorBoundary from '../../components/ErrorBoundary';
 import TradingViewWidget from '../../components/TradingViewWidget';
@@ -72,7 +78,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-export default function Dashboard() {
+function DashboardInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
@@ -80,8 +86,6 @@ export default function Dashboard() {
   const [showMeetingModal, setShowMeetingModal] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
   const [showNotifications, setShowNotifications] = useState(false);
-  const [signalsViewMode, setSignalsViewMode] = useState<'card' | 'list'>('card');
-  const [certificatesViewMode, setCertificatesViewMode] = useState<'card' | 'list'>('card');
   const [sessionsViewMode, setSessionsViewMode] = useState<'grid' | 'list'>('grid');
   const [tradingViewSymbol, setTradingViewSymbol] = useState<string>('FX:EURUSD');
   const [tradingViewInterval, setTradingViewInterval] = useState<'1' | '5' | '15' | '60' | '240' | 'D'>('60');
@@ -140,27 +144,23 @@ export default function Dashboard() {
     }
   }, []);
 
+  const handleTabChange = useCallback(
+    (tab: StudentTabId) => {
+      setActiveTab(tab);
+      if (typeof window === 'undefined') return;
+      const params = new URLSearchParams(window.location.search);
+      params.set('tab', tab);
+      router.replace(`/dashboard?${params.toString()}`, { scroll: false });
+    },
+    [router]
+  );
+
   // Deep link support: /dashboard?tab=rank-rewards
   useEffect(() => {
     const tab = searchParams?.get('tab');
-    if (!tab) return;
-    const allowed = new Set([
-      'overview',
-      'courses',
-      'browse',
-      'live-sessions',
-      'signals',
-      'tradingview',
-      'assignments',
-      'community',
-      'certificates',
-      'rank-rewards',
-      'library'
-    ]);
-    if (allowed.has(tab)) {
+    if (isStudentTabId(tab)) {
       setActiveTab(tab);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
   // Save favorites to localStorage whenever it changes
@@ -979,893 +979,114 @@ export default function Dashboard() {
 
   return (
     <ErrorBoundary>
-              <div className="min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        {/* Header */}
-        <header className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 shadow-lg sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex flex-col gap-2 py-2 sm:gap-3 md:py-3">
-            <div className="flex min-h-[3.25rem] w-full min-w-0 items-center justify-between gap-2 sm:min-h-[3.5rem] md:min-h-[4rem]">
-            <div
-              className="flex min-w-0 shrink-0 items-center gap-2 sm:gap-4 group cursor-pointer md:flex-1 md:max-w-[min(100%,28rem)]"
-              onClick={() => setActiveTab('overview')}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  e.preventDefault();
-                  setActiveTab('overview');
-                }
-              }}
-              aria-label={`${settings.platformName} — Home / Overview`}
-            >
-              <div className="relative shrink-0">
-                <img 
-                  src="/all-07.svg" 
-                  alt="" 
-                  className="h-10 w-10 sm:h-12 sm:w-12 md:h-14 md:w-14 object-contain dark:invert group-hover:scale-105 transition-transform duration-200"
-                />
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
-              </div>
-              <div className="hidden min-w-0 flex-1 md:block">
-                <h1 className="text-base font-bold leading-tight sm:text-xl md:text-2xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent group-hover:from-blue-700 group-hover:to-purple-700 transition-all duration-200 [overflow-wrap:anywhere]">
-                  {settings.platformName}
-                </h1>
-                <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400 sm:text-sm group-hover:text-gray-600 dark:group-hover:text-gray-300 transition-colors duration-200 line-clamp-2 sm:line-clamp-none">
-                  Trading Education Platform
-                </p>
-              </div>
-            </div>
-            
-            <div className="hidden min-w-0 flex-1 justify-center px-2 md:flex">
-              <DeveloperRoleNav />
-            </div>
-
-            <div className="flex shrink-0 flex-nowrap items-center justify-end gap-0.5 sm:gap-2 md:gap-3 md:pl-2">
-              {/* Join Telegram & WhatsApp — hidden on small screens to prevent header overlap */}
-              {user?.role === 'student' && (
-                <div className="hidden lg:flex items-center gap-2 shrink-0">
-                  <a
-                    href="https://t.me/+p7P6zC16xJk3ZmJk"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-[#0088cc]/10 dark:bg-[#0088cc]/20 text-[#0088cc] dark:text-[#54a9eb] hover:bg-[#0088cc]/20 dark:hover:bg-[#0088cc]/30 transition-colors text-sm font-medium"
-                    title="Join Navigators Fighters on Telegram"
-                  >
-                    <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                      <path d="M11.944 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0a12 12 0 0 0-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 0 1 .171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/>
-                    </svg>
-                    <span className="hidden sm:inline">Telegram</span>
-                  </a>
-                  <a
-                    href="https://chat.whatsapp.com/HGYm1azZa9k8KeEZdGDQQS"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-2 py-1.5 sm:px-3 sm:py-2 rounded-xl bg-[#25D366]/10 dark:bg-[#25D366]/20 text-[#25D366] dark:text-[#34e077] hover:bg-[#25D366]/20 dark:hover:bg-[#25D366]/30 transition-colors text-sm font-medium"
-                    title="Join Forex Navigators on WhatsApp"
-                  >
-                    <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-                      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
-                    </svg>
-                    <span className="hidden sm:inline">WhatsApp</span>
-                  </a>
-                </div>
-              )}
-
-              {/* Notifications */}
-              <div className="relative shrink-0">
-                <button 
-                  onClick={() => setShowNotifications(!showNotifications)}
-                  className="p-2 sm:p-3 text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-xl transition-all duration-200 relative group hover:shadow-md"
-                >
-                  <Bell className="w-[1.125rem] h-[1.125rem] sm:w-5 sm:h-5 group-hover:scale-110 transition-transform duration-200" />
-                  {notificationCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-red-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center font-medium animate-pulse shadow-lg">
-                      {notificationCount > 99 ? '99+' : notificationCount}
-                    </span>
-                  )}
-                </button>
-                <NotificationDropdown 
-                  isOpen={showNotifications} 
-                  onClose={() => setShowNotifications(false)}
-                  onRefresh={refreshNotifications}
-                />
-              </div>
-
-              <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
-                <DarkModeToggle size="sm" />
-              </div>
-              
-              {/* Admin Panel Link - Only for Admin Users */}
-              {user?.role === 'admin' && !loading && user?.isVerified && (
-                <div className="hidden border-l border-gray-200 dark:border-gray-700 pl-2 sm:block sm:pl-4">
-                  <button 
-                    onClick={() => window.location.href = '/admin'}
-                    className="flex items-center space-x-2 px-2 py-2 sm:px-4 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-xl hover:from-red-700 hover:to-red-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                    title="Admin Panel"
-                  >
-                    <Shield className="w-4 h-4" />
-                    <span className="hidden sm:inline text-sm font-medium">Admin</span>
-                  </button>
-                </div>
-              )}
-              
-              {/* User Profile Dropdown */}
-              <div className="border-l border-gray-200 dark:border-gray-700 pl-1.5 sm:pl-4 ml-0.5 sm:ml-0">
-                <UserProfileDropdown user={user} />
-              </div>
-            </div>
-            </div>
-
-            <div className="w-full min-w-0 md:hidden">
-              <DeveloperRoleNav />
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto min-w-0 px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
-        {/* Welcome Section */}
-        <motion.div 
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-8"
-        >
-          <h2 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2 sm:mb-3 break-words">
-            {t('welcomeBack')}, <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">{user.firstName || 'Trader'}</span>! 🚀
-          </h2>
-          <p className="text-base sm:text-lg lg:text-xl text-gray-600 dark:text-gray-300 mb-4">
-            Ready to master the art of forex trading? Let's continue your journey.
-          </p>
-        </motion.div>
-
-        {/* Navigation Tabs */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-2 border border-gray-200 dark:border-gray-700 shadow-lg mb-6 sm:mb-8">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={scrollLeft}
-              disabled={!canScrollLeft}
-              className="shrink-0 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Scroll tabs left"
-              aria-label="Scroll tabs left"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
-
-            <div
-              ref={navRef}
-              onScroll={checkScrollability}
-              className="flex-1 min-w-0 overflow-x-auto overflow-y-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-            >
-              <nav className="flex space-x-1">
-                {dashboardTabs.map((tab) => {
-                  const Icon = tab.icon;
-                  return (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setActiveTab(tab.id)}
-                      className={`flex items-center space-x-1.5 px-2.5 py-2 rounded-xl text-xs font-medium transition-all duration-200 whitespace-nowrap sm:space-x-2 sm:px-4 sm:py-3 sm:text-sm ${
-                        activeTab === tab.id
-                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
-                          : 'text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20'
-                      }`}
-                    >
-                      <Icon className="w-4 h-4 shrink-0" />
-                      <span>{tab.label}</span>
-                    </button>
-                  );
-                })}
-              </nav>
-            </div>
-
-            <button
-              type="button"
-              onClick={scrollRight}
-              disabled={!canScrollRight}
-              className="shrink-0 p-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-              title="Scroll tabs right"
-              aria-label="Scroll tabs right"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
-        {/* Tab Content */}
+      <StudentShell
+        activeTab={activeTab as StudentTabId}
+        onTabChange={handleTabChange}
+        platformName={settings.platformName}
+        user={user}
+        notificationCount={notificationCount}
+        onRefresh={refreshData}
+      >
         {activeTab === 'overview' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Enrolled Courses</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{courses.length}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center">
-                    <BookOpen className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Active Signals</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{signals.length}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-xl flex items-center justify-center">
-                    <Target className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </div>
-              
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Pending Tasks</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{assignments.filter(a => a.status === 'pending').length}</p>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center">
-                    <FileText className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </div>
-              
-
-              
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-gray-500 dark:text-gray-400 text-sm font-medium">Certificates</p>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white">{Array.isArray(certificates) ? certificates.filter(c => c.status === 'issued').length : 0}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{Array.isArray(certificates) ? certificates.filter(c => c.status === 'pending').length : 0} pending</p>
-                  </div>
-                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-xl flex items-center justify-center">
-                    <Award className="w-6 h-6 text-white" />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-
-
-            {/* Recent Activity */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">Recent Activity</h3>
-                <button
-                  onClick={fetchRecentActivity}
-                  disabled={activityLoading}
-                  className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
-                  title="Refresh activity"
-                >
-                  <RefreshCw className={`w-5 h-5 ${activityLoading ? 'animate-spin' : ''}`} />
-                </button>
-              </div>
-              {activityLoading ? (
-              <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="animate-pulse flex items-center space-x-4 p-4 bg-gray-100 dark:bg-gray-700 rounded-xl">
-                      <div className="w-10 h-10 bg-gray-300 dark:bg-gray-600 rounded-full"></div>
-                      <div className="flex-1 space-y-2">
-                        <div className="h-4 bg-gray-300 dark:bg-gray-600 rounded w-3/4"></div>
-                        <div className="h-3 bg-gray-300 dark:bg-gray-600 rounded w-1/2"></div>
-                  </div>
-                  </div>
-                  ))}
-                </div>
-              ) : recentActivity.length === 0 ? (
-                <div className="text-center py-8">
-                  <Clock className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-                  <p className="text-gray-500 dark:text-gray-400">No recent activity</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {recentActivity.map((activity) => {
-                    const IconComponent = getActivityIcon(activity.icon);
-                    const colorClasses = getActivityColorClasses(activity.color);
-                    const timeAgo = formatTimeAgo(activity.timestamp);
-
-                    return (
-                      <div
-                        key={activity.id}
-                        className={`flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:gap-4 ${colorClasses.bg} rounded-xl border ${colorClasses.border}`}
-                      >
-                        <div className={`w-10 h-10 ${colorClasses.iconBg} rounded-full flex items-center justify-center flex-shrink-0`}>
-                          <IconComponent className={`w-5 h-5 ${colorClasses.iconText}`} />
-                    </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-gray-900 dark:text-white font-medium">{activity.title}</p>
-                          <p className="text-gray-600 dark:text-gray-300 text-sm truncate">{activity.message}</p>
-                    </div>
-                        <div className="flex flex-wrap items-center gap-2 sm:flex-shrink-0 sm:gap-2">
-                          <span className="text-gray-500 dark:text-gray-400 text-sm">{timeAgo}</span>
-                          {activity.type === 'live_session' && activity.sessionId && (
-                                                                    <button
-                              onClick={() => {
-                                const session = liveSessions.find(s => s._id === activity.sessionId);
-                                if (session) {
-                                  handleSignUpSession(session._id);
-                                }
-                              }}
-                              className="px-3 py-1 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
-                      >
-                        Sign up
-                      </button>
-                          )}
-                          {activity.type === 'live_session' && activity.meetingLink && (
-                        <button
-                          onClick={() => {
-                                const session = liveSessions.find(s => s._id === activity.sessionId);
-                                if (session) {
-                            setSelectedSession(session);
-                            setShowMeetingModal(true);
-                                }
-                          }}
-                              className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition-colors whitespace-nowrap"
-                        >
-                          Meeting
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                    );
-                  })}
-                  </div>
-              )}
-            </div>
-
-            {/* Course Progress Tracking */}
-            {courses.length > 0 && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">Course Progress Overview</h3>
-                <div className="space-y-4">
-                  {courses.slice(0, 3).map((course) => (
-                    <div key={course._id} className="p-4 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-blue-900/20 rounded-xl border border-gray-200 dark:border-gray-600">
-                      <div className="flex items-center justify-between mb-3">
-                        <h4 className="font-medium text-gray-900 dark:text-white">{course.title}</h4>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">{course.progress || 0}%</span>
-                      </div>
-                      
-                      <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2 mb-3">
-                        <div 
-                          className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${course.progress || 0}%` }}
-                        ></div>
-                      </div>
-                      
-                      <div className="grid grid-cols-3 gap-2 text-xs sm:gap-4 sm:text-sm">
-                        <div className="text-center">
-                          <p className="text-gray-500 dark:text-gray-400">Lessons</p>
-                          <p className="font-semibold text-gray-900 dark:text-white">{course.completedLessons || 0}/{course.totalLessons || 0}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-gray-500 dark:text-gray-400">Quizzes</p>
-                          <p className="font-semibold text-gray-900 dark:text-white">{course.completedQuizzes || 0}/{course.totalQuizzes || 0}</p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-gray-500 dark:text-gray-400">Assignments</p>
-                          <p className="font-semibold text-gray-900 dark:text-white">{course.completedAssignments || 0}/{course.totalAssignments || 0}</p>
-                        </div>
-                      </div>
-                      
-                      {calculateCertificateEligibility(course) && (
-                        <div className="mt-3 p-2 bg-yellow-100 dark:bg-yellow-900/20 border border-yellow-300 dark:border-yellow-700 rounded-lg">
-                          <p className="text-yellow-800 dark:text-yellow-200 text-xs text-center">🎓 Certificate eligible - Complete remaining requirements!</p>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  
-                  {courses.length > 3 && (
-                    <div className="text-center pt-4">
-                      <button 
-                        onClick={() => setActiveTab('courses')}
-                        className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
-                      >
-                        View All Courses →
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </motion.div>
+          <StudentOverview
+            platformName={settings.platformName}
+            studentName={user.firstName || 'Trader'}
+            courses={courses}
+            signalsCount={signals.length}
+            pendingAssignments={assignments.filter((a) => a.status === 'pending').length}
+            certificatesEarned={Array.isArray(certificates) ? certificates.filter((c) => c.status === 'issued').length : 0}
+            certificatesPending={Array.isArray(certificates) ? certificates.filter((c) => c.status === 'pending').length : 0}
+            liveSessionsCount={liveSessions.length}
+            recentActivity={recentActivity}
+            activityLoading={activityLoading}
+            onRefreshActivity={fetchRecentActivity}
+            onTabChange={handleTabChange}
+            getActivityIcon={getActivityIcon}
+            getActivityColorClasses={getActivityColorClasses}
+            formatTimeAgo={formatTimeAgo}
+            onSignUpSession={handleSignUpSession}
+            onOpenMeeting={(sessionId) => {
+              const session = liveSessions.find((s: { _id: string }) => s._id === sessionId);
+              if (session) {
+                setSelectedSession(session);
+                setShowMeetingModal(true);
+              }
+            }}
+            calculateCertificateEligibility={calculateCertificateEligibility}
+          />
         )}
 
         {activeTab === 'courses' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">{safeT('myEnrolledCourses')}</h3>
-              {courses.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-24 h-24 bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <BookOpen className="w-12 h-12 text-gray-600 dark:text-gray-400" />
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-300 mb-4 text-lg font-medium">{safeT('noCoursesEnrolled')}</p>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-8 max-w-md mx-auto">{safeT('startLearningJourney')}</p>
-                  <button 
-                    onClick={() => setActiveTab('browse')}
-                    className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                  >
-                    {safeT('browseCourses')}
-                  </button>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {courses.map((course) => (
-                    <div key={course._id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                      <div className="w-full h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-4 flex items-center justify-center shadow-lg">
-                        {course.thumbnail ? (
-                          <img 
-                            src={course.thumbnail} 
-                            alt={course.title}
-                            className="w-full h-full object-cover rounded-2xl"
-                          />
-                        ) : (
-                          <BookOpen className="w-12 h-12 text-white" />
-                        )}
-                      </div>
-                      <h4 className="text-gray-900 dark:text-white font-semibold mb-2 text-lg">{course.title}</h4>
-                      <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-2">{course.description}</p>
-                      
-                      <div className="mb-4">
-                        <div className="flex justify-between text-sm mb-2">
-                          <span className="text-gray-500 dark:text-gray-400">{safeT('progress')}</span>
-                          <span className="text-gray-900 dark:text-white font-semibold">{course.progress || 0}%</span>
-                        </div>
-                        <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
-                          <div 
-                            className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-                            style={{ width: `${course.progress || 0}%` }}
-                          ></div>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500 dark:text-gray-400">{safeT('lessons')}</span>
-                          <span className="text-gray-900 dark:text-white font-semibold">{course.completedLessons || 0}/{course.totalLessons || 0}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500 dark:text-gray-400">{safeT('quizzes')}</span>
-                          <span className="text-gray-900 dark:text-white font-semibold">{course.completedQuizzes || 0}/{course.totalQuizzes || 0}</span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500 dark:text-gray-400">{safeT('assignments')}</span>
-                          <span className="text-gray-900 dark:text-white font-semibold">{course.completedAssignments || 0}/{course.totalAssignments || 0}</span>
-                        </div>
-                        {course.averageGrade && (
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-gray-500 dark:text-gray-400">{safeT('averageGrade')}</span>
-                            <span className="text-green-600 dark:text-green-400 font-semibold">{course.averageGrade}%</span>
-                          </div>
-                        )}
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-500 dark:text-gray-400">{safeT('category')}</span>
-                          <span className="text-blue-600 dark:text-blue-400 font-medium">{course.category}</span>
-                        </div>
-                      </div>
-                      
-                      {calculateCertificateEligibility(course) && !course.certificateIssued && (
-                        <div className="mb-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700 rounded-lg">
-                          <p className="text-yellow-800 dark:text-yellow-200 text-xs text-center">🎓 {safeT('certificateEligible')}!</p>
-                        </div>
-                      )}
-                      
-                      {course.certificateIssued && (
-                        <div className="mb-3 p-2 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-700 rounded-lg">
-                          <p className="text-green-800 dark:text-green-200 text-xs text-center">🏆 {safeT('certificateEarned')}!</p>
-                        </div>
-                      )}
-                      
-                      <button 
-                        onClick={() => window.location.href = `/course/${course._id}`}
-                        className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                      >
-                        {safeT('continueLearning')}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </motion.div>
+          <div className="student-tab-panel">
+            <AdminPage>
+              <MyCourses
+                courses={courses}
+                onBrowse={() => setActiveTab('browse')}
+                isCertificateEligible={calculateCertificateEligibility}
+                labels={{
+                  search: 'Search your courses…',
+                  emptyTitle: safeT('noCoursesEnrolled'),
+                  emptyHint: safeT('startLearningJourney'),
+                  browse: safeT('browseCourses'),
+                  continueLearning: safeT('continueLearning'),
+                  progress: safeT('progress'),
+                  lessons: safeT('lessons'),
+                  quizzes: safeT('quizzes'),
+                  assignments: safeT('assignments'),
+                  certificateEligible: safeT('certificateEligible'),
+                  certificateEarned: safeT('certificateEarned'),
+                }}
+              />
+            </AdminPage>
+          </div>
         )}
 
         {activeTab === 'browse' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-6">{safeT('availableCourses')}</h3>
-              <p className="text-gray-600 dark:text-gray-300 mb-6">{safeT('courseDescription')}</p>
-              
-              {(() => {
-                // Show loading if availableCourses is empty and we're still loading
-                if (availableCourses.length === 0 && loading) {
-                  return (
-                    <div className="text-center py-12">
-                      <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
-                      <p className="text-gray-600 dark:text-gray-300">{safeT('loadingCourses')}</p>
-                    </div>
-                  );
-                }
-                
-                // Show all courses (don't filter out enrolled ones)
-                const enrolledCourseIds = courses.map(course => course._id);
-                
-                return availableCourses.length === 0 ? (
-                  <div className="text-center py-12">
-                    <BookOpen className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No courses available</h3>
-                    <p className="text-gray-500 dark:text-gray-400">No courses have been published yet.</p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {availableCourses.map((course) => {
-                      const isEnrolled = enrolledCourseIds.includes(course._id);
-                      return (
-                    <div key={course._id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                      <div className="w-full h-32 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl mb-4 flex items-center justify-center shadow-lg">
-                        {course.thumbnail ? (
-                          <img 
-                            src={course.thumbnail} 
-                            alt={course.title}
-                            className="w-full h-full object-cover rounded-2xl"
-                          />
-                        ) : (
-                          <BookOpen className="w-12 h-12 text-white" />
-                        )}
-                      </div>
-                      <h4 className="text-gray-900 dark:text-white font-semibold mb-2 text-lg">{course.title}</h4>
-                      <p className="text-gray-600 dark:text-gray-300 text-sm mb-4 line-clamp-2">{course.description}</p>
-                      
-                      <div className="flex items-center justify-between mb-3 text-sm">
-                        <span className="text-gray-500 dark:text-gray-400">{safeT('instructor')}: {course.instructor?.firstName} {course.instructor?.lastName}</span>
-                        <div className="flex items-center space-x-2">
-                          {isEnrolled && (
-                            <span className="px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-full text-xs font-medium">
-                              Enrolled
-                            </span>
-                          )}
-                          <span className="text-yellow-600 dark:text-yellow-400 font-semibold">⭐ {course.rating || 'N/A'}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="space-y-3 mb-4">
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500 dark:text-gray-400 font-medium">{safeT('level')}</span>
-                          <span className="text-gray-900 dark:text-white font-semibold capitalize">{course.level}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500 dark:text-gray-400 font-medium">{safeT('lessons')}</span>
-                          <span className="text-gray-900 dark:text-white font-semibold">{course.totalVideos || 0}</span>
-                        </div>
-                        <div className="flex justify-between text-sm">
-                          <span className="text-gray-500 dark:text-gray-400 font-medium">{safeT('duration')}</span>
-                          <span className="text-gray-900 dark:text-white font-semibold">{course.totalDuration ? Math.round(course.totalDuration / 60) : 0} min</span>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between mb-4">
-                        <span className="text-2xl font-bold text-green-600 dark:text-green-400">${course.price || 0}</span>
-                        <span className="text-sm text-gray-500 dark:text-gray-400">{course.currency || 'USD'}</span>
-                      </div>
-                      
-                      <div className="flex space-x-2">
-                        <button 
-                          onClick={() => window.location.href = `/course/${course._id}`}
-                          className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                        >
-                          {isEnrolled ? 'Continue Learning' : safeT('viewCourse')}
-                        </button>
-                        {!isEnrolled && (
-                          <button 
-                            onClick={() => handleEnrollCourse(course._id)}
-                            className="px-4 py-3 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                          >
-                            {safeT('enroll')}
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    );
-                    })}
-                  </div>
-                );
-              })()}
-            </div>
-          </motion.div>
+          <div className="student-tab-panel">
+            <AdminPage>
+              <BrowseCourses
+                courses={availableCourses}
+                enrolledCourseIds={courses.map((c) => c._id)}
+                loading={loading}
+                onEnroll={handleEnrollCourse}
+                labels={{
+                  search: 'Search courses, topics, or instructors…',
+                  loading: safeT('loadingCourses'),
+                  noCourses: 'No courses available',
+                  noCoursesHint: 'No courses have been published yet.',
+                  enroll: safeT('enroll'),
+                  viewCourse: safeT('viewCourse'),
+                  continueLearning: 'Continue Learning',
+                  instructor: safeT('instructor'),
+                  lessons: safeT('lessons'),
+                  duration: safeT('duration'),
+                }}
+              />
+            </AdminPage>
+          </div>
         )}
 
         {activeTab === 'signals' && (
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-              <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white">{safeT('tradingSignals')}</h3>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    onClick={() => setSignalsViewMode('card')}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                      signalsViewMode === 'card'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    Card View
-                  </button>
-                  <button
-                    onClick={() => setSignalsViewMode('list')}
-                    className={`px-3 py-1 rounded-lg text-sm font-medium transition-colors ${
-                      signalsViewMode === 'list'
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
-                    }`}
-                  >
-                    List View
-                  </button>
-                </div>
-              </div>
-              {signals.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-24 h-24 bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Target className="w-12 h-12 text-gray-600 dark:text-gray-400" />
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-300 mb-4 text-lg font-medium">{safeT('noSignalsAvailable')}</p>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-8 max-w-md mx-auto">{safeT('checkBackLater')}</p>
-                </div>
-              ) : signalsViewMode === 'card' ? (
-                <div className="space-y-3">
-                  {signals.filter(signal => signal && signal._id).map((signal) => {
-                    const isBuy = signal.type === 'buy' || signal.type === 'strong_buy';
-                    const isSell = signal.type === 'sell' || signal.type === 'strong_sell';
-                    const typeLabel =
-                      signal.type === 'strong_buy'
-                        ? 'Strong Buy'
-                        : signal.type === 'strong_sell'
-                          ? 'Strong Sell'
-                          : signal.type
-                            ? signal.type.charAt(0).toUpperCase() + signal.type.slice(1)
-                            : 'Hold';
-
-                    return (
-                    <div
-                      key={signal._id}
-                      className="p-4 md:p-5 bg-gradient-to-r from-gray-50 to-blue-50 dark:from-gray-700 dark:to-blue-900/20 rounded-2xl border border-gray-200 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 transition-all duration-200"
-                    >
-                      <div className="flex items-start justify-between gap-3 mb-3">
-                        <div className="min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="text-lg md:text-xl font-semibold text-gray-900 dark:text-white truncate">
-                              {signal.symbol || 'Unknown Symbol'}
-                            </h4>
-                            <span
-                              className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border ${
-                                isBuy
-                                  ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-200 border-green-200 dark:border-green-700'
-                                  : isSell
-                                    ? 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-200 border-red-200 dark:border-red-700'
-                                    : 'bg-yellow-50 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200 border-yellow-200 dark:border-yellow-700'
-                              }`}
-                            >
-                              {typeLabel}
-                            </span>
-                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white/70 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-200">
-                              {signal.instrumentType || 'forex'}
-                            </span>
-                          </div>
-                          <div className="mt-1 text-xs md:text-sm text-gray-600 dark:text-gray-300 truncate">
-                            Posted by {signal.teacher?.firstName || 'Unknown'} {signal.teacher?.lastName || 'Teacher'}
-                          </div>
-                        </div>
-                        <span className="shrink-0 text-gray-500 dark:text-gray-400 text-xs md:text-sm">
-                          {signal.createdAt ? new Date(signal.createdAt).toLocaleDateString() : 'Unknown Date'}
-                        </span>
-                      </div>
-                      
-                      <p className="text-gray-700 dark:text-gray-300 mb-3 leading-relaxed text-sm line-clamp-2">
-                        {signal.description || 'No description available'}
-                      </p>
-                      
-                      {/* Current Market Prices (MT5 Style) */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                        <div className="text-center p-2.5 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200/70 dark:border-blue-700/70">
-                          <p className="text-blue-600 dark:text-blue-400 text-xs font-medium">Current Bid</p>
-                          <p className="text-blue-900 dark:text-blue-200 font-semibold tabular-nums">${signal.currentBid || 0}</p>
-                        </div>
-                        <div className="text-center p-2.5 bg-red-50 dark:bg-red-900/20 rounded-xl border border-red-200/70 dark:border-red-700/70">
-                          <p className="text-red-600 dark:text-red-400 text-xs font-medium">Current Ask</p>
-                          <p className="text-red-900 dark:text-red-200 font-semibold tabular-nums">${signal.currentAsk || 0}</p>
-                        </div>
-                        <div className="text-center p-2.5 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200/70 dark:border-green-700/70">
-                          <p className="text-green-600 dark:text-green-400 text-xs font-medium">Daily High</p>
-                          <p className="text-green-900 dark:text-green-200 font-semibold tabular-nums">${signal.dailyHigh || 0}</p>
-                        </div>
-                        <div className="text-center p-2.5 bg-orange-50 dark:bg-orange-900/20 rounded-xl border border-orange-200/70 dark:border-orange-700/70">
-                          <p className="text-orange-600 dark:text-orange-400 text-xs font-medium">Daily Low</p>
-                          <p className="text-orange-900 dark:text-orange-200 font-semibold tabular-nums">${signal.dailyLow || 0}</p>
-                        </div>
-                      </div>
-                      
-                      {/* Price Change Display */}
-                      <div className="mb-3 p-3 bg-white/60 dark:bg-gray-800/40 rounded-xl border border-gray-200 dark:border-gray-600">
-                        <div className="flex items-center justify-between">
-                          <span className="text-gray-600 dark:text-gray-300 text-sm font-medium">Price Change</span>
-                          <div className={`flex items-center space-x-2 ${
-                            (signal.priceChange || 0) >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
-                          }`}>
-                            <span className="font-semibold tabular-nums">${signal.priceChange || 0}</span>
-                            <span className="text-sm tabular-nums">({signal.priceChangePercent || 0}%)</span>
-                            {(signal.priceChange || 0) >= 0 ? (
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M5.293 7.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 5.414V17a1 1 0 11-2 0V5.414L6.707 7.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                              </svg>
-                            ) : (
-                              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M14.707 12.293a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L9 14.586V3a1 1 0 012 0v11.586l2.293-2.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Signal Entry/Exit Prices */}
-                      <div className="grid grid-cols-3 gap-3 mb-3">
-                        <div className="text-center p-2.5 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
-                          <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Entry Price</p>
-                          <p className="text-gray-900 dark:text-white font-semibold tabular-nums">${signal.entryPrice || 0}</p>
-                        </div>
-                        <div className="text-center p-2.5 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
-                          <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Target</p>
-                          <p className="text-gray-900 dark:text-white font-semibold tabular-nums">${signal.targetPrice || 0}</p>
-                        </div>
-                        <div className="text-center p-2.5 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
-                          <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Stop Loss</p>
-                          <p className="text-gray-900 dark:text-white font-semibold tabular-nums">${signal.stopLoss || 0}</p>
-                        </div>
-                      </div>
-                      
-                      {/* Risk Management */}
-                      <div className="grid grid-cols-3 gap-3 mb-3">
-                        <div className="text-center p-2.5 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
-                          <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Confidence</p>
-                          <p className="text-gray-900 dark:text-white font-semibold tabular-nums">{signal.confidence || 0}%</p>
-                        </div>
-                        <div className="text-center p-2.5 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
-                          <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Risk/Reward</p>
-                          <p className="text-gray-900 dark:text-white font-semibold tabular-nums">{signal.riskRewardRatio ? signal.riskRewardRatio.toFixed(2) : 'N/A'}</p>
-                        </div>
-                        <div className="text-center p-2.5 bg-white dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
-                          <p className="text-gray-500 dark:text-gray-400 text-xs font-medium">Position Size</p>
-                          <p className="text-gray-900 dark:text-white font-semibold tabular-nums">{signal.positionSize || 'N/A'}</p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-center justify-between gap-3 mb-3">
-                        <span className="text-gray-600 dark:text-gray-300 text-sm">
-                          Timeframe: <span className="font-medium text-gray-800 dark:text-gray-100">{signal.timeframe || 'Unknown'}</span>
-                        </span>
-                        <div className="flex items-center space-x-2 text-gray-500 dark:text-gray-400 text-sm shrink-0">
-                          <MessageSquare className="w-4 h-4" />
-                          <span>{signal.comments?.length || 0} comments</span>
-                        </div>
-                      </div>
-                      
-                      {/* Copy Trade Button */}
-                      <div className="flex justify-end">
-                        <button
-                          onClick={() => {
-                            const rawSymbol = (signal.symbol || '').toString().trim().toUpperCase();
-                            if (!rawSymbol) {
-                              showToast('No symbol found for this signal', 'error');
-                              return;
-                            }
-                            const tvSymbol = rawSymbol.includes(':') ? rawSymbol : `FX:${rawSymbol}`;
-                            setTradingViewSymbol(tvSymbol);
-                            setActiveTab('tradingview');
-                            showToast(`Opened TradingView chart for ${tvSymbol}`, 'success');
-                          }}
-                          className="px-3.5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-semibold flex items-center space-x-2 transition-colors"
-                        >
-                          <BarChart3 className="w-4 h-4" />
-                          <span>View Chart</span>
-                        </button>
-                      </div>
-                    </div>
-                  );
-                  })}
-                </div>
-              ) : (
-                // List View
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-                    <thead className="bg-gray-50 dark:bg-gray-700">
-                      <tr>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Signal
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Symbol
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Type
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Entry Price
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Target
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Stop Loss
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Confidence
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
-                          Posted
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-                      {signals.filter(signal => signal && signal._id).map((signal) => (
-                        <tr key={signal._id} className="hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="flex items-center">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${
-                                signal.type === 'buy' || signal.type === 'strong_buy' ? 'bg-gradient-to-br from-green-500 to-green-600' :
-                                signal.type === 'sell' || signal.type === 'strong_sell' ? 'bg-gradient-to-br from-red-500 to-red-600' :
-                                'bg-gradient-to-br from-yellow-500 to-yellow-600'
-                              }`}>
-                                {signal.type === 'strong_buy' ? 'SB' : 
-                                 signal.type === 'strong_sell' ? 'SS' : 
-                                 signal.type?.charAt(0).toUpperCase() || 'H'}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm font-medium text-gray-900 dark:text-white">{signal.symbol || 'Unknown'}</div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">{signal.instrumentType || 'forex'}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                              signal.type === 'buy' || signal.type === 'strong_buy' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200' :
-                              signal.type === 'sell' || signal.type === 'strong_sell' ? 'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200' :
-                              'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200'
-                            }`}>
-                              {signal.type === 'strong_buy' ? 'Strong Buy' : 
-                               signal.type === 'strong_sell' ? 'Strong Sell' : 
-                               signal.type?.charAt(0).toUpperCase() + signal.type?.slice(1) || 'Hold'}
-                            </span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                            ${signal.entryPrice || 0}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                            ${signal.targetPrice || 0}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                            ${signal.stopLoss || 0}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <div className="text-sm text-gray-900 dark:text-white">{signal.confidence || 0}%</div>
-                            <div className="text-sm text-gray-500 dark:text-gray-400">R/R: {signal.riskRewardRatio ? signal.riskRewardRatio.toFixed(2) : 'N/A'}</div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                            {signal.createdAt ? new Date(signal.createdAt).toLocaleDateString() : 'Unknown'}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </motion.div>
+          <div className="student-tab-panel">
+            <StudentTradingSignals
+              signals={signals || []}
+              onViewChart={(tvSymbol) => {
+                setTradingViewSymbol(tvSymbol);
+                setActiveTab('tradingview');
+                showToast(`Opened TradingView chart for ${tvSymbol}`, 'success');
+              }}
+              labels={{
+                title: safeT('tradingSignals'),
+                emptyTitle: safeT('noSignalsAvailable'),
+                emptyHint: safeT('checkBackLater'),
+              }}
+            />
+          </div>
         )}
 
         {activeTab === 'tradingview' && (
+          <div className="student-tab-panel">
+            <AdminPage>
           <motion.div 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
@@ -1961,13 +1182,21 @@ export default function Dashboard() {
               <TradeHistory />
             </div>
           </motion.div>
+            </AdminPage>
+          </div>
         )}
 
         {activeTab === 'assignments' && (
-          <StudentAssignments userId={user?._id || ''} />
+          <div className="student-tab-panel">
+            <AdminPage>
+              <StudentAssignments userId={user?._id || ''} />
+            </AdminPage>
+          </div>
         )}
 
         {activeTab === 'live-sessions' && (
+          <div className="student-tab-panel">
+            <AdminPage>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
             {/* My Enrolled Sessions */}
             <div className="min-w-0 overflow-hidden bg-white rounded-2xl dark:bg-gray-800 p-6 border border-gray-200 shadow-lg">
@@ -2406,7 +1635,6 @@ export default function Dashboard() {
               )}
             </div>
           </motion.div>
-        )}
 
         {/* Meeting Modal */}
         {showMeetingModal && selectedSession && (
@@ -2619,469 +1847,62 @@ export default function Dashboard() {
             </div>
           </div>
         )}
+            </AdminPage>
+          </div>
+        )}
 
         {activeTab === 'community' && (
-          <Community />
+          <div className="student-tab-panel">
+            <AdminPage>
+              <Community />
+            </AdminPage>
+          </div>
         )}
 
         {activeTab === 'library' && (
-          <LibraryBrowse itemBasePath="/dashboard/library" />
+          <div className="student-tab-panel">
+            <AdminPage>
+              <LibraryBrowse itemBasePath="/dashboard/library" />
+            </AdminPage>
+          </div>
         )}
 
         {activeTab === 'rank-rewards' && (
-          <RankRewardsProgress />
+          <div className="student-tab-panel">
+            <AdminPage>
+              <RankRewardsProgress />
+            </AdminPage>
+          </div>
         )}
 
         {activeTab === 'certificates' && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="space-y-6"
-          >
-            {/* My Earned Certificates */}
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 shadow-lg">
-              <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-3">
-                  <Award className="h-6 w-6 shrink-0 text-blue-600" />
-                  <h3 className="text-xl font-semibold text-gray-900 dark:text-white">My Certificates</h3>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end">
-                  <div className="text-sm text-gray-500 dark:text-gray-400">
-                    {certificatesLoading ? 'Loading...' : `${myCertificates.length} earned`}
-                  </div>
-                  <div className="flex items-center space-x-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
-                    <button
-                      onClick={() => setCertificatesViewMode('card')}
-                      className={`p-2 rounded-md transition-colors ${
-                        certificatesViewMode === 'card'
-                          ? 'bg-white dark:bg-gray-600 text-blue-600 shadow-sm'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                      }`}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-                      </svg>
-                    </button>
-                    <button
-                      onClick={() => setCertificatesViewMode('list')}
-                      className={`p-2 rounded-md transition-colors ${
-                        certificatesViewMode === 'list'
-                          ? 'bg-white dark:bg-gray-600 text-blue-600 shadow-sm'
-                          : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
-                      }`}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              {certificatesLoading ? (
-                <div className="text-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-                  <p className="text-gray-600 dark:text-gray-300">Loading certificates...</p>
-                </div>
-              ) : !Array.isArray(myCertificates) || myCertificates.length === 0 ? (
-                <div className="text-center py-12">
-                  <div className="w-24 h-24 bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 rounded-full flex items-center justify-center mx-auto mb-6">
-                    <Award className="w-12 h-12 text-gray-600 dark:text-gray-400" />
-                  </div>
-                  <p className="text-gray-600 dark:text-gray-300 mb-4 text-lg font-medium">No certificates earned yet</p>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm mb-8 max-w-md mx-auto">Complete courses to 90% or more to earn certificates automatically</p>
-                  <button 
-                    onClick={() => setActiveTab('courses')}
-                    className="px-8 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                  >
-                    Start Learning
-                  </button>
-                </div>
-              ) : (
-                <div className={certificatesViewMode === 'card' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' : 'space-y-4'}>
-                  {/* Earned Certificates */}
-                  {myCertificates.map((certificate: any) => (
-                    <div key={certificate.id} className={`bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-700 rounded-xl p-4 sm:p-6 hover:shadow-lg transition-all duration-200 ${
-                      certificatesViewMode === 'list' ? 'flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between' : ''
-                    }`}>
-                      {certificatesViewMode === 'card' ? (
-                        // Card View
-                        <div className="flex flex-col h-full">
-                          <div className="flex items-center space-x-3 mb-4">
-                            <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                              <Award className="w-6 h-6 text-white" />
-                            </div>
-                            <div className="flex-1">
-                              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{certificate.courseTitle}</h4>
-                              <p className="text-sm text-gray-600 dark:text-gray-300">Certificate #{certificate.certificateId}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-2 gap-4 mb-4 flex-1">
-                            <div className="text-center">
-                              <p className="text-xs text-gray-500 dark:text-gray-400">Completion</p>
-                              <p className="text-lg font-bold text-green-600 dark:text-green-400">{certificate.completionPercentage}%</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs text-gray-500 dark:text-gray-400">Instructor</p>
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">{certificate.instructorName}</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs text-gray-500 dark:text-gray-400">Issued</p>
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">{new Date(certificate.completionDate).toLocaleDateString()}</p>
-                            </div>
-                            <div className="text-center">
-                              <p className="text-xs text-gray-500 dark:text-gray-400">Valid Until</p>
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">{new Date(certificate.validUntil).toLocaleDateString()}</p>
-                            </div>
-                          </div>
-                          
-                          <div className="flex space-x-2 mt-auto">
-                            <button 
-                              onClick={() => handleViewCertificate(certificate)}
-                              className="flex-1 px-3 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
-                            >
-                              <Eye className="w-4 h-4" />
-                              <span>View</span>
-                            </button>
-                            <button 
-                              onClick={() => handleDownloadCertificate(certificate.certificateId, certificate.courseTitle)}
-                              className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-                            >
-                              <Download className="w-4 h-4" />
-                              <span>Download</span>
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        // List View
-                        <>
-                          <div className="flex min-w-0 flex-1 flex-col gap-4 sm:flex-row sm:items-center sm:gap-4">
-                            <div className="flex min-w-0 items-center gap-3 sm:gap-4">
-                            <div className="w-12 h-12 shrink-0 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
-                              <Award className="w-6 h-6 text-white" />
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <h4 className="text-lg font-semibold text-gray-900 dark:text-white break-words">{certificate.courseTitle}</h4>
-                              <p className="text-sm text-gray-600 dark:text-gray-300">Certificate #{certificate.certificateId}</p>
-                            </div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-3 text-center sm:grid-cols-4 sm:gap-6">
-                              <div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Completion</p>
-                                <p className="text-lg font-bold text-green-600 dark:text-green-400">{certificate.completionPercentage}%</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Instructor</p>
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">{certificate.instructorName}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Issued</p>
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">{new Date(certificate.completionDate).toLocaleDateString()}</p>
-                              </div>
-                              <div>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Valid Until</p>
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">{new Date(certificate.validUntil).toLocaleDateString()}</p>
-                            </div>
-                          </div>
-                        </div>
-                        
-                          <div className="flex flex-wrap gap-2">
-                          <button 
-                              onClick={() => handleViewCertificate(certificate)}
-                            className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2"
-                          >
-                            <Eye className="w-4 h-4" />
-                            <span>View</span>
-                          </button>
-                          <button 
-                              onClick={() => handleDownloadCertificate(certificate.certificateId, certificate.courseTitle)}
-                            className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-                          >
-                            <Download className="w-4 h-4" />
-                            <span>Download</span>
-                          </button>
-                          <button 
-                              onClick={() => window.open(`/course/${certificate.course.id}`, '_blank')}
-                            className="px-4 py-2 bg-gray-600 text-white text-sm rounded-lg hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2"
-                          >
-                            <BookOpen className="w-4 h-4" />
-                            <span>Course</span>
-                          </button>
-                        </div>
-                        </>
-                      )}
-                    </div>
-                  ))}
-
-                  {/* Assigned Certificates (from assignments) */}
-                  {Array.isArray(assignments) && assignments.length > 0 && assignments.map((assignment: any) => (
-                    <div key={`assignment-${assignment._id}`} className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-6 hover:shadow-lg transition-all duration-200">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-3 mb-3">
-                            <div className="w-12 h-12 bg-gradient-to-br from-amber-500 to-orange-600 rounded-full flex items-center justify-center">
-                              <Award className="w-6 h-6 text-white" />
-                            </div>
-                            <div>
-                              <h4 className="text-lg font-semibold text-gray-900 dark:text-white">{assignment.teacherCertificateId?.name || 'Assigned Certificate'}</h4>
-                              <p className="text-sm text-gray-600 dark:text-gray-300">Issuer: {assignment.teacherCertificateId?.issuer || '—'}</p>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-                            {assignment.assignedDate && (
-                              <div className="text-center">
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Assigned</p>
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">{new Date(assignment.assignedDate).toLocaleDateString()}</p>
-                              </div>
-                            )}
-                            {assignment.dueDate && (
-                              <div className="text-center">
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Due</p>
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">{new Date(assignment.dueDate).toLocaleDateString()}</p>
-                              </div>
-                            )}
-                            {assignment.completedAt && (
-                              <div className="text-center">
-                                <p className="text-xs text-gray-500 dark:text-gray-400">Completed</p>
-                                <p className="text-sm font-medium text-gray-900 dark:text-white">{new Date(assignment.completedAt).toLocaleDateString()}</p>
-                              </div>
-                            )}
-                            <div className="text-center">
-                              <p className="text-xs text-gray-500 dark:text-gray-400">Status</p>
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                                assignment.status === 'completed' ? 'bg-green-100 dark:bg-green-900/20 text-green-800 dark:text-green-200' :
-                                assignment.status === 'viewed' ? 'bg-blue-100 dark:bg-blue-900/20 text-blue-800 dark:text-blue-200' :
-                                assignment.status === 'assigned' ? 'bg-yellow-100 dark:bg-yellow-900/20 text-yellow-800 dark:text-yellow-200' :
-                                'bg-red-100 dark:bg-red-900/20 text-red-800 dark:text-red-200'
-                              }`}>
-                                {assignment.status}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        <div className="flex flex-col space-y-2">
-                          {assignment.teacherCertificateId?.certificateUrl && (
-                            <button 
-                              onClick={() => {
-                                const fullUrl = assignment.teacherCertificateId.certificateUrl.startsWith('http') 
-                                  ? assignment.teacherCertificateId.certificateUrl 
-                                  : `${env.API_BASE_URL.replace('/api', '')}${assignment.teacherCertificateId.certificateUrl}`;
-                                window.open(fullUrl, '_blank');
-                              }}
-                              className="px-4 py-2 bg-purple-600 text-white text-sm rounded-lg hover:bg-purple-700 transition-colors flex items-center justify-center space-x-2"
-                            >
-                              <Eye className="w-4 h-4" />
-                              <span>Preview</span>
-                            </button>
-                          )}
-                          {assignment.teacherCertificateId?.certificateUrl && (
-                            <button 
-                              onClick={() => {
-                                const link = document.createElement('a');
-                                const fullUrl = assignment.teacherCertificateId.certificateUrl.startsWith('http') 
-                                  ? assignment.teacherCertificateId.certificateUrl 
-                                  : `${env.API_BASE_URL.replace('/api', '')}${assignment.teacherCertificateId.certificateUrl}`;
-                                link.href = fullUrl;
-                                link.download = assignment.teacherCertificateId.name || 'certificate.pdf';
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
-                              }}
-                              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-                            >
-                              <Download className="w-4 h-4" />
-                              <span>Download</span>
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Assignment list is merged above into My Earned Certificates */}
-          </motion.div>
-        )}
-      </div>
-
-      {/* Certificate View Modal */}
-      {showCertificateModal && selectedCertificate && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full max-h-[95vh] overflow-y-auto">
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Certificate Details</h2>
-                <button
-                  onClick={() => setShowCertificateModal(false)}
-                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-                >
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="space-y-4">
-                {/* Certificate Preview */}
-                <div className="relative">
-                  {/* Background gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-purple-600 to-pink-500 rounded-lg"></div>
-                  
-                  {/* Certificate container with gold border */}
-                  <div className="relative bg-white rounded-lg border-4 border-yellow-400 shadow-2xl mx-8 my-8 p-8">
-                    {/* Decorative ribbons */}
-                    <div className="absolute -top-4 -left-4 w-16 h-16 bg-purple-500 rounded-full opacity-80 transform rotate-12"></div>
-                    <div className="absolute -top-2 -left-2 w-12 h-12 bg-purple-400 rounded-full opacity-60 transform rotate-45"></div>
-                    
-                    <div className="absolute -bottom-4 -right-4 w-16 h-16 bg-pink-500 rounded-full opacity-80 transform -rotate-12"></div>
-                    <div className="absolute -bottom-2 -right-2 w-12 h-12 bg-pink-400 rounded-full opacity-60 transform -rotate-45"></div>
-                    
-                    {/* Heart decoration */}
-                    <div className="absolute bottom-4 right-4 w-8 h-8">
-                      <div className="w-full h-full bg-pink-500 transform rotate-45 opacity-60"></div>
-                      <div className="absolute top-0 left-0 w-4 h-4 bg-pink-500 rounded-full opacity-60"></div>
-                      <div className="absolute top-0 right-0 w-4 h-4 bg-pink-500 rounded-full opacity-60"></div>
-                    </div>
-
-                    {/* Candlestick pattern background */}
-                    <div className="absolute inset-0 opacity-5">
-                      <div className="grid grid-cols-12 gap-1 h-full">
-                        {Array.from({ length: 60 }).map((_, i) => (
-                          <div key={i} className={`h-4 ${i % 3 === 0 ? 'bg-green-500' : 'bg-red-500'} rounded-sm`}></div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Certificate content */}
-                    <div className="relative z-10 text-center">
-                      {/* Title */}
-                      <h1 className="text-4xl font-bold text-black mb-2">CERTIFICATE</h1>
-                      <h2 className="text-xl font-bold text-black mb-8">OF COMPLETION BATCH #2</h2>
-                      
-                      {/* Introductory text */}
-                      <p className="text-lg text-black mb-6">THIS IS TO CERTIFY THAT</p>
-                      
-                      {/* Student name */}
-                      <h3 className="text-3xl font-bold text-purple-600 mb-8" style={{ fontFamily: 'cursive' }}>
-                        {selectedCertificate.studentName}
-                      </h3>
-                      
-                      {/* Achievement text */}
-                      <p className="text-base text-black mb-8 leading-relaxed max-w-2xl mx-auto">
-                        has completed the {selectedCertificate.courseTitle} with distinction, exhibiting outstanding mastery of the Navigator strategy and a remarkable commitment to trading excellence.
-                      </p>
-                      
-                      {/* FOREX NAVIGATORS Logo */}
-                      <div className="flex items-center justify-center mb-8">
-                        <div className="flex items-center space-x-4">
-                          {/* Bull */}
-                          <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
-                            <div className="w-8 h-8 bg-white rounded-full"></div>
-                          </div>
-                          
-                          {/* City skyline bars */}
-                          <div className="flex items-end space-x-1">
-                            <div className="w-2 h-4 bg-gray-600"></div>
-                            <div className="w-2 h-6 bg-gray-600"></div>
-                            <div className="w-2 h-3 bg-gray-600"></div>
-                            <div className="w-2 h-5 bg-gray-600"></div>
-                            <div className="w-2 h-4 bg-gray-600"></div>
-                          </div>
-                          
-                          {/* Bear */}
-                          <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
-                            <div className="w-8 h-8 bg-white rounded-full"></div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Logo text */}
-                      <div className="mb-4">
-                        <span className="text-lg font-bold text-purple-600">FOREX</span>
-                        <span className="text-lg font-bold text-blue-600 ml-2">NAVIGATORS</span>
-                      </div>
-                      <p className="text-sm text-blue-600 font-semibold tracking-wider">LEARN • GROW • RICH</p>
-                    </div>
-                    
-                    {/* Signature and date */}
-                    <div className="absolute bottom-8 left-8 right-8 flex justify-between items-end">
-                      <div>
-                        <div className="w-32 h-0.5 bg-black mb-2"></div>
-                        <p className="text-sm font-bold text-black">{selectedCertificate.instructorName}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-black">Date</p>
-                        <div className="w-24 h-0.5 bg-black mb-2"></div>
-                        <p className="text-sm font-bold text-black">{new Date(selectedCertificate.completionDate).toLocaleDateString()}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Certificate details */}
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Certificate Information</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Student Name</label>
-                      <p className="text-lg text-gray-900 dark:text-white">{selectedCertificate.studentName}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Course Title</label>
-                      <p className="text-lg text-gray-900 dark:text-white">{selectedCertificate.courseTitle}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Completion Date</label>
-                      <p className="text-lg text-gray-900 dark:text-white">{new Date(selectedCertificate.completionDate).toLocaleDateString()}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Completion Rate</label>
-                      <p className="text-lg text-gray-900 dark:text-white">{selectedCertificate.completionPercentage}%</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Instructor</label>
-                      <p className="text-lg text-gray-900 dark:text-white">{selectedCertificate.instructorName}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-500 dark:text-gray-400">Valid Until</label>
-                      <p className="text-lg text-gray-900 dark:text-white">{new Date(selectedCertificate.validUntil).toLocaleDateString()}</p>
-                    </div>
-                  </div>
-                  
-                  <div className="mt-4">
-                    <label className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2 block">Certificate ID</label>
-                    <p className="font-mono text-sm text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-600 p-2 rounded">{selectedCertificate.certificateId}</p>
-                  </div>
-                </div>
-
-                {/* Action buttons */}
-                <div className="flex space-x-3 pt-6">
-                  <button
-                    onClick={() => handleDownloadCertificate(selectedCertificate.certificateId, selectedCertificate.courseTitle)}
-                    className="flex-1 flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md font-medium hover:bg-blue-700 transition-colors"
-                  >
-                    <Download className="h-5 w-5 mr-2" />
-                    Download PDF
-                  </button>
-                  <button
-                    onClick={() => setShowCertificateModal(false)}
-                    className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-md font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
+          <div className="student-tab-panel">
+            <AdminPage>
+              <StudentCertificates
+                certificates={myCertificates}
+                assignedCertificates={Array.isArray(assignments) ? assignments : []}
+                loading={certificatesLoading}
+                onView={handleViewCertificate}
+                onDownload={handleDownloadCertificate}
+                onStartLearning={() => setActiveTab('courses')}
+                selectedCertificate={selectedCertificate}
+                showModal={showCertificateModal}
+                onCloseModal={() => setShowCertificateModal(false)}
+              />
+            </AdminPage>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+
+      </StudentShell>
     <AppCampaignGate />
     </ErrorBoundary>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={<CoolLoader message="Loading your dashboard..." size="md" variant="student" />}>
+      <DashboardInner />
+    </Suspense>
   );
 }

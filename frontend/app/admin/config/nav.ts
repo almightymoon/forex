@@ -17,11 +17,13 @@ import {
   TrendingUp,
   Users,
   Users2,
+  Contact,
 } from 'lucide-react';
 
 export type AdminTabId =
   | 'overview'
   | 'users'
+  | 'user-emails'
   | 'payments'
   | 'monthly-fee'
   | 'commissions'
@@ -61,7 +63,10 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     id: 'people',
     label: 'People',
-    items: [{ id: 'users', label: 'Users', icon: Users, description: 'Accounts & access' }],
+    items: [
+      { id: 'users', label: 'Users', icon: Users, description: 'Accounts & access' },
+      { id: 'user-emails', label: 'Email directory', icon: Contact, description: 'All user emails & CSV export' },
+    ],
   },
   {
     id: 'finance',

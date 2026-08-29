@@ -8,12 +8,10 @@ import {
   Phone, 
   MapPin, 
   Calendar, 
-  Shield, 
   Edit3, 
   Save, 
   X,
   Camera,
-  Key,
   Bell,
   Settings,
   Award,
@@ -21,6 +19,7 @@ import {
   Share2,
   Wallet,
   ArrowUpRight,
+  ArrowLeft,
   AlertCircle,
   Fingerprint
 } from 'lucide-react';
@@ -35,6 +34,7 @@ import UserProfileDropdown from '@/app/components/UserProfileDropdown';
 import DarkModeToggle from '../../components/DarkModeToggle';
 import ReferralBadge from '../components/ReferralBadge';
 import CoolLoader from '../../components/CoolLoader';
+import './profile.css';
 
 interface UserProfile {
   _id: string;
@@ -94,18 +94,6 @@ export default function ProfilePage() {
   useEffect(() => {
     setMounted(true);
   }, []);
-
-  // Prevent hydration mismatch by showing loading state
-  if (settingsLoading) {
-    return (
-      <div className="min-h-screen bg-slate-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-200 dark:border-blue-700 border-t-blue-600 dark:border-t-blue-400 rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-300">Loading...</p>
-        </div>
-      </div>
-    );
-  }
 
   useEffect(() => {
     if (mounted) {
@@ -523,41 +511,13 @@ export default function ProfilePage() {
   };
 
   // Prevent hydration mismatch by not rendering until mounted
-  if (!mounted) {
+  if (!mounted || settingsLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="relative mx-auto mb-6">
-            {/* Logo-inspired loader */}
-            <div className="w-32 h-32 mx-auto relative">
-              {/* Main logo container with gradient background */}
-              <div className="w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center shadow-2xl animate-pulse">
-                {/* Logo image or placeholder */}
-                <img 
-                  src="/all-07.svg" 
-                  alt="Logo" 
-                  className="w-20 h-20 object-contain dark:invert animate-pulse"
-                />
-              </div>
-              
-              {/* Animated rings around the logo */}
-              <div className="absolute inset-0 border-4 border-blue-400 rounded-full animate-ping opacity-20"></div>
-              <div className="absolute inset-0 border-4 border-purple-400 rounded-full animate-ping opacity-20" style={{ animationDelay: '0.5s' }}></div>
-              
-              {/* Rotating border */}
-              <div className="absolute inset-0 border-4 border-transparent border-t-blue-600 border-r-purple-600 rounded-full animate-spin"></div>
-            </div>
-            
-            {/* Loading text with gradient */}
-            <div className="mt-4">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent animate-pulse">
-                Initializing Profile
-              </h2>
-              <p className="text-gray-600 dark:text-gray-400 mt-2">Please wait while we set up your profile</p>
-            </div>
-          </div>
-        </div>
-      </div>
+      <CoolLoader
+        message={settingsLoading ? 'Loading...' : 'Initializing Profile'}
+        size="md"
+        variant="student"
+      />
     );
   }
 
@@ -573,841 +533,672 @@ export default function ProfilePage() {
 
   if (!user) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 bg-gray-400 dark:bg-gray-600 rounded-full flex items-center justify-center mx-auto mb-4">
-            <User className="w-8 h-8 text-white" />
-          </div>
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">Profile Not Found</h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">Unable to load your profile information.</p>
-          <button
-            onClick={() => router.push('/dashboard')}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Go to Dashboard
-          </button>
-        </div>
+      <div className="profile-page profile-empty">
+        <User className="h-12 w-12 text-[var(--admin-muted)]" />
+        <h2 className="mt-4 text-xl font-bold">Profile Not Found</h2>
+        <p className="mt-2 text-[var(--admin-muted)]">Unable to load your profile information.</p>
+        <button type="button" onClick={() => router.push('/dashboard')} className="profile-btn profile-btn--primary mt-6">
+          Go to Dashboard
+        </button>
       </div>
     );
   }
 
+  const roleLabel = user.role === 'admin' ? 'Admin' : user.role === 'teacher' ? 'Instructor' : 'Student';
+  const dashboardRoute = getDashboardRoute(getUserRole() || user.role || 'student');
+
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <header className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-20">
-            <div className="flex items-center space-x-4">
-              <img 
-                src="/all-07.svg" 
-                alt={`${settings.platformName} Logo`} 
-                className="w-14 h-14 object-contain dark:invert"
-              />
-              <div>
-                <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                  {settings.platformName}
-                </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Trading Education Platform</p>
-              </div>
+    <div className="profile-page">
+      <header className="profile-header">
+        <div className="profile-header__inner">
+          <div className="profile-header__brand">
+            <img src="/all-07.svg" alt={`${settings.platformName} Logo`} />
+            <div>
+              <h1>{settings.platformName}</h1>
+              <p>Trading Education Platform</p>
             </div>
-            
-            <div className="flex items-center space-x-4">
-              {/* Dark Mode Toggle */}
-              <DarkModeToggle size="sm" />
-              
-              {/* Referral Badge - Only for students */}
-              {user?.role === 'student' && <ReferralBadge />}
-              
-              {/* User Profile Dropdown */}
-              <UserProfileDropdown user={user} />
-            </div>
+          </div>
+          <div className="profile-header__actions">
+            <DarkModeToggle size="sm" />
+            {user.role === 'student' && <ReferralBadge />}
+            <UserProfileDropdown user={user} />
           </div>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Classic Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="text-center flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-                {t('profile')}
-              </h1>
-              <p className="text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
-                Manage your personal information and account preferences
-              </p>
-            </div>
-            <button
-              onClick={() => {
-                const userRole = getUserRole();
-                const dashboardRoute = getDashboardRoute(userRole || 'student');
-                router.push(dashboardRoute);
-              }}
-              className="px-4 py-2 text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-gray-100 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors flex items-center space-x-2"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              <span>Back to Dashboard</span>
-            </button>
-          </div>
-          
-          {/* Action Buttons */}
-          <div className="flex justify-center items-center space-x-4">
+      <main className="profile-main">
+        <div className="profile-topbar">
+          <button type="button" onClick={() => router.push(dashboardRoute)} className="profile-topbar__back">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </button>
+          <div className="profile-topbar__actions">
             {!isEditing ? (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="px-8 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl hover:from-blue-700 hover:to-indigo-700 transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl flex items-center space-x-3 text-lg font-semibold"
-              >
-                <Edit3 className="w-5 h-5" />
-                <span>{t('edit') + ' ' + t('profile')}</span>
+              <button type="button" onClick={() => setIsEditing(true)} className="profile-btn profile-btn--primary">
+                <Edit3 className="h-4 w-4" />
+                {t('edit')} {t('profile')}
               </button>
             ) : (
               <>
-                <button
-                  onClick={handleCancel}
-                  className="px-8 py-4 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 hover:border-gray-400 dark:hover:border-gray-500 transition-all duration-300 transform hover:scale-105 flex items-center space-x-3 text-lg font-semibold"
-                >
-                  <X className="w-5 h-5" />
-                  <span>{t('cancel')}</span>
+                <button type="button" onClick={handleCancel} className="profile-btn profile-btn--ghost">
+                  <X className="h-4 w-4" />
+                  {t('cancel')}
                 </button>
-                <button
-                  onClick={handleSave}
-                  disabled={saving}
-                  className="px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-2xl hover:from-green-700 hover:to-emerald-700 transition-all duration-300 transform hover:scale-105 shadow-xl hover:shadow-2xl flex items-center space-x-3 text-lg font-semibold disabled:opacity-50 disabled:transform-none"
-                >
-                  <Save className="w-5 h-5" />
-                  <span>{saving ? t('loading') : t('saveChanges')}</span>
+                <button type="button" onClick={handleSave} disabled={saving} className="profile-btn profile-btn--success">
+                  <Save className="h-4 w-4" />
+                  {saving ? t('loading') : t('saveChanges')}
                 </button>
               </>
             )}
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Classic Profile Card */}
-          <div className="lg:col-span-1">
-            <div className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm">
-              <div className="text-center">
-                {/* Profile Image */}
-                <div className="relative inline-block mb-4">
-                  <div className="w-32 h-32 bg-blue-600 rounded-full flex items-center justify-center text-white text-3xl font-bold">
-                    {(isEditing && draftAvatarUrl) || user.profileImage ? (
-                      <img 
-                        src={(isEditing && draftAvatarUrl) ? draftAvatarUrl : (user.profileImage as string)} 
-                        alt="Profile" 
-                        className="w-32 h-32 rounded-full object-cover"
-                      />
-                    ) : (
-                      <span>
-                        {user.firstName?.charAt(0) || user.lastName?.charAt(0) || 'U'}
-                      </span>
-                    )}
-                  </div>
-                  {isEditing && (
-                    <>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/jpeg,image/png,image/gif,image/webp"
-                        className="hidden"
-                        onChange={(e) => {
-                          const f = e.target.files?.[0];
-                          if (f) openCropForFile(f);
-                        }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploadingAvatar}
-                        className="absolute bottom-0 right-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-                        title={uploadingAvatar ? 'Uploading…' : 'Change profile picture'}
-                      >
-                      <Camera className="w-4 h-4" />
-                      </button>
-                    </>
-                  )}
-                  
-                  {/* Status Badge */}
-                  <div className="absolute -top-1 -right-1">
-                    <div className="px-2 py-1 bg-gray-800 text-white text-xs font-medium rounded-full">
-                      {user.role === 'admin' ? 'Admin' : user.role === 'teacher' ? 'Instructor' : 'Student'}
-                    </div>
-                  </div>
-                </div>
-
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
-                  {user.firstName} {user.lastName}
-                </h2>
-                <p className="text-gray-600 dark:text-gray-400 capitalize mb-3">{user.role}</p>
-                
-                {user.bio && (
-                  <div className="bg-gray-50 dark:bg-gray-700 rounded-lg p-3 mb-4 border border-gray-100 dark:border-gray-600">
-                    <p className="text-gray-700 dark:text-gray-300 text-sm leading-relaxed">
-                      {user.bio}
-                    </p>
-                  </div>
+        <section className="profile-hero">
+          <div className="profile-hero__aurora" aria-hidden />
+          <div className="profile-hero__inner">
+            <div className="profile-avatar-wrap">
+              <div className="profile-avatar">
+                {(isEditing && draftAvatarUrl) || user.profileImage ? (
+                  <img
+                    src={(isEditing && draftAvatarUrl) ? draftAvatarUrl : (user.profileImage as string)}
+                    alt="Profile"
+                  />
+                ) : (
+                  <span>{user.firstName?.charAt(0) || user.lastName?.charAt(0) || 'U'}</span>
                 )}
-
-                {/* Badges Section */}
-                {user.badges && user.badges.length > 0 && (
-                  <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                      <Award className="w-4 h-4 mr-1" />
-                      Package Badges
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {user.badges.map((badge, idx) => (
-                        <span
-                          key={idx}
-                          className="px-3 py-1 bg-gradient-to-r from-emerald-500 to-blue-500 text-white text-xs font-semibold rounded-full"
-                        >
-                          {badge.packageName}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Referral Code Section */}
-                {user.referralCode && (
-                  <div className="mb-4 p-3 bg-gradient-to-r from-purple-50 to-blue-50 dark:from-purple-900/20 dark:to-blue-900/20 rounded-lg border border-purple-200 dark:border-purple-700">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
-                      Your Referral Code
-                    </h3>
-                    <div className="flex items-center space-x-2">
-                      <code className="flex-1 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg text-sm font-mono text-gray-900 dark:text-white">
-                        {user.referralCode}
-                      </code>
-                      <button
-                        onClick={async () => {
-                          const referralUrl = `${window.location.origin}/register?ref=${user.referralCode}`;
-                          await navigator.clipboard.writeText(referralUrl);
-                          showToast('Referral link copied!', 'success');
-                        }}
-                        className="p-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-                        title="Copy referral link"
-                      >
-                        <Copy className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
-                      Share this code to earn commissions!
-                    </p>
-                  </div>
-                )}
-
-                {/* Balance Display */}
-                {(user.balance !== undefined && user.balance > 0) && (
-                  <div className="mb-4 p-3 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-lg border border-green-200 dark:border-green-800">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                      <Wallet className="w-4 h-4 mr-1" />
-                      Account Balance
-                    </h3>
-                    <p className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                      ${(user.balance || 0).toFixed(2)} USDT
-                    </p>
-                    <button
-                      onClick={() => setShowWithdrawalForm(true)}
-                      className="w-full px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center justify-center space-x-2 text-sm"
-                    >
-                      <ArrowUpRight className="w-4 h-4" />
-                      <span>Withdraw</span>
-                    </button>
-                  </div>
-                )}
-
-                {/* Quick Actions */}
-                <div className="space-y-2">
-                  <button
-                    onClick={() => router.push('/notifications')}
-                    className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2 text-sm"
-                  >
-                    <Bell className="w-4 h-4" />
-                    <span>Notifications</span>
-                  </button>
-                  <button
-                    onClick={() => router.push('/dashboard?tab=settings')}
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center space-x-2 text-sm"
-                  >
-                    <Settings className="w-4 h-4" />
-                    <span>Settings</span>
-                  </button>
-                  {user.referralCode && (
-                    <button
-                      onClick={() => router.push('/referrals')}
-                      className="w-full px-4 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg hover:from-purple-700 hover:to-blue-700 transition-colors flex items-center justify-center space-x-2 text-sm"
-                    >
-                      <Share2 className="w-4 h-4" />
-                      <span>My Referrals</span>
-                    </button>
-                  )}
-                </div>
               </div>
+              <span className="profile-avatar__badge">{roleLabel}</span>
+              {isEditing && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="hidden"
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) openCropForFile(f);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploadingAvatar}
+                    className="profile-avatar__camera"
+                    title={uploadingAvatar ? 'Uploading…' : 'Change profile picture'}
+                  >
+                    <Camera className="h-4 w-4" />
+                  </button>
+                </>
+              )}
+            </div>
+
+            <div className="profile-hero__info">
+              <h2>{user.firstName} {user.lastName}</h2>
+              <p>{user.email}</p>
+              {user.bio ? <p className="profile-hero__bio">{user.bio}</p> : null}
+            </div>
+
+            <div className="profile-hero__stats">
+              <div className="profile-hero__stat">
+                <strong>{user.badges?.length || 0}</strong>
+                <span>Packages</span>
+              </div>
+              {user.balance !== undefined && user.balance > 0 ? (
+                <div className="profile-hero__stat">
+                  <strong>${(user.balance || 0).toFixed(0)}</strong>
+                  <span>Balance</span>
+                </div>
+              ) : null}
+              {user.referralCode ? (
+                <div className="profile-hero__stat">
+                  <strong>{user.referralCode}</strong>
+                  <span>Referral</span>
+                </div>
+              ) : null}
             </div>
           </div>
+        </section>
 
-          {/* Crop Modal */}
-          {cropOpen && (
-            <div
-              className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-              role="dialog"
-              aria-modal="true"
-              onClick={() => {
-                // Close only when clicking the backdrop (not the modal)
-                closeCrop();
-              }}
-            >
-              <div
-                className="w-full max-w-lg rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 shadow-2xl overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="px-5 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Crop profile photo</h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Drag to reposition, use the slider to zoom.</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      closeCrop();
-                    }}
-                    className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-200"
-                    aria-label="Close"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
+        <div className="profile-grid">
+          <aside className="profile-sidebar">
+            {user.referralCode ? (
+              <div className="profile-card profile-referral">
+                <div className="profile-card__head">
+                  <Share2 className="h-4 w-4" />
+                  <h3>Referral code</h3>
                 </div>
-
-                <div className="p-5">
-                  <div className="flex items-center justify-center">
-                    <div
-                      className="relative select-none"
-                      onMouseDown={(e) => {
-                        if (!cropOpen) return;
-                        setCropDragging(true);
-                        cropDragStartRef.current = { x: e.clientX, y: e.clientY, ox: cropOffset.x, oy: cropOffset.y };
+                <div className="profile-card__body">
+                  <div className="profile-referral__code">
+                    <code>{user.referralCode}</code>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        const referralUrl = `${window.location.origin}/register?ref=${user.referralCode}`;
+                        await navigator.clipboard.writeText(referralUrl);
+                        showToast('Referral link copied!', 'success');
                       }}
-                      onMouseMove={(e) => {
-                        if (!cropDragging || !cropDragStartRef.current) return;
-                        const s = cropDragStartRef.current;
-                        const next = { x: s.ox + (e.clientX - s.x), y: s.oy + (e.clientY - s.y) };
-                        setCropOffset(next);
-                      }}
-                      onMouseUp={() => {
-                        setCropDragging(false);
-                        cropDragStartRef.current = null;
-                      }}
-                      onMouseLeave={() => {
-                        setCropDragging(false);
-                        cropDragStartRef.current = null;
-                      }}
-                      onTouchStart={(e) => {
-                        const t0 = e.touches[0];
-                        if (!t0) return;
-                        setCropDragging(true);
-                        cropDragStartRef.current = { x: t0.clientX, y: t0.clientY, ox: cropOffset.x, oy: cropOffset.y };
-                      }}
-                      onTouchMove={(e) => {
-                        const t0 = e.touches[0];
-                        if (!t0 || !cropDragging || !cropDragStartRef.current) return;
-                        const s = cropDragStartRef.current;
-                        const next = { x: s.ox + (t0.clientX - s.x), y: s.oy + (t0.clientY - s.y) };
-                        setCropOffset(next);
-                      }}
-                      onTouchEnd={() => {
-                        setCropDragging(false);
-                        cropDragStartRef.current = null;
-                      }}
+                      className="profile-referral__copy"
+                      title="Copy referral link"
                     >
-                      <canvas
-                        ref={cropCanvasRef}
-                        width={320}
-                        height={320}
-                        className="w-80 h-80 rounded-2xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-grab active:cursor-grabbing touch-none"
-                      />
-                      {cropSrc && (
-                        <img
-                          src={cropSrc}
-                          alt="Crop source"
-                          className="hidden"
-                          onLoad={(e) => {
-                            cropImgRef.current = e.currentTarget;
-                            drawCropPreview();
-                          }}
-                        />
-                      )}
-                    </div>
+                      <Copy className="h-4 w-4" />
+                    </button>
                   </div>
+                  <p className="profile-referral__hint">Share this code to earn commissions.</p>
+                </div>
+              </div>
+            ) : null}
 
-                  <div className="mt-5">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Zoom
-                    </label>
-                    <input
-                      type="range"
-                      min={1}
-                      max={3}
-                      step={0.01}
-                      value={cropZoom}
-                      onChange={(e) => setCropZoom(parseFloat(e.target.value))}
-                      className="w-full"
-                    />
+            {user.badges && user.badges.length > 0 ? (
+              <div className="profile-card">
+                <div className="profile-card__head">
+                  <Award className="h-4 w-4" />
+                  <h3>Package badges</h3>
+                </div>
+                <div className="profile-card__body">
+                  <div className="profile-badges">
+                    {user.badges.map((badge, idx) => (
+                      <span key={idx} className="profile-badge">{badge.packageName}</span>
+                    ))}
                   </div>
                 </div>
+              </div>
+            ) : null}
 
-                <div className="px-5 py-4 border-t border-gray-200 dark:border-gray-700 flex items-center justify-end gap-3">
-                  <button
-                    type="button"
-                    onClick={closeCrop}
-                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async (e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      try {
-                        const cropped = await buildCroppedAvatarFile(512);
-                        if (!cropped) {
-                          showToast('Failed to process image. Try a different photo.', 'error');
-                          return;
-                        }
-                        if (draftAvatarUrl) URL.revokeObjectURL(draftAvatarUrl);
-                        const previewUrl = URL.createObjectURL(cropped);
-                        setDraftAvatarFile(cropped);
-                        setDraftAvatarUrl(previewUrl);
-                        closeCrop();
-                      } catch (err) {
-                        console.error('Crop+upload error:', err);
-                        showToast('Failed to process image.', 'error');
-                      }
-                    }}
-                    className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
-                  >
-                    Done
+            {user.balance !== undefined && user.balance > 0 ? (
+              <div className="profile-card">
+                <div className="profile-card__head">
+                  <Wallet className="h-4 w-4 profile-card__head-icon--green" />
+                  <h3>Account balance</h3>
+                </div>
+                <div className="profile-card__body profile-balance">
+                  <p className="profile-balance__amount">${(user.balance || 0).toFixed(2)} USDT</p>
+                  <button type="button" onClick={() => setShowWithdrawalForm(true)} className="profile-quick-link profile-quick-link--primary">
+                    <ArrowUpRight className="h-4 w-4" />
+                    Withdraw
                   </button>
                 </div>
               </div>
+            ) : null}
+
+            <div className="profile-card">
+              <div className="profile-card__head">
+                <Settings className="h-4 w-4" />
+                <h3>Quick links</h3>
+              </div>
+              <div className="profile-card__body">
+                <div className="profile-quick-links">
+                  <button type="button" onClick={() => router.push('/notifications')} className="profile-quick-link profile-quick-link--primary">
+                    <Bell className="h-4 w-4" />
+                    Notifications
+                  </button>
+                  <button type="button" onClick={() => router.push('/dashboard?tab=settings')} className="profile-quick-link profile-quick-link--secondary">
+                    <Settings className="h-4 w-4" />
+                    Settings
+                  </button>
+                  {user.referralCode ? (
+                    <button type="button" onClick={() => router.push('/referrals')} className="profile-quick-link profile-quick-link--accent">
+                      <Share2 className="h-4 w-4" />
+                      My Referrals
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             </div>
-          )}
+          </aside>
 
-          {/* Profile Details */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Personal Information */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
-            >
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                <User className="w-5 h-5 mr-2 text-blue-600" />
-                Personal Information
-              </h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('firstName')}
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editForm.firstName || ''}
-                      onChange={(e) => handleInputChange('firstName', e.target.value)}
-                      className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                      placeholder="Enter your first name"
-                    />
-                  ) : (
-                    <div className="px-3 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                      <p className="text-gray-900 dark:text-white">{user.firstName}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('lastName')}
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      value={editForm.lastName || ''}
-                      onChange={(e) => handleInputChange('lastName', e.target.value)}
-                      className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                      placeholder="Enter your last name"
-                    />
-                  ) : (
-                    <div className="px-3 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
-                      <p className="text-gray-900 dark:text-white">{user.lastName}</p>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('email')}
-                  </label>
-                  <div className="px-3 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center">
-                    <Mail className="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" />
-                    <span className="text-gray-900 dark:text-white">{user.email}</span>
+          <div className="profile-content">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="profile-card">
+              <div className="profile-card__head">
+                <User className="h-4 w-4" />
+                <h3>Personal information</h3>
+              </div>
+              <div className="profile-card__body">
+                <div className="profile-fields">
+                  <div className="profile-field">
+                    <label>{t('firstName')}</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editForm.firstName || ''}
+                        onChange={(e) => handleInputChange('firstName', e.target.value)}
+                        className="profile-field__input"
+                        placeholder="Enter your first name"
+                      />
+                    ) : (
+                      <div className="profile-field__value">{user.firstName}</div>
+                    )}
                   </div>
-                </div>
 
-                {user.userId && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      User ID
-                    </label>
-                    <div className="px-3 py-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-lg border border-blue-200 dark:border-blue-700 flex items-center justify-between">
-                      <div className="flex items-center">
-                        <Fingerprint className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-400" />
-                        <span className="text-gray-900 dark:text-white font-mono font-semibold">{user.userId}</span>
+                  <div className="profile-field">
+                    <label>{t('lastName')}</label>
+                    {isEditing ? (
+                      <input
+                        type="text"
+                        value={editForm.lastName || ''}
+                        onChange={(e) => handleInputChange('lastName', e.target.value)}
+                        className="profile-field__input"
+                        placeholder="Enter your last name"
+                      />
+                    ) : (
+                      <div className="profile-field__value">{user.lastName}</div>
+                    )}
+                  </div>
+
+                  <div className="profile-field">
+                    <label>{t('email')}</label>
+                    <div className="profile-field__value">
+                      <Mail className="h-4 w-4 text-[var(--admin-muted)]" />
+                      {user.email}
+                    </div>
+                  </div>
+
+                  {user.userId ? (
+                    <div className="profile-field">
+                      <label>User ID</label>
+                      <div className="profile-field__value profile-field__value--highlight">
+                        <span className="flex items-center gap-2">
+                          <Fingerprint className="h-4 w-4 text-blue-600" />
+                          {user.userId}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            if (user.userId) {
+                              await navigator.clipboard.writeText(user.userId);
+                              showToast('User ID copied to clipboard!', 'success');
+                            }
+                          }}
+                          className="profile-copy-btn"
+                          title="Copy User ID"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </button>
                       </div>
-                      <button
-                        onClick={async () => {
-                          if (user.userId) {
-                            await navigator.clipboard.writeText(user.userId);
-                            showToast('User ID copied to clipboard!', 'success');
-                          }
-                        }}
-                        className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-800 rounded transition-colors"
-                        title="Copy User ID"
-                      >
-                        <Copy className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      </button>
                     </div>
+                  ) : null}
+
+                  <div className="profile-field">
+                    <label>{t('phone')}</label>
+                    {isEditing ? (
+                      <input
+                        type="tel"
+                        value={editForm.phone || ''}
+                        onChange={(e) => handleInputChange('phone', e.target.value)}
+                        className="profile-field__input"
+                        placeholder="Enter phone number"
+                      />
+                    ) : (
+                      <div className="profile-field__value">
+                        <Phone className="h-4 w-4 text-[var(--admin-muted)]" />
+                        {user.phone || 'Not provided'}
+                      </div>
+                    )}
                   </div>
-                )}
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('phone')}
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="tel"
-                      value={editForm.phone || ''}
-                      onChange={(e) => handleInputChange('phone', e.target.value)}
-                      className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                      placeholder="Enter phone number"
-                    />
-                  ) : (
-                    <div className="px-3 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center">
-                      <Phone className="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" />
-                      <span className="text-gray-900 dark:text-white">{user.phone || 'Not provided'}</span>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('dateOfBirth')}
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="date"
-                      value={editForm.dateOfBirth || ''}
-                      onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
-                      className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                    />
-                  ) : (
-                    <div className="px-3 py-3 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600 flex items-center">
-                      <Calendar className="w-4 h-4 mr-2 text-gray-500 dark:text-gray-400" />
-                      <span className="text-gray-900 dark:text-white">
+                  <div className="profile-field">
+                    <label>{t('dateOfBirth')}</label>
+                    {isEditing ? (
+                      <input
+                        type="date"
+                        value={editForm.dateOfBirth || ''}
+                        onChange={(e) => handleInputChange('dateOfBirth', e.target.value)}
+                        className="profile-field__input"
+                      />
+                    ) : (
+                      <div className="profile-field__value">
+                        <Calendar className="h-4 w-4 text-[var(--admin-muted)]" />
                         {formatDate(user.dateOfBirth)}
-                      </span>
-                    </div>
-                  )}
-                </div>
+                      </div>
+                    )}
+                  </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('address')}
-                  </label>
-                  {isEditing ? (
-                    <textarea
-                      value={editForm.address || ''}
-                      onChange={(e) => handleInputChange('address', e.target.value)}
-                      rows={3}
-                      className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                      placeholder="Enter your address"
-                    />
-                  ) : (
-                    <p className="text-gray-900 dark:text-white flex items-start">
-                      <MapPin className="w-4 h-4 mr-2 text-gray-400 dark:text-gray-500 mt-0.5" />
-                      {user.address || 'Not provided'}
-                    </p>
-                  )}
-                </div>
+                  <div className="profile-field profile-field--full">
+                    <label>{t('address')}</label>
+                    {isEditing ? (
+                      <textarea
+                        value={editForm.address || ''}
+                        onChange={(e) => handleInputChange('address', e.target.value)}
+                        rows={3}
+                        className="profile-field__textarea"
+                        placeholder="Enter your address"
+                      />
+                    ) : (
+                      <div className="profile-field__value">
+                        <MapPin className="h-4 w-4 shrink-0 text-[var(--admin-muted)]" />
+                        {user.address || 'Not provided'}
+                      </div>
+                    )}
+                  </div>
 
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    {t('bio')}
-                  </label>
-                  {isEditing ? (
-                    <textarea
-                      value={editForm.bio || ''}
-                      onChange={(e) => handleInputChange('bio', e.target.value)}
-                      rows={4}
-                      className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
-                      placeholder="Tell us about yourself..."
-                    />
-                  ) : (
-                    <p className="text-gray-900 dark:text-white">
-                      {user.bio || 'No bio provided'}
-                    </p>
-                  )}
+                  <div className="profile-field profile-field--full">
+                    <label>{t('bio')}</label>
+                    {isEditing ? (
+                      <textarea
+                        value={editForm.bio || ''}
+                        onChange={(e) => handleInputChange('bio', e.target.value)}
+                        rows={4}
+                        className="profile-field__textarea"
+                        placeholder="Tell us about yourself..."
+                      />
+                    ) : (
+                      <div className="profile-field__value">{user.bio || 'No bio provided'}</div>
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>
 
-            {/* Preferences */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
-            >
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                <Settings className="w-5 h-5 mr-2 text-green-600" />
-                {t('notifications')}
-              </h3>
-              
-              <div className="space-y-4">
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+            <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="profile-card">
+              <div className="profile-card__head">
+                <Bell className="h-4 w-4 profile-card__head-icon--green" />
+                <h3>{t('notifications')}</h3>
+              </div>
+              <div className="profile-card__body profile-prefs">
+                <div className="profile-pref">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">{t('emailNotifications')}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Receive notifications via email</p>
+                    <h4>{t('emailNotifications')}</h4>
+                    <p>Receive notifications via email</p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
+                  <label className={`profile-toggle${editForm.preferences?.emailNotifications ? ' is-on' : ''}${!isEditing ? ' is-disabled' : ''}`}>
                     <input
                       type="checkbox"
                       checked={editForm.preferences?.emailNotifications || false}
                       onChange={(e) => handlePreferenceChange('emailNotifications', e.target.checked)}
                       disabled={!isEditing}
-                      className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                   </label>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div className="profile-pref">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">{t('security')}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Manage password, 2FA, and security preferences</p>
+                    <h4>{t('security')}</h4>
+                    <p>Manage password, 2FA, and security preferences</p>
                   </div>
-                  <button 
-                    onClick={() => router.push('/settings')}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center space-x-2"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <span>{t('edit')}</span>
+                  <button type="button" onClick={() => router.push('/settings')} className="profile-btn profile-btn--primary">
+                    {t('edit')}
                   </button>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div className="profile-pref">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">{t('pushNotifications')}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Receive push notifications in browser</p>
+                    <h4>{t('pushNotifications')}</h4>
+                    <p>Receive push notifications in browser</p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
+                  <label className={`profile-toggle${editForm.preferences?.pushNotifications ? ' is-on' : ''}${!isEditing ? ' is-disabled' : ''}`}>
                     <input
                       type="checkbox"
                       checked={editForm.preferences?.pushNotifications || false}
                       onChange={(e) => handlePreferenceChange('pushNotifications', e.target.checked)}
                       disabled={!isEditing}
-                      className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                   </label>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-600">
+                <div className="profile-pref">
                   <div>
-                    <h4 className="font-medium text-gray-900 dark:text-white">{t('marketingEmails')}</h4>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">Receive promotional and marketing emails</p>
+                    <h4>{t('marketingEmails')}</h4>
+                    <p>Receive promotional and marketing emails</p>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
+                  <label className={`profile-toggle${editForm.preferences?.marketingEmails ? ' is-on' : ''}${!isEditing ? ' is-disabled' : ''}`}>
                     <input
                       type="checkbox"
                       checked={editForm.preferences?.marketingEmails || false}
                       onChange={(e) => handlePreferenceChange('marketingEmails', e.target.checked)}
                       disabled={!isEditing}
-                      className="sr-only peer"
                     />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                   </label>
                 </div>
               </div>
             </motion.div>
 
-            {/* Withdrawal Section */}
-            {(user.balance !== undefined && user.balance > 0) && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 shadow-sm"
-              >
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center">
-                  <Wallet className="w-5 h-5 mr-2 text-green-600" />
-                  Withdrawal
-                </h3>
-                
-                {showWithdrawalForm ? (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Amount (USDT)
-                      </label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0.01"
-                        max={user.balance}
-                        value={withdrawalAmount}
-                        onChange={(e) => setWithdrawalAmount(e.target.value)}
-                        placeholder={`Max: $${(user.balance || 0).toFixed(2)}`}
-                        className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Wallet Address
-                      </label>
-                      <input
-                        type="text"
-                        value={withdrawalWallet}
-                        onChange={(e) => setWithdrawalWallet(e.target.value)}
-                        placeholder="Enter your USDT wallet address"
-                        className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white font-mono text-sm"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                        Network
-                      </label>
-                      <div className="w-full px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white text-sm font-medium">
-                        TRC20 (Tron) — only supported network
+            {user.balance !== undefined && user.balance > 0 ? (
+              <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="profile-card">
+                <div className="profile-card__head">
+                  <Wallet className="h-4 w-4 profile-card__head-icon--green" />
+                  <h3>Withdrawal</h3>
+                </div>
+                <div className="profile-card__body">
+                  {showWithdrawalForm ? (
+                    <div className="profile-fields">
+                      <div className="profile-field profile-field--full">
+                        <label>Amount (USDT)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.01"
+                          max={user.balance}
+                          value={withdrawalAmount}
+                          onChange={(e) => setWithdrawalAmount(e.target.value)}
+                          placeholder={`Max: $${(user.balance || 0).toFixed(2)}`}
+                          className="profile-field__input"
+                        />
                       </div>
-                      <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">
-                        Withdrawals are processed on TRC20 only. Do not use ERC20 or BEP20 addresses.
-                      </p>
-                    </div>
-
-                    <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-                      <div className="flex items-start">
-                        <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 mt-0.5 mr-2" />
-                        <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                          Admin will process your withdrawal request. You will be notified once it's completed.
+                      <div className="profile-field profile-field--full">
+                        <label>Wallet address</label>
+                        <input
+                          type="text"
+                          value={withdrawalWallet}
+                          onChange={(e) => setWithdrawalWallet(e.target.value)}
+                          placeholder="Enter your USDT wallet address"
+                          className="profile-field__input font-mono text-sm"
+                        />
+                      </div>
+                      <div className="profile-field profile-field--full">
+                        <label>Network</label>
+                        <div className="profile-field__value">TRC20 (Tron) — only supported network</div>
+                        <p className="mt-2 text-xs text-[var(--admin-muted)]">
+                          Withdrawals are processed on TRC20 only. Do not use ERC20 or BEP20 addresses.
                         </p>
                       </div>
-                    </div>
-
-                    <div className="flex gap-3">
-                      <button
-                        onClick={() => {
-                          setShowWithdrawalForm(false);
-                          setWithdrawalAmount('');
-                          setWithdrawalWallet('');
-                        }}
-                        className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={async () => {
-                          const amount = parseFloat(withdrawalAmount);
-                          const MIN_WITHDRAWAL_AMOUNT = 30;
-                          if (!amount || amount <= 0) {
-                            showToast('Please enter a valid amount', 'error');
-                            return;
-                          }
-                          if (amount < MIN_WITHDRAWAL_AMOUNT) {
-                            showToast(`Minimum withdrawal amount is $${MIN_WITHDRAWAL_AMOUNT}`, 'error');
-                            return;
-                          }
-                          if (amount > (user.balance || 0)) {
-                            showToast('Insufficient balance', 'error');
-                            return;
-                          }
-                          if (!withdrawalWallet.trim()) {
-                            showToast('Please enter wallet address', 'error');
-                            return;
-                          }
-
-                          try {
-                            setWithdrawing(true);
-                            const token = localStorage.getItem('token');
-                            const response = await fetch(buildApiUrl('api/withdrawals/request'), {
-                              method: 'POST',
-                              headers: {
-                                'Authorization': `Bearer ${token}`,
-                                'Content-Type': 'application/json'
-                              },
-                              body: JSON.stringify({
-                                amount,
-                                walletAddress: withdrawalWallet,
-                                network: 'TRC20'
-                              })
-                            });
-
-                            const data = await response.json();
-
-                            if (response.ok) {
-                              showToast('Withdrawal request submitted successfully!', 'success');
-                              setShowWithdrawalForm(false);
-                              setWithdrawalAmount('');
-                              setWithdrawalWallet('');
-                              // Refresh user data to update balance
-                              fetchUserProfile();
-                              await refreshUser();
-                              window.dispatchEvent(new Event('platform:userChanged'));
-                            } else {
-                              showToast(data.message || 'Failed to submit withdrawal request', 'error');
+                      <div className="profile-field profile-field--full">
+                        <div className="profile-withdraw-alert">
+                          <AlertCircle className="h-5 w-5 shrink-0 text-amber-600" />
+                          <p>Admin will process your withdrawal request. You will be notified once it&apos;s completed.</p>
+                        </div>
+                      </div>
+                      <div className="profile-field profile-field--full">
+                        <div className="flex gap-3">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowWithdrawalForm(false);
+                            setWithdrawalAmount('');
+                            setWithdrawalWallet('');
+                          }}
+                          className="profile-btn profile-btn--ghost flex-1 justify-center"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const amount = parseFloat(withdrawalAmount);
+                            const MIN_WITHDRAWAL_AMOUNT = 30;
+                            if (!amount || amount <= 0) {
+                              showToast('Please enter a valid amount', 'error');
+                              return;
                             }
-                          } catch (error) {
-                            console.error('Withdrawal error:', error);
-                            showToast('Error submitting withdrawal request', 'error');
-                          } finally {
-                            setWithdrawing(false);
-                          }
-                        }}
-                        disabled={withdrawing}
-                        className="flex-1 px-4 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {withdrawing ? 'Submitting...' : 'Submit Request'}
+                            if (amount < MIN_WITHDRAWAL_AMOUNT) {
+                              showToast(`Minimum withdrawal amount is $${MIN_WITHDRAWAL_AMOUNT}`, 'error');
+                              return;
+                            }
+                            if (amount > (user.balance || 0)) {
+                              showToast('Insufficient balance', 'error');
+                              return;
+                            }
+                            if (!withdrawalWallet.trim()) {
+                              showToast('Please enter wallet address', 'error');
+                              return;
+                            }
+                            try {
+                              setWithdrawing(true);
+                              const token = localStorage.getItem('token');
+                              const response = await fetch(buildApiUrl('api/withdrawals/request'), {
+                                method: 'POST',
+                                headers: {
+                                  Authorization: `Bearer ${token}`,
+                                  'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                  amount,
+                                  walletAddress: withdrawalWallet,
+                                  network: 'TRC20',
+                                }),
+                              });
+                              const data = await response.json();
+                              if (response.ok) {
+                                showToast('Withdrawal request submitted successfully!', 'success');
+                                setShowWithdrawalForm(false);
+                                setWithdrawalAmount('');
+                                setWithdrawalWallet('');
+                                fetchUserProfile();
+                                await refreshUser();
+                                window.dispatchEvent(new Event('platform:userChanged'));
+                              } else {
+                                showToast(data.message || 'Failed to submit withdrawal request', 'error');
+                              }
+                            } catch (error) {
+                              console.error('Withdrawal error:', error);
+                              showToast('Error submitting withdrawal request', 'error');
+                            } finally {
+                              setWithdrawing(false);
+                            }
+                          }}
+                          disabled={withdrawing}
+                          className="profile-btn profile-btn--success flex-1 justify-center"
+                        >
+                          {withdrawing ? 'Submitting...' : 'Submit request'}
+                        </button>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="profile-balance">
+                      <p className="text-sm text-[var(--admin-muted)]">
+                        Your balance: <strong className="text-[var(--admin-text)]">${(user.balance || 0).toFixed(2)} USDT</strong>
+                      </p>
+                      <button type="button" onClick={() => setShowWithdrawalForm(true)} className="profile-btn profile-btn--success mt-4">
+                        <ArrowUpRight className="h-4 w-4" />
+                        Request withdrawal
                       </button>
                     </div>
-                  </div>
-                ) : (
-                  <div className="text-center py-4">
-                    <p className="text-gray-600 dark:text-gray-400 mb-4">
-                      Your balance: <span className="font-bold text-gray-900 dark:text-white">${(user.balance || 0).toFixed(2)} USDT</span>
-                    </p>
-                    <button
-                      onClick={() => setShowWithdrawalForm(true)}
-                      className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center space-x-2 mx-auto"
-                    >
-                      <ArrowUpRight className="w-5 h-5" />
-                      <span>Request Withdrawal</span>
-                    </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </motion.div>
-            )}
+            ) : null}
           </div>
         </div>
-      </div>
+      </main>
+
+      {cropOpen ? (
+        <div className="profile-crop-modal" role="dialog" aria-modal="true" onClick={closeCrop}>
+          <div className="profile-crop-modal__panel" onClick={(e) => e.stopPropagation()}>
+            <div className="profile-crop-modal__head">
+              <div>
+                <h3>Crop profile photo</h3>
+                <p>Drag to reposition, use the slider to zoom.</p>
+              </div>
+              <button type="button" onClick={closeCrop} className="profile-copy-btn" aria-label="Close">
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="profile-crop-modal__body">
+              <div className="flex justify-center">
+                <div
+                  className="relative select-none"
+                  onMouseDown={(e) => {
+                    if (!cropOpen) return;
+                    setCropDragging(true);
+                    cropDragStartRef.current = { x: e.clientX, y: e.clientY, ox: cropOffset.x, oy: cropOffset.y };
+                  }}
+                  onMouseMove={(e) => {
+                    if (!cropDragging || !cropDragStartRef.current) return;
+                    const s = cropDragStartRef.current;
+                    setCropOffset({ x: s.ox + (e.clientX - s.x), y: s.oy + (e.clientY - s.y) });
+                  }}
+                  onMouseUp={() => {
+                    setCropDragging(false);
+                    cropDragStartRef.current = null;
+                  }}
+                  onMouseLeave={() => {
+                    setCropDragging(false);
+                    cropDragStartRef.current = null;
+                  }}
+                  onTouchStart={(e) => {
+                    const t0 = e.touches[0];
+                    if (!t0) return;
+                    setCropDragging(true);
+                    cropDragStartRef.current = { x: t0.clientX, y: t0.clientY, ox: cropOffset.x, oy: cropOffset.y };
+                  }}
+                  onTouchMove={(e) => {
+                    const t0 = e.touches[0];
+                    if (!t0 || !cropDragging || !cropDragStartRef.current) return;
+                    const s = cropDragStartRef.current;
+                    setCropOffset({ x: s.ox + (t0.clientX - s.x), y: s.oy + (t0.clientY - s.y) });
+                  }}
+                  onTouchEnd={() => {
+                    setCropDragging(false);
+                    cropDragStartRef.current = null;
+                  }}
+                >
+                  <canvas ref={cropCanvasRef} width={320} height={320} className="profile-crop-canvas" />
+                  {cropSrc ? (
+                    <img
+                      src={cropSrc}
+                      alt="Crop source"
+                      className="hidden"
+                      onLoad={(e) => {
+                        cropImgRef.current = e.currentTarget;
+                        drawCropPreview();
+                      }}
+                    />
+                  ) : null}
+                </div>
+              </div>
+              <div className="mt-5">
+                <label className="block text-sm font-medium mb-2">Zoom</label>
+                <input
+                  type="range"
+                  min={1}
+                  max={3}
+                  step={0.01}
+                  value={cropZoom}
+                  onChange={(e) => setCropZoom(parseFloat(e.target.value))}
+                  className="w-full"
+                />
+              </div>
+            </div>
+            <div className="profile-crop-modal__foot">
+              <button type="button" onClick={closeCrop} className="profile-btn profile-btn--ghost">Cancel</button>
+              <button
+                type="button"
+                onClick={async (e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  try {
+                    const cropped = await buildCroppedAvatarFile(512);
+                    if (!cropped) {
+                      showToast('Failed to process image. Try a different photo.', 'error');
+                      return;
+                    }
+                    if (draftAvatarUrl) URL.revokeObjectURL(draftAvatarUrl);
+                    setDraftAvatarFile(cropped);
+                    setDraftAvatarUrl(URL.createObjectURL(cropped));
+                    closeCrop();
+                  } catch (err) {
+                    console.error('Crop+upload error:', err);
+                    showToast('Failed to process image.', 'error');
+                  }
+                }}
+                className="profile-btn profile-btn--primary"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
