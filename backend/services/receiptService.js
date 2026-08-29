@@ -9,8 +9,9 @@ const { feeMonthForMonthlyFeePayment } = require('../utils/monthlyFeeStatus');
 const COMPANY = {
   name: 'Forex Navigators',
   legal: 'Forex Navigators LMS',
-  tagline: 'Official payment receipt',
-  support: 'thefxnavigators@gmail.com'
+  tagline: 'Official payment record',
+  support: 'thefxnavigators@gmail.com',
+  web: 'forexnavigators.com'
 };
 
 const TYPE_PREFIX = {
@@ -136,6 +137,8 @@ function paymentLineItems(payment) {
 function findLogoPath() {
   const candidates = [
     path.join(__dirname, '../assets/logo.png'),
+    path.join(__dirname, '../../frontend/public/all-07.png'),
+    path.join(__dirname, '../../frontend/public/icon-192.png'),
     path.join(__dirname, '../../frontend/public/assets/logo.png')
   ];
   return candidates.find((p) => fs.existsSync(p)) || null;
@@ -151,138 +154,211 @@ function pdfToBuffer(doc) {
   });
 }
 
+function formatDateShort(date) {
+  const d = date ? new Date(date) : new Date();
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function hrule(doc, x, y, w, color = '#e5e7eb') {
+  doc.save();
+  doc.moveTo(x, y).lineTo(x + w, y).strokeColor(color).lineWidth(0.5).stroke();
+  doc.restore();
+}
+
+/** Compact single-page receipt — content flows top-to-bottom, never adds a second page. */
 function drawReceiptPdf(payload) {
   const doc = new PDFDocument({
     size: 'A4',
-    margin: 48,
+    margin: 0,
     info: {
       Title: `Receipt ${payload.receiptNumber}`,
       Author: COMPANY.name,
-      Subject: payload.subtitle || COMPANY.tagline
+      Subject: payload.subtitle || COMPANY.tagline,
+      Creator: COMPANY.legal
     }
   });
 
   const pageW = doc.page.width;
-  const navy = '#0f172a';
-  const gold = '#c9a227';
-  const muted = '#64748b';
-  const line = '#e2e8f0';
+  const M = 52;
+  const W = pageW - M * 2;
 
-  doc.rect(0, 0, pageW, 92).fill(navy);
-  doc.rect(0, 92, pageW, 4).fill(gold);
+  const C = {
+    ink: '#111827',
+    body: '#374151',
+    muted: '#6b7280',
+    faint: '#9ca3af',
+    line: '#e5e7eb',
+    brand: '#1d4ed8',
+    paid: '#047857',
+    paidBg: '#ecfdf5',
+    rowBg: '#f9fafb'
+  };
+
+  const status = String(payload.statusLabel || 'PAID').toUpperCase();
+
+  doc.rect(0, 0, pageW, doc.page.height).fill('#ffffff');
+  doc.rect(0, 0, pageW, 3).fill(C.brand);
+
+  let y = M;
 
   const logoPath = findLogoPath();
+  const logoSz = 36;
   if (logoPath) {
     try {
-      doc.image(logoPath, 48, 22, { width: 48, height: 48, fit: [48, 48] });
+      doc.image(logoPath, M, y, { width: logoSz, height: logoSz, fit: [logoSz, logoSz] });
     } catch {
-      // continue without logo
+      // skip
     }
   }
 
-  const titleX = logoPath ? 108 : 48;
-  doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(18).text(COMPANY.name, titleX, 28, {
-    width: pageW - titleX - 48
+  const tx = logoPath ? M + logoSz + 12 : M;
+  doc.fillColor(C.ink).font('Helvetica-Bold').fontSize(14).text(COMPANY.name, tx, y + 2, { width: W * 0.45 });
+  doc.fillColor(C.muted).font('Helvetica').fontSize(8).text(COMPANY.legal, tx, y + 18, { width: W * 0.45 });
+
+  doc.fillColor(C.faint).font('Helvetica').fontSize(7).text('RECEIPT', M, y, {
+    width: W,
+    align: 'right',
+    characterSpacing: 1
   });
-  doc.fillColor('#cbd5e1').font('Helvetica').fontSize(10).text(payload.subtitle || COMPANY.tagline, titleX, 52, {
-    width: pageW - titleX - 48
-  });
+  doc.fillColor(C.ink).font('Helvetica-Bold').fontSize(11).text(
+    payload.subtitle || COMPANY.tagline,
+    M,
+    y + 9,
+    { width: W, align: 'right' }
+  );
 
-  doc.fillColor(navy).font('Helvetica-Bold').fontSize(22).text('OFFICIAL RECEIPT', 48, 120);
-  doc.fillColor(muted).font('Helvetica').fontSize(10).text(`Receipt no.  ${payload.receiptNumber}`, 48, 148);
-  doc.text(`Issued  ${formatDateLong(payload.issuedAt)}`, 48, 164);
-
-  if (payload.statusLabel) {
-    doc.fillColor('#047857').font('Helvetica-Bold').fontSize(10).text(payload.statusLabel, 360, 148, {
-      width: pageW - 408,
-      align: 'right'
-    });
-  }
-
-  doc.moveTo(48, 190).lineTo(pageW - 48, 190).strokeColor(line).lineWidth(1).stroke();
-
-  doc.fillColor(muted).font('Helvetica').fontSize(9).text('BILLED TO', 48, 206);
-  doc.fillColor(navy).font('Helvetica-Bold').fontSize(12).text(payload.billedTo?.name || 'Member', 48, 220);
-  doc.fillColor('#334155').font('Helvetica').fontSize(10).text(payload.billedTo?.email || '', 48, 238);
-
-  if (payload.metaRows?.length) {
-    let y = 206;
-    payload.metaRows.forEach((row) => {
-      doc.fillColor(muted).font('Helvetica').fontSize(9).text(row.label.toUpperCase(), 320, y, {
-        width: pageW - 368,
-        align: 'right'
-      });
-      doc.fillColor(navy).font('Helvetica').fontSize(10).text(row.value || '—', 320, y + 12, {
-        width: pageW - 368,
-        align: 'right'
-      });
-      y += 36;
-    });
-  }
-
-  const tableTop = 290;
-  doc.rect(48, tableTop, pageW - 96, 28).fill('#f8fafc');
-  doc.fillColor(muted).font('Helvetica-Bold').fontSize(9);
-  doc.text('DESCRIPTION', 60, tableTop + 9);
-  doc.text('AMOUNT', 48, tableTop + 9, { width: pageW - 108, align: 'right' });
-
-  let rowY = tableTop + 36;
-  const lines = payload.lines?.length ? payload.lines : [{ description: '—', amount: 0, currency: payload.currency }];
-  lines.forEach((item, idx) => {
-    if (idx % 2 === 1) {
-      doc.rect(48, rowY - 8, pageW - 96, 26).fill('#fafafa');
-    }
-    doc.fillColor(navy).font('Helvetica').fontSize(10).text(item.description || 'Item', 60, rowY, {
-      width: pageW - 220
-    });
-    doc.text(formatMoney(item.amount, item.currency || payload.currency), 48, rowY, {
-      width: pageW - 108,
-      align: 'right'
-    });
-    rowY += 26;
+  const pillW = Math.max(48, status.length * 5.5 + 16);
+  const pillX = pageW - M - pillW;
+  doc.roundedRect(pillX, y + 24, pillW, 16, 8).fill(C.paidBg);
+  doc.fillColor(C.paid).font('Helvetica-Bold').fontSize(7).text(status, pillX, y + 28, {
+    width: pillW,
+    align: 'center'
   });
 
-  doc.moveTo(48, rowY + 4).lineTo(pageW - 48, rowY + 4).strokeColor(line).lineWidth(1).stroke();
-  rowY += 18;
+  y += logoSz + 14;
+  hrule(doc, M, y, W, C.line);
+  y += 16;
 
-  if (Number(payload.discountAmount) > 0) {
-    doc.fillColor(muted).font('Helvetica').fontSize(10).text('Discount', 48, rowY, { width: pageW - 108, align: 'right' });
-    doc.text(`− ${formatMoney(payload.discountAmount, payload.currency)}`, 48, rowY + 14, {
-      width: pageW - 108,
-      align: 'right'
-    });
-    rowY += 36;
-  }
+  doc.fillColor(C.faint).font('Helvetica').fontSize(7).text('NUMBER', M, y, { characterSpacing: 0.6 });
+  doc.fillColor(C.ink).font('Helvetica-Bold').fontSize(10).text(payload.receiptNumber, M, y + 9);
 
-  doc.fillColor(navy).font('Helvetica-Bold').fontSize(12).text('Total paid', 48, rowY, {
-    width: pageW - 220
+  doc.fillColor(C.faint).font('Helvetica').fontSize(7).text('DATE', M + W * 0.55, y, {
+    width: W * 0.45,
+    align: 'right',
+    characterSpacing: 0.6
   });
-  doc.fontSize(14).text(formatMoney(payload.total, payload.currency), 48, rowY, {
-    width: pageW - 108,
+  doc.fillColor(C.body).font('Helvetica').fontSize(9).text(formatDateShort(payload.issuedAt), M + W * 0.55, y + 9, {
+    width: W * 0.45,
     align: 'right'
   });
 
-  rowY += 40;
-  doc.rect(48, rowY, pageW - 96, 72).fill('#f8fafc');
-  doc.fillColor(muted).font('Helvetica-Bold').fontSize(9).text('PAYMENT DETAILS', 60, rowY + 12);
-  doc.fillColor(navy).font('Helvetica').fontSize(10);
-  doc.text(`Method: ${payload.paymentMethod || '—'}`, 60, rowY + 28);
-  doc.text(`Reference: ${payload.transactionId || payload.receiptNumber}`, 60, rowY + 44);
+  y += 30;
+  hrule(doc, M, y, W, C.line);
+  y += 14;
+
+  const half = (W - 24) / 2;
+  const rx = M + half + 24;
+
+  doc.fillColor(C.faint).font('Helvetica').fontSize(7).text('BILLED TO', M, y, { characterSpacing: 0.6 });
+  doc.fillColor(C.ink).font('Helvetica-Bold').fontSize(10).text(payload.billedTo?.name || 'Member', M, y + 9, {
+    width: half
+  });
+  doc.fillColor(C.muted).font('Helvetica').fontSize(8).text(payload.billedTo?.email || '', M, y + 22, {
+    width: half
+  });
+
+  const meta = (Array.isArray(payload.metaRows) ? payload.metaRows : []).slice(0, 3);
+  if (!meta.length) meta.push({ label: 'Type', value: payload.subtitle || 'Payment' });
+
+  let ry = y;
+  meta.forEach((row) => {
+    doc.fillColor(C.faint).font('Helvetica').fontSize(7).text(row.label.toUpperCase(), rx, ry, {
+      width: half,
+      characterSpacing: 0.6
+    });
+    doc.fillColor(C.body).font('Helvetica').fontSize(9).text(row.value || '—', rx, ry + 9, { width: half });
+    ry += 22;
+  });
+
+  y = Math.max(y + 38, ry) + 10;
+  hrule(doc, M, y, W, C.line);
+  y += 12;
+
+  doc.rect(M, y, W, 20).fill(C.rowBg);
+  doc.fillColor(C.faint).font('Helvetica-Bold').fontSize(7).text('DESCRIPTION', M + 10, y + 6, {
+    characterSpacing: 0.6
+  });
+  doc.text('AMOUNT', M, y + 6, { width: W - 10, align: 'right', characterSpacing: 0.6 });
+  y += 24;
+
+  const lines = payload.lines?.length
+    ? payload.lines
+    : [{ description: '—', amount: 0, currency: payload.currency }];
+
+  lines.forEach((item, i) => {
+    if (i % 2 === 1) doc.rect(M, y - 2, W, 20).fill('#fdfdfd');
+    doc.fillColor(C.ink).font('Helvetica').fontSize(9).text(item.description || 'Item', M + 10, y + 2, {
+      width: W * 0.65
+    });
+    doc.font('Helvetica-Bold').text(
+      formatMoney(item.amount, item.currency || payload.currency),
+      M,
+      y + 2,
+      { width: W - 10, align: 'right' }
+    );
+    y += 22;
+  });
+
+  y += 4;
+  hrule(doc, M + W * 0.5, y, W * 0.5, C.line);
+  y += 10;
+
+  if (Number(payload.discountAmount) > 0) {
+    doc.fillColor(C.muted).font('Helvetica').fontSize(8).text('Discount', M + W * 0.5, y);
+    doc.fillColor(C.paid).text(
+      `− ${formatMoney(payload.discountAmount, payload.currency)}`,
+      M,
+      y,
+      { width: W - 10, align: 'right' }
+    );
+    y += 16;
+  }
+
+  doc.fillColor(C.muted).font('Helvetica').fontSize(8).text('Total paid', M + W * 0.5, y);
+  doc.fillColor(C.ink).font('Helvetica-Bold').fontSize(14).text(
+    formatMoney(payload.total, payload.currency),
+    M,
+    y - 1,
+    { width: W - 10, align: 'right' }
+  );
+
+  y += 28;
+  hrule(doc, M, y, W, C.line);
+  y += 12;
+
+  doc.fillColor(C.faint).font('Helvetica').fontSize(7).text('PAYMENT', M, y, { characterSpacing: 0.6 });
+  y += 10;
+  doc.fillColor(C.body).font('Helvetica').fontSize(8.5);
+  doc.text(`Method: ${payload.paymentMethod || '—'}`, M, y, { width: half });
+  doc.text(`Ref: ${payload.transactionId || payload.receiptNumber}`, rx, y, { width: half });
 
   if (payload.notes) {
-    rowY += 88;
-    doc.fillColor(muted).font('Helvetica').fontSize(9).text(payload.notes, 48, rowY, {
-      width: pageW - 96
+    y += 14;
+    doc.fillColor(C.muted).font('Helvetica').fontSize(7.5).text(payload.notes, M, y, {
+      width: W,
+      lineGap: 1
     });
   }
 
-  const footerY = doc.page.height - 56;
-  doc.moveTo(48, footerY - 16).lineTo(pageW - 48, footerY - 16).strokeColor(line).lineWidth(1).stroke();
-  doc.fillColor(muted).font('Helvetica').fontSize(8).text(
-    `${COMPANY.legal}  ·  This document is an official receipt for the transaction above.  ·  ${COMPANY.support}`,
-    48,
-    footerY,
-    { width: pageW - 96, align: 'center' }
+  y += 28;
+  hrule(doc, M, y, W, C.line);
+  y += 10;
+  doc.fillColor(C.faint).font('Helvetica').fontSize(7).text(
+    `${COMPANY.legal}  ·  ${COMPANY.support}`,
+    M,
+    y,
+    { width: W, align: 'center' }
   );
 
   return pdfToBuffer(doc);
@@ -321,7 +397,10 @@ async function generatePaymentReceiptPdf(payment, user) {
   const receiptNumber = await ensurePaymentReceiptNumber(payment);
   const issuedAt = payment.confirmedAt || payment.createdAt;
   const lines = paymentLineItems(payment);
-  const metaRows = [];
+  const metaRows = [
+    { label: 'Type', value: TYPE_LABEL[payment.type] || 'Payment' },
+    { label: 'Currency', value: String(payment.currency || 'USD').toUpperCase() }
+  ];
   if (payment.type === 'package' && payment.package?.name) {
     metaRows.push({ label: 'Package', value: payment.package.name });
   }
@@ -343,7 +422,8 @@ async function generatePaymentReceiptPdf(payment, user) {
     currency: payment.currency || 'USD',
     paymentMethod: formatPaymentMethod(payment.paymentMethod),
     transactionId: payment.transactionId || String(payment._id),
-    notes: 'Thank you for your payment. Keep this receipt for your records.'
+    notes:
+      'Thank you for your payment. Keep this receipt for your records.'
   });
 }
 
@@ -383,8 +463,7 @@ async function generateJoinReceiptPdf(userDoc) {
     currency: 'USD',
     paymentMethod: 'Membership record',
     transactionId: String(user._id),
-    notes:
-      'This receipt confirms when the member joined Forex Navigators. Package and monthly-fee charges are issued as separate receipts when those payments are completed.'
+    notes: 'Confirms membership registration. Package and fee charges are issued as separate receipts.'
   });
 }
 

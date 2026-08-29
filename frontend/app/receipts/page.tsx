@@ -3,11 +3,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowLeft, Calendar, CreditCard, Package, Receipt } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { ArrowLeft } from 'lucide-react';
 import { buildApiUrl } from '@/utils/api';
 import DarkModeToggle from '../../components/DarkModeToggle';
 import CoolLoader from '../../components/CoolLoader';
 import ReceiptActions from '../../components/ReceiptActions';
+import './receipts.css';
 
 type JoinReceipt = {
   kind: 'join';
@@ -34,7 +36,7 @@ function formatDate(iso?: string) {
   if (!iso) return '—';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '—';
-  return d.toLocaleDateString(undefined, { dateStyle: 'medium' });
+  return d.toLocaleDateString(undefined, { dateStyle: 'long' });
 }
 
 function formatMoney(amount: number, currency = 'USD') {
@@ -44,6 +46,10 @@ function formatMoney(amount: number, currency = 'USD') {
     return `$${(amount || 0).toFixed(2)}`;
   }
 }
+
+const btnView = 'rcp-btn rcp-btn--view';
+const btnDownload = 'rcp-btn rcp-btn--download';
+const btnIcon = 'rcp-btn rcp-btn--icon';
 
 export default function ReceiptsPage() {
   const router = useRouter();
@@ -63,7 +69,7 @@ export default function ReceiptsPage() {
     (async () => {
       try {
         const res = await fetch(buildApiUrl('api/payments/receipts'), {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
         });
         const json = await res.json().catch(() => ({}));
         if (!alive) return;
@@ -89,142 +95,224 @@ export default function ReceiptsPage() {
   const monthlyReceipts = useMemo(() => payments.filter((p) => p.kind === 'monthly_fee'), [payments]);
   const otherReceipts = useMemo(
     () => payments.filter((p) => p.kind !== 'package' && p.kind !== 'monthly_fee'),
-    [payments]
+    [payments],
   );
 
+  const totalCount = payments.length + (join ? 1 : 0);
+
   if (loading) {
-    return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <CoolLoader message="Loading receipts..." />
-      </div>
-    );
+    return <CoolLoader message="Loading receipts…" />;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 py-10 px-4">
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="flex items-center justify-between">
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center text-sm text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back to dashboard
+    <div className="receipts-page">
+      <header className="receipts-page__header">
+        <div className="receipts-page__header-inner">
+          <Link href="/dashboard" className="receipts-page__back">
+            <ArrowLeft className="w-4 h-4" />
+            Dashboard
           </Link>
           <DarkModeToggle size="sm" />
         </div>
+      </header>
 
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <Receipt className="w-8 h-8 text-violet-600" />
-            Receipts
-          </h1>
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-            Download your join, package, monthly-fee, and other payment receipts as PDF.
+      <main className="receipts-page__main">
+        <motion.div
+          className="receipts-hero"
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4 }}
+        >
+          <p className="receipts-hero__label">Billing</p>
+          <h1 className="receipts-hero__title">Receipts</h1>
+          <p className="receipts-hero__desc">
+            Official payment records for your membership, packages, and monthly fees. Each document is available as a PDF.
           </p>
-        </div>
-
-        {error ? (
-          <div className="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 px-4 py-3 text-sm text-red-700 dark:text-red-200">
-            {error}
+          <div className="receipts-stats">
+            <div>
+              <p className="receipts-stat__value">{totalCount}</p>
+              <p className="receipts-stat__label">Documents</p>
+            </div>
+            <div>
+              <p className="receipts-stat__value">{payments.length}</p>
+              <p className="receipts-stat__label">Payments</p>
+            </div>
           </div>
-        ) : null}
+        </motion.div>
+
+        {error ? <div className="receipts-alert">{error}</div> : null}
 
         {join ? (
-          <section className="rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5" />
-                  Membership
-                </p>
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white mt-1">{join.title}</h2>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Joined {formatDate(join.issuedAt)}
-                  {join.packageName ? ` · ${join.packageName}` : ''}
-                </p>
-                <p className="text-xs font-mono text-gray-500 mt-1">{join.receiptNumber}</p>
-              </div>
-              <ReceiptActions
-                endpoint="api/payments/receipts/join"
-                filename={`Forex-Navigators-${join.receiptNumber}.pdf`}
-                label="Download"
-                previewTitle="Membership receipt"
-              />
-            </div>
-          </section>
+          <ReceiptSection title="Membership" count={1} delay={0.05}>
+            <ReceiptDoc
+              variant="join"
+              typeLabel="Registration"
+              title={join.title}
+              meta={`Joined ${formatDate(join.issuedAt)}${join.packageName ? ` · ${join.packageName}` : ''}`}
+              receiptNumber={join.receiptNumber}
+              amount={0}
+              currency="USD"
+              status="Registered"
+              endpoint="api/payments/receipts/join"
+              filename={`Forex-Navigators-${join.receiptNumber}.pdf`}
+              previewTitle="Membership receipt"
+              showAmount={false}
+            />
+          </ReceiptSection>
         ) : null}
 
-        <ReceiptGroup
-          title="Package"
-          icon={<Package className="w-4 h-4 text-blue-500" />}
-          empty="No completed package payment yet."
-          items={packageReceipts}
-        />
-        <ReceiptGroup
-          title="Monthly fee"
-          icon={<CreditCard className="w-4 h-4 text-amber-500" />}
-          empty="No completed monthly-fee payments yet."
-          items={monthlyReceipts}
-        />
-        <ReceiptGroup
-          title="Other payments"
-          icon={<Receipt className="w-4 h-4 text-slate-500" />}
-          empty="No other completed payments."
-          items={otherReceipts}
-          hideIfEmpty
-        />
-      </div>
+        <ReceiptSection title="Package" count={packageReceipts.length} delay={0.08}>
+          {packageReceipts.length === 0 ? (
+            <p className="receipts-empty">No completed package payments.</p>
+          ) : (
+            packageReceipts.map((row) => (
+              <ReceiptDoc
+                key={row.id}
+                variant="package"
+                typeLabel="Package"
+                title={row.title}
+                meta={`${formatDate(row.issuedAt)}${row.paymentMethod ? ` · ${row.paymentMethod}` : ''}`}
+                receiptNumber={row.receiptNumber}
+                amount={row.amount}
+                currency={row.currency}
+                endpoint={`api/payments/${row.id}/receipt`}
+                filename={`Forex-Navigators-${row.receiptNumber}.pdf`}
+                previewTitle={row.title}
+              />
+            ))
+          )}
+        </ReceiptSection>
+
+        <ReceiptSection title="Monthly fee" count={monthlyReceipts.length} delay={0.1}>
+          {monthlyReceipts.length === 0 ? (
+            <p className="receipts-empty">No completed monthly-fee payments.</p>
+          ) : (
+            monthlyReceipts.map((row) => (
+              <ReceiptDoc
+                key={row.id}
+                variant="monthly"
+                typeLabel="Monthly fee"
+                title={row.title}
+                meta={`${formatDate(row.issuedAt)}${row.paymentMethod ? ` · ${row.paymentMethod}` : ''}`}
+                receiptNumber={row.receiptNumber}
+                amount={row.amount}
+                currency={row.currency}
+                endpoint={`api/payments/${row.id}/receipt`}
+                filename={`Forex-Navigators-${row.receiptNumber}.pdf`}
+                previewTitle={row.title}
+              />
+            ))
+          )}
+        </ReceiptSection>
+
+        {otherReceipts.length > 0 ? (
+          <ReceiptSection title="Other" count={otherReceipts.length} delay={0.12}>
+            {otherReceipts.map((row) => (
+              <ReceiptDoc
+                key={row.id}
+                variant="package"
+                typeLabel="Payment"
+                title={row.title}
+                meta={`${formatDate(row.issuedAt)}${row.paymentMethod ? ` · ${row.paymentMethod}` : ''}`}
+                receiptNumber={row.receiptNumber}
+                amount={row.amount}
+                currency={row.currency}
+                endpoint={`api/payments/${row.id}/receipt`}
+                filename={`Forex-Navigators-${row.receiptNumber}.pdf`}
+                previewTitle={row.title}
+              />
+            ))}
+          </ReceiptSection>
+        ) : null}
+      </main>
     </div>
   );
 }
 
-function ReceiptGroup({
+function ReceiptSection({
   title,
-  icon,
-  empty,
-  items,
-  hideIfEmpty
+  count,
+  delay,
+  children,
 }: {
   title: string;
-  icon: ReactNode;
-  empty: string;
-  items: PaymentReceipt[];
-  hideIfEmpty?: boolean;
+  count: number;
+  delay: number;
+  children: React.ReactNode;
 }) {
-  if (hideIfEmpty && items.length === 0) return null;
-
   return (
-    <section className="rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
-      <h2 className="text-base font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-        {icon}
-        {title}
-      </h2>
-      {items.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400">{empty}</p>
-      ) : (
-        <div className="divide-y divide-gray-100 dark:divide-gray-700">
-          {items.map((row) => (
-            <div key={row.id} className="py-3 flex items-start justify-between gap-3 first:pt-0 last:pb-0">
-              <div>
-                <p className="font-medium text-gray-900 dark:text-white text-sm">{row.title}</p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                  {formatDate(row.issuedAt)} · {formatMoney(row.amount, row.currency)}
-                  {row.paymentMethod ? ` · ${row.paymentMethod}` : ''}
-                </p>
-                <p className="text-xs font-mono text-gray-400 mt-0.5">{row.receiptNumber}</p>
-              </div>
-              <ReceiptActions
-                endpoint={`api/payments/${row.id}/receipt`}
-                filename={`Forex-Navigators-${row.receiptNumber}.pdf`}
-                iconOnly
-                title="receipt"
-                previewTitle={row.title}
-              />
-            </div>
-          ))}
+    <motion.section
+      className="receipts-section"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay }}
+    >
+      <div className="receipts-section__head">
+        <h2 className="receipts-section__title">{title}</h2>
+        <span className="receipts-section__count">{count}</span>
+      </div>
+      {children}
+    </motion.section>
+  );
+}
+
+function ReceiptDoc({
+  variant,
+  typeLabel,
+  title,
+  meta,
+  receiptNumber,
+  amount,
+  currency,
+  status,
+  endpoint,
+  filename,
+  previewTitle,
+  showAmount = true,
+}: {
+  variant: 'join' | 'package' | 'monthly';
+  typeLabel: string;
+  title: string;
+  meta: string;
+  receiptNumber: string;
+  amount: number;
+  currency: string;
+  status?: string;
+  endpoint: string;
+  filename: string;
+  previewTitle: string;
+  showAmount?: boolean;
+}) {
+  return (
+    <article className={`receipts-doc receipts-doc--${variant}`}>
+      <div className="receipts-doc__accent" aria-hidden />
+      <div className="receipts-doc__body">
+        <div className="receipts-doc__main">
+          <p className="receipts-doc__type">{typeLabel}</p>
+          <h3 className="receipts-doc__title">{title}</h3>
+          <p className="receipts-doc__meta">{meta}</p>
+          <span className="receipts-doc__id">{receiptNumber}</span>
         </div>
-      )}
-    </section>
+        <div className="receipts-doc__aside">
+          {showAmount ? (
+            <span className={`receipts-doc__amount${amount === 0 ? ' is-zero' : ''}`}>
+              {formatMoney(amount, currency)}
+            </span>
+          ) : status ? (
+            <span className="receipts-doc__status">{status}</span>
+          ) : null}
+          <div className="receipts-doc__actions">
+            <ReceiptActions
+              endpoint={endpoint}
+              filename={filename}
+              label="PDF"
+              previewTitle={previewTitle}
+              viewClassName={btnView}
+              downloadClassName={btnDownload}
+            />
+          </div>
+        </div>
+      </div>
+    </article>
   );
 }
