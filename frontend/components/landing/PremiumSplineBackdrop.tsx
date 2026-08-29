@@ -4,6 +4,9 @@ import dynamic from 'next/dynamic';
 import { type CSSProperties, useEffect, useState } from 'react';
 import { motion, useSpring } from 'framer-motion';
 
+/** Phones only — tablets use the full Spline / desktop hero treatment. */
+const NARROW_MQ = '(max-width: 767px)';
+
 const Spline = dynamic(() => import('@splinetool/react-spline'), {
   ssr: false,
   loading: () => <SplineLoadingFallback />,
@@ -39,7 +42,7 @@ export function PremiumSplineBackdrop({
   useEffect(() => {
     setMounted(true);
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
-    const narrow = window.matchMedia('(max-width: 1023px)');
+    const narrow = window.matchMedia(NARROW_MQ);
     const sync = () => {
       setUseSpline(!reduceMotion.matches && !narrow.matches);
     };
@@ -97,7 +100,7 @@ export function useHeroPointerParallax() {
   const y = useSpring(0, { stiffness: 28, damping: 18, mass: 0.8 });
 
   useEffect(() => {
-    const narrow = window.matchMedia('(max-width: 1023px)');
+    const narrow = window.matchMedia(NARROW_MQ);
     if (narrow.matches) return;
 
     const onMove = (e: MouseEvent) => {

@@ -8,6 +8,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import ThreeGlobe from 'three-globe';
+import { LANDING_MOBILE_MQ } from './landingBreakpoints';
 
 const GLOBE_RADIUS = 100;
 
@@ -337,7 +338,7 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
     if (!isAuth) {
       const syncGlobeTouchScroll = () => {
         const narrow =
-          typeof window.matchMedia === 'function' && window.matchMedia('(max-width: 1023px)').matches;
+          typeof window.matchMedia === 'function' && window.matchMedia(LANDING_MOBILE_MQ).matches;
         const coarse =
           typeof window.matchMedia === 'function' &&
           window.matchMedia('(hover: none) and (pointer: coarse)').matches;
@@ -347,7 +348,7 @@ export default function Globe({ variant = 'hero' }: GlobeProps) {
         controls.enableRotate = !passThrough;
       };
       syncGlobeTouchScroll();
-      const mqNarrow = window.matchMedia('(max-width: 1023px)');
+      const mqNarrow = window.matchMedia(LANDING_MOBILE_MQ);
       const mqCoarse = window.matchMedia('(hover: none) and (pointer: coarse)');
       const onGlobeTouchMql = () => syncGlobeTouchScroll();
       mqNarrow.addEventListener('change', onGlobeTouchMql);

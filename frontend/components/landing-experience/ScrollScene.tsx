@@ -290,7 +290,7 @@ Professional edge, decoded for the retail trader.
                 alt=""
                 aria-hidden
                 draggable={false}
-                sizes="(max-width: 1024px) 90vw, 560px"
+                sizes="(max-width: 767px) 90vw, 560px"
                 priority={false}
               />
             </div>

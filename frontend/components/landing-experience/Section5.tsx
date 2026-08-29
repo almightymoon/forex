@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { fetchMergedPublicPackages, getDefaultPackages, type UiPackage } from '../../lib/publicPackages';
+import { LANDING_MOBILE_MQ } from './landingBreakpoints';
 import { useScrollReveal } from './useScrollReveal';
 
 const ACCESS_BACK_ART = [
@@ -88,7 +89,7 @@ export default function Section5() {
   };
 
   useEffect(() => {
-    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    const mobileMq = window.matchMedia(LANDING_MOBILE_MQ);
     if (!mobileMq.matches || !entryRef.current) return;
     entryRef.current.style.opacity = '';
     entryRef.current.style.transform = '';
@@ -96,7 +97,7 @@ export default function Section5() {
   }, []);
 
   useEffect(() => {
-    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    const mobileMq = window.matchMedia(LANDING_MOBILE_MQ);
     if (!mobileMq.matches || many) return;
 
     const root = rootRef.current;
@@ -139,7 +140,7 @@ export default function Section5() {
   }, [many, plans.length]);
 
   useEffect(() => {
-    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    const mobileMq = window.matchMedia(LANDING_MOBILE_MQ);
     if (mobileMq.matches) return;
 
     let rafId: number;

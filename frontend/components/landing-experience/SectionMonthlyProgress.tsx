@@ -12,6 +12,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { resolveBackendAssetUrl } from '../../lib/resolveBackendAssetUrl';
+import { LANDING_MOBILE_MAX_PX } from './landingBreakpoints';
 
 /** Same geometric sans as the landing hero / nav—explicit here so weights match references */
 const dmSans = DM_Sans({
@@ -99,7 +100,7 @@ function MonthlyProgressActiveSlice(props: Record<string, unknown>) {
   );
 }
 
-const COMPACT_MAX_WIDTH = 959;
+const COMPACT_MAX_WIDTH = LANDING_MOBILE_MAX_PX;
 
 export default function SectionMonthlyProgress() {
   const [payload, setPayload] = useState<MonthlyProgressPublicPayload | null>(null);

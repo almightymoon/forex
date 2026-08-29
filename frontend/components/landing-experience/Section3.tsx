@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { LANDING_MOBILE_MQ } from './landingBreakpoints';
 import { useScrollReveal } from './useScrollReveal';
 
 const CARDS = [
@@ -59,14 +60,14 @@ export default function Section3() {
   const spreadProg = useRef(0);
 
   useEffect(() => {
-    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    const mobileMq = window.matchMedia(LANDING_MOBILE_MQ);
     if (!mobileMq.matches || !stickyRef.current) return;
     stickyRef.current.style.opacity = '';
     stickyRef.current.style.transform = '';
   }, []);
 
   useEffect(() => {
-    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    const mobileMq = window.matchMedia(LANDING_MOBILE_MQ);
     if (!mobileMq.matches) return;
 
     const root = rootRef.current;
@@ -109,7 +110,7 @@ export default function Section3() {
   }, []);
 
   useEffect(() => {
-    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    const mobileMq = window.matchMedia(LANDING_MOBILE_MQ);
     if (mobileMq.matches) return;
 
     let rafId: number;

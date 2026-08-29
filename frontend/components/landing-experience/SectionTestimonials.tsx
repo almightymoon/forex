@@ -546,7 +546,7 @@ export default function SectionTestimonials() {
           }
         }
 
-        @media (max-width: 1024px) {
+        @media (max-width: 767px) {
           .fx-testimonials {
             padding: clamp(20px, 3.5vh, 36px) clamp(16px, 4vw, 28px) clamp(16px, 3vh, 32px);
           }

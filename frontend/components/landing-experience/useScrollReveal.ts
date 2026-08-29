@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, type RefObject } from 'react';
+import { LANDING_MOBILE_MQ } from './landingBreakpoints';
 
 type ScrollRevealOptions = {
   threshold?: number;
@@ -33,7 +34,7 @@ export function useScrollReveal<T extends HTMLElement>(
       return;
     }
 
-    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    const mobileMq = window.matchMedia(LANDING_MOBILE_MQ);
     if (mobileOnly && !mobileMq.matches) {
       setRevealed(true);
       return;
@@ -78,7 +79,7 @@ export function useMobileScrollProgress<T extends HTMLElement>(
   useEffect(() => {
     if (!enabled) return;
 
-    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    const mobileMq = window.matchMedia(LANDING_MOBILE_MQ);
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (!mobileMq.matches || reduced) return;
 

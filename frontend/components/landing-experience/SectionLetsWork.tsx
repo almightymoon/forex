@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { LANDING_MOBILE_MQ } from './landingBreakpoints';
 import { useScrollReveal } from './useScrollReveal';
 
 function easeOutCubic(t: number) {
@@ -103,14 +104,14 @@ export default function SectionLetsWork() {
   }, []);
 
   useEffect(() => {
-    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    const mobileMq = window.matchMedia(LANDING_MOBILE_MQ);
     if (!mobileMq.matches || !innerRef.current) return;
     innerRef.current.style.opacity = '';
     innerRef.current.style.transform = '';
   }, []);
 
   useEffect(() => {
-    const mobileMq = window.matchMedia('(max-width: 1024px)');
+    const mobileMq = window.matchMedia(LANDING_MOBILE_MQ);
     if (mobileMq.matches) return;
 
     let rafId: number;

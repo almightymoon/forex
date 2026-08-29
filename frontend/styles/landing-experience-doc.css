@@ -37,7 +37,7 @@ html.landing-experience-active .scroll-scene__nav .pill-dots {
   font-size: 15px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 767px) {
   html.landing-experience-active .scroll-scene__nav .nav-signin {
     display: none;
   }
@@ -78,7 +78,7 @@ html.landing-experience-active .lw {
   min-height: 100vh;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 767px) {
   html.landing-experience-active .s3 {
     min-height: auto;
   }
@@ -2073,7 +2073,7 @@ html.landing-experience-active .marketing-page__nav {
   color: rgba(255, 255, 255, 0.45);
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 767px) {
   .mkt-about-mission__grid {
     grid-template-columns: 1fr;
   }
@@ -2323,7 +2323,7 @@ html.landing-experience-active .marketing-page__nav {
   color: #991b1b;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 767px) {
   .mkt-terms-layout .mkt-faq-sidebar__nav {
     flex-direction: row;
     flex-wrap: nowrap;

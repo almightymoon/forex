@@ -816,7 +816,7 @@
    RESPONSIVE
 ═══════════════════════════════════════════════════════════════════════════ */
 
-@media (max-width: 800px) {
+@media (max-width: 767px) {
   .hero-features-row { display: none; }
 
   .hero-headline-center {
@@ -980,7 +980,7 @@ html.nav-on-light .scroll-scene__nav .nav-pill--outline:hover {
   which blocks vertical page scroll past the hero. Let touches pass through;
   auto-rotate still runs in the animation loop.
 */
-@media (max-width: 1024px) {
+@media (max-width: 767px) {
   .scroll-scene {
     height: 160vh;
   }
@@ -994,7 +994,7 @@ html.nav-on-light .scroll-scene__nav .nav-pill--outline:hover {
   }
 }
 
-@media (max-width: 1023px) {
+@media (max-width: 767px) {
   .scene-globe-bg .globe-mount,
   .scene-globe-bg .globe-mount canvas {
     pointer-events: none;
@@ -1488,7 +1488,7 @@ html.scene-done .scroll-scene__layer {
 
 /* ── Responsive ───────────────────────────────────────────────────────── */
 
-@media (max-width: 900px) {
+@media (max-width: 767px) {
   .scroll-scene__layer--s2 {
     align-items: flex-start;
     overflow-y: auto;
@@ -1707,7 +1707,7 @@ html.scene-done .scroll-scene__layer {
   display: contents;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 767px) {
   .s3 {
     min-height: 0 !important;
     height: auto !important;
@@ -2126,7 +2126,7 @@ html.scene-done .scroll-scene__layer {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 767px) {
   .s4__wrap {
     height: auto;
     min-height: 720px;
@@ -2520,7 +2520,7 @@ html.scene-done .scroll-scene__layer {
   display: contents;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 767px) {
   /* ── Kill the 250vh scroll-animation space on mobile ───────────────────── */
   .s5 {
     min-height: 0 !important;
