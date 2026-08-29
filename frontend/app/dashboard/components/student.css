@@ -30,6 +30,125 @@
   border-color: rgba(96, 165, 250, 0.28);
 }
 
+/* Contain horizontal overflow — flex/grid children default min-width:auto expands past the viewport */
+.student-shell.admin-shell {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.student-shell .admin-workspace,
+.student-shell .admin-main,
+.student-shell .admin-main__canvas,
+.student-shell .admin-page,
+.student-shell .student-bento,
+.student-shell .student-bento__metrics,
+.student-shell .student-bento__actions,
+.student-shell .student-bento__activity,
+.student-shell .student-bento__progress,
+.student-shell .admin-stat-grid,
+.student-shell .admin-panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.student-shell .admin-workspace {
+  width: 100%;
+  overflow-x: clip;
+}
+
+.student-shell .admin-main {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+.student-shell .admin-stat-grid {
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.student-shell .admin-stat-card {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.student-shell .admin-stat-card__value {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.student-shell .student-quick-actions {
+  width: 100%;
+  padding: 0.85rem 1rem 1rem;
+  box-sizing: border-box;
+}
+
+.student-shell .student-quick-action {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.student-shell .student-quick-action__title,
+.student-shell .student-quick-action__sub {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 639px) {
+  .student-shell .admin-main {
+    padding: 0.75rem;
+  }
+
+  .student-shell .admin-page {
+    gap: 0.85rem;
+  }
+
+  .student-shell .admin-stat-grid {
+    gap: 0.65rem;
+  }
+
+  .student-shell .admin-stat-card {
+    padding: 0.85rem 0.9rem;
+  }
+
+  .student-shell .admin-stat-card__value {
+    font-size: 1.4rem;
+  }
+
+  .student-shell .student-hero {
+    padding: 1.15rem 1rem;
+  }
+
+  .student-shell .student-hero__cta-row {
+    width: 100%;
+  }
+
+  .student-shell .student-hero__cta {
+    flex: 1 1 auto;
+    justify-content: center;
+    min-width: 0;
+  }
+
+  .student-shell .student-quick-actions {
+    padding: 0.65rem 0.75rem 0.85rem;
+    gap: 0.5rem;
+  }
+
+  .student-shell .student-quick-action {
+    padding: 0.85rem 0.75rem;
+  }
+
+  .student-shell .admin-panel__header {
+    padding: 1rem 0.85rem;
+  }
+}
+
 /* Topbar layout helpers */
 .student-shell .admin-topbar__start {
   display: flex;
@@ -303,6 +422,8 @@
 .student-bento {
   display: grid;
   gap: 1rem;
+  width: 100%;
+  min-width: 0;
 }
 
 @media (min-width: 1024px) {
@@ -369,6 +490,8 @@
   display: grid;
   gap: 0.65rem;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
 }
 
 @media (min-width: 768px) {
