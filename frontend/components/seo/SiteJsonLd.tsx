@@ -1,17 +1,24 @@
 import JsonLd from './JsonLd';
-import { absoluteUrl, getSiteUrl, siteConfig } from '../../lib/seo';
+import { absoluteUrl, getSiteUrl, getSocialSameAs, siteConfig } from '../../lib/seo';
 
 export default function SiteJsonLd() {
   const siteUrl = getSiteUrl();
+  const sameAs = getSocialSameAs();
 
   const organization = {
     '@context': 'https://schema.org',
-    '@type': 'Organization',
+    '@type': ['Organization', 'EducationalOrganization'],
     '@id': `${siteUrl}/#organization`,
     name: siteConfig.name,
-    alternateName: ['The FX Navigators', 'thefxnavigators'],
+    alternateName: ['The FX Navigators', 'thefxnavigators', 'FX Navigators'],
     url: siteUrl,
-    logo: absoluteUrl('/favicon-48x48.png'),
+    logo: {
+      '@type': 'ImageObject',
+      url: absoluteUrl('/icon-512.png'),
+      width: 512,
+      height: 512,
+    },
+    image: absoluteUrl('/opengraph-image'),
     description: siteConfig.description,
     email: siteConfig.contactEmail,
     address: {
@@ -20,11 +27,17 @@ export default function SiteJsonLd() {
       addressRegion: siteConfig.address.region,
       addressCountry: siteConfig.address.country,
     },
-    sameAs: [
-      'https://x.com',
-      'https://www.instagram.com',
-      'https://www.linkedin.com',
+    areaServed: 'Worldwide',
+    knowsAbout: [
+      'Forex trading',
+      'Forex education',
+      'Technical analysis',
+      'Risk management',
+      'Trading signals',
+      'Copy trading',
+      'Live forex mentorship',
     ],
+    ...(sameAs.length ? { sameAs } : {}),
   };
 
   const website = {
@@ -33,36 +46,11 @@ export default function SiteJsonLd() {
     '@id': `${siteUrl}/#website`,
     url: siteUrl,
     name: siteConfig.name,
+    alternateName: 'thefxnavigators',
     description: siteConfig.description,
     publisher: { '@id': `${siteUrl}/#organization` },
     inLanguage: 'en',
-    potentialAction: {
-      '@type': 'SearchAction',
-      target: {
-        '@type': 'EntryPoint',
-        urlTemplate: `${siteUrl}/faq?q={search_term_string}`,
-      },
-      'query-input': 'required name=search_term_string',
-    },
   };
 
-  const educationalOrg = {
-    '@context': 'https://schema.org',
-    '@type': 'EducationalOrganization',
-    '@id': `${siteUrl}/#educational-organization`,
-    name: siteConfig.name,
-    url: siteUrl,
-    description: siteConfig.description,
-    email: siteConfig.contactEmail,
-    areaServed: 'Worldwide',
-    knowsAbout: [
-      'Forex trading',
-      'Technical analysis',
-      'Risk management',
-      'Trading signals',
-      'Copy trading',
-    ],
-  };
-
-  return <JsonLd data={[organization, website, educationalOrg]} />;
+  return <JsonLd data={[organization, website]} />;
 }

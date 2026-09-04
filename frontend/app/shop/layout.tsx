@@ -7,11 +7,11 @@ import '../../styles/landing-experience-doc.css';
 import '../../styles/shop.css';
 
 export const metadata: Metadata = buildPageMetadata({
-  title: 'Shop',
+  title: 'Forex Shop — Trading Tools & Digital Products',
   description:
-    'Browse digital products, trading tools, and resources from Forex Navigators. Purchase templates, guides, and premium add-ons.',
+    'Browse Forex Navigators shop: trading tools, digital products, templates, and premium add-ons for forex traders.',
   path: '/shop',
-  keywords: ['forex shop', 'trading products', 'forex tools', 'digital products'],
+  keywords: ['forex shop', 'trading products', 'forex tools', 'digital products', 'forex indicators'],
 });
 
 export default function ShopLayout({ children }: { children: React.ReactNode }) {

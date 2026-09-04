@@ -15,15 +15,10 @@ import PackageGuard from '../components/PackageGuard'
 import TelegramInviteSidebarGate from '../components/TelegramInviteSidebarGate'
 import SiteJsonLd from '../components/seo/SiteJsonLd'
 import GoogleAnalytics from '../components/seo/GoogleAnalytics'
-import { buildPageMetadata } from '../lib/seo'
+import { homeMetadata } from '../lib/seo'
 
 export const metadata: Metadata = {
-  ...buildPageMetadata({
-    title: 'Forex Navigators',
-    description:
-      'Join thousands of successful forex traders who learned from expert instructors. Access comprehensive courses, live sessions, and real-time trading signals.',
-    path: '/',
-  }),
+  ...homeMetadata,
   verification: {
     google: process.env.NEXT_PUBLIC_GOOGLE_SITE_VERIFICATION,
     yandex: process.env.NEXT_PUBLIC_YANDEX_SITE_VERIFICATION,

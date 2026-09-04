@@ -381,6 +381,9 @@ Professional edge, decoded for the retail trader.
             <Link href="/faq" className="menu-drawer-link" onClick={() => setMenuOpen(false)}>
               FAQ
             </Link>
+            <Link href="/packages" className="menu-drawer-link" onClick={() => setMenuOpen(false)}>
+              Packages
+            </Link>
             <Link href="/shop" className="menu-drawer-link" onClick={() => setMenuOpen(false)}>
               Shop
             </Link>

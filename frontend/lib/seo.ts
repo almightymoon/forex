@@ -8,31 +8,49 @@ export const siteConfig = {
   shortName: 'Forex Navigators',
   tagline: 'Master the Art of Forex Trading',
   description:
-    'Forex Navigators is a premier forex trading education platform. Learn from expert mentors with structured courses, live sessions, real-time trading signals, copy trading, and a global trader community.',
+    'Forex Navigators is a premier forex trading education platform. Learn forex trading from expert mentors with structured courses, live sessions, real-time trading signals, copy trading, and a global trader community.',
   keywords: [
+    'forex',
     'forex trading',
-    'forex education',
-    'forex courses',
-    'learn forex trading',
-    'forex signals',
-    'forex mentorship',
-    'forex trading platform',
     'forex navigators',
     'thefxnavigators',
+    'forex education',
+    'forex courses',
+    'learn forex',
+    'learn forex trading',
+    'forex trading course',
+    'best forex trading course',
+    'forex academy',
+    'online forex academy',
+    'forex mentorship',
+    'forex trading signals',
+    'forex signals',
     'copy trading',
     'live forex sessions',
     'forex trading for beginners',
     'forex trading Malaysia',
-    'online forex academy',
+    'forex course Malaysia',
+    'forex trading platform',
     'trading education',
+    'how to trade forex',
+    'forex trading school',
   ],
-  locale: 'en_US',
+  locale: 'en_MY',
   twitterHandle: '@thefxnavigators',
   contactEmail: 'thefxnavigators@gmail.com',
   address: {
     locality: 'Kuala Lumpur',
-    region: 'Johar Baru',
-    country: 'Malaysia',
+    region: 'Johor',
+    country: 'MY',
+  },
+  /** Real profile URLs only — empty entries are omitted from JSON-LD sameAs */
+  social: {
+    twitter: process.env.NEXT_PUBLIC_SOCIAL_TWITTER_URL || 'https://x.com/thefxnavigators',
+    instagram: process.env.NEXT_PUBLIC_SOCIAL_INSTAGRAM_URL || '',
+    linkedin: process.env.NEXT_PUBLIC_SOCIAL_LINKEDIN_URL || '',
+    youtube: process.env.NEXT_PUBLIC_SOCIAL_YOUTUBE_URL || '',
+    facebook: process.env.NEXT_PUBLIC_SOCIAL_FACEBOOK_URL || '',
+    telegram: process.env.NEXT_PUBLIC_TELEGRAM_INVITE_URL || '',
   },
 } as const;
 
@@ -51,6 +69,10 @@ export function absoluteUrl(path = '/'): string {
   return `${base}${path.startsWith('/') ? path : `/${path}`}`;
 }
 
+export function getSocialSameAs(): string[] {
+  return Object.values(siteConfig.social).filter((url): url is string => Boolean(url?.trim()));
+}
+
 type PageSeoInput = {
   title: string;
   description: string;
@@ -58,6 +80,7 @@ type PageSeoInput = {
   keywords?: string[];
   noIndex?: boolean;
   ogType?: 'website' | 'article';
+  image?: string;
 };
 
 export function buildPageMetadata({
@@ -67,10 +90,14 @@ export function buildPageMetadata({
   keywords = [],
   noIndex = false,
   ogType = 'website',
+  image,
 }: PageSeoInput): Metadata {
   const url = absoluteUrl(path);
-  const fullTitle = path === '/' ? `${siteConfig.name} — ${siteConfig.tagline}` : `${title} | ${siteConfig.name}`;
+  const fullTitle =
+    path === '/' ? `${siteConfig.name} — ${siteConfig.tagline}` : `${title} | ${siteConfig.name}`;
   const mergedKeywords = Array.from(new Set([...siteConfig.keywords, ...keywords]));
+  const ogImage =
+    image && /^https?:\/\//i.test(image) ? image : absoluteUrl(image || '/opengraph-image');
 
   return {
     title: fullTitle,
@@ -79,6 +106,7 @@ export function buildPageMetadata({
     authors: [{ name: siteConfig.name, url: getSiteUrl() }],
     creator: siteConfig.name,
     publisher: siteConfig.name,
+    applicationName: siteConfig.name,
     metadataBase: new URL(getSiteUrl()),
     alternates: {
       canonical: url,
@@ -103,6 +131,14 @@ export function buildPageMetadata({
       siteName: siteConfig.name,
       title: fullTitle,
       description,
+      images: [
+        {
+          url: ogImage,
+          width: 1200,
+          height: 630,
+          alt: `${siteConfig.name} — ${siteConfig.tagline}`,
+        },
+      ],
     },
     twitter: {
       card: 'summary_large_image',
@@ -110,6 +146,7 @@ export function buildPageMetadata({
       description,
       creator: siteConfig.twitterHandle,
       site: siteConfig.twitterHandle,
+      images: [ogImage],
     },
     category: 'education',
     icons: {
@@ -131,10 +168,10 @@ export const homeMetadata = buildPageMetadata({
   description: siteConfig.description,
   path: '/',
   keywords: [
-    'best forex trading course',
-    'forex trading academy',
+    'forex navigators course',
     'professional forex mentorship',
     'forex trading signals service',
+    'forex trading academy Malaysia',
   ],
 });
 
@@ -169,6 +206,20 @@ export const termsMetadata = buildPageMetadata({
   path: '/terms',
 });
 
+export const packagesMetadata = buildPageMetadata({
+  title: 'Forex Trading Packages & Courses',
+  description:
+    'Compare Forex Navigators membership packages — FX Launch, FX Scale, and FX Legacy. Forex trading signals, live mentorship, premium indicators, and auto trading access.',
+  path: '/packages',
+  keywords: [
+    'forex trading packages',
+    'forex course pricing',
+    'forex membership',
+    'buy forex course',
+    'forex mentorship package',
+  ],
+});
+
 export const registerMetadata = buildPageMetadata({
   title: 'Create Account',
   description:
@@ -179,7 +230,8 @@ export const registerMetadata = buildPageMetadata({
 
 export const loginMetadata = buildPageMetadata({
   title: 'Sign In',
-  description: 'Sign in to your Forex Navigators account to access courses, trading signals, live sessions, and your student dashboard.',
+  description:
+    'Sign in to your Forex Navigators account to access courses, trading signals, live sessions, and your student dashboard.',
   path: '/login',
   noIndex: true,
 });
